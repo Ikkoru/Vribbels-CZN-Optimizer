@@ -82,6 +82,10 @@ class AppContext:
     # General-purpose persistent key-value store for user preferences
     # that don't fit into the other managers' shapes.
     settings_manager: Optional['SettingsManager'] = None
+    # Find and read the game client again once its folder is set: the
+    # app's `reread_game_client`. None where nothing wired it (a check
+    # building a tab alone).
+    reread_game_client: Optional[Callable[[], None]] = None
     # Per-character optimizer-tab settings (Important Settings, Have at
     # Least minimums, selected sets, etc). Indexed by res_id so character
     # renames don't lose data. See optimizer_settings_manager.py.

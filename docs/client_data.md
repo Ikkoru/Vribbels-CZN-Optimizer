@@ -6,7 +6,7 @@ The client carries the tables the game runs on, and the English text for them, i
 
 STOVE installs to `C:\ProgramData\Smilegate\Games\ChaosZeroNightmare` unless told otherwise; the data sits under `bin\appdata\cznlive\gameres`, as `manifest.ssra` and the `.ssrc` chunk files in `chunks` beside it. The manifest indexes every file the game has, in GROUPS: `base` for everything shared, one per language, one per platform. **Only the groups the player installed have chunks on disk**, so an English client holds `lang_en` and no other language.
 
-The program finds an install through STOVE's uninstall entry (`Stove App STOVE_CHAOSZERO`), whose `DisplayIcon` is the loader in the install's `bin`, then the default folder. `game_client_dir` in `settings.json` names one neither finds (`game_client.find_install`).
+The program finds an install through STOVE's uninstall entry (`Stove App STOVE_CHAOSZERO`), whose `DisplayIcon` is the loader in the install's `bin`, then the default folder. `game_client_dir` in `settings.json` names one neither finds (`game_client.find_install`), first of the three; Setup & Settings' `Client Status` sets it with `Browse...`, taking the install around any folder picked inside it (`game_client.install_at`). Where none is found, the program says so in Setup Status and in the Capture Log, and uses the copy it shipped with.
 
 ## What the program reads at launch
 

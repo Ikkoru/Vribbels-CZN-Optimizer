@@ -1494,6 +1494,19 @@ class CaptureTab(BaseTab):
 
         self._prereq_result = (status, ips)
 
+    def _client_found(self) -> bool:
+        """Whether the game client is where the program looks for it
+        (`game_client.find_install`). A registry read and a file test,
+        quick enough for the UI thread."""
+        import game_client
+        settings = getattr(self.context, "settings_manager", None)
+        try:
+            return game_client.find_install(
+                (settings.get("game_client_dir", "") if settings else "")
+                or None) is not None
+        except Exception:                                   # noqa: BLE001
+            return False
+
     def _apply_capture_prerequisites(self, status, ips: dict):
         """Log the worker's findings and set the Start button state.
         Runs on the UI thread."""
@@ -1509,6 +1522,15 @@ class CaptureTab(BaseTab):
             self.capture_log_msg("[OK] Running as Administrator", "success")
         else:
             self.capture_log_msg("[!] Not running as Administrator", "warning")
+
+        # The game client the names and totals are read from. Not a
+        # capture prerequisite: without it the program uses the copy it
+        # shipped with, so this warns and the capture goes on.
+        if self._client_found():
+            self.capture_log_msg("[OK] Game client found", "success")
+        else:
+            self.capture_log_msg("[!] Game client not found", "warning")
+            self.capture_log_msg("  See Setup & Settings tab", "info")
 
         if status.has_mitmproxy:
             self.capture_log_msg(f"[OK] mitmproxy version {status.mitmproxy_version}", "success")

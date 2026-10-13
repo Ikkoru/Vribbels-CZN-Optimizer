@@ -3003,13 +3003,14 @@ def _setup_columns_hold_their_shape(tab):
             f"share the column's fixed width; anything else in there is "
             f"pinned to a width chosen for something it is not.")
     if set(right_panels) != {"Restore Defaults", "Update Status",
-                             "Share Game Data", "Settings",
-                             "Application Information"}:
+                             "Client Status", "Share Game Data",
+                             "Settings", "Application Information"}:
         out.append(
             f"the Setup & Settings tab's right column holds {sorted(right_panels)}, "
-            f"not Restore Defaults, Update Status beside Share Game "
-            f"Data, Settings and Application Information. They are "
-            f"stacked so they share one width and one x.")
+            f"not Restore Defaults, Update Status and Client Status "
+            f"beside Share Game Data, Settings and Application "
+            f"Information. They are stacked so they share one width and "
+            f"one x.")
 
     # The two bottom panels are held to ONE height, so the row they
     # make ends on a straight edge. The linking runs on an idle
@@ -3091,11 +3092,48 @@ def _share_panel_lines_up(tab):
                 f"Update Status. `align_share_button` sizes Update Status "
                 f"to line them up, and wraps the verdict to that width.")
         status, share = tab.update_status.panel, tab._share_panel
-        if status.winfo_height() != share.winfo_height():
+        client = tab._client_panel
+        heights = {p.cget("text"): p.winfo_height()
+                   for p in (status, client, share)}
+        if len(set(heights.values())) != 1:
             out.append(
-                f"Update Status is {status.winfo_height()}px tall and "
-                f"Share Game Data {share.winfo_height()}px. They share a "
-                f"row and are meant to share its height.")
+                f"The row's panels are {heights} tall. They share a row "
+                f"and are meant to share its height.")
+        if status.winfo_width() != status.winfo_reqwidth():
+            out.append(
+                f"Update Status is {status.winfo_width()}px wide where its "
+                f"content asks {status.winfo_reqwidth()}px: it is sized to "
+                f"its content, and Client Status takes the rest "
+                f"(`align_share_button`).")
+        # A long path wraps after its `/`s inside the panel, and Client
+        # Status never sets the row's height: the row is Update Status'
+        # and Share Game Data's, as it was before it had a third panel.
+        saved_path = tab._client_path_text
+        tab._client_path_text = ("C:/Program Files (x86)/A Long Library "
+                                 "Folder/Smilegate/Games/ChaosZeroNightmare")
+        tab._fit_client_path()
+        tab._show_client_path()
+        root.update_idletasks()
+        if tab._client_path_room <= 1:
+            out.append("Client Status' path has no room measured, so the "
+                       "wrap below was never exercised.")
+        # Held to an edge the path cannot move: a path that does not
+        # wrap widens its own panel, the room it is measured against
+        # with it, and pushes Share Game Data along.
+        moved = tab._export_button.winfo_rootx()
+        if moved != under:
+            out.append(
+                f"A long client path moves Export Facts to x={moved}, off "
+                f"Window Size's x={under}: Client Status grew to hold it. "
+                f"`_wrap_path` breaks it after each `/` to fit.")
+        tallest = max(status.winfo_reqheight(), share.winfo_reqheight())
+        if client.winfo_reqheight() > tallest:
+            out.append(
+                f"Client Status asks {client.winfo_reqheight()}px with a "
+                f"long path, taller than the row's {tallest}px: it would "
+                f"make Share Game Data taller too.")
+        tab._client_path_text = saved_path
+        tab._show_client_path()
         edge = root.winfo_rootx() + root.winfo_width()
         over = share.winfo_rootx() + share.winfo_width() - edge
         if over > 0:

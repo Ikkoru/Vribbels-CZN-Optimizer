@@ -25,7 +25,8 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - A Memory Fragment set the program has no description of its own for shows the game's, and one the program doesn't know at all takes its name from the game client.
 - Capture Log and Checklist: items show the names the game client gives them.
 - Memory Fragments: the `Level:` filter's open list jumps to what you type, as the other dropdowns do.
-- Names and counts the game client could not be read for come from the copy shipped with the program. An install STOVE did not register can be named in `settings.json`'s `game_client_dir`.
+- Names and counts the game client could not be read for come from the copy shipped with the program.
+- Setup & Settings: `Client Status` shows where the game client is, and `Browse...` points the program at an install it did not find. Setup Status and the Capture Log say whether the client was found.
 
 ### Fixed
 

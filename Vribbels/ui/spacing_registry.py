@@ -890,8 +890,10 @@ CONTENT_FRAME_ENTRIES = [
     # rule applies -- see PANEL_OVER_TEXT_ENTRIES.
     ("Setup & Settings", "Setup Status -> Restore Defaults", 4, "h",
      _panel_gap("Setup Status", "Restore Defaults", "h")),
-    ("Setup & Settings", "Update Status -> Share Game Data", 4, "h",
-     _panel_gap("Update Status", "Share Game Data", "h")),
+    ("Setup & Settings", "Update Status -> Client Status", 4, "h",
+     _panel_gap("Update Status", "Client Status", "h")),
+    ("Setup & Settings", "Client Status -> Share Game Data", 4, "h",
+     _panel_gap("Client Status", "Share Game Data", "h")),
     ("Combatants", "character list -> Equipped Memory Fragments", 4, "h",
      _list_to_panel_gap("Equipped Memory Fragments")),
     # Four more pairs of panels sitting side by side. The rule's other
@@ -2620,9 +2622,18 @@ def _capital_row_pitch(title, classes):
             extent = sa.painted_extent_v(cap, band)
             if extent:
                 bands.append(extent)
+        # One band per ROW: a panel in columns (Setup Status' second
+        # one) puts two labels on a line, and two bands of one row read
+        # as a gap far below zero.
+        rows = []
+        for band in sorted(bands):
+            if rows and band[0] <= rows[-1][1]:
+                rows[-1] = (rows[-1][0], max(rows[-1][1], band[1]))
+            else:
+                rows.append(band)
+        bands = rows
         if len(bands) < 2:
             return None, "fewer than two rows with a letter in them"
-        bands.sort()
         gaps = [sa.gap_between(bands[i][1], bands[i + 1][0])
                 for i in range(len(bands) - 1)]
         note = "" if len(set(gaps)) == 1 else f"gaps {_tally(gaps)}"

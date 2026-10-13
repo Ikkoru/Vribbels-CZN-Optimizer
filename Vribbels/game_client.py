@@ -661,6 +661,23 @@ def find_install(setting=None):
     return None
 
 
+def install_at(folder):
+    """The install a folder the user picked belongs to, or None.
+
+    The folder itself, or the nearest folder above it holding the
+    manifest -- someone picking `bin` or `gameres` means the install
+    around it -- or a `ChaosZeroNightmare` folder directly inside it.
+    """
+    if not folder:
+        return None
+    start = Path(folder)
+    for candidate in (start, *list(start.parents)[:4],
+                      start / DEFAULT_INSTALL.name):
+        if build_of(candidate) is not None:
+            return candidate
+    return None
+
+
 def _registered():
     """The install folder STOVE registered, or None."""
     try:

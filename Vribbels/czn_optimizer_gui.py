@@ -955,6 +955,7 @@ class OptimizerGUI:
         self.app_context.preset_manager = self.preset_manager
         self.app_context.character_preset_manager = self.character_preset_manager
         self.app_context.settings_manager = self.settings_manager
+        self.app_context.reread_game_client = self.reread_game_client
         self.app_context.optimizer_settings_manager = self.optimizer_settings_manager
         self.app_context.log_presets_manager = self.log_presets_manager
         self.app_context.checklist_manager = self.checklist_manager
@@ -1156,6 +1157,8 @@ class OptimizerGUI:
         `_apply_client_read` redraws what shows them once it does.
         """
         import perf_log
+        # Kept for `reread_game_client`, which starts this again.
+        self._client_settings_dir = settings_dir
         # What the worker hands over, and whether one is still reading.
         self._client_read = None
         self._client_reading = False
@@ -1201,11 +1204,26 @@ class OptimizerGUI:
             return
         self._client_read = None
         game_client.use(facts)
+        self._refresh_client_tabs()
+
+    def _refresh_client_tabs(self):
+        """Redraw the built tabs that show what the client says."""
         for name, method in (("checklist", "refresh_checklist"),
                              ("heroes", "refresh_heroes")):
             tab = self._lazy_tab(name)
             if tab is not None:
                 getattr(tab, method)()
+
+    def reread_game_client(self):
+        """Find and read the game client again, after its folder was
+        set (`game_client_dir`): from the cache at once where it holds
+        that install's build, else on a worker as at launch."""
+        self._start_client_read(getattr(self, "_client_settings_dir",
+                                        None))
+        if self._client_reading:
+            self._apply_client_read()
+        else:
+            self._refresh_client_tabs()
 
     def _warn(self, title, text):
         """A startup warning: a dialog, or under the audit a printed

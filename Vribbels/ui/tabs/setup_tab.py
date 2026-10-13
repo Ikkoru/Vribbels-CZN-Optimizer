@@ -4,16 +4,19 @@ TWO COLUMNS, and the split is what the widths mean. The LEFT is fixed
 to what the instructions need to read without wrapping, so `Setup
 Status`, the two setup buttons and `Setup Instructions` share one edge
 down the column's whole length. Everything left over goes to the RIGHT,
-where `Restore Defaults`, a row of `Update Status` and `Share Game
-Data`, and `Settings` stack at one width and one x. The last row is
+where `Restore Defaults`, a row of `Update Status`, `Client Status` and
+`Share Game Data`, and `Settings` stack at one width and one x. The last row is
 `Links` and `Application Information`, one in each column, held to ONE
 height.
 
 `Share Game Data` saves the game facts the account's captures hold and
 the program does not ship (`shared_facts.py`), for the user to send in,
 and says in yellow or green whether there are any. It shares its row's
-height with `Update Status`, and its button sits under `Window Size`:
-`align_share_button` gives Update Status the width that puts it there.
+height with `Update Status` and `Client Status`, and its button sits
+under `Window Size`: `align_share_button` sizes Update Status to its
+content and gives Client Status the rest of the width that puts it
+there. `Client Status` shows where the game client is, and `Browse...`
+sets `game_client_dir` and reads the client from there.
 
 `Setup Instructions` is as tall as its text and no taller: a fixed
 block that never grows, so a panel sized to hold it exactly holds all
@@ -139,6 +142,19 @@ SHARE_NOTE = (
     "lead you to GitHub. Attach the file to the new issue. Write something "
     "cute in the title! Press Create. Nothing about your account is shared.")
 SHARE_ISSUE_URL = f"https://github.com/{GITHUB_REPO}/issues/new"
+
+# Setup Status' second column, the game client's line, against the
+# first column's four prerequisites.
+STATUS_COLUMN_GAP = 16  # spacing: control group ↔ control group -- label, label ↔
+
+# Client Status, between Update Status and Share Game Data: where the
+# game client is, and a button to say where it is. Its inset is Share
+# Game Data's, the button rule, and the path wraps after each `/` to
+# the width the panel has (`_wrap_path`).
+CLIENT_EDGE_PAD = 3     # spacing: border edge -> button -- panel, button ↔↕
+CLIENT_LABEL_GAP = 2    # spacing: label ↔ its element -- label, label ↔
+CLIENT_BUTTON = "Browse..."
+CLIENT_NOT_FOUND = "Not found"
 
 # The certificate's removal, at the right end of the button row whose
 # Generate & Install Cert installs it. Its note sits across the divide,
@@ -347,7 +363,8 @@ class SetupTab(BaseTab):
     """The Setup & Settings tab. See the module docstring for the layout.
 
     `Setup Status` reports the four capture prerequisites: Python,
-    mitmproxy, the certificate, and administrator privileges.
+    mitmproxy, the certificate, and administrator privileges; and, in
+    a second column, whether the game client was found.
     """
 
     def __init__(self, parent, context):
@@ -358,6 +375,7 @@ class SetupTab(BaseTab):
         self.mitmproxy_status = None
         self.cert_status = None
         self.admin_status = None
+        self.client_status = None
         # Guard against overlapping probe threads (auto-check on open +
         # an impatient Check Status click).
         self._checking = False
@@ -436,21 +454,27 @@ class SetupTab(BaseTab):
         self._build_instructions(left)
         self._build_restore(right)
         self._build_cert_note(right)
-        # Update Status and Share Game Data share a row and its height.
-        # Update Status' WIDTH is set once the tab is laid out -- see
-        # `align_share_button` -- and Share Game Data takes the rest.
+        # Update Status, Client Status and Share Game Data share a row
+        # and its height. Update Status is as wide as its content, and
+        # Client Status takes the rest of the width that puts Share Game
+        # Data's button under Window Size -- see `align_share_button`.
         row = self._update_row = ttk.Frame(right)
         # spacing: content frame -> content frame -- frame, frame ↔
         # spacing: panel ↕ unrelated label -- panel, title ↕
         row.pack(fill=tk.X, padx=_right_padx(), pady=px((5, 2)))
-        row.grid_columnconfigure(1, weight=1)
+        row.grid_columnconfigure(2, weight=1)
         self.update_status = UpdateStatus(
             row, self.colors, self.root, self.context.settings_manager)
         # spacing: content frame -> content frame -- frame, frame ↔
-        # Each panel carries half of the gap between them.
+        # Each panel carries half of the gap to its neighbour.
         self.update_status.panel.grid(row=0, column=0, sticky="nsew",
                                       padx=px((0, SHARE_PANEL_PAD)))
-        self._build_share(row).grid(row=0, column=1, sticky="nsew",
+        # spacing: content frame -> content frame -- frame, frame ↔
+        self._build_client_status(row).grid(
+            row=0, column=1, sticky="nsew",
+            padx=(px_after(SHARE_PANEL_PAD, SHARE_PANEL_PAD),
+                  px(SHARE_PANEL_PAD)))
+        self._build_share(row).grid(row=0, column=2, sticky="nsew",
                                     padx=(px_after(SHARE_PANEL_PAD,
                                                    SHARE_PANEL_PAD), px(0)))
         self._build_settings(right)
@@ -506,13 +530,20 @@ class SetupTab(BaseTab):
         # The rows carry no pady: a Segoe UI 11 label's own line box
         # already contributes 7px above its ink and 4 below, which is
         # the whole pitch. Anything added here lands on top of that.
-        for attr, text in (("python_status", "Checking Python..."),
-                           ("mitmproxy_status", "Checking mitmproxy..."),
-                           ("cert_status", "Checking certificate..."),
-                           ("admin_status", "Checking admin rights...")):
+        #
+        # TWO COLUMNS: the capture's four prerequisites, then the game
+        # client, which the program reads whether or not it captures.
+        for row, column, attr, text in (
+                (0, 0, "python_status", "Checking Python..."),
+                (1, 0, "mitmproxy_status", "Checking mitmproxy..."),
+                (2, 0, "cert_status", "Checking certificate..."),
+                (3, 0, "admin_status", "Checking admin rights..."),
+                (0, 1, "client_status", "Checking game client...")):
             label = ttk.Label(status_frame, text=text,
                               font=("Segoe UI", 11))
-            label.pack(anchor=tk.W)
+            # spacing: control group ↔ control group -- label, label ↔
+            label.grid(row=row, column=column, sticky="w",
+                       padx=px((STATUS_COLUMN_GAP if column else 0, 0)))
             setattr(self, attr, label)
 
     def _build_setup_buttons(self, parent):
@@ -704,6 +735,107 @@ class SetupTab(BaseTab):
         """
         self.root.geometry("%dx%d" % (px(scaling.WINDOW_W),
                                      px(scaling.WINDOW_H)))
+
+    def _build_client_status(self, parent):
+        """Client Status: where the game client is, and a button to say
+        where it is. Returns the panel for the row to place."""
+        panel = self._client_panel = ttk.LabelFrame(
+            parent, text="Client Status", padding=px(CLIENT_EDGE_PAD))
+        top = ttk.Frame(panel)
+        top.pack(fill=tk.X, anchor=tk.NW)
+        top.grid_columnconfigure(1, weight=1)
+        title = ttk.Label(top, text="Client Path:")
+        title.grid(row=0, column=0, sticky="nw")
+        # Filled by `_apply_status`, wrapped by `_wrap_path`. Empty until
+        # then: a path laid out on one line would ask the row for its
+        # whole length, and the row would hand it Share Game Data's.
+        self._client_path = ttk.Label(top, text="", justify=tk.LEFT)
+        # spacing: label ↔ its element -- label, label ↔
+        self._client_path.grid(row=0, column=1, sticky="nw",
+                               padx=px((CLIENT_LABEL_GAP, 0)))
+        self._client_path_text = None
+        self._client_path_room = 0
+        button = ttk.Button(panel, text=CLIENT_BUTTON, width=BUTTON_W_SMALL,
+                            command=self._browse_client)
+        button.pack(side=tk.BOTTOM, anchor=tk.W)
+        self._client_top, self._client_title = top, title
+        top.bind("<Configure>", self._fit_client_path, add="+")
+        return panel
+
+    def _fit_client_path(self, _event=None):
+        """Rewrap the path to what it has beside its label: the row's
+        width less the label and the gap between them. On `<Configure>`,
+        and public to a check, which has no event loop to deliver one."""
+        width = (self._client_top.winfo_width()
+                 - self._client_title.winfo_reqwidth()
+                 - px(CLIENT_LABEL_GAP))
+        if width > 1 and width != self._client_path_room:
+            self._client_path_room = width
+            self._show_client_path()
+
+    @staticmethod
+    def _wrap_path(path, font, width):
+        """`path`'s lines at `width` pixels, each broken after a `/`. A
+        part with no `/` in reach is broken where the width runs out
+        rather than left to stick past it."""
+        parts = path.replace("\\", "/").split("/")
+        pieces = [part + "/" for part in parts[:-1]] + [parts[-1]]
+        lines, line = [], ""
+        for piece in pieces:
+            if line and font.measure(line + piece) > width:
+                lines.append(line)
+                line = ""
+            while font.measure(piece) > width and len(piece) > 1:
+                cut = len(piece)
+                while cut > 1 and font.measure(piece[:cut]) > width:
+                    cut -= 1
+                lines.append(piece[:cut])
+                piece = piece[cut:]
+            line += piece
+        if line:
+            lines.append(line)
+        return "\n".join(lines)
+
+    def _show_client_path(self):
+        """Paint the client's path, or that there is none, at the width
+        the panel has."""
+        path = self._client_path_text
+        if path is None:
+            self._client_path.configure(text=CLIENT_NOT_FOUND,
+                                        foreground=self.colors["yellow"])
+            return
+        if self._client_path_room <= 1:
+            return
+        spec = str(self._client_path.cget("font")) or "TkDefaultFont"
+        self._client_path.configure(
+            text=self._wrap_path(path, tkfont.Font(font=spec),
+                                 self._client_path_room),
+            foreground=self.colors["fg"])
+
+    def _browse_client(self):
+        """Ask where the game is installed, keep it in `game_client_dir`
+        and read the client from there."""
+        import game_client
+        start = self._client_path_text or str(
+            game_client.DEFAULT_INSTALL.parent)
+        folder = filedialog.askdirectory(
+            title="Where is Chaos Zero Nightmare installed?",
+            initialdir=start, mustexist=True)
+        if not folder:
+            return
+        install = game_client.install_at(folder)
+        if install is None:
+            messagebox.showwarning(
+                "Game client not found",
+                "There is no Chaos Zero Nightmare client in %s.\n\nPick the "
+                "folder the game is installed in: the one holding its "
+                "\"bin\" folder." % folder)
+            return
+        self.context.settings_manager.set("game_client_dir", str(install))
+        reread = getattr(self.context, "reread_game_client", None)
+        if reread is not None:
+            reread()
+        self.check_status()
 
     def _build_share(self, parent):
         """Share Game Data: the export, whether there is anything to
@@ -1221,41 +1353,40 @@ class SetupTab(BaseTab):
         self.link_bottom_heights()
 
     def align_share_button(self):
-        """Give Update Status the width that puts Export Facts' left
-        edge on Window Size's.
+        """Put Export Facts' left edge on Window Size's: Update Status
+        as wide as its content, and Client Status the rest of the way.
 
-        **Worked out from edges Update Status' own width cannot move**:
-        where Window Size sits against the row, less where Export Facts
-        sits inside its panel and the gap between the two panels. So a
-        verdict wider than the panel -- a failed check's error -- does
-        not skew the answer; it is wrapped to the width instead.
+        **Worked out from edges neither panel's width can move**: where
+        Window Size sits against the row, less where Export Facts sits
+        inside its panel and the gap before Share Game Data. Update
+        Status' content is its two readings and its button, and the
+        verdict is wrapped to the readings' width, so a long verdict --
+        a failed check's error -- takes more lines rather than more of
+        the row.
 
         In ROOT coordinates, after layout, and idempotent: public
         because a check calls it. See `_on_first_map`.
         """
         self.frame.update_idletasks()
-        # The COLUMN's width, which holds Update Status' own right pad:
-        # a grid pad sits inside its cell. Share Game Data's left pad
-        # is the next column's.
-        column = (self._window_size_button.winfo_rootx()
-                  - self._update_row.winfo_rootx()
-                  - (self._export_button.winfo_rootx()
-                     - self._share_panel.winfo_rootx())
-                  - px(SHARE_PANEL_PAD))
-        width = column - px(SHARE_PANEL_PAD)
-        if width <= 0:
-            return
-        self._update_row.grid_columnconfigure(0, minsize=column)
-        # A column's `minsize` is a floor, so the verdict is held to the
-        # width too: the panel's inset is the same on both sides, and
-        # the frame of readings starts at it. Read off that frame's
-        # POSITION -- its width is the panel's, which a long verdict
-        # has already stretched.
-        panel = self.update_status.panel
-        inset = (self.update_status.latest_label.master.winfo_rootx()
-                 - panel.winfo_rootx())
+        # The first two COLUMNS' width together, each holding its
+        # panel's own pads: a grid pad sits inside its cell. Share Game
+        # Data's left pad is the third column's.
+        both = (self._window_size_button.winfo_rootx()
+                - self._update_row.winfo_rootx()
+                - (self._export_button.winfo_rootx()
+                   - self._share_panel.winfo_rootx())
+                - px(SHARE_PANEL_PAD))
+        readings = self.update_status.latest_label.master
         self.update_status.verdict.configure(
-            wraplength=max(1, width - 2 * inset))
+            wraplength=max(1, readings.winfo_reqwidth()))
+        self.frame.update_idletasks()
+        update = (self.update_status.panel.winfo_reqwidth()
+                  + px(SHARE_PANEL_PAD))
+        client = both - update
+        if client <= 0:
+            return
+        self._update_row.grid_columnconfigure(0, minsize=0)
+        self._update_row.grid_columnconfigure(1, minsize=client)
         self.frame.update_idletasks()
 
     def align_columns(self):
@@ -1436,6 +1567,7 @@ class SetupTab(BaseTab):
             (self.mitmproxy_status, "Checking mitmproxy..."),
             (self.cert_status, "Checking certificate..."),
             (self.admin_status, "Checking admin rights..."),
+            (self.client_status, "Checking game client..."),
         ):
             try:
                 label.config(text=text, foreground=self.colors["fg_dim"])
@@ -1532,6 +1664,17 @@ class SetupTab(BaseTab):
         except Exception:
             status["admin"] = ("? Could not check admin status", "yellow")
 
+        import game_client
+        try:
+            install = game_client.find_install(
+                self.context.settings_manager.get("game_client_dir", "")
+                or None)
+        except Exception:
+            install = None
+        status["client"] = (("[OK] Client found", "green") if install
+                            else ("[!] Client not found", "yellow"))
+        status["client_path"] = str(install) if install else None
+
         # Publish for the UI thread's poll. Assignment is atomic enough:
         # _poll_probe only ever tests for None.
         self._probe_result = status
@@ -1545,12 +1688,18 @@ class SetupTab(BaseTab):
             ("mitmproxy", self.mitmproxy_status),
             ("cert", self.cert_status),
             ("admin", self.admin_status),
+            ("client", self.client_status),
         ):
             text, color = status.get(key, ("? Unknown", "yellow"))
             try:
                 label.config(text=text, foreground=self.colors[color])
             except (AttributeError, tk.TclError):
                 pass
+        self._client_path_text = status.get("client_path")
+        try:
+            self._show_client_path()
+        except (AttributeError, tk.TclError):
+            pass
 
     def setup_cert(self):
         """Generate and open certificate for installation."""
