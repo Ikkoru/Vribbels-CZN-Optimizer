@@ -6,14 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.com/Vorbroker/Vribbels-CZN-Optimizer) at v1.7.0 (2026-02-07) and restarts versioning from v1.0.0. For the pre-fork history, see the upstream repository's CHANGELOG.
 
-## [2.4.1] - unreleased
+## [2.5.0] - Game Client Data
 
 ### Changed
 
 - Checklist:
-  - Events are listed under their names in the game, read from the installed game client. A Virtual Tactical Simulation also names its combatant. A name takes whatever width the tab has spare, and one still too long is cut short, with the whole name in its tooltip.
-  - Events count against their reward totals from the game client, final reward included. A row goes green once every reward is claimed, and a login event counts against its own length. Rewards outside an event's missions, such as a summer event's puzzles, are not in the count.
-  - An event the game client cannot supply, such as one a patch adds before the program can read it, takes its total and a login event's length from earlier instalments of the same event, and reads orange once those are all claimed.
+  - Events show their names from the game client, a Virtual Tactical Simulation with its combatant's. A name too long for the tab is cut short, with the whole name in its tooltip.
+  - Events count against their reward totals from the game client, final reward included, and go green once every reward is claimed. A login event counts against its own length. Rewards outside an event's missions, such as a summer event's puzzles, are not counted.
+  - An event the game client doesn't know yet takes its total from earlier instalments of the same event, and reads orange once that is all claimed.
   - `Activity (Dailies)` counts the day's points from its tasks: `100/100` blinks orange until the day's reward is claimed, and turns green once it is.
   - `Delegation Module` rows show their window (`24h!`, `3d!`) in a column of its own between the label and the count. The 7-day row is orange, green with none expiring, blinks red when a module has 1-2 days left, and blinks orange when one has 2-3 days left.
   - Countdowns read `9d left`.
@@ -21,7 +21,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - Shop headings break after `Shop -`, the shop's own name on a second line.
 - Combatants:
   - The `Excursion` column counts against each combatant's own number of Excursion types, from the game client.
-  - The descriptions of Node 7 and Node 5.1 on the Character card show the game's full description of the node as a tooltip.
+  - Node 7's and Node 5.1's descriptions on the Character card show the game's full text as a tooltip.
 - A Memory Fragment set the program has no description of its own for shows the game's, and one the program doesn't know at all takes its name from the game client.
 - Capture Log and Checklist: items show the names the game client gives them.
 - Memory Fragments: the `Level:` filter's open list jumps to what you type, as the other dropdowns do.
@@ -34,7 +34,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - Haru's base stats.
   - Every combatant's stat gains at levels 61 and 62.
   - Affinity levels below 20.
-  - Potential 7: Tenebria gains 2% per 20 ATK past 600, and Sereniel's second +5% grows from 20% to 40% Crit Chance. The game's own descriptions state otherwise; the tooltips say what the game does.
+  - Potential 7: Tenebria gains 2% per 20 ATK past 600, and Sereniel's second +5% grows from 20% to 40% Crit Chance, as the game applies them. Their tooltips say so where the game's own descriptions do not.
   - Orlea's Attribute is Instinct.
   - Westmacott's Ego costs 2. Rachel's Ego is `Hamburger Delivery, Sir!` and Scarlet's passive is `Noose of Mastery`.
   - Partner passives and Ego names use the game's wording, and Bria and Marianne have their real ids.
