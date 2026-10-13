@@ -185,51 +185,13 @@ Kept, as history. Sent with `mission/get_list`, one row per counter: `res_id` `a
 
 **The capture writes what a counter counts onto its row**, as `condition_type`, the first time it sees the counter move, and keeps it: the login sends the rows without it, and the next capture starts from the newest snapshot's. So a snapshot's counters say what they mean as far as any capture on this install has seen them move.
 
-**The wire names what a counter counts only when it moves**: the reply to an action that advanced one carries `mission_condition.condition.accumulate_condition`, with the counter's `condition_type`. So the meanings below are the ones captures have seen move; the rest have not moved on a capture yet.
+**The game client states what every counter counts**: `accumulate_condition` gives each `ac_collection_<n>` its `condition_type` and the parameters that split a type several counters share (combatant or partner and rarity, a level band, a faction, the Simulation stages counted), and each achievement names the counter it counts off, with its description in the game's words (`docs/client_data.md`, *Where each fact is*; `python docs/client_tables.py --table accumulate_condition@accumulate_condition` lists them). 070 to 073, for one, are every rarity, COMMON, RARE and UNIQUE, which the achievements call Mythic. The wire names a counter's type only when it moves, in the reply's `mission_condition.condition.accumulate_condition`.
 
-| Counter | `condition_type` |
-| ------- | ---------------- |
-| 001, 008, 009, 012, 013 | `COLLECT_CHAR__TYPE_RARITY` |
-| 003 | `GET_ITEM__ID` -- Units earned |
-| 006 | `GACHA` |
-| 011 | `CLEAR_CODEX__RARITY_GRADE_AREA` |
-| 014 | `CLEAR_BATTLE__SPOT_AREA` |
-| 019 | `VISIT` |
-| 021 | `CLEAR_CODEX` |
-| 022, 044, 045, 050, 053 | `CHAR_LEVEL_UP__TYPE_LEVEL` |
-| 024 | `REINFORCE_PIECE__RARITY` -- Memory Fragment upgrades |
-| 025 | `ACTIVATE_POTENTIAL_NODE` |
-| 030 | `GET_SAVEDATA` |
-| 031 | `DISCOMPOSE_SAVEDATA` |
-| 032 | `MAKING_PIECE` -- Memory Fragments crafted |
-| 033 | `LOGIN` |
-| 036 | `GET_EQUIP__RARITY` |
-| 037 | `SPARK` |
-| 038 | `CARD_DESTINY` |
-| 039 | `BUY_PRODUCT_IN_SAFETY` |
-| 042 | `USE_STAMINA` |
-| 046, 047, 065 | `POLICY__GRADE` |
-| 048 | `REINFORCE_PIECE__RARITY_LEVEL` |
-| 049 | `CLEAR_UNKNOWN` |
-| 054 | `CAFE_DRINK` |
-| 056 | `EAT_FOOD__ID` |
-| 058 | `GIVE_GIFT__RARITY` |
-| 060, 061, 062, 063 | `CLEAR_SIMULATION__ID` |
-| 064 | `CLEAR_SIMULATION_PIECE` |
-| 067 | `COUNSELING` |
-| 069 | `CARD_RESTORATION_ANIMATION` |
-| 070, 071, 072, 073 | `ENCOUNTER__RARITY` |
-| 075, 077, 079 | `CLEAR_ENCOUNTER__FACTION` |
-| 080, 081, 083 | `ATTACK_IN_ENCOUNTER__FACTION` |
-| 086 | `DICE_ROLL_RESULT_SUCCESS` |
-| 087 | `DICE_ROLL_RESULT_FAILED` |
-| 088 | `CHAOS_ASSAULT_CLEAR` |
-| 089, 090 | `ASSULT_KILL_MONSTER__GRADE` |
-| 091 | `ASSULT_KILL_KEYWORD_MONSTER__GRADE` |
-| 092 | `CLEAR_SIMULATION__ID` -- new with the 2026-09-30 patch, counting from it, a x5 run as five |
-| 093 | `CLEAR_INGAME_CONTENTS__ID` -- the same, a Chaos cleared through the Zero System as one |
+What the client cannot say, read off captures:
 
-Not yet seen moving: 002, 004, 007, 015, 017, 023, 026, 027, 028, 043, 051, 057, 059, 066, 076, 078, 082, 084, 085. **A counter sharing a type with others splits it by a parameter the row does not carry** -- rarity, level band, faction -- and the game client states it: `accumulate_condition` gives every counter its type and parameters, so 070 counts every rarity, 071 COMMON, 072 RARE and 073 UNIQUE, which the achievements call Mythic (`docs/client_data.md`, *Where each fact is*). Of the glosses above, 003's is measured; 024's and 032's only translate `PIECE`, which is the wire's word for a Memory Fragment. Everything else is the condition's own name and nothing more.
+- 003, `GET_ITEM__ID` on Units, equals Units' `total_amount`, measured.
+- 092 is new with the 2026-09-30 patch and counts from it, a x5 Simulation run as five.
+- 093, also new then, counts a Chaos cleared through the Zero System as one.
 
 `lobby/lobby_update` sends **`login_total_count`**, kept, which read the same as counter 033 on 2026-09-24.
 
