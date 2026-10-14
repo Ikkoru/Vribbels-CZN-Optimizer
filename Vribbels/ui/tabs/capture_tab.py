@@ -156,6 +156,12 @@ REGION_UNKNOWN = "not detected yet"
 # readout changes only when a capture stops, hence the second clause.
 REGION_CONFLICT = "two servers at once -- close a game, capture again"
 
+# Seconds between tries when the game servers do not resolve at launch,
+# each one logged; then every RESOLVE_RETRY_EVERY seconds until they do.
+# See `CaptureTab._resolve_with_retries`.
+RESOLVE_RETRY_DELAYS = (1, 2, 3, 3, 3)
+RESOLVE_RETRY_EVERY = 3
+
 # At or below this, a fragment's ceiling is not worth reading and is
 # drawn in warning yellow rather than green. A JUDGEMENT, not a
 # threshold anything computes: 40 is where the maintainer stops
@@ -253,13 +259,10 @@ class CaptureTab(BaseTab):
         # and that line's Debug WS timing, which a rewrite puts back.
         self._has_upgrade_marks = False
         self._upgrade_lag = ""
-        # Worker hand-off for the prerequisite probe: (status, ips) once
-        # _probe_capture_prerequisites finishes, None until then.
+        # Worker hand-off for the prerequisite probe: whether a capture
+        # can start, once _probe_capture_prerequisites finishes, None
+        # until then.
         self._prereq_result = None
-        # Set by that same worker when it finds a hosts-file redirect left
-        # behind by an earlier run: (message, tag) for the UI thread to
-        # log, or None when the file was clean.
-        self._stale_hosts_note = None
         # What other threads hand this tab: log lines, the status text,
         # the detected region. Put on by them, taken off on the UI
         # thread by `drain_inbox`. See `capture_log_msg` for why no
@@ -566,8 +569,11 @@ class CaptureTab(BaseTab):
         # spacing: content frame -> content frame -- frame, frame ↕
         btn_frame.pack(fill=tk.X, pady=(px_after(2, 1), px(2)))
 
+        # Disabled until the prerequisite probe says the capture can
+        # start -- see `_poll_capture_prerequisites`.
         self.capture_start_btn = ttk.Button(btn_frame, text="Start Capture",
-                                             command=self.start_capture, width=BUTTON_W_MEDIUM)
+                                             command=self.start_capture, width=BUTTON_W_MEDIUM,
+                                             state=tk.DISABLED)
         self.capture_start_btn.pack(side=tk.LEFT, padx=px((0, 4)))
 
         self.capture_stop_btn = ttk.Button(btn_frame, text="Stop Capture",
@@ -1415,7 +1421,8 @@ class CaptureTab(BaseTab):
             inventory.refresh_inventory()
 
     def check_capture_prerequisites(self):
-        """Report capture prerequisites in the log.
+        """Report capture prerequisites in the log, and unlock Start
+        Capture once they hold.
 
         The probing happens on a worker thread: `check_prerequisites()`
         shells out to mitmdump and `resolve_game_server()` does DNS, and
@@ -1425,36 +1432,58 @@ class CaptureTab(BaseTab):
         """
         self.capture_log_msg("Checking prerequisites...")
         self._prereq_result = None
-        self._stale_hosts_note = None
         threading.Thread(
             target=self._probe_capture_prerequisites, daemon=True
         ).start()
         self._poll_capture_prerequisites()
 
-    def _poll_capture_prerequisites(self, attempts: int = 0):
-        """Wait for the worker's findings, then log them.
+    def _poll_capture_prerequisites(self):
+        """Wait for the worker's verdict, then set Start Capture by it.
 
-        The worker can't hand them over itself: `after()` from another
+        The worker can't hand it over itself: `after()` from another
         thread only works while the main thread is inside `mainloop()`,
         and this check is scheduled during startup, so the worker can
         finish while the main thread is still in the reveal's `update()`
         passes -- or after mainloop has exited, if the window is closed
         first. Either way Tk raises "main thread is not in main loop".
-        The worker therefore only assigns a plain attribute and this
-        main-thread `after` chain does everything Tk-facing.
+        The worker therefore only assigns a plain attribute and logs
+        through the inbox, and this main-thread `after` chain does the
+        rest.
+
+        **No limit on the wait.** Resolving retries until it succeeds
+        (`RESOLVE_RETRY_DELAYS`), and a poll that gave up would leave
+        the button locked after the servers answered.
         """
         if self._prereq_result is None:
-            if attempts < 200:
-                self.root.after(
-                    100, lambda: self._poll_capture_prerequisites(attempts + 1))
+            self.root.after(100, self._poll_capture_prerequisites)
             return
-        status, ips = self._prereq_result
-        self._apply_capture_prerequisites(status, ips)
+        # **Start Capture stays disabled until here.** The worker clears
+        # a leftover hosts redirect and fills the manager's server
+        # addresses, which `start_capture` writes and reads in turn: a
+        # capture started meanwhile has its redirect removed, or its
+        # addon routed to this machine.
+        manager = self.context.capture_manager
+        if self._prereq_result and not (manager and manager.is_capturing()):
+            self.capture_start_btn.config(state=tk.NORMAL)
 
     def _probe_capture_prerequisites(self):
         """Worker body for check_capture_prerequisites: run the blocking
-        calls, then publish the outcome for the UI thread's poll. Touches
-        no widgets and makes no Tk calls."""
+        calls and log what they find, then publish whether a capture can
+        start for the UI thread's poll. Touches no widgets: its log lines
+        go through the inbox (`capture_log_msg`), in the order written."""
+        ready = False
+        try:
+            ready = self._run_capture_probe()
+        except Exception as e:                              # noqa: BLE001
+            self.capture_log_msg(f"[X] Could not check prerequisites: {e}",
+                                 "error")
+        finally:
+            self._prereq_result = ready
+
+    def _run_capture_probe(self) -> bool:
+        """The probe's steps, logged. True when a capture can start."""
+        log = self.capture_log_msg
+        manager = self.context.capture_manager
         # A redirect left in the hosts file by a run that ended without
         # removing it makes every game-server lookup answer with this
         # machine -- including the one start_capture uses to choose the
@@ -1465,39 +1494,100 @@ class CaptureTab(BaseTab):
         # Not while a capture is running, though: the redirect is doing its
         # job then, and removing it would cut the session off mid-flight.
         try:
-            if (not self.context.capture_manager.is_capturing()
-                    and self.context.capture_manager.remove_hosts_redirect()):
-                self._stale_hosts_note = (
-                    "[!] Removed a leftover capture redirect from the "
-                    "hosts file",
-                    "warning",
-                )
+            if (not manager.is_capturing()
+                    and manager.remove_hosts_redirect()):
+                log("[!] Removed a leftover capture redirect from the "
+                    "hosts file", "warning")
         except CaptureError as e:
-            self._stale_hosts_note = (f"[!] {e}", "warning")
+            log(f"[!] {e}", "warning")
 
         try:
             status = check_prerequisites()
-        except Exception:
+        except Exception:                                   # noqa: BLE001
             status = None
+        if status is None:
+            log("[X] Could not check prerequisites", "error")
+            return False
 
-        ips = {}
-        # Resolving is pointless without mitmproxy -- the original flow
-        # bailed out at that point too.
-        if status is not None and status.has_mitmproxy:
+        if status.is_admin:
+            log("[OK] Running as Administrator", "success")
+        else:
+            log("[!] Not running as Administrator", "warning")
+
+        # The game client the names and totals are read from. Not a
+        # capture prerequisite: without it the program uses the copy it
+        # shipped with, so this warns and the capture goes on.
+        if self._client_found():
+            log("[OK] Game client found", "success")
+        else:
+            log("[!] Game client not found", "warning")
+            log("  See Setup & Settings tab", "info")
+
+        # Resolving is pointless without mitmproxy.
+        if status.has_mitmproxy:
+            log(f"[OK] mitmproxy version {status.mitmproxy_version}",
+                "success")
+        else:
+            log("[X] mitmproxy not found!", "error")
+            log("  See Setup & Settings tab", "info")
+            return False
+
+        if status.has_certificate:
+            log("[OK] Certificate found", "success")
+        else:
+            log("[!] Certificate not found - see Setup & Settings tab",
+                "warning")
+
+        log("Resolving game servers...")
+        ips = self._resolve_with_retries()
+        for host, ip in ips.items():
+            log(f"  {host} -> {ip}")
+        log("[OK] Ready to capture!", "success")
+        return True
+
+    def _resolve_with_retries(self) -> dict:
+        """The game servers' addresses, asked for until one answers.
+
+        A failed lookup is usually the connection, and the next one after
+        it is back answers as a restart would: Python keeps no answers of
+        its own. So the waits in `RESOLVE_RETRY_DELAYS`, each logged, and
+        then every `RESOLVE_RETRY_EVERY` seconds, quietly, for as long as
+        it takes. A cause that never clears (a blocked or renamed domain)
+        costs one lookup per wait, and Start Capture stays locked, which
+        is what it would be anyway: `start_capture` needs an address.
+        """
+        manager = self.context.capture_manager
+        failures = 0
+        while True:
             try:
-                self.context.capture_manager.resolve_game_server()
-                ips = dict(
-                    self.context.capture_manager.game_server_ips or {}
-                )
-            except Exception:
+                manager.resolve_game_server()
+                ips = dict(manager.game_server_ips or {})
+            except Exception:                               # noqa: BLE001
                 ips = {}
-
-        self._prereq_result = (status, ips)
+            if ips:
+                if failures:
+                    self.capture_log_msg("[OK] Game servers resolved",
+                                         "success")
+                return ips
+            if failures < len(RESOLVE_RETRY_DELAYS):
+                wait = RESOLVE_RETRY_DELAYS[failures]
+                self.capture_log_msg(
+                    f"[!] Could not resolve game servers. Retrying in "
+                    f"{wait}s...", "warning")
+            else:
+                wait = RESOLVE_RETRY_EVERY
+                if failures == len(RESOLVE_RETRY_DELAYS):
+                    self.capture_log_msg(
+                        "[X] Could not resolve game servers", "error")
+                    self.capture_log_msg(
+                        f"  Retrying every {wait}s. Start Capture unlocks "
+                        f"once they resolve.", "info")
+            failures += 1
+            time.sleep(wait)
 
     def _client_found(self) -> bool:
         """Whether the game client is where the program looks for it
-        (`game_client.find_install`). A registry read and a file test,
-        quick enough for the UI thread."""
+        (`game_client.find_install`). A registry read and a file test."""
         import game_client
         settings = getattr(self.context, "settings_manager", None)
         try:
@@ -1506,54 +1596,6 @@ class CaptureTab(BaseTab):
                 or None) is not None
         except Exception:                                   # noqa: BLE001
             return False
-
-    def _apply_capture_prerequisites(self, status, ips: dict):
-        """Log the worker's findings and set the Start button state.
-        Runs on the UI thread."""
-        if self._stale_hosts_note is not None:
-            self.capture_log_msg(*self._stale_hosts_note)
-
-        if status is None:
-            self.capture_log_msg("[X] Could not check prerequisites", "error")
-            self.capture_start_btn.config(state=tk.DISABLED)
-            return
-
-        if status.is_admin:
-            self.capture_log_msg("[OK] Running as Administrator", "success")
-        else:
-            self.capture_log_msg("[!] Not running as Administrator", "warning")
-
-        # The game client the names and totals are read from. Not a
-        # capture prerequisite: without it the program uses the copy it
-        # shipped with, so this warns and the capture goes on.
-        if self._client_found():
-            self.capture_log_msg("[OK] Game client found", "success")
-        else:
-            self.capture_log_msg("[!] Game client not found", "warning")
-            self.capture_log_msg("  See Setup & Settings tab", "info")
-
-        if status.has_mitmproxy:
-            self.capture_log_msg(f"[OK] mitmproxy version {status.mitmproxy_version}", "success")
-        else:
-            self.capture_log_msg("[X] mitmproxy not found!", "error")
-            self.capture_log_msg("  See Setup & Settings tab", "info")
-            self.capture_start_btn.config(state=tk.DISABLED)
-            return
-
-        if status.has_certificate:
-            self.capture_log_msg("[OK] Certificate found", "success")
-        else:
-            self.capture_log_msg("[!] Certificate not found - see Setup & Settings tab",
-                                 "warning")
-
-        self.capture_log_msg("Resolving game servers...")
-        if ips:
-            for host, ip in ips.items():
-                self.capture_log_msg(f"  {host} -> {ip}")
-            self.capture_log_msg("[OK] Ready to capture!", "success")
-        else:
-            self.capture_log_msg("[X] Could not resolve game servers", "error")
-            self.capture_start_btn.config(state=tk.DISABLED)
 
     def start_capture(self):
         """Start capture using CaptureManager."""

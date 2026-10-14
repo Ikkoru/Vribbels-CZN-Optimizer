@@ -5709,6 +5709,97 @@ def _scrollbars_pack_before_their_lists(built):
     return out
 
 
+def _start_capture_waits_for_the_probe(tab):
+    """Start Capture is disabled until the prerequisite probe says the
+    capture can start, and the probe's lookup retries until the game
+    servers answer.
+
+    What fails quietly: a button enabled at build lets a capture start
+    while the probe still runs, and the probe then removes the capture's
+    fresh hosts redirect or refills the addresses its addon routes on --
+    a capture that records nothing, with no error. And a lookup that
+    gives up locks the button until a restart. The build runs no event
+    loop, so the probe's `after(500)` never fires here: the button is as
+    the build left it, and the poll and the retry loop are driven by
+    hand, with `time.sleep` recorded rather than slept.
+
+    Returns a list of complaints.
+    """
+    import tkinter as tk
+    import ui.tabs.capture_tab as ct
+
+    out = []
+    button = tab.capture_start_btn
+    if str(button.cget("state")) != tk.DISABLED:
+        out.append(
+            "Start Capture is enabled when the Capture tab is built, before "
+            "the prerequisite probe has run: a capture started then has "
+            "its hosts redirect removed by the probe.")
+    try:
+        tab._prereq_result = False
+        tab._poll_capture_prerequisites()
+        if str(button.cget("state")) != tk.DISABLED:
+            out.append("Start Capture unlocks after a probe that found the "
+                       "capture cannot start.")
+        tab._prereq_result = True
+        tab._poll_capture_prerequisites()
+        if str(button.cget("state")) != tk.NORMAL:
+            out.append("Start Capture stays locked after a probe that found "
+                       "everything in place.")
+    finally:
+        button.config(state=tk.DISABLED)
+        tab._prereq_result = None
+
+    class _Manager:
+        """Fails `fail` lookups, then answers."""
+
+        def __init__(self, fail):
+            self.left = fail
+            self.game_server_ips = {}
+
+        def resolve_game_server(self):
+            if self.left:
+                self.left -= 1
+                self.game_server_ips = {}
+            else:
+                self.game_server_ips = {"game.example": "203.0.113.1"}
+
+    lines, waits = [], []
+    fail = len(ct.RESOLVE_RETRY_DELAYS) + 3
+    context, real_sleep = tab.context, ct.time.sleep
+    real_manager = context.capture_manager
+    try:
+        context.capture_manager = _Manager(fail)
+        tab.capture_log_msg = lambda msg, tag=None, stamp=None: lines.append(
+            (msg, tag))
+        ct.time.sleep = waits.append
+        ips = tab._resolve_with_retries()
+    finally:
+        ct.time.sleep = real_sleep
+        context.capture_manager = real_manager
+        del tab.capture_log_msg
+    expected = (list(ct.RESOLVE_RETRY_DELAYS)
+                + [ct.RESOLVE_RETRY_EVERY] * (fail - len(ct.RESOLVE_RETRY_DELAYS)))
+    if waits != expected:
+        out.append(f"After {fail} failed lookups the probe waited {waits}, "
+                   f"not {expected}: `RESOLVE_RETRY_DELAYS`, then every "
+                   f"`RESOLVE_RETRY_EVERY` seconds.")
+    if ips != {"game.example": "203.0.113.1"}:
+        out.append(f"The retried lookup returned {ips}, not the address the "
+                   f"servers gave once they answered.")
+    retries = [m for m, _t in lines if m.startswith("[!] Could not resolve")]
+    gave_up = [m for m, _t in lines if m == "[X] Could not resolve game servers"]
+    if len(retries) != len(ct.RESOLVE_RETRY_DELAYS) or len(gave_up) != 1:
+        out.append(f"The probe logged {len(retries)} retries and "
+                   f"{len(gave_up)} final failures over {fail} failed "
+                   f"lookups: one line per listed wait, then one saying it "
+                   f"keeps trying. {lines}")
+    if not lines or lines[-1][0] != "[OK] Game servers resolved":
+        out.append("The probe did not log the servers resolving after its "
+                   "retries.")
+    return out
+
+
 def run():
     failures = []
     add_source_to_path()
@@ -5946,6 +6037,9 @@ def run():
             failures.extend(
                 _offensive_stars_carry_their_tip(built["GachaHistoryTab"]))
         if "CaptureTab" in built:
+            # First, while the button is as the build left it.
+            failures.extend(
+                _start_capture_waits_for_the_probe(built["CaptureTab"]))
             failures.extend(
                 _capture_log_colours_its_values(built["CaptureTab"]))
             failures.extend(_capture_log_is_capped(built["CaptureTab"]))
