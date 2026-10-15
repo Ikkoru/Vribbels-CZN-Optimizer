@@ -103,7 +103,7 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
   4. **The shield/heal weight is a judgement, not a share.** A deck says how much it heals and shields beside its damage. How much a player values the one against the other is theirs, so the calculator proposes and the player decides. Heals that scale off damage (some of Rei's cards) count as damage for what they scale with.
   5. **A combatant played with several decks** gets a settings set per deck. A shipped default then needs the averaging the presets already use: each deck weighed by its share of the meta.
 
-- **T23 — The Team Decks tab.** Pick three Combatants as a team, owned or not, and pick or build each one's deck. The tab shows whether the team's deck draws itself and has the AP to play every card each turn, for the team and per deck. Saved decks and teams, comparisons, and the game's deck codes come with it. The plan, its research and the open questions are in `plan.md`.
+- **T23 — The Deck Builder tab.** Pick three Combatants as a team, owned or not, and pick or build each one's deck. The tab shows whether the team's deck draws itself and has the AP to play every card each turn, for the team and per deck. Saved decks and teams, comparisons, and the game's deck codes come with it. The plan, its research and the open questions are in `plan.md`.
 
   - The deck model and the card catalogue are UI-free (`Vribbels/decks/`), so T20 adds damage to the same model.
   - **Once the feature is complete, a cleanup pass:** remove from `plan.md` and the docs whatever turned out not to be needed, move the reference material into `docs/`, and archive the plan.
