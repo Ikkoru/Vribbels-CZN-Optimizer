@@ -94,7 +94,7 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
   **Contentions:**
 
-  1. **Card data is the whole cost.** Each card's coefficient per hit and per damage type, its scaling stat, what triggers Extra damage, DoT stacks and durations, heal and shield coefficients, cost, upgrades and Epiphanies. The wire sends a deck as card ids (`stage_info.deck`), never what a card does. The program reads the client already (`Vribbels/game_client.py`), which holds a `card(<combatant>)@card`, `@skill_eff` and `@card_r_spark` table set per combatant, read again each patch. What is left is mapping their columns to the calculator's terms.
+  1. **Card data is the whole cost.** Each card's coefficient per hit and per damage type, its scaling stat, what triggers Extra damage, DoT stacks and durations, heal and shield coefficients, cost, upgrades and Epiphanies. The wire sends a deck as card ids (`stage_info.deck`), never what a card does. The program reads the client already (`Vribbels/game_client.py`), which holds a `card(<group>)@card`, `@skill_eff` and `@card_r_spark` table set per developer group, several Combatants to a group, read again each patch. What is left is mapping their columns to the calculator's terms. T23 builds the card catalogue and the deck model this reads.
   2. **"An average turn" needs a model.** Draw order, energy, generated cards, exhaust and retain decide what gets played. The candidates:
      - every card's coefficients averaged over one cycle of the deck: simple and stable, but blind to sequencing;
      - a simulated shuffle-and-play loop: faithful, at the price of many assumptions;
@@ -102,6 +102,11 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
   3. **Buffs split two ways** (T16): general against card-only, and which damage types each reaches (Agony takes none; Fracture and Scorched take general ones only). The calculator needs that distinction in the settings, or its output folds into today's single bucket.
   4. **The shield/heal weight is a judgement, not a share.** A deck says how much it heals and shields beside its damage. How much a player values the one against the other is theirs, so the calculator proposes and the player decides. Heals that scale off damage (some of Rei's cards) count as damage for what they scale with.
   5. **A combatant played with several decks** gets a settings set per deck. A shipped default then needs the averaging the presets already use: each deck weighed by its share of the meta.
+
+- **T23 — The Team Decks tab.** Pick three Combatants as a team, owned or not, and pick or build each one's deck. The tab shows whether the team's deck draws itself and has the AP to play every card each turn, for the team and per deck. Saved decks and teams, comparisons, and the game's deck codes come with it. The plan, its research and the open questions are in `plan.md`.
+
+  - The deck model and the card catalogue are UI-free (`Vribbels/decks/`), so T20 adds damage to the same model.
+  - **Once the feature is complete, a cleanup pass:** remove from `plan.md` and the docs whatever turned out not to be needed, move the reference material into `docs/`, and archive the plan.
 
 ---
 
