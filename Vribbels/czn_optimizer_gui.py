@@ -1169,8 +1169,13 @@ class OptimizerGUI:
         except Exception as exc:                         # noqa: BLE001
             perf_log.log("game_client:FAILED", error=repr(exc))
             return
+        if install is not None:
+            self._start_client_archive(install)
         if held is not None or install is None:
-            game_client.use(held)
+            # With no client to read, the last read of an earlier build
+            # stands where it is newer than the shipped names.
+            game_client.use(held if held is not None
+                            else game_client.fallback(settings_dir))
             return
 
         def work():
@@ -1178,14 +1183,44 @@ class OptimizerGUI:
                 self._client_read = game_client.refresh(settings_dir,
                                                         install)
             except Exception as exc:                     # noqa: BLE001
-                # The shipped names stand. Nothing a player can act on,
-                # so no dialog: a patch that changed a format shows as
-                # names a patch behind.
+                # This build will not read: the last read of an earlier
+                # one stands where it is newer than the shipped names,
+                # else they do. Nothing a player can act on, so no
+                # dialog: a patch that changed a format shows as names a
+                # patch behind.
                 perf_log.log("game_client:FAILED", error=repr(exc))
+                self._client_read = game_client.fallback(settings_dir)
             finally:
                 self._client_reading = False
 
         self._client_reading = True
+        threading.Thread(target=work, daemon=True).start()
+
+    def _start_client_archive(self, install):
+        """Keep this build's whole client data (`client_archive`), on a
+        worker: only where the folder exists, which is the opt-in, and
+        does not hold this build yet. A minute's work once a patch, and
+        nothing waits on it; a build that will not read keeps the last
+        one archived."""
+        import client_archive
+        import perf_log
+        folder = client_archive.folder_of(_user_data_dir())
+        try:
+            if not client_archive.needs(folder,
+                                        game_client.build_of(install)):
+                return
+        except Exception as exc:                         # noqa: BLE001
+            perf_log.log("client_archive:FAILED", error=repr(exc))
+            return
+
+        def work():
+            try:
+                done = client_archive.archive(game_client.Client(install),
+                                              folder)
+                perf_log.log("client_archive", result=done)
+            except Exception as exc:                     # noqa: BLE001
+                perf_log.log("client_archive:FAILED", error=repr(exc))
+
         threading.Thread(target=work, daemon=True).start()
 
     def _apply_client_read(self, attempts: int = 0):

@@ -20,8 +20,13 @@ text table, so it runs on a worker (`OptimizerGUI._start_client_read`).
 machine's client says, then `game_data/from_client.py` -- the same
 reading as of the build the program shipped with, written by
 `docs/client_tables.py --ship` -- then nothing, where the caller falls
-back to the id. A player whose client is not installed, or moved where
-nothing finds it, sees the shipped names.
+back to the id. Where this build cannot be read, or the client is not
+found, the cache of an earlier build stands in for the first while it
+is newer than the shipped tables (`fallback`); otherwise the shipped
+names show.
+
+`client_archive` keeps every build's whole data besides, where the
+maintainer opted in.
 
 Two formats, both read as the ripper reads them
 (github.com/cznrip/Chaos-Zero-Nightmare-ASSet-Ripper, MIT), which is
@@ -709,6 +714,29 @@ def cached(settings_dir, install):
     if (not isinstance(held, dict) or held.get("format") != CACHE_FORMAT
             or held.get("install") != str(install)
             or held.get("build") != build_of(install)):
+        return None
+    return held
+
+
+def fallback(settings_dir):
+    """The cache read at an earlier build, where it is newer than the
+    shipped tables: what a launch uses when this build cannot be read,
+    or the client is not found. None otherwise, and the shipped tables
+    stand.
+
+    `cached` takes a cache only for the build it was read at, so without
+    this a patch that made the client unreadable would drop the last
+    good read for the older one the program shipped with."""
+    from game_data import from_client
+    try:
+        held = json.loads((Path(settings_dir) / CACHE_FILE).read_text(
+            encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(held, dict) or held.get("format") != CACHE_FORMAT:
+        return None
+    build = held.get("build")
+    if not isinstance(build, int) or build <= from_client.BUILD:
         return None
     return held
 

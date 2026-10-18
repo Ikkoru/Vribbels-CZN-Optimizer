@@ -25,6 +25,10 @@ desktop.ini
 # Exclude snapshots folder (contains user-specific data extracts)
 Vribbels/snapshots/
 
+# The game client's own data, every build of it (`client_archive.py`):
+# the game's, never ours to publish.
+Vribbels/client_archive/
+
 # User-state folder. The bundled defaults live in `default_settings/`
 # (tracked) and are merged into `settings/` on first run by
 # defaults_sync.py. Never track the user's `settings/` -- it holds

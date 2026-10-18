@@ -393,6 +393,30 @@ def _cache(gc):
         (settings / gc.CACHE_FILE).write_text("{not json", encoding="utf-8")
         if gc.cached(settings, install) is not None:
             out.append("an unreadable cache was used.")
+        if gc.fallback(settings) is not None:
+            out.append("an unreadable cache was the fallback.")
+        # A build that will not read: the last read of an earlier build
+        # stands while it is newer than the shipped tables.
+        from game_data import from_client
+        newer = dict(facts, build=from_client.BUILD + 1)
+        (settings / gc.CACHE_FILE).write_text(json.dumps(newer),
+                                              encoding="utf-8")
+        if gc.fallback(settings) != newer:
+            out.append("the last read of a build newer than the shipped "
+                       "tables was not the fallback: a patch that makes the "
+                       "client unreadable would show the older shipped names "
+                       "(`game_client.fallback`).")
+        (settings / gc.CACHE_FILE).write_text(
+            json.dumps(dict(newer, build=from_client.BUILD)), encoding="utf-8")
+        if gc.fallback(settings) is not None:
+            out.append("a cache no newer than the shipped tables was the "
+                       "fallback over them.")
+        (settings / gc.CACHE_FILE).write_text(
+            json.dumps(dict(newer, format=gc.CACHE_FORMAT + 1)),
+            encoding="utf-8")
+        if gc.fallback(settings) is not None:
+            out.append("a cache of another format was the fallback: its "
+                       "facts are shaped for another version of the program.")
         if gc.find_install(str(install)) != install:
             out.append("a folder the user named, holding a manifest, was "
                        "not the install found.")

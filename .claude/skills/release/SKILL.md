@@ -18,11 +18,12 @@ Run the doc audit first (`/craft:doc-audit`, which reads `.claude/overlays/doc-a
 1. Commit whatever is uncommitted before touching anything.
 2. Read the maintainer's edits to the last release, and ask what they leave unclear — see below. Asking first lets the answers arrive while the audit runs.
 3. Chaos runs — the season estimate's shipped Chaos figures, and whether what a run pays has moved. See below.
-4. Doc audit, `/craft:doc-audit`. At minimum, the sweeps.
-5. CHANGELOG pass — accuracy, then register.
-6. `version.py` — the version, `RELEASED_ON` (today, UTC) and `RELEASED_IN` (the Galactic Disaster season live today) — and the section header: `## [X.Y.Z] - <short release name>`, no date. The name is one or two themes, not a list. The two `RELEASED_` lines are what tell a player's program how stale its shipped Chaos figures have grown (`chaos_estimate.staleness`), so they move with every release, even one that measured nothing.
-7. `.old/RELEASE_NOTES_<X.Y.Z>.md` — a different document, see below.
-8. `python checks/run_all.py`, then commit.
+4. The client's facts — `python docs/client_tables.py --ship`, and review its diff: `game_data/from_client.py` is what a player sees whose client the program cannot read (`docs/client_data.md`).
+5. Doc audit, `/craft:doc-audit`. At minimum, the sweeps.
+6. CHANGELOG pass — accuracy, then register.
+7. `version.py` — the version, `RELEASED_ON` (today, UTC) and `RELEASED_IN` (the Galactic Disaster season live today) — and the section header: `## [X.Y.Z] - <short release name>`, no date. The name is one or two themes, not a list. The two `RELEASED_` lines are what tell a player's program how stale its shipped Chaos figures have grown (`chaos_estimate.staleness`), so they move with every release, even one that measured nothing.
+8. `.old/RELEASE_NOTES_<X.Y.Z>.md` — a different document, see below.
+9. `python checks/run_all.py`, then commit.
 
 ## The maintainer's edits
 
@@ -111,5 +112,6 @@ Write what survives tab first; a panel can come later. Every section groups its 
 ## Related
 
 - `docs/repo_conventions.md` — the CHANGELOG and release-notes rules this follows.
-- `.claude/overlays/doc-audit.md` — what the kit's `craft:doc-audit` needs to know about this repo; step 4.
+- `.claude/overlays/doc-audit.md` — what the kit's `craft:doc-audit` needs to know about this repo; step 5.
 - `docs/chaos_runs.py` — step 3.
+- `docs/client_tables.py --ship` — step 4.

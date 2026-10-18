@@ -63,6 +63,7 @@ from checks import (                                    # noqa: E402
     check_capture_saves_once,
     check_capture_session_file,
     check_checklist_readings,
+    check_client_archive,
 
     check_affinity,
     check_day_index,
@@ -144,6 +145,7 @@ CHECKS = [
     check_capture_session_file,
     check_gacha_history,
     check_archive,
+    check_client_archive,
     check_game_data,
     check_potential_nodes,
     check_item_art,

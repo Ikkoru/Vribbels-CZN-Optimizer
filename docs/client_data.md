@@ -22,13 +22,21 @@ What changes every patch and the server never sends:
 
 The first source that knows an id wins:
 
-1. what this machine's client says, saved to `settings/game_client.json` with the install and build it was read at, so the client is read again only after a patch;
-2. `Vribbels/game_data/from_client.py`, the same reading as of the build the program shipped with: `python docs/client_tables.py --ship` after a patch, before a release, and review the diff;
+1. what this machine's client says, saved to `settings/game_client.json` with the install and build it was read at, so the client is read again only after a patch. **Where this build will not read, or the client is not found, that file's read of an earlier build stands in, while it is newer than the shipped table** (`game_client.fallback`);
+2. `Vribbels/game_data/from_client.py`, the same reading as of the build the program shipped with: `python docs/client_tables.py --ship` after a patch, before a release, and review the diff. The release procedure runs it (`.claude/skills/release/SKILL.md`);
 3. nothing: the Checklist shows the event's id and reads its rewards off the wire alone (`events.md`, *An event the client does not hold*). The Capture Log shows the item's id, and the Combatants tab `7?`, the floor every combatant has, for the total.
 
 **An item name of the program's own goes over all three** (`game_data.constants.item_names`): its tables and `RECORDED_NAMES` override the client, and `--audit` lists where they disagree. The capture addon takes its names when it is written, so a client read that lands after a capture starts reaches the next capture.
 
 `check_event_names` holds the readers, the cache, the shipped table and the order of the sources.
+
+## The archive
+
+**Every build's whole data, kept for when a patch makes the client unreadable**: every table the reader decodes and all the English text, not only the facts the launch read keeps. It is the game's own data, so it stays on the maintainer's machine: `Vribbels/client_archive/`, gitignored.
+
+- **The folder is the opt-in.** The program archives a build at launch only where `client_archive/` exists in its data folder, on a worker, once per build (`OptimizerGUI._start_client_archive`). `python docs/client_tables.py --archive` creates the folder and archives the installed build. A build that will not read leaves the last one archived standing.
+- **`latest.zip` holds the newest build**, one deflated entry per table and per text group, read a table at a time. **`history.xz` holds every older one** in a single file at xz's strongest setting, one stream per build, appended when a newer build takes the newest's place. A blob no patch changed is stored once across all builds, so an older build costs only what its patch changed. On build 88, the newest build's file came to 17 MB, and xz turned the build's 194 MB of decoded JSON into 9 MB, where zstd's level 22 managed 9.4 MB in three times the time. The module docstring (`Vribbels/client_archive.py`) has the formats.
+- **Reading it back**: `--archived` lists the builds held; `--from-archive [BUILD]` reads one in place of the client for `--list`, `--table`, `--text`, `--audit` and `--ship`, the newest unless a build is named. `client_archive.open_build` gives code the same, read the way `game_client.Client` is. `checks/check_client_archive.py` holds three builds through the round trip.
 
 ## The text
 
@@ -81,10 +89,10 @@ The derivations above were checked against what the program already knows, and t
 | Change | How it shows | Way back |
 | ------ | ------------ | -------- |
 | The archive's format, as the 2026-09-30 patch's switch from `data.pack` to SSRA did | the manifest's version: the tool stops, naming it | the ripper's `SSRArchive.cpp`, which follows the client |
-| Entries encrypted | the tool stops, naming the file. The flag exists in the manifest and nothing sets it yet | none without the key |
+| Entries encrypted | the tool stops, naming the file. The flag exists in the manifest and nothing sets it yet | none without the key. The last archived build stays readable (`--from-archive`), and the launch facts fall back to the last cache |
 | The tables' key | nothing: the key is read off the data on every run | |
 | The tables' cipher or header | the tool stops: no key rotation yields the magic, or the header size differs | the ripper's `DBParser.cpp` |
 | A table or column renamed | whatever reads that name fails on it | the table's new name, from `--list` and `--table` |
 | A new install path | the manifest is not found: Setup Status and the Capture Log say the client was not found | `Browse...` in `Client Status`, which sets `game_client_dir`; `--client` for the tool |
 
-The program meets each of these as a read that fails, and keeps the shipped names and totals; `debug_perf_log` records why.
+The program meets each of these as a read that fails, and keeps the last cache's names and totals where it is newer than the shipped ones, else the shipped; `debug_perf_log` records why.

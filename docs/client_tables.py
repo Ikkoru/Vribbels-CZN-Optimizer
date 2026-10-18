@@ -6,6 +6,9 @@
     python docs/client_tables.py --text REGEX        English text by id or words
     python docs/client_tables.py --ship              rewrite the shipped names
     python docs/client_tables.py --audit             game_data against the client
+    python docs/client_tables.py --archive           keep this build's whole data
+    python docs/client_tables.py --archived          the builds the archive holds
+    python docs/client_tables.py --from-archive [N] ...   read an archived build
 
 `--table` takes a table's archived name without `db/` and `.db`, such
 as `event@event` or `char_base@char_combatant`; `--out FILE` writes the
@@ -24,6 +27,15 @@ the tables are typed by hand, and a patch that rebalances one changes
 nothing there. It writes nothing; a disagreement is for the maintainer
 to settle, since the hand-typed figure can be the newer one.
 
+`--archive` keeps the installed build's every table and its English
+text in `Vribbels/client_archive/` (`Vribbels/client_archive.py`),
+creating the folder, which also opts the program in: from then on it
+archives each new build at launch. `--archived` lists what the archive
+holds. `--from-archive` reads an archived build instead of the client,
+the newest unless a build is named, for `--list`, `--table`, `--text`,
+`--audit` and `--ship`: what is left to read once a patch makes the
+client unreadable.
+
 The reader itself is `Vribbels/game_client.py`, the same one the
 program runs at launch. Python 3.14, for `compression.zstd`.
 """
@@ -36,6 +48,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "Vribbels"))
 
+import client_archive                                         # noqa: E402
 import game_client                                            # noqa: E402
 from game_client import Client                                # noqa: E402
 
@@ -618,13 +631,44 @@ def main(argv=None):
     parser.add_argument("--audit", action="store_true")
     parser.add_argument("--rows", type=int)
     parser.add_argument("--out")
+    parser.add_argument("--archive", action="store_true")
+    parser.add_argument("--archived", action="store_true")
+    parser.add_argument("--from-archive", nargs="?", const="newest",
+                        metavar="BUILD")
     args = parser.parse_args(argv)
-    install = game_client.find_install(args.client)
-    if install is None:
-        print("no game client found: name one with --client")
-        return 1
-    client = Client(install)
+    folder = client_archive.folder_of(REPO / "Vribbels")
+    if args.archived:
+        held = client_archive.builds(folder)
+        if not held:
+            print(f"nothing archived in {folder.relative_to(REPO)}")
+            return 0
+        sizes = {name: (folder / name).stat().st_size
+                 for name in (client_archive.LATEST, client_archive.HISTORY)
+                 if (folder / name).exists()}
+        print(f"builds {', '.join(map(str, held))}; newest in "
+              f"{client_archive.LATEST}, the rest in "
+              f"{client_archive.HISTORY}; "
+              + ", ".join(f"{name} {size / 1e6:.1f} MB"
+                          for name, size in sizes.items()))
+        return 0
+    if args.from_archive:
+        build = None if args.from_archive == "newest" \
+            else int(args.from_archive)
+        client = client_archive.open_build(folder, build)
+        print(f"archived build {client.archive.build}", file=sys.stderr)
+    else:
+        install = game_client.find_install(args.client)
+        if install is None:
+            print("no game client found: name one with --client")
+            return 1
+        client = Client(install)
     archive = client.archive
+    if args.archive:
+        if args.from_archive:
+            print("--archive reads the installed client, not the archive")
+            return 1
+        print(client_archive.archive(client, folder))
+        return 0
     if args.list:
         pattern = re.compile(args.list, re.I)
         for name in sorted(archive.files):
@@ -653,6 +697,10 @@ def main(argv=None):
         SHIPPED.write_text(shipped_source(client), encoding="utf-8",
                            newline="\n")
         print(f"build {archive.build} to {SHIPPED.relative_to(REPO)}")
+    elif args.from_archive:
+        tables = sum(1 for n in archive.files if n.startswith("db/"))
+        print(f"archived build {archive.build}: {tables} tables, "
+              f"{len(client.text())} English texts")
     else:
         installed = sorted({archive.groups[g] for g, spans
                             in archive.streams.items()
