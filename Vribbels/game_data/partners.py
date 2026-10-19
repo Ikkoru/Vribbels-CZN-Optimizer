@@ -80,12 +80,24 @@ text raises one of the eight stats but is not fully captured in `stats`
 / `stats_conditional` — an attention marker for uncaptured effects.
 Fully-captured entries carry no marker.
 
+The game client
+===============
+
+What the client states of a partner -- name, grade, class, passive
+name, Ego name and cost, the passive's plain stat lines (`stats`), and
+the level-60 flat stats behind `PARTNER_CLASS_STATS` -- is laid over
+these tables at launch (`client_overlay`). This table is the fallback,
+and keeps what the client holds no figure for: `stats_conditional`,
+the `passive_desc` templates and `values`, the markers. A partner only
+the client knows gets an entry from it alone, its passive drawn from
+the client's lines.
+
 Unknown partners
 ================
 
-`get_partner` returns a generic placeholder for unknown res_ids; the UI
-shows "Unknown partner (res_id X, instance Y)". Add it to `PARTNERS`
-once its name is known. Finding a res_id: `docs/game_data_files.md`.
+`get_partner` returns a generic placeholder for a res_id neither this
+table nor the client knows; the UI shows "Unknown partner (res_id X,
+instance Y)". Finding a res_id: `docs/game_data_files.md`.
 """
 
 # The ONLY keys the optimizer reads from a partner's "stats" /

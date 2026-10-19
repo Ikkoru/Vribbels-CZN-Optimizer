@@ -4,6 +4,8 @@ Read before editing `game_data/{characters,partners,sets,constants}.py` or `game
 
 These tables are hand-maintained and most mistakes in them are silent: a misspelled stat name is ignored, an unlisted (grade, class) pair quietly gets stand-in base stats, a duplicated dict key throws away the entry above it. The program keeps running and the scores are simply wrong. That is what the validator exists for.
 
+**What the game client states of a combatant or partner is laid over `characters.py` and `partners.py` at launch** (`game_data/client_overlay.py`, `docs/client_data.md`): the hand tables are the fallback, for whatever the client does not hold and for a player whose client cannot be read. The validator checks the tables as typed (`client_overlay.hand`), never the client's facts over them; a fault planted to test it goes into that copy.
+
 ## Launch-time validation: two layers
 
 `game_data_validator.py` lives at the top level, NOT inside `game_data/`, and reports problems in a message box.

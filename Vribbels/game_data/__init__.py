@@ -142,3 +142,9 @@ __all__ = [
     'get_partner_level_from_exp',
     'get_friendship_bonus',
 ]
+
+# The shipped extract's combatants and partners over the hand tables,
+# from the first import; a client read lays its own over them at launch
+# (`game_client.use`). Last, so the tables it reads are complete.
+from . import client_overlay as _client_overlay
+_client_overlay.apply()

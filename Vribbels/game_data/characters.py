@@ -42,11 +42,22 @@ Each character has a fixed tier per node from the data file.
 Levels 61 and 62
 ================
 
-Promotion 5/5 grants +2 levels over the 60 cap. What each adds is kept
-per class and grade in `LEVEL_BONUS_BY_CLASS`, the game client's level
-curves. A combatant on another class's curve names that class and
-grade in a `level_curve` key. `table_stats_at_level` adds nothing for a
-gain the table lacks, so missing data is a no-op.
+Promotion 5/5 grants +2 levels over the 60 cap. What each adds is the
+combatant's own steps where the game client gave them (`level_gains`),
+else what `LEVEL_BONUS_BY_CLASS` keeps per class and grade, the
+client's level curves typed by hand. A combatant on another class's
+curve names that class and grade in a `level_curve` key.
+`table_stats_at_level` adds nothing for a gain neither holds, so
+missing data is a no-op.
+
+The game client
+===============
+
+What the client states of a combatant -- name, grade, class,
+attribute, level-60 stats, crit, node 50's and 60's stat, the steps to
+61 and 62 -- is laid over `CHARACTERS` at launch (`client_overlay`);
+this table is the fallback for whatever it does not hold, and a
+combatant only the client knows gets an entry from it alone.
 
 The server's own readings
 =========================
@@ -877,9 +888,14 @@ def level_curve(char_data: dict) -> tuple:
 
 def level_bonus(char_data: dict, level: int):
     """What `level` (61 or 62) adds to `char_data`'s base per the
-    tables, as {"atk", "def", "hp"}: their curve's (`level_curve`); None
-    where it is not known. Never the server's readings --
-    `get_character_stats_at_level` adds those."""
+    tables, as {"atk", "def", "hp"}: the combatant's own steps where the
+    game client gave them (`level_gains`, laid over by `client_overlay`),
+    else their curve's (`level_curve`); None where neither is known.
+    Never the server's readings -- `get_character_stats_at_level` adds
+    those."""
+    own = (char_data.get("level_gains") or {}).get(level)
+    if own:
+        return own
     return (LEVEL_BONUS_BY_CLASS.get(level_curve(char_data)) or {}).get(level)
 
 
@@ -970,4 +986,4 @@ def _gain(char_data, step, known):
     agreed = (learned.GAINS.get(pair) or {}).get(step)
     if agreed is not None:
         return agreed
-    return (LEVEL_BONUS_BY_CLASS.get(pair) or {}).get(step)
+    return level_bonus(char_data, step)

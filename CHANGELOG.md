@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.com/Vorbroker/Vribbels-CZN-Optimizer) at v1.7.0 (2026-02-07) and restarts versioning from v1.0.0. For the pre-fork history, see the upstream repository's CHANGELOG.
 
+## [2.6.0] - unreleased
+
+### Changed
+
+- Combatants and partners take their names, classes, stats and plain passive bonuses from the game client, so a patch that rebalances one needs no program update. One released after the program shows with the game's figures instead of as Unknown.
+- When a patch leaves the game client unreadable, names and figures come from the last time it was read.
+
 ## [2.5.1] - Capture Fixes
 
 ### Fixed

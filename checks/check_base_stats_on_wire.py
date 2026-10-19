@@ -415,10 +415,18 @@ def _the_overlay_answers():
     pair = next(p for p, n in plain.most_common() if n >= 2)
     held = LEVEL_BONUS_BY_CLASS[pair]
     LEVEL_BONUS_BY_CLASS[pair] = {61: None, 62: None}
+    # A combatant's own steps from the game client (`level_gains`, laid
+    # over by `client_overlay`) would make the gain known all the same:
+    # set aside for the pair's combatants too, and put back after.
+    own = {rid: c.pop("level_gains") for rid, c in CHARACTERS.items()
+           if isinstance(c, dict) and (c.get("class"), c.get("grade")) == pair
+           and "level_gains" in c}
     try:
         return _overlay_with_a_pair_unknown()
     finally:
         LEVEL_BONUS_BY_CLASS[pair] = held
+        for rid, gains in own.items():
+            CHARACTERS[rid]["level_gains"] = gains
 
 
 def _overlay_with_a_pair_unknown():

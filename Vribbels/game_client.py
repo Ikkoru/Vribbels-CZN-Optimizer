@@ -69,7 +69,7 @@ GAMERES = Path("bin") / "appdata" / "cznlive" / "gameres"
 # What the cache is called in the settings folder, and the shape of
 # what it holds. A cache of another format is read as no cache.
 CACHE_FILE = "game_client.json"
-CACHE_FORMAT = 5
+CACHE_FORMAT = 6
 
 # The manifest layout this reads. A different version is a different
 # layout until shown otherwise.
@@ -177,6 +177,46 @@ NODE_EFFECT_TABLE = "potential_node@potential_node_effect"
 # wire number the program knows each by. Every other node's text is
 # shared, and the program words those itself.
 OWN_TEXT_NODES = {"7_0": 70, "5_1": 51}
+
+# The client's words for what `game_data` spells its own way: a class,
+# an attribute (`link_ego_type_id`, a colour), a combatant's grade.
+CLASS_NAMES = {"striker": "Striker", "vanguard": "Vanguard",
+               "hunter": "Hunter", "ranger": "Ranger",
+               "psionic": "Psionic", "controller": "Controller"}
+ATTRIBUTE_NAMES = {"RED": "Passion", "PURPLE": "Void", "ORANGE": "Instinct",
+                   "GREEN": "Order", "BLUE": "Justice"}
+COMBATANT_GRADES = {"RARITY_SR": 4, "RARITY_SSR": 5}
+# A partner's grade is in its level curve's name: `dev_level_<rank>`,
+# with `_def` for the defensive classes. `ssr` is the 5-star Arkhianon
+# Supply partner, which `game_data` grades 4.5.
+PARTNER_GRADE = re.compile(r"dev_level_(r|sr|ssr|sssr)(?:_|$)")
+PARTNER_GRADES = {"r": 3, "sr": 4, "ssr": 4.5, "sssr": 5}
+# A combatant's level-60 stats: the level-1 figure, every level's step
+# up to 60, and the five promotions; levels 61 and 62 step on from 60.
+TOP_LEVEL = 60
+PROMOTIONS = 5
+ABOVE_TOP = (61, 62)
+# A level or promotion row's stat ids, as `game_data` names the stats.
+COMBATANT_STATS = {"S_ATK": "atk", "S_DEF": "def", "S_HP": "hp"}
+PARTNER_FLAT_STATS = {"S_ATK_INC_ADD_OUT": "atk", "S_DEF_INC_ADD_OUT": "def",
+                      "S_HP_INC_ADD_OUT": "hp"}
+# A potential node's stat, as `game_data`'s `node_50`/`node_60` name it.
+NODE_STATS = {"S_ATK_INC_RATE_OUT": "ATK%", "S_DEF_INC_RATE_OUT": "DEF%",
+              "S_HP_INC_RATE_OUT": "HP%", "S_CRI_INC_ADD": "CRate",
+              "S_CRI_DMG_RATE_INC_ADD": "CDmg"}
+STAT_NODES = {"5_0": "node_50", "6_0": "node_60"}
+# A partner passive's plain stat line: a `nb_eff` row of this kind names
+# a `stat_up_eff` row, whose stat is one of these, in the names the
+# optimizer reads (`PARTNER_STAT_NAMES`). A line any other way is
+# conditional, and stays the maintainer's to encode.
+PARTNER_STAT_LINE = "EFF_STAT_UP_PARTNER"
+PARTNER_PASSIVE_STATS = {"S_ATK_INC_RATE_IN": "ATK%",
+                         "S_DEF_INC_RATE_IN": "DEF%",
+                         "S_HP_INC_RATE_IN": "HP%", "S_CRI": "CRate",
+                         "S_CRI_DMG_RATE": "CDmg",
+                         "S_DOT_ATK_DMG_RATE": "DoT%"}
+PASSIVE_LINE = re.compile(r"partner_passive@description@(\d+)_c(\d+)_lv(\d+)")
+PASSIVE_LEVELS = 5
 
 # Markup the text carries for the game's own renderer: tags, a line
 # break, and a keyword's marker `$Name#level$`, drawn as the name.
@@ -630,6 +670,170 @@ def item_names(client):
     return out
 
 
+def _percent(value):
+    """A crit figure as `game_data` types it: a float, 3.0 not 3."""
+    number = _figure(value)
+    return float(number) if number is not None else None
+
+
+def _steps(rows, group, low, high, key, names):
+    """{stat: the sum of the steps `rows` give `group` from `low` to
+    `high`} -- a level or promotion table, three stats a row, the stats
+    named by `names`."""
+    out = dict.fromkeys(names.values(), 0)
+    for row in rows:
+        at = _figure(row.get(key))
+        if row.get("group") == group and isinstance(at, int) \
+                and low <= at <= high:
+            for i in (1, 2, 3):
+                stat = names.get(row.get(f"stat{i}_link_stat_list_id"))
+                if stat:
+                    out[stat] += _figure(row.get(f"stat{i}_value")) or 0
+    return out
+
+
+def combatants(client):
+    """{combatant res_id: what `game_data.characters` holds of it}, for
+    every combatant the game lets a player use: name, grade, class,
+    attribute, the level-60 stats and crit, node 50's and 60's stat,
+    and what levels 61 and 62 each add (`level_gains`)."""
+    texts = client.text()
+    base = {r["id"]: r for r in client.rows("char_base@char_base")}
+    levels = client.rows("char_base@combatant_level")
+    ascends = client.rows("char_base@combatant_ascend")
+    effects = {r["id"]: r for r in client.rows(NODE_EFFECT_TABLE)}
+    nodes = live_nodes(client)
+    out = {}
+    for row in client.rows("char_base@char_combatant"):
+        rid = _figure(row.get("id"))
+        if not isinstance(rid, int) or \
+                base.get(row["id"], {}).get("char_use_playable") != "YES":
+            continue
+        level_group = row.get("link_combatant_level_group")
+        promoted = _steps(ascends, row.get("link_combatant_ascend_group"),
+                          1, PROMOTIONS, "ascend", COMBATANT_STATS)
+        top = _steps(levels, level_group, 1, TOP_LEVEL, "level",
+                     COMBATANT_STATS)
+        entry = {
+            "name": passage(texts.get(f"char_base@name@{rid}")) or None,
+            "grade": COMBATANT_GRADES.get(base[row["id"]].get("rarity")),
+            "class": CLASS_NAMES.get(row.get("link_base_class_define_id")),
+            "attribute": ATTRIBUTE_NAMES.get(row.get("link_ego_type_id")),
+            "base_crit_rate": _percent(row.get("s_cri")),
+            "base_crit_dmg": _percent(row.get("s_cri_dmg_rate")),
+            "level_gains": {level: _steps(levels, level_group, level,
+                                          level, "level", COMBATANT_STATS)
+                            for level in ABOVE_TOP},
+        }
+        for stat, start in (("atk", "s_atk"), ("def", "s_def"),
+                            ("hp", "s_hp")):
+            first = _figure(row.get(start))
+            entry[f"base_{stat}"] = (first + top[stat] + promoted[stat]
+                                     if isinstance(first, (int, float))
+                                     else None)
+        for num, field in STAT_NODES.items():
+            node = nodes.get((rid, num)) or {}
+            entry[field] = None
+            for effect_id in str(node.get("link_potential_node_effect_id")
+                                 or "").strip("[]").split(","):
+                effect = effects.get(effect_id.strip()) or {}
+                if effect.get("node_type") == "NODE_STAT_ADD":
+                    entry[field] = NODE_STATS.get(
+                        effect.get("link_stat_list_id"))
+                    break
+        out[rid] = entry
+    return out
+
+
+def _passive_stats(client):
+    """{partner res_id: {stat: (a figure per level)}}: each passive line
+    that is a plain stat (`PARTNER_STAT_LINE`), in the optimizer's
+    names. A stat the client does not give at every level is left out."""
+    tables = [path[3:-3] for path in client.archive.files
+              if path.startswith("db/partner_passive")
+              and path.endswith(".db")]
+    passive, effects = [], {}
+    for name in tables:
+        if name.endswith("@partner_passive"):
+            passive += client.rows(name)
+        elif name.endswith("@nb_eff"):
+            effects.update({r["id"]: r for r in client.rows(name)})
+    stat_ups = {r["id"]: r for r in client.rows("stat_up_eff@stat_up_eff")}
+    found = {}
+    for row in passive:
+        match = re.fullmatch(r"(\d+)_c\d+_lv(\d+)", row.get("id", ""))
+        if not match:
+            continue
+        rid, level = int(match.group(1)), int(match.group(2))
+        for effect_id in str(row.get("link_nb_eff_id") or "") \
+                .strip("[]").split(","):
+            effect = effects.get(effect_id.strip()) or {}
+            if effect.get("nb_eff") != PARTNER_STAT_LINE:
+                continue
+            stat_up = stat_ups.get(effect.get("opt_multiple_link")) or {}
+            stat = PARTNER_PASSIVE_STATS.get(
+                str(stat_up.get("link_stat_list_id")).strip("[]"))
+            if stat:
+                found.setdefault(rid, {}).setdefault(stat, {})[level] = \
+                    _figure(stat_up.get("stat_max"))
+    return {rid: {stat: tuple(by_level[level]
+                              for level in range(1, PASSIVE_LEVELS + 1))
+                  for stat, by_level in stats.items()
+                  if all(level in by_level
+                         for level in range(1, PASSIVE_LEVELS + 1))}
+            for rid, stats in found.items()}
+
+
+def partners(client):
+    """{partner res_id: what `game_data.partners` holds of it}: name,
+    grade, class, passive name, the passive's plain stats (`stats`, as
+    `_passive_stats` reads them), its lines at each level as the game
+    draws them (`passive_lines`), the Ego card's name and cost, and the
+    flat stats at level 60 (`level_60`)."""
+    texts = client.text()
+    levels = client.rows("partner_base@partner_level")
+    ascends = client.rows("partner_base@partner_ascend")
+    cards = {r["id"]: r for r in client.rows("card(partner)@card")}
+    stats = _passive_stats(client)
+    lines = {}
+    for key, text in texts.items():
+        match = PASSIVE_LINE.fullmatch(key)
+        if match:
+            rid, line, level = map(int, match.groups())
+            lines.setdefault(rid, {}).setdefault(line, {})[level] = \
+                passage(text)
+    out = {}
+    for row in client.rows("partner_base@char_partner"):
+        rid = _figure(row.get("id"))
+        if not isinstance(rid, int):
+            continue
+        grade = PARTNER_GRADE.match(row.get("link_partner_level_group") or "")
+        flat = _steps(levels, row.get("link_partner_level_group"), 1,
+                      TOP_LEVEL, "level", PARTNER_FLAT_STATS)
+        promoted = _steps(ascends, row.get("link_partner_ascend_group"), 1,
+                          PROMOTIONS, "ascend", PARTNER_FLAT_STATS)
+        card = cards.get(row.get("link_card_id")) or {}
+        out[rid] = {
+            "name": passage(texts.get(f"char_base@name@{rid}")) or None,
+            "grade": PARTNER_GRADES.get(grade.group(1)) if grade else None,
+            "class": CLASS_NAMES.get(
+                row.get("passive_condition_link_base_class_define_id")),
+            "passive_name": passage(
+                texts.get(f"partner_passive@name@{rid}")) or None,
+            "stats": stats.get(rid, {}),
+            "passive_lines": [
+                [by_level.get(level, "")
+                 for level in range(1, PASSIVE_LEVELS + 1)]
+                for _line, by_level in sorted(lines.get(rid, {}).items())],
+            "ego_name": passage(texts.get(card.get("name"))) or None,
+            "ego_cost": _figure(card.get("cost")),
+            "level_60": {stat: (_figure(row.get(f"default_{stat}_add")) or 0)
+                         + flat[stat] + promoted[stat]
+                         for stat in ("atk", "def", "hp")},
+        }
+    return out
+
+
 def read_facts(install):
     """Everything this module reads off an install, as the cache holds
     it. Raises whatever the reading meets."""
@@ -650,6 +854,10 @@ def read_facts(install):
         "potential_texts": {
             str(res_id): {str(wire): words for wire, words in nodes.items()}
             for res_id, nodes in potential_texts(client).items()},
+        "combatants": {str(res_id): entry for res_id, entry
+                       in combatants(client).items()},
+        "partners": {str(res_id): entry for res_id, entry
+                     in partners(client).items()},
     }
 
 
@@ -760,10 +968,14 @@ _facts = None
 
 
 def use(facts):
-    """Make `facts` (from `cached` or `refresh`) what the accessors
-    read. None goes back to the shipped tables alone."""
+    """Make `facts` (from `cached`, `refresh` or `fallback`) what the
+    accessors read, and lay its combatants and partners over the hand
+    tables (`game_data.client_overlay`). None goes back to the shipped
+    tables alone."""
     global _facts
     _facts = facts if isinstance(facts, dict) else None
+    from game_data import client_overlay
+    client_overlay.apply(_facts)
 
 
 def event_name(schedule_id):

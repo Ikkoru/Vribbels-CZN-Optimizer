@@ -349,9 +349,12 @@ def _check_tier_tuple(rep: _Reporter, key, label: str, field: str,
 
 
 def _check_characters(problems: list[str]) -> None:
-    from game_data import (CHARACTERS, ATTRIBUTE_COLORS,
-                           POTENTIAL_STAT_VALUES, CLASSES)
+    from game_data import ATTRIBUTE_COLORS, POTENTIAL_STAT_VALUES, CLASSES
     from game_data.characters import LEVEL_BONUS_BY_CLASS, level_curve
+    # The table as typed: the client's facts laid over it are no typo of
+    # the maintainer's (`game_data.client_overlay`).
+    from game_data.client_overlay import hand
+    CHARACTERS = hand("CHARACTERS")
 
     rep = _Reporter("characters.py", _line_map("characters.py", "CHARACTERS"))
     node_stats = tuple(POTENTIAL_STAT_VALUES)
@@ -472,8 +475,10 @@ def _check_characters(problems: list[str]) -> None:
 
 
 def _check_partners(problems: list[str]) -> None:
-    from game_data import (PARTNERS, PARTNER_CLASS_STATS, PARTNER_STAT_NAMES,
-                           CLASSES)
+    from game_data import PARTNER_STAT_NAMES, CLASSES
+    from game_data.client_overlay import hand
+    PARTNERS = hand("PARTNERS")
+    PARTNER_CLASS_STATS = hand("PARTNER_CLASS_STATS")
 
     rep = _Reporter("partners.py", _line_map("partners.py", "PARTNERS"))
     required = ("name", "grade", "class", "passive_name", "passive_desc",
@@ -551,8 +556,10 @@ def _check_partners(problems: list[str]) -> None:
 
     # A name either side that matches nothing makes the combatant fall
     # back to its class's shared passive, with nothing visibly wrong.
-    from game_data import CHARACTERS_BY_NAME
     from game_data import partners
+    CHARACTERS_BY_NAME = {data["name"]: data
+                          for data in hand("CHARACTERS").values()
+                          if isinstance(data, dict) and "name" in data}
     for table in ("SIGNATURE_PARTNERS", "PARTNER_EXCEPTIONS"):
         rep = _Reporter("partners.py", _line_map("partners.py", table))
         for combatant, partner in getattr(partners, table).items():
@@ -641,7 +648,10 @@ def _check_potential_7(problems: list[str]) -> None:
     """Every combatant's node 7 is encoded, in the shape its reader
     expects: a mistake here is a bonus scored as nothing, or a check
     that never passes, with no other sign."""
-    from game_data import CHARACTERS
+    # The hand table: a combatant only the client knows has no node 7 of
+    # the maintainer's to ask for yet.
+    from game_data.client_overlay import hand
+    CHARACTERS = hand("CHARACTERS")
     from game_data.potential_7 import (POTENTIAL_7, POTENTIAL_7_BEFORE,
                                        GRANTS, UNPRICED, CHECK_STATS)
 

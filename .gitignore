@@ -52,6 +52,7 @@ Vribbels/settings/
 !.claude/overlays/
 !.claude/guard.json
 plan.md
+plan_*.md
 paused_task.md
 RELEASE_NOTES.md
 

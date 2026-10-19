@@ -57,8 +57,11 @@ def _level_rules_report():
     that is not a pair, and a curve with no pair row -- each against a
     copy of the real data, put back after."""
     import game_data_validator as v
-    from game_data import CHARACTERS
     from game_data.characters import LEVEL_BONUS_BY_CLASS, level_curve
+    # The validator checks the table as typed, under the client's facts
+    # (`game_data.client_overlay`), so the faults go into that one.
+    from game_data.client_overlay import hand
+    CHARACTERS = hand("CHARACTERS")
     out = []
     rid, entry = next((k, c) for k, c in CHARACTERS.items()
                       if isinstance(c, dict) and c.get("level_curve"))

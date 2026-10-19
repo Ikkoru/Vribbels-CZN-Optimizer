@@ -54,7 +54,7 @@ from game_client import Client                                # noqa: E402
 
 SHIPPED = REPO / "Vribbels" / "game_data" / "from_client.py"
 
-SHIPPED_HEAD = '''"""Event names and totals, item names, Excursion types, daily tasks, set effects and Potential texts, off the game client.
+SHIPPED_HEAD = '''"""Event names and totals, item names, Excursion types, daily tasks, set effects, Potential texts, combatants and partners, off the game client.
 
 Written by `python docs/client_tables.py --ship`, as of the game build
 `BUILD`; never edited by hand. What a player's own client says wins
@@ -125,17 +125,30 @@ def shipped_source(client):
         lines += [f"        {wire}: {ascii(words)},"
                   for wire, words in sorted(nodes.items())]
         lines.append("    },")
+    lines += ["}", "",
+              "# {combatant res_id: what game_data.characters holds of it}. "
+              "See",
+              "# game_client.combatants; game_data.client_overlay lays it "
+              "over CHARACTERS.",
+              "COMBATANTS = {"]
+    lines += [f"    {res_id}: {ascii(entry)},"
+              for res_id, entry in sorted(game_client.combatants(client).items())]
+    lines += ["}", "",
+              "# {partner res_id: what game_data.partners holds of it}. See",
+              "# game_client.partners; game_data.client_overlay lays it "
+              "over PARTNERS.",
+              "PARTNERS = {"]
+    lines += [f"    {res_id}: {ascii(entry)},"
+              for res_id, entry in sorted(game_client.partners(client).items())]
     lines += ["}", ""]
     return "\n".join(lines)
 
 
-# The client's words for what `game_data` spells its own way.
-CLASSES = {"striker": "Striker", "vanguard": "Vanguard",
-           "hunter": "Hunter", "ranger": "Ranger", "psionic": "Psionic",
-           "controller": "Controller"}
-ATTRIBUTES = {"RED": "Passion", "PURPLE": "Void", "ORANGE": "Instinct",
-              "GREEN": "Order", "BLUE": "Justice"}
-GRADES = {"RARITY_SR": 4, "RARITY_SSR": 5}
+# The client's words for what `game_data` spells its own way: the
+# reader's own maps, so the audit and the program read alike.
+CLASSES = game_client.CLASS_NAMES
+ATTRIBUTES = game_client.ATTRIBUTE_NAMES
+GRADES = game_client.COMBATANT_GRADES
 # A combatant's stats at level 60: its level-1 stat, every level's step
 # up to it, and the five promotions on the way.
 AUDIT_LEVEL = 60
@@ -180,14 +193,19 @@ def _figures(numbers):
 
 
 def audit(client):
-    """Lines saying where `game_data` and `client` disagree."""
-    from game_data import CHARACTERS, PARTNERS
+    """Lines saying where `game_data`'s hand tables and `client`
+    disagree: the tables as typed, not with the client's facts laid over
+    them (`game_data.client_overlay`), which would agree with anything."""
     from game_data.characters import table_stats_at_level
+    from game_data.client_overlay import hand
+    CHARACTERS, PARTNERS = hand("CHARACTERS"), hand("PARTNERS")
     texts = client.text()
     combat = {r["id"]: r for r in client.rows("char_base@char_combatant")}
     base = {r["id"]: r for r in client.rows("char_base@char_base")}
     levels = client.rows("char_base@combatant_level")
     ascends = client.rows("char_base@combatant_ascend")
+    derived = game_client.combatants(client)
+    derived_partners = game_client.partners(client)
     out = []
 
     def differ(who, field, ours, theirs):
@@ -233,6 +251,11 @@ def audit(client):
                float(row["s_cri"]))
         differ(who, "base_crit_dmg", ours.get("base_crit_dmg"),
                float(row["s_cri_dmg_rate"]))
+        # Node 50's and 60's stat, as the program reads them laid over
+        # (`game_client.combatants`).
+        theirs = derived.get(rid) or {}
+        for field in ("node_50", "node_60"):
+            differ(who, field, ours.get(field), theirs.get(field))
     for rid in sorted(combat, key=int):
         if int(rid) not in CHARACTERS and base.get(rid, {}).get(
                 "char_use_playable") == "YES":
@@ -277,6 +300,16 @@ def audit(client):
                texts.get(card.get("name")))
         differ(who, "ego_cost", ours.get("ego_cost"),
                int(card["cost"]) if card.get("cost") else None)
+        # The passive's plain stat lines and the level-60 flat stats, as
+        # the program reads them laid over (`game_client.partners`).
+        theirs = derived_partners.get(int(rid)) or {}
+        for stat, steps in sorted((theirs.get("stats") or {}).items()):
+            differ(who, f"stats {stat}",
+                   tuple((ours.get("stats") or {}).get(stat, ())), steps)
+        differ(who, "level-60 stats (PARTNER_CLASS_STATS)",
+               hand("PARTNER_CLASS_STATS").get((ours.get("grade"),
+                                                 ours.get("class"))),
+               theirs.get("level_60"))
         values = {key: steps for key, steps
                   in (ours.get("values") or {}).items()
                   if isinstance(steps, (list, tuple))}
