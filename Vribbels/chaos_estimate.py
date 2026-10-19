@@ -191,18 +191,37 @@ def is_current(run):
     return run.get("via", "disaster") == "disaster"
 
 
+def chaos_names():
+    """{stage id: (name, season)}: `CHAOS_NAMES` over the game client's
+    (`game_client.known_chaos_names`), so a Chaos a patch adds is named
+    by the client until the table names it, and the table's spelling
+    stands where both do."""
+    import game_client
+    return {**game_client.known_chaos_names(), **CHAOS_NAMES}
+
+
 def chaos_name(run):
     """The Chaos a run was in, by name: its stage id's, else the
     season's own where it came in through the Galactic Disaster; `?`
     where the record cannot say."""
-    named = CHAOS_NAMES.get(run.get("stage"))
+    names = chaos_names()
+    named = names.get(run.get("stage"))
     if named:
         return named[0]
     if is_current(run):
-        for name, season in CHAOS_NAMES.values():
+        for name, season in names.values():
             if season == run.get("season"):
                 return name
     return str(run.get("stage") or "?")
+
+
+def zero_special_name(special):
+    """A Zero System special option by name: `ZERO_SPECIALS`'s, else the
+    game client's, else its id."""
+    if special in ZERO_SPECIALS:
+        return ZERO_SPECIALS[special]
+    import game_client
+    return game_client.known_zero_specials().get(special, special)
 
 
 def payouts(run):

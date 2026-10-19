@@ -109,7 +109,9 @@ PICKUP_ID = re.compile(
 # Rescues' 5-stars (`general_ssr_*` under `ssr_pool_ids`), and a rerun
 # whose unit is not among them is Seasonal. `load` notes the list off
 # every rates reply it has, the account's and the shipped ones
-# (`note_general_pool`); before any, a rerun is a rerun.
+# (`note_general_pool`); before any, the game client's own pools say
+# the same (`game_client.known_general_units`), and with neither, a
+# rerun is a rerun.
 GENERAL_POOL_ID = re.compile(r"^general_ssr_[cs]_(\d+)$")
 _general_units = None
 
@@ -149,8 +151,11 @@ def pool_of(gacha_id):
     gacha_id = str(gacha_id or "")
     m = PICKUP_ID.match(gacha_id)
     if m:
-        seasonal = (_general_units is not None
-                    and int(m.group(2)) not in _general_units)
+        general = _general_units
+        if general is None:
+            import game_client
+            general = game_client.known_general_units()
+        seasonal = general is not None and int(m.group(2)) not in general
         rerun = m.group(3) and not seasonal
         return "pickup_%s%s" % (m.group(1), "_rerun" if rerun else "")
     for prefix, pool in PREFIX_POOLS:

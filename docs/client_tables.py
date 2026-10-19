@@ -140,9 +140,38 @@ def shipped_source(client):
               "PARTNERS = {"]
     lines += [f"    {res_id}: {ascii(entry)},"
               for res_id, entry in sorted(game_client.partners(client).items())]
-    lines += ["}", ""]
+    lines += ["}", "",
+              "# {stage id: (English name, season)}. See "
+              "game_client.chaos_names.",
+              "CHAOS_NAMES = {"]
+    lines += [f"    {stage}: {ascii(named)},"
+              for stage, named in sorted(game_client.chaos_names(client).items())]
+    lines += ["}", "",
+              "# {Zero System special option id: the game's name}. See "
+              "game_client.zero_specials.",
+              "ZERO_SPECIALS = {"]
+    lines += [f"    {ascii(special)}: {ascii(name)},"
+              for special, name in sorted(game_client.zero_specials(client).items())]
+    lines += ["}", "",
+              "# The Normal Rescues' 5-stars. See game_client.general_units.",
+              f"GENERAL_UNITS = {ascii(game_client.general_units(client))}",
+              ""]
     return "\n".join(lines)
 
+
+# Each rescue pool of `gacha_history`'s, by the banner type the client
+# names it under (`gacha_type@gacha_type`).
+POOL_TYPES = {
+    "pickup_combatant": "gacha_type_pickup_combatant",
+    "pickup_supporter": "gacha_type_pickup_supporter",
+    "pickup_combatant_rerun": "gacha_type_genal_p_combatant",
+    "pickup_supporter_rerun": "gacha_type_genal_p_supporter",
+    "general": "gacha_type_general",
+    "general_supporter": "gacha_type_general_supporter",
+    "card_factor": "gacha_type_card_factor",
+    "partner_reform": "gacha_type_partner_reform",
+    "first_select": "gacha_type_first_select",
+}
 
 # The client's words for what `game_data` spells its own way: the
 # reader's own maps, so the audit and the program read alike.
@@ -346,6 +375,35 @@ def audit(client):
     for rid, name in sorted(item_names().items()):
         if rid in theirs:
             differ(f"item {rid}", "name", name, theirs[rid])
+
+    # The program's own names for a Chaos, a Zero System special and a
+    # rescue's pool go over the client's where both name one (the
+    # maintainer's spellings, from the update and Probabilities
+    # notices); the client's fill what they lack.
+    import chaos_estimate
+    import gacha_history
+    for stage, (name, season) in sorted(game_client.chaos_names(client).items()):
+        held = chaos_estimate.CHAOS_NAMES.get(stage)
+        if held is None:
+            out.append(f"Chaos {stage} {name!r}: in the client, not in "
+                       f"chaos_estimate.CHAOS_NAMES (the client's name shows)")
+            continue
+        differ(f"Chaos {stage}", "name", held[0], name)
+        differ(f"Chaos {stage}", "season", held[1], season)
+    for special, name in sorted(game_client.zero_specials(client).items()):
+        if special not in chaos_estimate.ZERO_SPECIALS:
+            out.append(f"Zero System special {special} {name!r}: in the "
+                       f"client, not in chaos_estimate.ZERO_SPECIALS (the "
+                       f"client's name shows)")
+        else:
+            differ(f"Zero System special {special}", "name",
+                   chaos_estimate.ZERO_SPECIALS[special], name)
+    types = {r["id"]: texts.get(r.get("name"))
+             for r in client.rows("gacha_type@gacha_type")}
+    for pool, label in gacha_history.POOL_LABELS.items():
+        theirs = types.get(POOL_TYPES.get(pool))
+        if theirs:
+            differ(f"rescue pool {pool}", "label", label, theirs)
 
     effects = game_client.set_effects(client)
     out += set_problems(effects)

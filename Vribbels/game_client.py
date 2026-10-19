@@ -69,7 +69,7 @@ GAMERES = Path("bin") / "appdata" / "cznlive" / "gameres"
 # What the cache is called in the settings folder, and the shape of
 # what it holds. A cache of another format is read as no cache.
 CACHE_FILE = "game_client.json"
-CACHE_FORMAT = 6
+CACHE_FORMAT = 7
 
 # The manifest layout this reads. A different version is a different
 # layout until shown otherwise.
@@ -834,6 +834,46 @@ def partners(client):
     return out
 
 
+def chaos_names(client):
+    """{stage id: (English name, season)}: every Chaos the client names,
+    by the stage id a run's clear carries, with the Galactic Disaster
+    season it came with (`disaster_sNN`, from its Save Data season
+    `savedata_sNN`) or None for the base game's."""
+    texts = client.text()
+    out = {}
+    for row in client.rows("chaos@chaos"):
+        stage = _figure(row.get("link_stage_component_id"))
+        name = clean(texts.get(row.get("title")))
+        if not isinstance(stage, int) or stage <= 0 or not name:
+            continue
+        season = re.fullmatch(r"savedata_s(\d+)",
+                              row.get("link_savedata_season_id") or "")
+        out[stage] = (name, f"disaster_s{season.group(1)}" if season
+                      else None)
+    return out
+
+
+def zero_specials(client):
+    """{Zero System special option id: the game's name for it}."""
+    texts = client.text()
+    out = {}
+    for row in client.rows("zero_orb_special@zero_orb_special"):
+        name = clean(texts.get(row.get("name")))
+        if row.get("id") and name:
+            out[row["id"]] = name
+    return out
+
+
+def general_units(client):
+    """The 5-stars the Normal Rescues offer, as res_ids: the client's
+    own `general_ssr_c`/`general_ssr_s` pools, the ids a banner's rates
+    reply lists under `ssr_pool_ids`."""
+    return sorted({_figure(row.get("multiple_link"))
+                   for row in client.rows("gacha_pool@gacha_pool")
+                   if row.get("group") in ("general_ssr_c", "general_ssr_s")
+                   and isinstance(_figure(row.get("multiple_link")), int)})
+
+
 def read_facts(install):
     """Everything this module reads off an install, as the cache holds
     it. Raises whatever the reading meets."""
@@ -858,6 +898,10 @@ def read_facts(install):
                        in combatants(client).items()},
         "partners": {str(res_id): entry for res_id, entry
                      in partners(client).items()},
+        "chaos_names": {str(stage): list(named) for stage, named
+                        in chaos_names(client).items()},
+        "zero_specials": zero_specials(client),
+        "general_units": general_units(client),
     }
 
 
@@ -1030,6 +1074,37 @@ def known_item_names():
         if str(res_id).isdigit() and name:
             out[int(res_id)] = name
     return out
+
+
+def known_chaos_names():
+    """{stage id: (English name, season)}: the shipped table, with what
+    this machine's client says over it. `chaos_estimate` puts its own
+    names over both."""
+    from game_data import from_client
+    out = dict(getattr(from_client, "CHAOS_NAMES", {}))
+    for stage, named in ((_facts or {}).get("chaos_names") or {}).items():
+        if str(stage).isdigit() and isinstance(named, (list, tuple)):
+            out[int(stage)] = tuple(named)
+    return out
+
+
+def known_zero_specials():
+    """{special option id: the game's name}: the shipped table, with
+    what this machine's client says over it."""
+    from game_data import from_client
+    out = dict(getattr(from_client, "ZERO_SPECIALS", {}))
+    out.update((_facts or {}).get("zero_specials") or {})
+    return out
+
+
+def known_general_units():
+    """The Normal Rescues' 5-stars by the client, this machine's read
+    over the shipped one; None where neither holds a list. A rates reply
+    the account captured goes over both (`gacha_history`)."""
+    from game_data import from_client
+    units = (_facts or {}).get("general_units") \
+        or getattr(from_client, "GENERAL_UNITS", None)
+    return set(units) if units else None
 
 
 def visit_types(res_id):

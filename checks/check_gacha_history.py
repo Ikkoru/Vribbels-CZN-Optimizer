@@ -106,13 +106,28 @@ def _pools_and_rarity(gh, failures):
                 f"filed under the wrong pool advance the wrong pity counter "
                 f"-- a rerun is a category of its own, with its own, but "
                 f"a Seasonal one counts with the releases.")
-    # Before any rates, every suffix is a rerun: nothing says otherwise.
+    # Before any rates, the game client's own Normal Rescue pools say it
+    # (`game_client.known_general_units`); with neither, every suffix is
+    # a rerun: nothing says otherwise.
+    import game_client
     gh.note_general_pool({})
-    if gh.pool_of("gacha_pickup_combatant_30075_1") != "pickup_combatant_rerun":
-        failures.append(
-            "with no rates read, a suffixed banner is not filed as a "
-            "rerun. Nothing but the Normal Rescues' list can say it is "
-            "Seasonal, and without it the suffix is the only word.")
+    held_units = game_client.known_general_units
+    game_client.known_general_units = lambda: None
+    try:
+        if gh.pool_of("gacha_pickup_combatant_30075_1") != \
+                "pickup_combatant_rerun":
+            failures.append(
+                "with no rates read and no client pools, a suffixed banner "
+                "is not filed as a rerun. Nothing but the Normal Rescues' "
+                "list can say it is Seasonal, and without it the suffix is "
+                "the only word.")
+        game_client.known_general_units = lambda: {1052, 30047}
+        if gh.pool_of("gacha_pickup_combatant_30075_1") != "pickup_combatant":
+            failures.append(
+                "with no rates read, the game client's Normal Rescue pools "
+                "did not file a rerun of a unit they lack as Seasonal.")
+    finally:
+        game_client.known_general_units = held_units
     tiers = gh.tiers_from_rates({"x": _rates()})
     want = {FEATURED: 5, OFF_BANNER: 5, LATER: 5, IMPORTED_FIVE: 5,
             FOUR: 4, THREE: 3}

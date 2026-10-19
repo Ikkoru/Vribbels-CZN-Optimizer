@@ -1857,3 +1857,32 @@ PARTNERS = {
     30116: {'name': 'Licinia', 'grade': 5, 'class': 'Striker', 'passive_name': 'Poison-Laced Atonement', 'stats': {'ATK%': (16, 18, 20, 22, 24)}, 'passive_lines': [["Increase the assigned Combatant's Attack by 16%.\nWhen Fracture is applied through an ability of the assigned Combatant, +10% to Critical Chance (cannot stack).", "Increase the assigned Combatant's Attack by 18%.\nWhen Fracture is applied through an ability of the assigned Combatant, +13% to Critical Chance (cannot stack).", "Increase the assigned Combatant's Attack by 20%.\nWhen Fracture is applied through an ability of the assigned Combatant, +15% to Critical Chance (cannot stack).", "Increase the assigned Combatant's Attack by 22%.\nWhen Fracture is applied through an ability of the assigned Combatant, +18% to Critical Chance (cannot stack).", "Increase the assigned Combatant's Attack by 24%.\nWhen Fracture is applied through an ability of the assigned Combatant, +20% to Critical Chance (cannot stack)."], ['When Fracture is activated through an ability of the assigned Combatant, inflict 1 Virutoxin on the target.\nVirutoxin: Increase Damage Amount taken from the assigned Combatant by 4% (max 4 stacks)', 'When Fracture is activated through an ability of the assigned Combatant, inflict 1 Virutoxin on the target.\nVirutoxin: Increase Damage Amount taken from the assigned Combatant by 5% (max 4 stacks)', 'When Fracture is activated through an ability of the assigned Combatant, inflict 1 Virutoxin on the target.\nVirutoxin: Increase Damage Amount taken from the assigned Combatant by 6% (max 4 stacks)', 'When Fracture is activated through an ability of the assigned Combatant, inflict 1 Virutoxin on the target.\nVirutoxin: Increase Damage Amount taken from the assigned Combatant by 7% (max 4 stacks)', 'When Fracture is activated through an ability of the assigned Combatant, inflict 1 Virutoxin on the target.\nVirutoxin: Increase Damage Amount taken from the assigned Combatant by 8% (max 4 stacks)']], 'ego_name': 'Blossoming Venom', 'ego_cost': 3, 'level_60': {'atk': 155, 'def': 5, 'hp': 144}},
     30118: {'name': 'Emilie', 'grade': 5, 'class': 'Psionic', 'passive_name': 'As My Mistress Wishes', 'stats': {'ATK%': (16, 18, 20, 22, 24)}, 'passive_lines': [["Increase the assigned Combatant's Attack by 16%.", "Increase the assigned Combatant's Attack by 18%.", "Increase the assigned Combatant's Attack by 20%.", "Increase the assigned Combatant's Attack by 22%.", "Increase the assigned Combatant's Attack by 24%."], ['When Fracture is inflicted through a card of the assigned Combatant, +10% to Critical Chance and increase Damage Amount of ally Fracture and Scorched by 15% (cannot stack).', 'When Fracture is inflicted through a card of the assigned Combatant, +13% to Critical Chance and increase Damage Amount of ally Fracture and Scorched by 19% (cannot stack).', 'When Fracture is inflicted through a card of the assigned Combatant, +15% to Critical Chance and increase Damage Amount of ally Fracture and Scorched by 23% (cannot stack).', 'When Fracture is inflicted through a card of the assigned Combatant, +18% to Critical Chance and increase Damage Amount of ally Fracture and Scorched by 27% (cannot stack).', 'When Fracture is inflicted through a card of the assigned Combatant, +20% to Critical Chance and increase Damage Amount of ally Fracture and Scorched by 30% (cannot stack).']], 'ego_name': 'For My Mistress', 'ego_cost': 2, 'level_60': {'atk': 155, 'def': 5, 'hp': 144}},
 }
+
+# {stage id: (English name, season)}. See game_client.chaos_names.
+CHAOS_NAMES = {
+    50000: ('Laboratory 0', 'disaster_s01'),
+    60000: ('Burning Life', 'disaster_s02'),
+    70000: ('Theater of Illusions', 'disaster_s03'),
+    80000: ('The Kaleidoscope Hatchery', 'disaster_s04'),
+    110000003: ('The Blue Pot', None),
+    115000001: ("Twin Star's Shadow", None),
+    120000001: ('Swamp of Judgment', None),
+    120000002: ('City of Mist', None),
+    120000004: ('The Foretold Ruin', None),
+}
+
+# {Zero System special option id: the game's name}. See game_client.zero_specials.
+ZERO_SPECIALS = {
+    'zero_orb_special_v1_01': 'Kyrken\u2019s Oracle',
+    'zero_orb_special_v1_02': 'Diallos\u2019s Glory',
+    'zero_orb_special_v1_03': 'Sekred\u2019s Breath',
+    'zero_orb_special_v1_04': 'Nihilum\u2019s Gaze',
+    'zero_orb_special_v1_05': 'Forbidden Catalyst',
+    'zero_orb_special_v1_06': 'Seed of Karmic Fire',
+    'zero_orb_special_v1_07': 'A Song Rippling Through the Stars',
+    'zero_orb_special_v1_08': 'Shattered Light and Claw',
+    'zero_orb_special_v1_09': 'Promise Upon the Snow',
+}
+
+# The Normal Rescues' 5-stars. See game_client.general_units.
+GENERAL_UNITS = [1004, 1008, 1010, 1018, 1024, 1025, 1027, 1033, 1041, 1043, 1052, 1055, 1057, 1060, 1061, 1062, 1064, 1069, 1070, 20002, 20004, 20009, 20021, 20030, 20034, 20037, 20038, 30044, 30045, 30046, 30047, 30048, 30051, 30052, 30053, 30054, 30084, 30085, 30091, 30092, 30095, 30097, 30113, 30114, 30117, 30118]

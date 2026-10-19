@@ -64,6 +64,7 @@ from checks import (                                    # noqa: E402
     check_capture_session_file,
     check_checklist_readings,
     check_client_archive,
+    check_client_fallbacks,
     check_client_overlay,
 
     check_affinity,
@@ -149,6 +150,7 @@ CHECKS = [
     check_client_archive,
     check_game_data,
     check_client_overlay,
+    check_client_fallbacks,
     check_potential_nodes,
     check_item_art,
     check_materials_targets,

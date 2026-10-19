@@ -12,6 +12,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 - Combatants and partners take their names, classes, stats and plain passive bonuses from the game client, so a patch that rebalances one needs no program update. One released after the program shows with the game's figures instead of as Unknown.
 - When a patch leaves the game client unreadable, names and figures come from the last time it was read.
+- Gacha History: a Seasonal rerun's pulls count with the release banners' even before the program has read any banner's rates.
 
 ## [2.5.1] - Capture Fixes
 

@@ -56,10 +56,10 @@ The columns this script owns:
 | `date`    | when the run was cleared, UTC                                   |
 | `season`  | the Galactic Disaster season it ran in                          |
 | `part`    | which part of the season: the shop page open when it cleared   |
-| `chaos`   | which Chaos it was, by the stage id its clear names -- `chaos_estimate.CHAOS_NAMES` |
+| `chaos`   | which Chaos it was, by the stage id its clear names -- `chaos_estimate.CHAOS_NAMES`, else the game client's name (`chaos_estimate.chaos_names`) |
 | `door`    | how it was entered: `Galactic Disaster`, `Zero System` or `own screen` (a base-game Chaos's) |
 | `difficulty` | the number ending the list id it was entered with (`6`), or a Zero System map's level (`lv80`) |
-| `special` | a Zero System map's special options, by `chaos_estimate.ZERO_SPECIALS` where named |
+| `special` | a Zero System map's special options, by `chaos_estimate.ZERO_SPECIALS` where named, else the game client's name (`zero_special_name`) |
 | `options` | a Zero System map's bonus and penalty options: `b001 p112` |
 | `rolled`  | the bonus and penalties the run rolled, any door, as effects: `ELITE_ADD:p008 CREDIT_DOWN:p016` |
 | `mode`    | `delegated`, played by the Delegation Module down one path, or `ordinary` |
@@ -233,7 +233,7 @@ import chaos_store                                             # noqa: E402
 # Each Chaos's season, by name, for telling the live season's own
 # Chaos from a past one: `current`.
 CHAOS_SEASONS = {name: season for name, season
-                 in chaos_estimate.CHAOS_NAMES.values()}
+                 in chaos_estimate.chaos_names().values()}
 
 
 class _Flow:
@@ -533,7 +533,7 @@ def row_of(run, source, parts):
         "chaos": chaos_estimate.chaos_name(run),
         "door": DOORS.get(run.get("via", "disaster"), run.get("via")),
         "difficulty": difficulty_of(run),
-        "special": "+".join(chaos_estimate.ZERO_SPECIALS.get(s, s)
+        "special": "+".join(chaos_estimate.zero_special_name(s)
                             for s in (run.get("codex") or {}).get(
                                 "special") or ()),
         "options": " ".join(
