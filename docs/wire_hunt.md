@@ -37,8 +37,8 @@ Which prefix is which shop, all established by buying one and reading the produc
 | `hyperspace_*` | Zeronium Shop — **not** the Basin, which is `hyperspace_entities` |
 | `chaos_*` | Blackhorn Trade |
 | `card_factor_*` | Exchange Shop — Prism Module |
-| `season_pass_*` | Season Pass shop — **not** the Seasonal Shop |
-| `disaster_s0N_*` | Seasonal Shop — the Galactic Disaster's, and every id is renamed each season |
+| `season_pass_*` | Season Pass shop — **not** the Galactic Disaster Shop |
+| `disaster_s0N_*` | Galactic Disaster Shop — every id is renamed each season |
 
 ## The day index, and the week index
 

@@ -105,7 +105,7 @@ def run():
             "currency at other amounts, and the estimate is of the live "
             "Chaos alone.")
     for run_, name in ((past, "Burning Life"),
-                       (_run(LIVE, 3), "Kaleidoscope Hatchery")):
+                       (_run(LIVE, 3), "The Kaleidoscope Hatchery")):
         if ce.chaos_name(run_) != name:
             failures.append(f"a run reads as Chaos {ce.chaos_name(run_)!r}, "
                             f"not {name!r}.")

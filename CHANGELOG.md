@@ -14,6 +14,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - When a patch leaves the game client unreadable, names and figures come from the last time it was read.
 - Gacha History: a Seasonal rerun's pulls count with the release banners' even before the program has read any banner's rates.
 - Memory Fragments: Potential's average and middle 80% weigh each new substat by how often the game draws it.
+- Checklist: the Seasonal Shop is the Galactic Disaster Shop, the game's name for it.
 
 ### Fixed
 

@@ -89,11 +89,11 @@ CHAOS_NAMES = {
     50000: ("Laboratory 0", "disaster_s01"),                 # chaos_06
     60000: ("Burning Life", "disaster_s02"),                 # chaos_07
     70000: ("Theater of Illusions", "disaster_s03"),         # chaos_08
-    80000: ("Kaleidoscope Hatchery", "disaster_s04"),        # chaos_09
-    110000003: ("Blue Pot", None),                           # chaos_01
+    80000: ("The Kaleidoscope Hatchery", "disaster_s04"),    # chaos_09
+    110000003: ("The Blue Pot", None),                       # chaos_01
     115000001: ("Twin Star's Shadow", None),                 # chaos_02
     120000002: ("City of Mist", None),                       # chaos_03
-    120000001: ("Swamp of Judgement", None),                 # chaos_04
+    120000001: ("Swamp of Judgment", None),                  # chaos_04
     120000004: ("The Foretold Ruin", None),                  # chaos_05
 }
 
@@ -105,18 +105,19 @@ CHAOS_NAMES = {
 # adds a Core of Discord style boss -- fewer ordinary fights a run, so
 # fewer marked ones, at an unmoved rate a fight. `v1_01` to `v1_04` are
 # Divine Intervention, one god's each, beside the Effect or without one;
-# the wire spells Kyrken `circen` and Sekred `secred`.
+# the wire spells Kyrken `circen` and Sekred `secred`. `v1_05` to `v1_09`
+# are seasons 1 to 5's Effects. Each by the game's name for it.
 # `docs/capture_pipeline.md`, *The Zero System's codex*.
 ZERO_SPECIALS = {
-    "zero_orb_special_v1_01": "Divine Intervention (Kyrken)",
-    "zero_orb_special_v1_02": "Divine Intervention (Diallos)",
-    "zero_orb_special_v1_03": "Divine Intervention (Sekred)",
-    "zero_orb_special_v1_04": "Divine Intervention (Nihilum)",
-    "zero_orb_special_v1_05": "season 1 Chaos",
-    "zero_orb_special_v1_06": "season 2 Chaos",
-    "zero_orb_special_v1_07": "season 3 Chaos",
-    "zero_orb_special_v1_08": "season 4 Chaos",
-    "zero_orb_special_v1_09": "season 5 Chaos",
+    "zero_orb_special_v1_01": "Kyrken's Oracle",
+    "zero_orb_special_v1_02": "Diallos's Glory",
+    "zero_orb_special_v1_03": "Sekred's Breath",
+    "zero_orb_special_v1_04": "Nihilum's Gaze",
+    "zero_orb_special_v1_05": "Forbidden Catalyst",
+    "zero_orb_special_v1_06": "Seed of Karmic Fire",
+    "zero_orb_special_v1_07": "A Song Rippling Through the Stars",
+    "zero_orb_special_v1_08": "Shattered Light and Claw",
+    "zero_orb_special_v1_09": "Promise Upon the Snow",
 }
 
 # Windows in which something raised how often the marks turn up, as
