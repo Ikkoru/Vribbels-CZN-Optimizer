@@ -14,6 +14,10 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - When a patch leaves the game client unreadable, names and figures come from the last time it was read.
 - Gacha History: a Seasonal rerun's pulls count with the release banners' even before the program has read any banner's rates.
 
+### Fixed
+
+- Partners below level 30 show their right level, and the stats that go with it. Combatants' levels read up to 62.
+
 ## [2.5.1] - Capture Fixes
 
 ### Fixed

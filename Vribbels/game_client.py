@@ -4,10 +4,12 @@ What changes every patch and the server never sends: each event's
 English name and how many rewards it holds, every item's name, how
 many Excursion types each combatant has, what each daily task counts
 to and pays toward the day's Activity, each Memory Fragment set's
-effect, and the words of each combatant's own Potential nodes.
-`docs/client_data.md` says where each is kept and how it was held
-against what the program already knew; `docs/client_tables.py` is the
-maintainer's tool over the same reader. Reads only: nothing here
+effect, the words of each combatant's own Potential nodes, every
+combatant's and partner's figures, the Chaos and Zero System names,
+the Normal Rescues' 5-stars, and the exp each level and each Affinity
+level takes. `docs/client_data.md` says where each is kept and how it
+was held against what the program already knew; `docs/client_tables.py`
+is the maintainer's tool over the same reader. Reads only: nothing here
 writes inside the install.
 
 **Read once per game build.** What is read goes to `CACHE_FILE` in the
@@ -69,7 +71,7 @@ GAMERES = Path("bin") / "appdata" / "cznlive" / "gameres"
 # What the cache is called in the settings folder, and the shape of
 # what it holds. A cache of another format is read as no cache.
 CACHE_FILE = "game_client.json"
-CACHE_FORMAT = 7
+CACHE_FORMAT = 8
 
 # The manifest layout this reads. A different version is a different
 # layout until shown otherwise.
@@ -217,6 +219,24 @@ PARTNER_PASSIVE_STATS = {"S_ATK_INC_RATE_IN": "ATK%",
                          "S_DOT_ATK_DMG_RATE": "DoT%"}
 PASSIVE_LINE = re.compile(r"partner_passive@description@(\d+)_c(\d+)_lv(\d+)")
 PASSIVE_LEVELS = 5
+# The exp from each level to the next: a row per level, a column per
+# kind of unit and grade, -1 from the kind's top level on. The program
+# holds one curve per kind, so a kind whose grades' columns disagree is
+# left to the hand table.
+EXP_TABLE = "char_growth@char_exp"
+EXP_COLUMNS = {
+    "combatant": ("combatant_rarity_ssr_require_exp",
+                  "combatant_rarity_sr_require_exp"),
+    "partner": ("supporter_rarity_ssr_require_exp",
+                "supporter_rarity_sr_require_exp",
+                "supporter_rarity_r_require_exp"),
+}
+# Affinity: the exp from each level to the next, -1 at the cap; and the
+# stats each level adds, in the bonus group a combatant names, by the
+# flat stat ids a partner's level rows use.
+AFFINITY_LEVEL_TABLE = "friendship_level@friendship_level"
+AFFINITY_BONUS_TABLE = "combatant_friendship_bonus@combatant_friendship_bonus"
+AFFINITY_GROUP = "link_combatant_friendship_bonus_group"
 
 # Markup the text carries for the game's own renderer: tags, a line
 # break, and a keyword's marker `$Name#level$`, drawn as the name.
@@ -874,6 +894,89 @@ def general_units(client):
                    and isinstance(_figure(row.get("multiple_link")), int)})
 
 
+def exp_columns(client):
+    """{column: [the exp to reach each level, from level 1]}: each of
+    `EXP_COLUMNS`' columns accumulated, up to the level whose step is
+    -1, that kind's top. A column with a level missing or unreadable
+    below its top is left out: summed across the gap, every threshold
+    above it would come out short."""
+    by_level = {}
+    for row in client.rows(EXP_TABLE):
+        level = _figure(row.get("level"))
+        if isinstance(level, int):
+            by_level[level] = row
+    out = {}
+    for column in (name for names in EXP_COLUMNS.values() for name in names):
+        reached, level = [0], 1
+        while reached is not None:
+            step = _figure((by_level.get(level) or {}).get(column))
+            if not isinstance(step, int):
+                reached = None
+            elif step < 0:
+                break
+            else:
+                reached.append(reached[-1] + step)
+                level += 1
+        if reached and len(reached) > 1:
+            out[column] = reached
+    return out
+
+
+def exp_tables(client):
+    """{"combatant": [...], "partner": [...]}: the exp to reach each
+    level from level 1 to the kind's top, where every grade's column for
+    the kind agrees (`exp_columns`)."""
+    columns = exp_columns(client)
+    out = {}
+    for kind, names in EXP_COLUMNS.items():
+        tables = [columns.get(name) for name in names]
+        if tables[0] and all(table == tables[0] for table in tables):
+            out[kind] = tables[0]
+    return out
+
+
+def affinity(client):
+    """Affinity as `game_data.constants` holds it: `to_next`, {level:
+    the exp from it to the next} for every level below the cap; and
+    `bonuses`, [(level, ATK, DEF, HP)], each the total from level 1 up
+    to that level. The bonuses are the group every playable combatant
+    names, and are left out where they name more than one: the program
+    holds one table for all."""
+    to_next = {}
+    for row in client.rows(AFFINITY_LEVEL_TABLE):
+        level, exp = _figure(row.get("id")), _figure(row.get("exp"))
+        if isinstance(level, int) and isinstance(exp, int) and exp > 0:
+            to_next[level] = exp
+    out = {}
+    # A level missing would end `constants.affinity_level`'s walk down
+    # from the cap there, and every level below it would read as 1.
+    if to_next and sorted(to_next) == list(range(1, len(to_next) + 1)):
+        out["to_next"] = to_next
+    base = {r["id"]: r for r in client.rows("char_base@char_base")}
+    groups = {row.get(AFFINITY_GROUP)
+              for row in client.rows("char_base@char_combatant")
+              if base.get(row.get("id"), {}).get("char_use_playable") == "YES"}
+    if len(groups) != 1:
+        return out
+    group, rows = groups.pop(), {}
+    for row in client.rows(AFFINITY_BONUS_TABLE):
+        level = _figure(row.get("level"))
+        if row.get("group") == group and isinstance(level, int):
+            rows[level] = row
+    totals, bonuses = dict.fromkeys(("atk", "def", "hp"), 0), []
+    for level in range(1, max(rows, default=0) + 1):
+        row = rows.get(level) or {}
+        for i in range(3):
+            stat = PARTNER_FLAT_STATS.get(row.get(f"stat{i}_link_stat_list_id"))
+            value = _figure(row.get(f"stat{i}_value"))
+            if stat and isinstance(value, int) and value > 0:
+                totals[stat] += value
+        bonuses.append((level, totals["atk"], totals["def"], totals["hp"]))
+    if len(bonuses) > 1:
+        out["bonuses"] = bonuses
+    return out
+
+
 def read_facts(install):
     """Everything this module reads off an install, as the cache holds
     it. Raises whatever the reading meets."""
@@ -902,6 +1005,8 @@ def read_facts(install):
                         in chaos_names(client).items()},
         "zero_specials": zero_specials(client),
         "general_units": general_units(client),
+        "exp_tables": exp_tables(client),
+        "affinity": affinity(client),
     }
 
 
@@ -1013,9 +1118,9 @@ _facts = None
 
 def use(facts):
     """Make `facts` (from `cached`, `refresh` or `fallback`) what the
-    accessors read, and lay its combatants and partners over the hand
-    tables (`game_data.client_overlay`). None goes back to the shipped
-    tables alone."""
+    accessors read, and lay its combatants, partners, exp tables and
+    Affinity over the hand tables (`game_data.client_overlay`). None
+    goes back to the shipped tables alone."""
     global _facts
     _facts = facts if isinstance(facts, dict) else None
     from game_data import client_overlay

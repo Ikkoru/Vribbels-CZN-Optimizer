@@ -1,7 +1,8 @@
-"""The game client's combatants and partners, laid over the hand tables.
+"""The game client's facts, laid over the hand tables.
 
 `game_data.client_overlay` writes the client's facts into `CHARACTERS`,
-`PARTNERS` and `PARTNER_CLASS_STATS` in place. Four ways that goes
+`PARTNERS` and `PARTNER_CLASS_STATS` in place, and swaps the contents
+of the exp and Affinity tables in `constants`. Five ways that goes
 wrong with nothing to show for it:
 
 1. **A fact lands on the wrong field, or a stale one stays.** Every
@@ -13,10 +14,18 @@ wrong with nothing to show for it:
 3. **A unit only the client knows breaks a reader**: a passive drawn
    with its placeholders showing, or the validator asking a generated
    entry for a hand table's companions.
-4. **The client and the hand table disagree**, so the overlay changes a
+4. **A swapped table reaches only some readers.** Its importers hold
+   the list or dict itself, so a new object would leave them reading
+   the hand table; and a figure worked out from one at import, such as
+   the Affinity cap or the Materials tab's EXP targets, would stay the
+   hand table's. A source whose levels break off must leave the hand
+   table standing, not a table that reads every level above the break
+   wrong.
+5. **The client and the hand table disagree**, so the overlay changes a
    figure nobody chose. Held on the installed client: every combatant's
-   and partner's field against the hand table, the known differences
-   awaiting the maintainer noted rather than failed.
+   and partner's field, every level's exp and every Affinity level,
+   against the hand tables, the known differences awaiting the
+   maintainer noted rather than failed.
 
 Skips the installed-client half where no client is installed.
 """
@@ -25,7 +34,7 @@ import copy
 
 from ._harness import add_source_to_path, note
 
-NAME = "the client's combatants and partners lay over the hand tables"
+NAME = "the client's facts lay over the hand tables"
 
 # Differences the maintainer has yet to settle: (res_id, field). Noted
 # while they stay exactly that.
@@ -34,6 +43,12 @@ KNOWN = {
     # node 60; characters.py has them the other way round.
     (30084, "node_50"): ("CRate", "DEF%"),
     (30084, "node_60"): ("DEF%", "CRate"),
+}
+# The same for the exp tables: (table, level) -> (here, the client's).
+KNOWN_LEVELS = {
+    # constants.py's figure was read off Amir's snapshots; the client's
+    # table gives 345900. Either makes 346000 exp level 51.
+    ("CHARACTER_EXP_TABLE", 51): (346000, 345900),
 }
 COMBATANT_FIELDS = ("name", "grade", "class", "attribute", "base_atk",
                     "base_def", "base_hp", "base_crit_rate", "base_crit_dmg",
@@ -138,6 +153,228 @@ def _synthetic(overlay, characters, partners):
     return out
 
 
+def _tables(overlay):
+    """Complaints from synthetic exp and Affinity tables laid over."""
+    import game_data
+    from game_data import constants
+    from ui.tabs import materials_tab
+    out = []
+    tables = {name: getattr(constants, name)
+              for name in overlay.EXP_TABLES.values()}
+    tables["AFFINITY_TO_NEXT"] = constants.AFFINITY_TO_NEXT
+    tables["FRIENDSHIP_BONUSES"] = constants.FRIENDSHIP_BONUSES
+    before = {name: copy.copy(table) for name, table in tables.items()}
+    # Level n at 100 * (n - 1) exp, to 62 for combatants and 60 for
+    # partners, so every Materials target has its level; Affinity capped
+    # at 3, on 30 exp. Keys as JSON hands them back.
+    facts = {
+        "exp_tables": {"combatant": [100 * n for n in range(62)],
+                       "partner": [100 * n for n in range(60)]},
+        "affinity": {"to_next": {"1": 10, "2": 20},
+                     "bonuses": [[1, 0, 0, 0], [2, 1, 2, 3], [3, 4, 5, 6]]},
+    }
+    per = materials_tab.EXP_PER_TIER["Basic"]
+
+    def reset():
+        """The tables as typed with the shipped extract laid over, and
+        the overlay's own record of them to match: as the import left
+        them, which every other check expects."""
+        overlay._replaced.clear()
+        for name, table in tables.items():
+            if isinstance(table, dict):
+                table.clear()
+                table.update(overlay.hand(name))
+            else:
+                table[:] = overlay.hand(name)
+        overlay.apply(None)
+
+    try:
+        overlay.apply(facts)
+        if any(getattr(constants, name) is not table
+               for name, table in tables.items()) \
+                or game_data.CHARACTER_EXP_TABLE is not \
+                tables["CHARACTER_EXP_TABLE"]:
+            out.append("an overlay put a new object where an exp or "
+                       "Affinity table was: whoever imported the table "
+                       "keeps reading the hand one.")
+        readings = (
+            ("combatant level at 4950 exp", constants.get_level_from_exp(4950),
+             50),
+            ("combatant level past the top", constants.get_level_from_exp(
+                10 ** 7), 62),
+            ("partner level at 5900 exp",
+             constants.get_partner_level_from_exp(5900), 60),
+            ("Affinity at 30 exp, the cap", constants.affinity_level(30), 3),
+            ("Affinity at 10 exp", constants.affinity_level(10), 2),
+            ("the Affinity 3 bonus", constants.get_friendship_bonus(3),
+             (4, 5, 6)),
+            ("the Materials tab's Level 50 EXP target",
+             dict(materials_tab.COMBATANT_EXP_TARGETS).get("Level 50:"),
+             -(-4900 // per)),
+        )
+        for what, got, wanted in readings:
+            if got != wanted:
+                out.append(f"with the client's tables laid over, {what} "
+                           f"reads {got!r}, not {wanted!r}: a reader kept "
+                           f"the hand table, or a figure worked out from it.")
+        overlay.apply(None)
+        for name, table in tables.items():
+            if table != before[name]:
+                out.append(f"after a second apply, {name} is not what it "
+                           f"was before the first.")
+        overlay.apply({
+            "exp_tables": {"combatant": [0, 100, 50], "partner": [5, 10]},
+            "affinity": {"to_next": {"1": 10, "3": 30},
+                         "bonuses": [[1, 0, 0, 0], [3, 1, 1, 1]]},
+        })
+        for name, table in tables.items():
+            if table != before[name]:
+                out.append(f"a source whose {name} falls, starts above 0 or "
+                           f"skips a level was laid over the hand table.")
+        # Where no source lays a table again, what `apply` puts back
+        # shows: the hand table, and a change made since the overlay
+        # laid it must stay.
+        from game_data import from_client
+        shipped = from_client.AFFINITY
+        from_client.AFFINITY = {}
+        try:
+            overlay.apply(facts)
+            overlay.apply(None)
+            if tables["FRIENDSHIP_BONUSES"] != \
+                    overlay.hand("FRIENDSHIP_BONUSES"):
+                out.append("with no source left to lay it, the Affinity "
+                           "table kept an earlier overlay's rows rather "
+                           "than going back to the hand table.")
+            overlay.apply(facts)
+            tables["FRIENDSHIP_BONUSES"].append((4, 9, 9, 9))
+            overlay.apply(None)
+            if tables["FRIENDSHIP_BONUSES"][-1:] != [(4, 9, 9, 9)]:
+                out.append("apply put back an Affinity table someone else "
+                           "had changed since the overlay laid it.")
+        finally:
+            from_client.AFFINITY = shipped
+    finally:
+        reset()
+    return out
+
+
+class _Rows:
+    """Just enough of `game_client.Client` for the level readers."""
+
+    def __init__(self, tables):
+        self.tables = tables
+
+    def rows(self, name):
+        return self.tables.get(name, [])
+
+
+def _readers():
+    """Complaints from the exp and Affinity readers on synthetic tables.
+    A level missing below the top, grades that level apart, an Affinity
+    level missing, and combatants naming two bonus groups must each
+    leave that table out, so the hand one stands: read anyway, every
+    level above the break would read wrong."""
+    import game_client as gc
+    out = []
+
+    def exp(skip=None, apart=False):
+        rows = []
+        for level, step in ((1, 100), (2, 200), (3, 300), (4, -1)):
+            if level != skip:
+                row = {"level": str(level)}
+                row.update({column: str(step) for names
+                            in gc.EXP_COLUMNS.values() for column in names})
+                rows.append(row)
+        if apart:
+            rows[1][gc.EXP_COLUMNS["combatant"][1]] = "250"
+        return _Rows({gc.EXP_TABLE: rows})
+
+    clean = [0, 100, 300, 600]
+    for what, client, wanted in (
+            ("a clean table", exp(), {"combatant": clean,
+                                      "partner": clean}),
+            ("a level missing", exp(skip=2), {}),
+            ("a combatant grade levelling apart", exp(apart=True),
+             {"partner": clean})):
+        if gc.exp_tables(client) != wanted:
+            out.append(f"on {what}, `game_client.exp_tables` reads "
+                       f"{gc.exp_tables(client)}, not {wanted}.")
+
+    def affinity(levels, groups):
+        base = [{"id": str(1001 + i), "char_use_playable": "YES"}
+                for i in range(len(groups))]
+        combat = [{"id": str(1001 + i), gc.AFFINITY_GROUP: group}
+                  for i, group in enumerate(groups)]
+        bonus = [{"group": "g", "level": "2",
+                  "stat0_link_stat_list_id": "S_ATK_INC_ADD_OUT",
+                  "stat0_value": "3", "stat1_link_stat_list_id": "none",
+                  "stat1_value": "-1"}]
+        return _Rows({gc.AFFINITY_LEVEL_TABLE: [
+            {"id": str(level), "exp": str(exp)} for level, exp in levels],
+            "char_base@char_base": base,
+            "char_base@char_combatant": combat,
+            gc.AFFINITY_BONUS_TABLE: bonus})
+
+    whole = ((1, 10), (2, 20), (3, -1))
+    for what, client, wanted in (
+            ("a clean table", affinity(whole, ["g"]),
+             {"to_next": {1: 10, 2: 20},
+              "bonuses": [(1, 0, 0, 0), (2, 3, 0, 0)]}),
+            ("an Affinity level missing",
+             affinity(((1, 10), (3, 30), (4, -1)), ["g"]),
+             {"bonuses": [(1, 0, 0, 0), (2, 3, 0, 0)]}),
+            ("two bonus groups", affinity(whole, ["g", "h"]),
+             {"to_next": {1: 10, 2: 20}})):
+        if gc.affinity(client) != wanted:
+            out.append(f"on {what}, `game_client.affinity` reads "
+                       f"{gc.affinity(client)}, not {wanted}.")
+    return out
+
+
+def _installed_tables(client, seen_known):
+    """Complaints from the installed client's exp and Affinity tables
+    against the hand tables."""
+    import game_client
+    from game_data.client_overlay import EXP_TABLES, hand
+    out = []
+    tables = game_client.exp_tables(client)
+    for kind, name in EXP_TABLES.items():
+        theirs = tables.get(kind)
+        if not theirs:
+            out.append(f"the client's {kind} exp was not read, its grades' "
+                       f"columns disagreeing or stopping short, so {name} "
+                       f"stands as typed (`game_client.exp_tables`).")
+            continue
+        for exp, level in hand(name):
+            there = theirs[level - 1] if level <= len(theirs) else None
+            if there == exp:
+                continue
+            if KNOWN_LEVELS.get((name, level)) == (exp, there):
+                seen_known.append(f"{name} level {level}")
+                continue
+            out.append(f"{name}: level {level} is reached at {exp} here, "
+                       f"{there} in the client. The program now uses the "
+                       f"client's; settle which is right "
+                       f"(`docs/client_tables.py --audit`).")
+        top = max(level for _exp, level in hand(name))
+        if len(theirs) > top:
+            note(f"the client's {kind} levels go past {name}'s top, {top}, "
+                 f"to {len(theirs)}: the program uses the client's")
+    held = game_client.affinity(client)
+    for name, key in (("AFFINITY_TO_NEXT", "to_next"),
+                      ("FRIENDSHIP_BONUSES", "bonuses")):
+        theirs, ours = held.get(key), hand(name)
+        if key == "bonuses":
+            theirs = [tuple(row) for row in theirs or ()]
+            ours = [tuple(row) for row in ours]
+        if theirs != ours:
+            out.append(f"{name} as typed is not the client's Affinity table "
+                       f"(`game_client.affinity`): the program now uses the "
+                       f"client's, where it reads one. Settle which is right "
+                       f"(`docs/client_tables.py --audit`).")
+    return out
+
+
 def _installed(characters, partners):
     """Complaints from the installed client's facts against the hand
     tables."""
@@ -197,6 +434,7 @@ def _installed(characters, partners):
             out.append(f"partner {pid} {ours.get('name')}: level-60 stats are "
                        f"{hand_s.get(pair)} for {pair} in PARTNER_CLASS_STATS, "
                        f"{theirs.get('level_60')} in the client.")
+    out += _installed_tables(client, seen_known)
     if seen_known:
         note(f"awaiting the maintainer, the client's taken: "
              f"{', '.join(seen_known)}")
@@ -208,5 +446,7 @@ def run():
     from game_data import client_overlay
     from game_data import characters, partners
     failures = _synthetic(client_overlay, characters, partners)
+    failures += _tables(client_overlay)
+    failures += _readers()
     failures += _installed(characters, partners)
     return failures

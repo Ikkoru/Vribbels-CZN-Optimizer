@@ -110,14 +110,14 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
 - **T24 — The game client as the source of the program's game data, the hand tables its fallback.** The maintainer's call: every family below. Each is read the way the launch facts are (`docs/client_data.md`): this client's read, cached per build; the last cache of an earlier build where this one will not read; the shipped extract (`game_data/from_client.py`); and last, the hand table it replaces, kept as the fallback. Where the server has said otherwise, the server still wins (`game_data.learned`).
 
-  - **A family switches only once its derivation reproduces the hand table**, `docs/client_tables.py --audit` extended to it, the disagreements settled by the maintainer first: a hand figure can be the newer.
-  - **The order**, the work a patch costs by hand first:
-    1. Combatants (`characters.py`: names, classes, attributes, stats) from `char_base@char_base`, `@char_combatant`, `@combatant_level`, `@combatant_ascend`; partners (`partners.py`, `PARTNER_CLASS_STATS`) from `partner_base@char_partner`, `@partner_level`, `partner_passive@partner_passive`. `--audit` already reproduces every combatant's level-60 stats but Haru's, and compares the passives.
-    2. Banners and pools (`gacha_history`: `RELEASE_BANNERS`, `RERUN_BANNERS`, `POOL_LABELS`) from `gacha_list`, `gacha_pool`, `gacha_type`, `gacha_pity`; season names and dates (`stats_history.RIFT_CODENAMES`, `SEASON_ESTIMATE`'s days, `chaos_estimate.CHAOS_NAMES`) from `disaster_season`, `disaster_season_end`, `chaos@chaos`.
-    3. EXP (`CHARACTER_EXP_TABLE`, `PARTNER_EXP_TABLE`) from `char_growth@char_exp` and `partner_base@partner_level`; Affinity (`FRIENDSHIP_BONUSES`, `AFFINITY_TO_NEXT`) from `combatant_friendship_bonus` and `friendship_level`; Memory Fragment main stats and slot options (`MAIN_STAT_VALUES`, `SLOT_MAIN_STATS`) from `piece_option`, `piece_reinforce`, `equip_stat_define`.
-    4. Item rarities and icons (the `ITEM_TABLES`) from the `item_*@item` tables; shops (`shop_stock.SHOPS`) from `shop_product`, `shop_schedule`, `disaster_shop_product`; Zero System specials (`chaos_estimate.ZERO_SPECIALS`) from `zero_orb_special`; classes (`CLASSES`) from `base_class_define`. Potential node 7 and the set figures are already held to the client both ways (`check_set_wordings`); their hand wording stays.
+  - **A family switches once its derivation reproduces the hand table**, `docs/client_tables.py --audit` extended to it. A disagreement left takes the client's figure, its check noting it until the maintainer settles which is right: a hand figure can be the newer.
+  - **Done**: combatants and partners; the Chaos names, Zero System specials and Normal Rescue pool; the exp and Affinity tables. `plan_t24.md` has what each found.
+  - **Left**, the work a patch costs by hand first:
+    1. Memory Fragment main stats and slot options (`MAIN_STAT_VALUES`, `SLOT_MAIN_STATS`) from `piece_option`, `piece_reinforce`, `equip_stat_define`.
+    2. Item rarities and icons (the `ITEM_TABLES`) from the `item_*@item` tables; shops (`shop_stock.SHOPS`) from `shop_product`, `shop_schedule`, `disaster_shop_product`; classes (`CLASSES`) from `base_class_define`. Potential node 7 and the set figures are already held to the client both ways (`check_set_wordings`); their hand wording stays.
+  - **Not in the client**: a banner's or a season's dates, which the server sends, and `stats_history.RIFT_CODENAMES`, the maintainer's names for a Great Rift's parts.
   - **Stays the program's own**: what the client does not hold as a value: Chaos run payouts (`chaos_estimate.SHIPPED`, from captures), leaderboard tops, and the UI's tables.
-  - Families 2–4 name the client tables found for them, not yet compared with the program's.
+  - The families left name the client tables found for them, not yet compared with the program's.
 
 ---
 

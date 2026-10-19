@@ -1,9 +1,10 @@
 """The game client's facts, laid over the hand tables.
 
 What the client states of a combatant or a partner wins over what
-`characters.py` and `partners.py` type by hand; the hand tables are the
-fallback, for whatever the client does not hold. The order, the first
-that knows a fact winning (`docs/client_data.md`):
+`characters.py` and `partners.py` type by hand, and its exp to each
+level and each Affinity level over `constants.py`'s tables; the hand
+tables are the fallback, for whatever the client does not hold. The
+order, the first that knows a fact winning (`docs/client_data.md`):
 
 1. this machine's client read (`game_client.use`): the read of this
    build, its cache, or the last cache of an earlier build;
@@ -17,9 +18,11 @@ The server's own readings still go over all three where they exist
 
 **Laid over in place.** The tables are read in many places, every one
 holding the same dict, so the facts are written into it field by field;
-`apply` first puts back every field and entry an earlier `apply` laid
-down, then lays down the sources again, so it can run any number of
-times and a field nothing laid over is never touched.
+an exp or Affinity table, which the client gives whole, has its
+contents swapped inside the same list or dict. `apply` first puts back
+every field, entry and table an earlier `apply` laid down, then lays
+down the sources again, so it can run any number of times and a field
+nothing laid over is never touched.
 
 **What stays the program's own** in an entry the client fills: what the
 client holds no value for -- a partner's conditional effects
@@ -38,15 +41,22 @@ import copy
 import re
 
 from .characters import CHARACTERS, CHARACTERS_BY_NAME, DEFAULT_CHARACTER
+from .constants import (AFFINITY_TO_NEXT, CHARACTER_EXP_TABLE,
+                        FRIENDSHIP_BONUSES, PARTNER_EXP_TABLE)
 from .partners import DEFAULT_PARTNER, PARTNERS, PARTNER_CLASS_STATS
 
+_TABLES = {"CHARACTERS": CHARACTERS, "PARTNERS": PARTNERS,
+           "PARTNER_CLASS_STATS": PARTNER_CLASS_STATS,
+           "CHARACTER_EXP_TABLE": CHARACTER_EXP_TABLE,
+           "PARTNER_EXP_TABLE": PARTNER_EXP_TABLE,
+           "AFFINITY_TO_NEXT": AFFINITY_TO_NEXT,
+           "FRIENDSHIP_BONUSES": FRIENDSHIP_BONUSES}
 # The hand tables as typed, before anything is laid over them: what the
 # validator checks and the audit holds the client against.
-_HAND = {"CHARACTERS": copy.deepcopy(CHARACTERS),
-         "PARTNERS": copy.deepcopy(PARTNERS),
-         "PARTNER_CLASS_STATS": copy.deepcopy(PARTNER_CLASS_STATS)}
-_TABLES = {"CHARACTERS": CHARACTERS, "PARTNERS": PARTNERS,
-           "PARTNER_CLASS_STATS": PARTNER_CLASS_STATS}
+_HAND = copy.deepcopy(_TABLES)
+# Each exp table by the kind `game_client.exp_tables` names it.
+EXP_TABLES = {"combatant": "CHARACTER_EXP_TABLE",
+              "partner": "PARTNER_EXP_TABLE"}
 
 # The fields the client fills, where it states them.
 COMBATANT_FIELDS = ("name", "grade", "class", "attribute", "base_atk",
@@ -64,11 +74,14 @@ _MISSING = object()
 _saved = {}
 # (table, key) of every entry an overlay added.
 _added = []
+# table -> (what it held before the first overlay that replaced it, what
+# the last one laid down), for the tables the client gives whole.
+_replaced = {}
 
 
 def hand(name):
-    """A table as typed by hand: CHARACTERS, PARTNERS or
-    PARTNER_CLASS_STATS. Never laid over; never change it."""
+    """A table as typed by hand, by its name in `_TABLES`. Never laid
+    over; never change it."""
     return _HAND[name]
 
 
@@ -91,8 +104,30 @@ def _add(name, key, entry):
     _added.append((name, key))
 
 
+def _fill(table, contents):
+    """Swap `table`'s contents for `contents`, keeping the object every
+    importer holds."""
+    if isinstance(table, dict):
+        table.clear()
+        table.update(contents)
+    else:
+        table[:] = contents
+
+
+def _replace(name, contents):
+    table = _TABLES[name]
+    before = _replaced[name][0] if name in _replaced else copy.copy(table)
+    _fill(table, contents)
+    _replaced[name] = (before, copy.copy(table))
+
+
 def _undo():
-    """Put back every field and entry an overlay laid down."""
+    """Put back every field, entry and table an overlay laid down."""
+    for name, (before, laid) in _replaced.items():
+        # Changed since by someone else: theirs, and left alone.
+        if _TABLES[name] == laid:
+            _fill(_TABLES[name], before)
+    _replaced.clear()
     for (name, key, field), old in _saved.items():
         table = _TABLES[name]
         if field is None:
@@ -207,6 +242,41 @@ def _partners(facts):
             _set("PARTNER_CLASS_STATS", pair, None, seen[0])
 
 
+def _ints(values):
+    return all(isinstance(v, int) and not isinstance(v, bool) for v in values)
+
+
+def _exp(tables):
+    """Each exp table the client gives, as (exp, level) rows from level
+    1: thresholds that start at 0 and never fall. Anything else is left
+    to the hand table."""
+    for kind, name in EXP_TABLES.items():
+        reached = (tables or {}).get(kind)
+        if (isinstance(reached, (list, tuple)) and len(reached) > 1
+                and _ints(reached) and reached[0] == 0
+                and all(a <= b for a, b in zip(reached, reached[1:]))):
+            _replace(name, [(exp, level)
+                            for level, exp in enumerate(reached, 1)])
+
+
+def _affinity(held):
+    """Affinity's exp to each next level, and its bonuses, where each
+    runs unbroken from level 1."""
+    held = held or {}
+    to_next = {}
+    for level, exp in (held.get("to_next") or {}).items():
+        if str(level).isdigit() and isinstance(exp, int) and exp > 0:
+            to_next[int(level)] = exp
+    if to_next and sorted(to_next) == list(range(1, len(to_next) + 1)):
+        _replace("AFFINITY_TO_NEXT", to_next)
+    bonuses = [tuple(row) for row in held.get("bonuses") or ()
+               if isinstance(row, (list, tuple)) and len(row) == 4
+               and _ints(row)]
+    if len(bonuses) > 1 and [row[0] for row in bonuses] == \
+            list(range(1, len(bonuses) + 1)):
+        _replace("FRIENDSHIP_BONUSES", bonuses)
+
+
 def _rebuild_by_name():
     CHARACTERS_BY_NAME.clear()
     CHARACTERS_BY_NAME.update({data["name"]: data
@@ -222,8 +292,12 @@ def apply(facts=None):
     from . import from_client
     _undo()
     for source in ({"combatants": getattr(from_client, "COMBATANTS", {}),
-                    "partners": getattr(from_client, "PARTNERS", {})},
+                    "partners": getattr(from_client, "PARTNERS", {}),
+                    "exp_tables": getattr(from_client, "EXP_TABLES", {}),
+                    "affinity": getattr(from_client, "AFFINITY", {})},
                    facts or {}):
         _combatants(source.get("combatants") or {})
         _partners(source.get("partners") or {})
+        _exp(source.get("exp_tables"))
+        _affinity(source.get("affinity"))
     _rebuild_by_name()

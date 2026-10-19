@@ -889,10 +889,6 @@ class OptimizerGUI:
         self.preset_manager.load()
         self.character_preset_manager = CharacterPresetManager(program_dir)
         self.character_preset_manager.load()
-        # Level data manager: stores user-confirmed (exp, level) checkpoints
-        # and rewrites constants._active_*_exp_table so all level lookups
-        # see the augmented values. Must be applied BEFORE the optimizer
-        # builds character info (which calls get_level_from_exp).
         # Optimizer settings manager: per-character optimizer-tab state
         # (Important Settings sliders, Have at Least minimums, selected
         # sets, set-effect %, Average Buff fields, etc). Keyed by res_id

@@ -18,8 +18,9 @@ from ._harness import SOURCE_ROOT, add_source_to_path, newest_snapshot, note
 
 NAME = "Affinity is the level, not the rewards claimed"
 
-# (exp, level), read in game by the maintainer.
-READ = ((10340, 33), (10430, 34))
+# (exp, level), read in game by the maintainer; and the exp every
+# combatant at the cap holds.
+READ = ((10340, 33), (10430, 34), (14000, 40))
 
 
 def _snapshots():
@@ -86,10 +87,9 @@ def _sheets_follow_the_level(snaps):
 
 def run():
     add_source_to_path()
-    from game_data.constants import (AFFINITY_CAP, AFFINITY_CAP_EXP,
-                                     affinity_level)
+    from game_data.constants import affinity_level
     out = []
-    for exp, level in READ + ((AFFINITY_CAP_EXP, AFFINITY_CAP),):
+    for exp, level in READ:
         if affinity_level(exp) != level:
             out.append(f"exp {exp} reads Affinity {affinity_level(exp)}, "
                        f"where the game says {level}.")

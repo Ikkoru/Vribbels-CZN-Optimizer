@@ -6,13 +6,17 @@ doesn't live on individual characters / partners / fragments:
 
   - Experience -> level tables for characters and partners (CHARACTER_EXP_TABLE,
     PARTNER_EXP_TABLE) plus the get_level_from_exp / get_partner_level_from_exp
-    helpers. Both tables have firm and estimated entries; provenance is
-    annotated at each table.
+    helpers. Provenance is annotated at each table.
 
   - Affinity reward bonuses (FRIENDSHIP_BONUSES)
     and the closed-form get_friendship_bonus extrapolation. Each entry
     is the cumulative TOTAL (ATK, DEF, HP) at that level, NOT the
     increment.
+
+    The game client's tables replace the contents of the three above,
+    and of AFFINITY_TO_NEXT, at launch (`client_overlay`); as typed
+    here they are the fallback, and what `docs/client_tables.py
+    --audit` holds the client against.
 
   - Equipment slot definitions (EQUIPMENT_SLOTS / SLOT_ORDER) and rarity
     tables (RARITY, RARITY_COLORS, RARITY_BG_COLORS, RARITY_ICONS,
@@ -106,17 +110,18 @@ CHARACTER_EXP_TABLE = [
 #               (1800, 10)   — Zatera at promotion 0/5, in-game level 10
 #               (36300, 30)  — Raidel at promotion 2/5, in-game level 30
 #               (346000, 60) — every max-level partner
-#   estimated:  the level-5 / -15 / -20 / -25 / -55 rows
+#   the client: the level-5 / -15 / -20 / -25 / -55 rows, from its
+#               `char_growth@char_exp`
 #
 # **Levels 31-50 are the game's own per-level costs, accumulated.**
 # Read off the promotion screen one level at a time and summed from
 # the confirmed level-30 threshold, which lands on 93500 at level 40
 # and 181000 at level 50 -- both independently confirmed from
 # captures. Two anchors reached by arithmetic is what makes the run
-# trustworthy, and it retired estimates that were 6700 and 14000 low.
+# trustworthy.
 PARTNER_EXP_TABLE = [
-    (0, 1), (100, 2), (1000, 5), (1800, 10), (12000, 15),
-    (20000, 20), (28000, 25), (36300, 30),
+    (0, 1), (100, 2), (500, 5), (1800, 10), (4600, 15),
+    (8200, 20), (17200, 25), (36300, 30),
     (41400, 31), (46700, 32), (52100, 33), (57600, 34), (63300, 35),
     (69100, 36), (75000, 37), (81000, 38), (87200, 39), (93500, 40),
     (100000, 41), (107000, 42), (114500, 43), (122500, 44), (131000, 45),
@@ -885,17 +890,22 @@ AFFINITY_TO_NEXT = {
     **{level: 400 for level in range(20, 30)},
     **{level: 600 for level in range(30, 40)},
 }
-AFFINITY_CAP = 40
-AFFINITY_CAP_EXP = 14000    # the exp a combatant at the cap holds
 
 
 def affinity_level(exp: int, claimed: int = 0) -> int:
     """The Affinity level `exp` reaches. Should the table ever stop short
     of level 1, below its lowest level the rewards `claimed` -- never
-    more than the level -- stand in for it."""
-    threshold, level = AFFINITY_CAP_EXP, AFFINITY_CAP
+    more than the level -- stand in for it.
+
+    The cap is the level after the table's last, reached on every
+    level's exp summed. Both are worked out from the table on each call:
+    the game client's table replaces this one's contents at launch
+    (`client_overlay`), and a cap fixed here would stay the hand
+    table's."""
+    level = max(AFFINITY_TO_NEXT, default=0) + 1
+    threshold = sum(AFFINITY_TO_NEXT.values())
     if exp >= threshold:
-        return AFFINITY_CAP
+        return level
     while level - 1 in AFFINITY_TO_NEXT:
         level -= 1
         threshold -= AFFINITY_TO_NEXT[level]

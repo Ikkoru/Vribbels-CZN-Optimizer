@@ -21,8 +21,9 @@ finds. What each table holds, and what was checked against it, is
 whose client the program cannot read sees instead: run it after a
 patch, before a release, and review its diff.
 
-`--audit` prints every place `game_data`'s combatants, partners and
-item names disagree with the client, and the ones either side lacks:
+`--audit` prints every place `game_data`'s combatants, partners, item
+names, exp and Affinity tables disagree with the client, and the ones
+either side lacks:
 the tables are typed by hand, and a patch that rebalances one changes
 nothing there. It writes nothing; a disagreement is for the maintainer
 to settle, since the hand-typed figure can be the newer one.
@@ -54,7 +55,7 @@ from game_client import Client                                # noqa: E402
 
 SHIPPED = REPO / "Vribbels" / "game_data" / "from_client.py"
 
-SHIPPED_HEAD = '''"""Event names and totals, item names, Excursion types, daily tasks, set effects, Potential texts, combatants and partners, off the game client.
+SHIPPED_HEAD = '''"""What the program reads off the game client (`game_client`), as of the build it shipped with.
 
 Written by `python docs/client_tables.py --ship`, as of the game build
 `BUILD`; never edited by hand. What a player's own client says wins
@@ -155,8 +156,39 @@ def shipped_source(client):
     lines += ["}", "",
               "# The Normal Rescues' 5-stars. See game_client.general_units.",
               f"GENERAL_UNITS = {ascii(game_client.general_units(client))}",
-              ""]
+              "",
+              "# {kind: the exp to reach each level, from level 1}. See",
+              "# game_client.exp_tables; game_data.client_overlay lays it "
+              "over",
+              "# CHARACTER_EXP_TABLE and PARTNER_EXP_TABLE.",
+              "EXP_TABLES = {"]
+    for kind, reached in sorted(
+            game_client.exp_tables(client).items()):
+        lines.append(f"    {ascii(kind)}: [")
+        lines += _rows([str(exp) for exp in reached])
+        lines.append("    ],")
+    held = game_client.affinity(client)
+    lines += ["}", "",
+              "# Affinity: the exp from each level to the next, and the "
+              "bonuses",
+              "# to each level. See game_client.affinity; laid over",
+              "# AFFINITY_TO_NEXT and FRIENDSHIP_BONUSES.",
+              "AFFINITY = {",
+              "    'to_next': {"]
+    lines += _rows([f"{level}: {exp}" for level, exp
+                    in sorted(held.get("to_next", {}).items())])
+    lines += ["    },", "    'bonuses': ["]
+    lines += [f"        {tuple(row)}," for row in held.get("bonuses", [])]
+    lines += ["    ],", "}", ""]
     return "\n".join(lines)
+
+
+def _rows(items, per=10):
+    """`items` as the lines of a literal, `per` to a line: a long table
+    on a single line hides a patch's change in the diff `--ship` asks
+    to be reviewed."""
+    return ["        " + ", ".join(items[i:i + per]) + ","
+            for i in range(0, len(items), per)]
 
 
 # Each rescue pool of `gacha_history`'s, by the banner type the client
@@ -292,14 +324,7 @@ def audit(client):
                        f"{texts.get(f'char_base@name@{rid}')}: in the "
                        f"client, not in game_data/characters.py")
 
-    # Affinity's exp from each level to the next; the cap's row is -1.
-    from game_data.constants import AFFINITY_TO_NEXT
-    exp = {int(r["id"]): int(r["exp"])
-           for r in client.rows("friendship_level@friendship_level")
-           if r.get("id", "").isdigit() and int(r.get("exp") or -1) > 0}
-    if exp != AFFINITY_TO_NEXT:
-        out.append(f"Affinity: exp to the next level is "
-                   f"{AFFINITY_TO_NEXT} here, {exp} in the client")
+    out += level_problems(client)
 
     partner = {r["id"]: r for r in client.rows("partner_base@char_partner")}
     cards = {r["id"]: r for r in client.rows("card(partner)@card")}
@@ -412,6 +437,85 @@ def audit(client):
     out += set_changes(from_client.SET_EFFECTS, effects)
     out += potential_7_problems(client)
     out += node_51_problems(client)
+    return out
+
+
+# The column naming a combatant's own Affinity rows, beside the group
+# they all share. They hold special rewards; a stat in one is what
+# FRIENDSHIP_BONUSES, one table for every combatant, cannot hold.
+OWN_AFFINITY_ROWS = "extend_link_combatant_friendship_bonus_id"
+
+
+def level_problems(client):
+    """Where the exp and Affinity tables as typed (`game_data.constants`)
+    and the client's disagree: a level reached at another exp, a level
+    only one side has, and what the program could not hold -- a kind
+    whose grades level apart, or a combatant's own Affinity row that
+    adds a stat."""
+    from game_data.client_overlay import EXP_TABLES, hand
+    out = []
+    columns = game_client.exp_columns(client)
+    tables = game_client.exp_tables(client)
+    for kind, name in EXP_TABLES.items():
+        theirs = tables.get(kind)
+        if theirs is None:
+            unread = [column for column in game_client.EXP_COLUMNS[kind]
+                      if not columns.get(column)]
+            out.append(f"{name}: not read off the client, whose grades' "
+                       f"columns disagree (unreadable: {unread or 'none'}); "
+                       f"the hand table stands")
+            continue
+        ours = {level: exp for exp, level in hand(name)}
+        for level, exp in sorted(ours.items()):
+            if level > len(theirs):
+                out.append(f"{name}: level {level} at {exp} here, past the "
+                           f"client's top level, {len(theirs)}")
+            elif theirs[level - 1] != exp:
+                out.append(f"{name}: level {level} is reached at {exp} here, "
+                           f"{theirs[level - 1]} in the client")
+        top = max(ours)
+        if len(theirs) > top:
+            beyond = ", ".join(f"{level} at {theirs[level - 1]}"
+                               for level in range(top + 1, len(theirs) + 1))
+            out.append(f"{name}: the client's levels past this table's top, "
+                       f"{top}: {beyond}")
+
+    held = game_client.affinity(client)
+    for name, key in (("AFFINITY_TO_NEXT", "to_next"),
+                      ("FRIENDSHIP_BONUSES", "bonuses")):
+        theirs = held.get(key)
+        if theirs is None:
+            out.append(f"{name}: not read off the client (a level missing, "
+                       f"or its combatants name more than one bonus group); "
+                       f"the hand table stands")
+            continue
+        if key == "to_next":
+            ours = hand(name)
+        else:
+            ours = {row[0]: tuple(row[1:]) for row in hand(name)}
+            theirs = {row[0]: tuple(row[1:]) for row in theirs}
+        apart = [(level, ours.get(level), theirs.get(level))
+                 for level in sorted(set(ours) | set(theirs))
+                 if ours.get(level) != theirs.get(level)]
+        if apart:
+            out.append(f"{name}: {len(apart)} level(s) differ; at "
+                       f"{apart[0][0]} {apart[0][1]} here, {apart[0][2]} in "
+                       f"the client")
+
+    rows = {r.get("id"): r
+            for r in client.rows(game_client.AFFINITY_BONUS_TABLE)}
+    for combatant in client.rows("char_base@char_combatant"):
+        for own in str(combatant.get(OWN_AFFINITY_ROWS) or "") \
+                .strip("[]").split(","):
+            row = rows.get(own.strip()) or {}
+            if any(game_client.PARTNER_FLAT_STATS.get(
+                    row.get(f"stat{i}_link_stat_list_id"))
+                   and (game_client._figure(row.get(f"stat{i}_value")) or 0) > 0
+                   for i in range(3)):
+                out.append(f"combatant {combatant.get('id')}: its own "
+                           f"Affinity row {own.strip()} adds a stat, which "
+                           f"FRIENDSHIP_BONUSES holds for every combatant "
+                           f"alike")
     return out
 
 

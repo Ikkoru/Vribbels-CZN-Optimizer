@@ -62,6 +62,7 @@ import time
 import tkinter as tk
 from tkinter import ttk
 from tkinter import font as tkfont
+from collections.abc import Sequence
 from pathlib import Path
 
 from typing import NamedTuple
@@ -185,11 +186,29 @@ def _exp_targets(table, levels):
     )
 
 
+class _LiveExpTargets(Sequence):
+    """`_exp_targets` of `table`, worked out each time it is read.
+
+    This machine's game client read replaces the exp tables' contents
+    at launch (`game_client.use`), after this module has loaded, so a
+    tuple worked out here would keep pricing the table as shipped.
+    """
+
+    def __init__(self, table, levels):
+        self._table, self._levels = table, levels
+
+    def __len__(self):
+        return len(self._levels)
+
+    def __getitem__(self, index):
+        return _exp_targets(self._table, self._levels)[index]
+
+
 # **A Partner has no level 61.** The row exists for Combatants because
 # `CHARACTER_EXP_TABLE` documents a level-61 checkpoint, and is absent
 # for Partners because `PARTNER_EXP_TABLE` ends at 60.
-COMBATANT_EXP_TARGETS = _exp_targets(CHARACTER_EXP_TABLE, (50, 60, 61))
-PARTNER_EXP_TARGETS = _exp_targets(PARTNER_EXP_TABLE, (50, 60))
+COMBATANT_EXP_TARGETS = _LiveExpTargets(CHARACTER_EXP_TABLE, (50, 60, 61))
+PARTNER_EXP_TARGETS = _LiveExpTargets(PARTNER_EXP_TABLE, (50, 60))
 
 
 # The ADVANCED potential materials, left to right as the row draws
