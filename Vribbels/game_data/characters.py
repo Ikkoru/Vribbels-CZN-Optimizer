@@ -479,8 +479,8 @@ CHARACTERS = {
         "base_hp": 336,
         "base_crit_rate": 3.0,
         "base_crit_dmg": 125.0,
-        "node_50": "CRate",
-        "node_60": "DEF%",
+        "node_50": "DEF%",
+        "node_60": "CRate",
     },
     30097: {
         "name": "Rita",

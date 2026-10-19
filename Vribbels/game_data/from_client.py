@@ -1966,9 +1966,10 @@ AFFINITY = {
 
 # Memory Fragment stats by stat id: each slot's main stats for a
 # Legendary (stat, level-0 value, each level-up's), every roll a
-# substat can give one, and each rarity's top level. See
+# substat can give one, each substat's weight in a new one's
+# draw, and each rarity's top level. See
 # game_client.fragment_stats; game_data.client_overlay lays the
-# mains over SLOT_MAIN_STATS.
+# mains over SLOT_MAIN_STATS and the draws over SUBSTAT_DRAW.
 FRAGMENT_STATS = {
     'mains': {
         1: [
@@ -2015,6 +2016,7 @@ FRAGMENT_STATS = {
         'S_ADDI_ATK_DMG_RATE_INC_ADD': [2.7, 2.8, 2.9, 3, 3.1, 3.2, 3.3, 3.4],
         'S_DOT_ATK_DMG_RATE_INC_ADD': [2.7, 2.8, 2.9, 3, 3.1, 3.2, 3.3, 3.4],
     },
+    'draws': {'S_ATK_INC_ADD_OUT': 100, 'S_DEF_INC_ADD_OUT': 100, 'S_HP_INC_ADD_OUT': 100, 'S_ATK_INC_RATE_OUT': 90, 'S_DEF_INC_RATE_OUT': 90, 'S_HP_INC_RATE_OUT': 90, 'S_CRI_INC_ADD': 70, 'S_CRI_DMG_RATE_INC_ADD': 70, 'S_CHARGING_POWER_INC_ADD': 70, 'S_ADDI_ATK_DMG_RATE_INC_ADD': 80, 'S_DOT_ATK_DMG_RATE_INC_ADD': 80},
     'max_levels': {1: 2, 2: 3, 3: 4, 4: 5, 5: 5},
 }
 

@@ -183,9 +183,10 @@ def shipped_source(client):
     fragments = game_client.fragment_stats(client)
     lines += ["# Memory Fragment stats by stat id: each slot's main stats for a",
               "# Legendary (stat, level-0 value, each level-up's), every roll a",
-              "# substat can give one, and each rarity's top level. See",
+              "# substat can give one, each substat's weight in a new one's",
+              "# draw, and each rarity's top level. See",
               "# game_client.fragment_stats; game_data.client_overlay lays the",
-              "# mains over SLOT_MAIN_STATS.",
+              "# mains over SLOT_MAIN_STATS and the draws over SUBSTAT_DRAW.",
               "FRAGMENT_STATS = {", "    'mains': {"]
     for slot, options in sorted(fragments["mains"].items()):
         lines.append(f"        {slot}: [")
@@ -195,6 +196,7 @@ def shipped_source(client):
     lines += [f"        {ascii(stat)}: {ascii(values)},"
               for stat, values in fragments["rolls"].items()]
     lines += ["    },",
+              f"    'draws': {ascii(fragments['draws'])},",
               f"    'max_levels': {ascii(fragments['max_levels'])},",
               "}", ""]
     rarities = {}
@@ -560,8 +562,8 @@ def fragment_problems(client):
     """Where the Memory Fragment tables as typed (`game_data.constants`)
     and the client's disagree: a slot's main stats, a main stat's
     Legendary ceiling as the game draws it, a substat's roll bounds, a
-    rarity's top level; and the substats' draw weights, which the
-    Potential math (`models.memory_fragment`) takes as all alike."""
+    rarity's top level; and the substats' draw weights (`SUBSTAT_DRAW`,
+    which the client's replace)."""
     from game_data.client_overlay import hand
     from game_data.constants import (MAIN_STAT_VALUES, MAX_LEVEL_PER_RARITY,
                                      STATS)
@@ -596,15 +598,12 @@ def fragment_problems(client):
         if held["max_levels"].get(tier) != level:
             out.append(f"rarity {tier}: top level {level} here, "
                        f"{held['max_levels'].get(tier)} in the client")
-    weights = {names.get(row.get("link_stat_list_id"),
-                         row.get("link_stat_list_id")):
-               game_client._figure(row.get("ratio"))
-               for row in client.rows(game_client.PIECE_OPTION_TABLE)
-               if row.get("group") == game_client.PIECE_ROLL_GROUP}
-    if len(set(weights.values())) > 1:
-        out.append(f"substats: the client draws a new one by weight "
-                   f"({', '.join(f'{n} {w}' for n, w in weights.items())}), "
-                   f"where the Potential math draws every one alike")
+    ours = hand("SUBSTAT_DRAW")
+    for stat in sorted(set(ours) | set(held["draws"])):
+        if ours.get(stat) != held["draws"].get(stat):
+            out.append(f"substat {names.get(stat, stat)}: drawn new at "
+                       f"weight {ours.get(stat)} here (SUBSTAT_DRAW), "
+                       f"{held['draws'].get(stat)} in the client")
     return out
 
 

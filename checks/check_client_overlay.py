@@ -40,20 +40,11 @@ from ._harness import add_source_to_path, note
 
 NAME = "the client's facts lay over the hand tables"
 
-# Differences the maintainer has yet to settle: (res_id, field). Noted
-# while they stay exactly that.
-KNOWN = {
-    # The client's tree gives Tiphera DEF% on node 50 and Crit Rate on
-    # node 60; characters.py has them the other way round.
-    (30084, "node_50"): ("CRate", "DEF%"),
-    (30084, "node_60"): ("DEF%", "CRate"),
-}
+# Differences the maintainer has yet to settle: (res_id, field) ->
+# (here, the client's). Noted while they stay exactly that.
+KNOWN = {}
 # The same for the exp tables: (table, level) -> (here, the client's).
-KNOWN_LEVELS = {
-    # constants.py's figure was read off Amir's snapshots; the client's
-    # table gives 345900. Either makes 346000 exp level 51.
-    ("CHARACTER_EXP_TABLE", 51): (346000, 345900),
-}
+KNOWN_LEVELS = {}
 COMBATANT_FIELDS = ("name", "grade", "class", "attribute", "base_atk",
                     "base_def", "base_hp", "base_crit_rate", "base_crit_dmg",
                     "node_50", "node_60")
@@ -166,16 +157,18 @@ def _tables(overlay):
     out = []
     tables = {name: getattr(constants, name)
               for name in overlay.EXP_TABLES.values()}
-    for name in ("AFFINITY_TO_NEXT", "FRIENDSHIP_BONUSES", "SLOT_MAIN_STATS"):
+    for name in ("AFFINITY_TO_NEXT", "FRIENDSHIP_BONUSES", "SLOT_MAIN_STATS",
+                 "SUBSTAT_DRAW"):
         tables[name] = getattr(constants, name)
     before = {name: copy.deepcopy(table) for name, table in tables.items()}
     # Level n at 100 * (n - 1) exp, to 62 for combatants and 60 for
     # partners, so every Materials target has its level; Affinity capped
     # at 3, on 30 exp; each slot's main stats in the reverse of the hand
-    # table's order, slot 4's with a stat the program has no name for.
-    # Keys as JSON hands them back.
+    # table's order, slot 4's with a stat the program has no name for;
+    # every substat drawn at weight 5. Keys as JSON hands them back.
     ids = {info[0]: stat for stat, info in constants.STATS.items()}
     slots = overlay.hand("SLOT_MAIN_STATS")
+    draws = {stat: 5 for stat, info in constants.STATS.items() if info[3] > 0}
     facts = {
         "exp_tables": {"combatant": [100 * n for n in range(62)],
                        "partner": [100 * n for n in range(60)]},
@@ -184,7 +177,7 @@ def _tables(overlay):
         "fragment_stats": {"mains": {
             str(slot): [[ids[name], 1, 1] for name in reversed(names)]
             + ([["S_PROBE_UNNAMED", 1, 1]] if slot == 4 else [])
-            for slot, names in slots.items()}},
+            for slot, names in slots.items()}, "draws": draws},
     }
     per = materials_tab.EXP_PER_TIER["Basic"]
 
@@ -229,6 +222,8 @@ def _tables(overlay):
             ("slot 4's main stats, in the client's order, a stat with no "
              "name left out", constants.SLOT_MAIN_STATS.get(4),
              list(reversed(slots[4]))),
+            ("the substats' draw weights", dict(constants.SUBSTAT_DRAW),
+             draws),
         )
         for what, got, wanted in readings:
             if got != wanted:
@@ -246,13 +241,15 @@ def _tables(overlay):
                          "bonuses": [[1, 0, 0, 0], [3, 1, 1, 1]]},
             "fragment_stats": {"mains": {
                 key: options for key, options
-                in facts["fragment_stats"]["mains"].items() if key != "6"}},
+                in facts["fragment_stats"]["mains"].items() if key != "6"},
+                "draws": {stat: share for stat, share in draws.items()
+                          if stat != "S_CRI_INC_ADD"}},
         })
         for name, table in tables.items():
             if table != before[name]:
                 out.append(f"a source whose {name} falls, starts above 0, "
-                           f"skips a level or lacks a slot was laid over "
-                           f"the hand table.")
+                           f"skips a level or lacks a slot or a substat "
+                           f"was laid over the hand table.")
         # Where no source lays a table again, what `apply` puts back
         # shows: the hand table, and a change made since the overlay
         # laid it must stay.
@@ -360,7 +357,7 @@ def _readers():
             {"group": "main_piece_1", "link_stat_list_id": "S_DEF_INC_ADD_OUT",
              "legend_value": "[1,2]", "legend_reinforce_value": "[2]"},
             {"group": gc.PIECE_ROLL_GROUP, "link_stat_list_id": "S_CRI_INC_ADD",
-             "legend_value": "[1.2,1.3]"},
+             "legend_value": "[1.2,1.3]", "ratio": "70"},
             {"group": gc.PIECE_ROLL_GROUP,
              "link_stat_list_id": "S_HP_INC_ADD_OUT", "legend_value": "[x]"}],
         gc.PIECE_LEVEL_TABLE: [{"id": "reinforce_legend_0"},
@@ -368,6 +365,7 @@ def _readers():
                                {"id": "reinforce_rare_4"}, {"id": "other"}]})
     wanted = {"mains": {1: [["S_ATK_INC_ADD_OUT", 12, 2]]},
               "rolls": {"S_CRI_INC_ADD": [1.2, 1.3]},
+              "draws": {"S_CRI_INC_ADD": 70},
               "max_levels": {4: 5, 3: 4}}
     if gc.fragment_stats(pieces) != wanted:
         out.append(f"on synthetic Memory Fragment options, "
@@ -513,6 +511,11 @@ def _installed_fragments(client):
             out.append(f"rarity {tier} tops out at level {level} in "
                        f"MAX_LEVEL_PER_RARITY, "
                        f"{held['max_levels'].get(tier)} in the client.")
+    if held["draws"] != hand("SUBSTAT_DRAW"):
+        out.append(f"the client draws new substats by {held['draws']}, "
+                   f"constants.SUBSTAT_DRAW by {hand('SUBSTAT_DRAW')}. The "
+                   f"Potential math now uses the client's; settle which is "
+                   f"right.")
     return out
 
 

@@ -44,7 +44,7 @@ import re
 from .characters import CHARACTERS, CHARACTERS_BY_NAME, DEFAULT_CHARACTER
 from .constants import (AFFINITY_TO_NEXT, CHARACTER_EXP_TABLE,
                         FRIENDSHIP_BONUSES, PARTNER_EXP_TABLE,
-                        SLOT_MAIN_STATS, SLOT_ORDER, STATS)
+                        SLOT_MAIN_STATS, SLOT_ORDER, STATS, SUBSTAT_DRAW)
 from .partners import DEFAULT_PARTNER, PARTNERS, PARTNER_CLASS_STATS
 
 _TABLES = {"CHARACTERS": CHARACTERS, "PARTNERS": PARTNERS,
@@ -53,7 +53,8 @@ _TABLES = {"CHARACTERS": CHARACTERS, "PARTNERS": PARTNERS,
            "PARTNER_EXP_TABLE": PARTNER_EXP_TABLE,
            "AFFINITY_TO_NEXT": AFFINITY_TO_NEXT,
            "FRIENDSHIP_BONUSES": FRIENDSHIP_BONUSES,
-           "SLOT_MAIN_STATS": SLOT_MAIN_STATS}
+           "SLOT_MAIN_STATS": SLOT_MAIN_STATS,
+           "SUBSTAT_DRAW": SUBSTAT_DRAW}
 # The hand tables as typed, before anything is laid over them: what the
 # validator checks and the audit holds the client against.
 _HAND = copy.deepcopy(_TABLES)
@@ -282,9 +283,11 @@ def _affinity(held):
 
 def _fragments(held):
     """The main stats each slot carries, by the client's stat ids in
-    `STATS`' names. A stat `STATS` lacks is left out, the program having
-    no name or roll for it; a slot left with none, or missing, leaves
-    the hand table standing whole."""
+    `STATS`' names, and each substat's weight in a new one's draw. A
+    stat `STATS` lacks is left out, the program having no name or roll
+    for it; a slot left with none, or missing, leaves the hand table
+    standing whole, and so does a set of draw weights that is not one
+    for every substat `STATS` rolls."""
     mains = (held or {}).get("mains") or {}
     slots = {}
     for slot, options in mains.items():
@@ -294,6 +297,14 @@ def _fragments(held):
                                 and option and option[0] in STATS]
     if sorted(slots) == sorted(SLOT_ORDER) and all(slots.values()):
         _replace("SLOT_MAIN_STATS", slots)
+    # The draw weights only whole: one substat missing would leave it to
+    # the Potential math's default weight beside the client's others.
+    draws = (held or {}).get("draws") or {}
+    rolled = {stat for stat, info in STATS.items() if info[3] > 0}
+    if set(draws) == rolled and all(
+            isinstance(share, (int, float)) and not isinstance(share, bool)
+            and share > 0 for share in draws.values()):
+        _replace("SUBSTAT_DRAW", dict(draws))
 
 
 def _rebuild_by_name():

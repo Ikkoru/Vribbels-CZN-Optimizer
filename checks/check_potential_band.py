@@ -8,8 +8,9 @@ as a plausible band:
 1. **An added substat's rolls are convolved once per draw, the
    existing substats' once per band** (`_added_then_rest`), by splitting
    the later level-ups binomially between the two. Held bin for bin
-   against the plain mixture over every draw of its whole sum: one
-   substat to add, two, and none of its own that rolls.
+   against the plain mixture over every draw of its whole sum, each draw
+   at its chance by the substats' draw weights: one substat to add, two,
+   and none of its own that rolls.
 2. **The Highest Potential column tries presets ceiling first and stops
    early** (`best_potential`), since a band's top never passes its
    ceiling. Held against working out every preset's band, on presets
@@ -17,10 +18,14 @@ as a plausible band:
    stops the search, and a tie -- which goes to the higher ceiling,
    then to the preset listed first.
 
+A third keeps the shortcuts honest across a client read: **a cached band
+is keyed by the draw weights too**, so one worked out under the shipped
+weights is not served once the client's replace them.
+
 How close a band is to the game's outcomes is `check_potential_mean`'s.
 """
 
-from itertools import combinations
+from itertools import combinations, permutations
 
 from ._harness import add_source_to_path
 
@@ -56,18 +61,26 @@ def _fragment(level, substats, res_id=1014101):
                                      "level": level, "stat_list": stats})
 
 
-def _per_draw(existing, pool, added, rest):
-    """Every draw alike: its first rolls, then `rest` level-ups each on
-    one of all its substats alike."""
+def _per_draw(existing, pool, added, rest, shares):
+    """Every draw at its chance -- each pick one of the stats left, by
+    its share among them -- with its first rolls, then `rest` level-ups
+    each on one of all its substats alike."""
     from models.memory_fragment import _blend, _convolve, _dist, _power
-    draws = list(combinations(pool, added))
+
+    def chance(order):
+        out, left = 1.0, list(range(len(pool)))
+        for i in order:
+            out *= shares[i] / sum(shares[j] for j in left)
+            left.remove(i)
+        return out
+
     parts = []
-    for chosen in draws:
+    for chosen in combinations(range(len(pool)), added):
         first = (0, [1.0])
-        for grid in chosen:
-            first = _convolve(first, _dist([grid]))
-        grids = existing + list(chosen)
-        parts.append((1.0 / len(draws),
+        for i in chosen:
+            first = _convolve(first, _dist([pool[i]]))
+        grids = existing + [pool[i] for i in chosen]
+        parts.append((sum(chance(order) for order in permutations(chosen)),
                       _convolve(first, _power(_dist(grids), rest))))
     return _blend(parts)
 
@@ -85,6 +98,7 @@ def _gap(a, b):
 
 def _split_matches_every_draw():
     from game_data import STATS
+    from game_data.constants import SUBSTAT_DRAW
     from models.memory_fragment import (
         _added_then_rest, _roll_grid, compute_gs_bounds)
     weights = MIXED
@@ -95,10 +109,16 @@ def _split_matches_every_draw():
         return [_roll_grid(STATS[raw], weights.get(STATS[raw][0], 1.0),
                            scale) for raw in raws]
 
-    def pool(held):
-        return [_roll_grid(info, weights.get(info[0], 1.0), scale)
-                for raw, info in STATS.items()
+    def candidates(held):
+        return [raw for raw, info in STATS.items()
                 if info[3] > 0 and raw not in held and info[0] != "Flat ATK"]
+
+    def pool(held):
+        return [_roll_grid(STATS[raw], weights.get(STATS[raw][0], 1.0), scale)
+                for raw in candidates(held)]
+
+    def shares(held):
+        return [SUBSTAT_DRAW[raw] for raw in candidates(held)]
 
     three = ["S_CRI_INC_ADD", "S_DEF_INC_ADD_OUT", "S_HP_INC_RATE_OUT"]
     two = ["S_CRI_INC_ADD", "S_HP_INC_RATE_OUT"]
@@ -109,8 +129,9 @@ def _split_matches_every_draw():
     )
     out = []
     for what, held, added, rest in cases:
-        want = _per_draw(grids(held), pool(held), added, rest)
-        got = _added_then_rest(grids(held), pool(held), added, rest)
+        want = _per_draw(grids(held), pool(held), added, rest, shares(held))
+        got = _added_then_rest(grids(held), pool(held), added, rest,
+                               shares(held))
         gap = _gap(got, want)
         if gap > 1e-12:
             out.append(
@@ -184,6 +205,36 @@ def _search_matches_every_preset():
     return out
 
 
+def _cache_follows_draws():
+    """A band worked out under one set of draw weights is not served
+    under another: a client read can replace them after the first bands
+    were worked out."""
+    from game_data.constants import SUBSTAT_DRAW
+    from models.memory_fragment import (
+        compute_fragment_potential_band, compute_gs_bounds)
+    fragment = _fragment(0, [("S_CRI_INC_ADD", 1.6), ("S_DEF_INC_ADD_OUT", 4),
+                             ("S_HP_INC_RATE_OUT", 1.1)])
+    weights = _weights(SPIKY)
+    bounds = compute_gs_bounds(weights, exclude_stat="Flat ATK")
+    held = dict(SUBSTAT_DRAW)
+    before = compute_fragment_potential_band(fragment, weights, bounds)
+    try:
+        # Extra DMG%, the one stat SPIKY weighs that the fragment can
+        # still gain, drawn almost every time.
+        SUBSTAT_DRAW.update({stat: 1000 if stat == "S_ADDI_ATK_DMG_RATE_INC_ADD"
+                             else 1 for stat in held})
+        after = compute_fragment_potential_band(fragment, weights, bounds)
+    finally:
+        SUBSTAT_DRAW.clear()
+        SUBSTAT_DRAW.update(held)
+    if after == before:
+        return [f"with Extra DMG% drawn almost every time, the band still "
+                f"reads {before}: one worked out under the other draw "
+                f"weights was served from the cache (`_band_key`)."]
+    return []
+
+
 def run():
     add_source_to_path()
-    return _split_matches_every_draw() + _search_matches_every_preset()
+    return (_split_matches_every_draw() + _search_matches_every_preset()
+            + _cache_follows_draws())

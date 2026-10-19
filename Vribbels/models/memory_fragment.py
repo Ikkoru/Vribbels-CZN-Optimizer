@@ -79,11 +79,14 @@ inventory:
 - **An upgrade lands on each of the four substats alike.** The fully
   levelled fragments' spread of four upgrades over four substats matches
   that, pattern by pattern.
-- **An added substat is any stat the fragment can still gain, alike.**
-  Not measurable from an inventory, which holds only what was kept.
+- **An added substat is any stat the fragment can still gain, in
+  proportion to its weight among them** (`SUBSTAT_DRAW`, the game
+  client's; `docs/game_formulas.md` §2). Not measurable from an
+  inventory, which holds only what was kept.
 
 By linearity each level-up adds its expected roll, so the mean is a
-sum, not an enumeration.
+sum, not an enumeration -- but for which stats the added substats are,
+whose chances the weights set draw by draw (`_draw_chances`).
 
 Likely Potential
 ================
@@ -95,8 +98,8 @@ whole distribution, so each roll is taken at every point of its grid
 -- steps of 0.1 for a percentage stat and 1 for a flat one, which is
 where every roll in the maintainer's inventory sits -- and the
 level-ups are convolved, in bins of `_DIST_BIN` GS. An added substat is
-every stat it could be, alike; the later level-ups then land among the
-substats that choice made.
+every stat it could be, each at its draw's chance; the later level-ups
+then land among the substats that choice made.
 
 Elemental stats and the max_roll sentinel
 =========================================
@@ -147,7 +150,7 @@ from game_data import (
 from game_data.sets import set_name as set_name_of
 # Direct module-path imports to avoid relying on game_data/__init__.py
 # re-exporting them.
-from game_data.constants import MAX_LEVEL, MAX_LEVEL_PER_RARITY
+from game_data.constants import MAX_LEVEL, MAX_LEVEL_PER_RARITY, SUBSTAT_DRAW
 
 
 # =============================================================================
@@ -445,23 +448,29 @@ def compute_fragment_potential_mean(
             if info[3] > 0:
                 existing.append(_expected_roll(sub.name, info[3], info[4],
                                                weights))
-        # The first level-ups each add a substat, drawn from the stats
-        # the fragment has not got and cannot have (its main).
+        # The first level-ups each add a substat, drawn by weight
+        # (`SUBSTAT_DRAW`) from the stats the fragment has not got and
+        # cannot have (its main).
         present = {sub.name for sub in fragment.substats}
         main_name = fragment.main_stat.name if fragment.main_stat else None
-        pool = [_expected_roll(info[0], info[3], info[4], weights)
-                for info in STATS.values()
-                if info[3] > 0 and info[0] not in present
-                and info[0] != main_name]
+        candidates = [stat for stat, info in STATS.items()
+                      if info[3] > 0 and info[0] not in present
+                      and info[0] != main_name]
+        pool = [_expected_roll(STATS[stat][0], STATS[stat][3],
+                               STATS[stat][4], weights)
+                for stat in candidates]
         added = min(4 - len(fragment.substats), remaining) if pool else 0
-        pool_mean = sum(pool) / len(pool) if pool else 0.0
-        raw += added * pool_mean
+        # What the added substats' first rolls are expected to sum to.
+        added_sum = sum(chance * sum(pool[i] for i in chosen)
+                        for chosen, chance in _draw_chances(
+                            _draw_shares(candidates), added)) if added else 0.0
+        raw += added_sum
         # The rest land on one of the substats alike, the added ones
         # included.
         into_existing = remaining - added
         slots = len(existing) + added
         if into_existing > 0 and slots:
-            raw += into_existing * (sum(existing) + added * pool_mean) / slots
+            raw += into_existing * (sum(existing) + added_sum) / slots
     if bounds is None:
         main_name = fragment.main_stat.name if fragment.main_stat else None
         bounds = compute_gs_bounds(weights, exclude_stat=main_name)
@@ -542,10 +551,39 @@ def _blend(parts):
     return first, out
 
 
-def _added_then_rest(existing, pool, added, rest):
+def _draw_shares(stats):
+    """Each of `stats` (raw ids) as its weight in a new substat's draw
+    (`SUBSTAT_DRAW`). A stat the table lacks takes the table's mean:
+    weighed at nothing it could never be drawn, though the game rolls
+    it."""
+    table = SUBSTAT_DRAW
+    fill = sum(table.values()) / len(table) if table else 1.0
+    return [table.get(stat, fill) for stat in stats]
+
+
+def _draw_chances(shares, added):
+    """[(indices, chance)]: every set of `added` distinct candidates the
+    new substats can be, with its chance when each draw takes one of
+    those left in proportion to its share. Every share alike where they
+    sum to nothing."""
+    if sum(shares) <= 0:
+        shares = [1.0] * len(shares)
+    out = {}
+    for order in itertools.permutations(range(len(shares)), added):
+        chance, left = 1.0, float(sum(shares))
+        for i in order:
+            chance *= shares[i] / left if left > 0 else 0.0
+            left -= shares[i]
+        key = tuple(sorted(order))
+        out[key] = out.get(key, 0.0) + chance
+    return list(out.items())
+
+
+def _added_then_rest(existing, pool, added, rest, shares=None):
     """The sum of `added` first rolls on stats drawn from `pool`, no
-    two alike and every draw alike, and `rest` level-ups each landing
-    on one of `existing` and the added substats alike.
+    two alike, each draw in proportion to its stat's share in `shares`
+    (alike without), and `rest` level-ups each landing on one of
+    `existing` and the added substats alike.
 
     How many of the `rest` land on an added substat, K, is binomial,
     and given K the existing substats' rolls and the added ones' are
@@ -555,15 +593,15 @@ def _added_then_rest(existing, pool, added, rest):
     and its grids are the small ones, so the existing substats' rolls
     are convolved in once rather than once per draw -- by Horner's
     scheme, one level-up at a time."""
-    rolls = [_dist([grid]) for grid in pool]
+    rolls = [(first, tuple(chances))
+             for first, chances in (_dist([grid]) for grid in pool)]
     # Draws that roll alike are one -- every stat the preset weighs 0
-    # rolls a lone 0 -- and weigh as often as they occur.
-    draws = collections.Counter(
-        tuple(sorted(chosen)) for chosen in itertools.combinations(
-            [(first, tuple(chances)) for first, chances in rolls], added))
-    count = sum(draws.values())
+    # rolls a lone 0 -- and weigh what their chances add up to.
+    draws = collections.defaultdict(float)
+    for chosen, chance in _draw_chances(shares or [1.0] * len(pool), added):
+        draws[tuple(sorted(rolls[i] for i in chosen))] += chance
     by_more = [[] for _ in range(rest + 1)]
-    for chosen, times in draws.items():
+    for chosen, chance in draws.items():
         part = chosen[0]
         for roll in chosen[1:]:
             part = _convolve(part, roll)
@@ -571,7 +609,7 @@ def _added_then_rest(existing, pool, added, rest):
         for k in range(rest + 1):
             if k:
                 part = _convolve(part, more)
-            by_more[k].append((times / count, part))
+            by_more[k].append((chance, part))
     if not existing:
         return _blend(by_more[rest])
     step = _dist(existing)
@@ -615,10 +653,13 @@ _WEIGHTS_SEEN = {}
 def _band_key(fragment, weights, bounds, tail, main_name):
     weights_key = tuple(sorted(weights.items()))
     weights_key = _WEIGHTS_SEEN.setdefault(weights_key, weights_key)
+    # The draw weights too: a client read can replace them after bands
+    # were worked out with the shipped ones.
     return (fragment.rarity_num, fragment.level, main_name,
             tuple((s.raw_name, s.value, s.roll_count)
                   for s in fragment.substats),
-            weights_key, tuple(bounds), tail)
+            weights_key, tuple(bounds), tail,
+            tuple(sorted(SUBSTAT_DRAW.items())))
 
 
 def compute_fragment_potential_band(
@@ -681,9 +722,11 @@ def _work_out_band(fragment, weights, bounds, tail, main_name):
             existing.append(_roll_grid(info, weights.get(sub.name, 1.0),
                                        scale))
     present = {sub.name for sub in fragment.substats}
-    pool = [_roll_grid(info, weights.get(info[0], 1.0), scale)
-            for info in STATS.values()
-            if info[3] > 0 and info[0] not in present and info[0] != main_name]
+    candidates = [stat for stat, info in STATS.items()
+                  if info[3] > 0 and info[0] not in present
+                  and info[0] != main_name]
+    pool = [_roll_grid(STATS[stat], weights.get(STATS[stat][0], 1.0), scale)
+            for stat in candidates]
     added = min(4 - len(fragment.substats), remaining) if pool else 0
     rest = remaining - added
     if not existing and not added:
@@ -692,7 +735,8 @@ def _work_out_band(fragment, weights, bounds, tail, main_name):
     if not added:
         total = _power(_dist(existing), rest)
     else:
-        total = _added_then_rest(existing, pool, added, rest)
+        total = _added_then_rest(existing, pool, added, rest,
+                                 _draw_shares(candidates))
     start = (raw - low_raw) * scale
     return tuple(round(max(0.0, min(100.0, start + _quantile(total, share))),
                        1)

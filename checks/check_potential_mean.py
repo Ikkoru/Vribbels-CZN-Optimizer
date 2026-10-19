@@ -8,8 +8,9 @@ a sound, each showing as a plausible number:
 1. **An upgrade into an existing substat** must average over the four
    substats alike, each at its roll's midpoint.
 2. **A level-up that adds a substat** draws it from the stats the
-   fragment has not got and cannot have -- never its own main -- and
-   later upgrades can then land on it too.
+   fragment has not got and cannot have -- never its own main -- each
+   in proportion to its weight among them (`SUBSTAT_DRAW`), and later
+   upgrades can then land on it too.
 3. **Nothing left to roll** is the fragment's current GS.
 
 Held against an enumeration of every outcome, with each roll a coin
@@ -25,7 +26,7 @@ every roll's grid: its ends within the rounding its bins allow.
 """
 
 import collections
-from itertools import combinations, product
+from itertools import combinations, permutations, product
 
 from ._harness import add_source_to_path
 
@@ -41,6 +42,19 @@ def _fragment(level, substats, main=("S_ATK_INC_ADD_OUT", 60),
         stats.append({"slot": n, "type": 1, "stat": raw, "value": value})
     return MemoryFragment.from_json({"id": 1, "res_id": res_id,
                                      "level": level, "stat_list": stats})
+
+
+def _drawn(sequence, pool):
+    """The chance of drawing the stats `sequence` names, in that order,
+    out of `pool`: each draw one of those left, by its `SUBSTAT_DRAW`
+    weight among them."""
+    from game_data.constants import SUBSTAT_DRAW
+    chance, left = 1.0, list(pool)
+    for raw in sequence:
+        total = sum(SUBSTAT_DRAW[r] for r in left)
+        chance *= SUBSTAT_DRAW[raw] / total
+        left.remove(raw)
+    return chance
 
 
 def _enumerated(fragment, weights):
@@ -77,8 +91,9 @@ def _enumerated(fragment, weights):
             ups[sum(choice)] += 1
         mean = (sum(a * k for a, k in added.items()) / sum(added.values())
                 + sum(u * k for u, k in ups.items()) / sum(ups.values()))
-        total += mean
-        weight_sum += 1
+        chance = _drawn(extra, pool)
+        total += mean * chance
+        weight_sum += chance
     return base + total / weight_sum
 
 
@@ -119,6 +134,7 @@ def _band_enumerated(fragment, weights, bounds, tail=0.1):
     outcomes = collections.defaultdict(float)
     choices = list(combinations(pool, to_add)) if to_add else [()]
     for extra in choices:
+        drawn = sum(_drawn(order, pool) for order in permutations(extra))
         first = {0.0: 1.0}
         for raw in extra:
             # Summed, not assigned: a stat weighed 0 rolls the same 0
@@ -144,7 +160,7 @@ def _band_enumerated(fragment, weights, bounds, tail=0.1):
             ups = nxt
         for a, pa in first.items():
             for u, pu in ups.items():
-                outcomes[a + u] += pa * pu / len(choices)
+                outcomes[a + u] += pa * pu * drawn
     low_raw, high_raw = bounds
     ends, total = [], 0.0
     wanted = [tail, 1.0 - tail]

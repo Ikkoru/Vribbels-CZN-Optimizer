@@ -33,8 +33,8 @@ doesn't live on individual characters / partners / fragments:
     display (UI sugar; not part of stat math).
 
 The game client's tables replace the contents of CHARACTER_EXP_TABLE,
-PARTNER_EXP_TABLE, AFFINITY_TO_NEXT, FRIENDSHIP_BONUSES and
-SLOT_MAIN_STATS at launch (`client_overlay`); as typed here they are
+PARTNER_EXP_TABLE, AFFINITY_TO_NEXT, FRIENDSHIP_BONUSES,
+SLOT_MAIN_STATS and SUBSTAT_DRAW at launch (`client_overlay`); as typed here they are
 the fallback, and what `docs/client_tables.py --audit` holds the
 client against. STATS' roll bounds, MAIN_STAT_VALUES and
 MAX_LEVEL_PER_RARITY are held against the client's on every run
@@ -80,12 +80,14 @@ CLASSES = (
 #                known value of 144000).
 #               (154800, 41) through (295600, 49) — Amir, levels 41-49,
 #                              read off snapshots over multiple sessions
-#               (213000, 45) -- replaces the prior estimate of 200000
 #               (320000, 50) -- Amir at promotion 4/5, in-game level 50
-#               (346000, 51) through (665900, 59) -- Amir, levels 51-59,
+#               (374900, 52) through (665900, 59) -- Amir, levels 52-59,
 #                              read off snapshots over multiple sessions
 #               (720000, 60) -- all max-level heroes in May 11 snapshot
 #               (778200, 61) -- Amir, level 61 (confirmed checkpoint)
+#   the client: (345900, 51) and (840500, 62), from its
+#               `char_growth@char_exp`, which agrees with every level
+#               above
 #
 # Every checkpoint below was read from the game. Do not interpolate
 CHARACTER_EXP_TABLE = [
@@ -99,9 +101,9 @@ CHARACTER_EXP_TABLE = [
     (106400, 36), (115500, 37), (124800, 38), (134300, 39), (144000, 40),
     (154800, 41), (167100, 42), (180900, 43), (196200, 44), (213000, 45),
     (231400, 46), (251300, 47), (272700, 48), (295600, 49), (320000, 50),
-    (346000, 51), (374900, 52), (407100, 53), (442400, 54), (480800, 55),
+    (345900, 51), (374900, 52), (407100, 53), (442400, 54), (480800, 55),
     (522400, 56), (567100, 57), (614900, 58), (665900, 59), (720000, 60),
-    (778200, 61),
+    (778200, 61), (840500, 62),
 ]
 
 # Partner card exp table (separate progression from heroes).
@@ -113,23 +115,25 @@ CHARACTER_EXP_TABLE = [
 #               (1800, 10)   — Zatera at promotion 0/5, in-game level 10
 #               (36300, 30)  — Raidel at promotion 2/5, in-game level 30
 #               (346000, 60) — every max-level partner
-#   the client: the level-5 / -15 / -20 / -25 / -55 rows, from its
-#               `char_growth@char_exp`
-#
-# **Levels 31-50 are the game's own per-level costs, accumulated.**
-# Read off the promotion screen one level at a time and summed from
-# the confirmed level-30 threshold, which lands on 93500 at level 40
-# and 181000 at level 50 -- both independently confirmed from
-# captures. Two anchors reached by arithmetic is what makes the run
-# trustworthy.
+#               levels 31-50 -- the promotion screen's per-level costs,
+#                              summed from level 30; they land on 93500
+#                              at 40 and 181000 at 50, both confirmed
+#                              from captures
+#   the client: every other level, from its `char_growth@char_exp`,
+#               which agrees with every row above
 PARTNER_EXP_TABLE = [
-    (0, 1), (100, 2), (500, 5), (1800, 10), (4600, 15),
-    (8200, 20), (17200, 25), (36300, 30),
+    (0, 1), (100, 2), (200, 3), (300, 4), (500, 5),
+    (700, 6), (900, 7), (1200, 8), (1500, 9), (1800, 10),
+    (2300, 11), (2800, 12), (3400, 13), (4000, 14), (4600, 15),
+    (5200, 16), (5800, 17), (6600, 18), (7400, 19), (8200, 20),
+    (9200, 21), (10600, 22), (12400, 23), (14600, 24), (17200, 25),
+    (20300, 26), (23700, 27), (27500, 28), (31700, 29), (36300, 30),
     (41400, 31), (46700, 32), (52100, 33), (57600, 34), (63300, 35),
     (69100, 36), (75000, 37), (81000, 38), (87200, 39), (93500, 40),
     (100000, 41), (107000, 42), (114500, 43), (122500, 44), (131000, 45),
     (140000, 46), (149500, 47), (159500, 48), (170000, 49), (181000, 50),
-    (251000, 55), (346000, 60),
+    (193000, 51), (206000, 52), (220000, 53), (235000, 54), (251000, 55),
+    (268000, 56), (286000, 57), (305000, 58), (325000, 59), (346000, 60),
 ]
 
 # Affinity bonus rewards. The game calls this Affinity; the
@@ -248,6 +252,21 @@ STATS = {
     "S_BLUE_DMG_RATE_INC_ADD":   ("Justice DMG%",  "Justice",  True, 0, 0),
     "S_PURPLE_DMG_RATE_INC_ADD": ("Void DMG%",     "Void",     True, 0, 0),
     "S_ORANGE_DMG_RATE_INC_ADD": ("Instinct DMG%", "Instinct", True, 0, 0),
+}
+
+# How often each substat is drawn as a NEW one, against the others: an
+# added substat is each stat the fragment can still gain in proportion
+# to its weight among them (`docs/game_formulas.md` §2). The game
+# client's `piece_option.ratio`, which replaces these at launch
+# (`client_overlay`); typed here, they are the fallback.
+SUBSTAT_DRAW = {
+    "S_ATK_INC_ADD_OUT": 100, "S_DEF_INC_ADD_OUT": 100,
+    "S_HP_INC_ADD_OUT": 100,
+    "S_ATK_INC_RATE_OUT": 90, "S_DEF_INC_RATE_OUT": 90,
+    "S_HP_INC_RATE_OUT": 90,
+    "S_ADDI_ATK_DMG_RATE_INC_ADD": 80, "S_DOT_ATK_DMG_RATE_INC_ADD": 80,
+    "S_CRI_INC_ADD": 70, "S_CRI_DMG_RATE_INC_ADD": 70,
+    "S_CHARGING_POWER_INC_ADD": 70,
 }
 
 STAT_SHORT_NAMES = {info[0]: info[1] for info in STATS.values()}

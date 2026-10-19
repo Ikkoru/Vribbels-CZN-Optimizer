@@ -73,7 +73,7 @@ GAMERES = Path("bin") / "appdata" / "cznlive" / "gameres"
 # What the cache is called in the settings folder, and the shape of
 # what it holds. A cache of another format is read as no cache.
 CACHE_FILE = "game_client.json"
-CACHE_FORMAT = 10
+CACHE_FORMAT = 11
 
 # The manifest layout this reads. A different version is a different
 # layout until shown otherwise.
@@ -1045,9 +1045,10 @@ def fragment_stats(client):
     """Memory Fragment stats as the game rolls them, by stat id:
     `mains`, {slot: [[stat, level-0 value, what each level-up adds],
     ...]} for a Legendary, in the table's order; `rolls`, {stat: every
-    value one roll gives a Legendary}; and `max_levels`, {rarity tier:
-    its top level}."""
-    mains, rolls = {}, {}
+    value one roll gives a Legendary}; `draws`, {stat: its weight in
+    the draw of a new substat}; and `max_levels`, {rarity tier: its top
+    level}."""
+    mains, rolls, draws = {}, {}, {}
     for row in client.rows(PIECE_OPTION_TABLE):
         stat, group = row.get("link_stat_list_id"), row.get("group") or ""
         slot = PIECE_MAIN_GROUP.fullmatch(group)
@@ -1058,6 +1059,9 @@ def fragment_stats(client):
                 [stat, start[0], step[0]])
         elif group == PIECE_ROLL_GROUP and start:
             rolls[stat] = start
+            share = _figure(row.get("ratio"))
+            if isinstance(share, (int, float)) and share > 0:
+                draws[stat] = share
     max_levels = {}
     for row in client.rows(PIECE_LEVEL_TABLE):
         match = PIECE_LEVEL_ROW.fullmatch(str(row.get("id")))
@@ -1065,7 +1069,8 @@ def fragment_stats(client):
         if tier:
             max_levels[tier] = max(max_levels.get(tier, 0),
                                    int(match.group(2)))
-    return {"mains": mains, "rolls": rolls, "max_levels": max_levels}
+    return {"mains": mains, "rolls": rolls, "draws": draws,
+            "max_levels": max_levels}
 
 
 def read_facts(install):
