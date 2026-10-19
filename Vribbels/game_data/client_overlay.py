@@ -54,7 +54,8 @@ _TABLES = {"CHARACTERS": CHARACTERS, "PARTNERS": PARTNERS,
            "AFFINITY_TO_NEXT": AFFINITY_TO_NEXT,
            "FRIENDSHIP_BONUSES": FRIENDSHIP_BONUSES,
            "SLOT_MAIN_STATS": SLOT_MAIN_STATS,
-           "SUBSTAT_DRAW": SUBSTAT_DRAW}
+           "SUBSTAT_DRAW": SUBSTAT_DRAW,
+           "STATS": STATS}
 # The hand tables as typed, before anything is laid over them: what the
 # validator checks and the audit holds the client against.
 _HAND = copy.deepcopy(_TABLES)
@@ -250,6 +251,11 @@ def _ints(values):
     return all(isinstance(v, int) and not isinstance(v, bool) for v in values)
 
 
+def _numbers(values):
+    return all(isinstance(v, (int, float)) and not isinstance(v, bool)
+               for v in values)
+
+
 def _exp(tables):
     """Each exp table the client gives, as (exp, level) rows from level
     1: thresholds that start at 0 and never fall. Anything else is left
@@ -283,7 +289,8 @@ def _affinity(held):
 
 def _fragments(held):
     """The main stats each slot carries, by the client's stat ids in
-    `STATS`' names, and each substat's weight in a new one's draw. A
+    `STATS`' names, each substat's weight in a new one's draw, and its
+    roll bounds. A
     stat `STATS` lacks is left out, the program having no name or roll
     for it; a slot left with none, or missing, leaves the hand table
     standing whole, and so does a set of draw weights that is not one
@@ -305,6 +312,19 @@ def _fragments(held):
             isinstance(share, (int, float)) and not isinstance(share, bool)
             and share > 0 for share in draws.values()):
         _replace("SUBSTAT_DRAW", dict(draws))
+    # A substat's roll bounds, its lowest and highest roll: what the Gear
+    # Score divides by, and what the presets were derived with
+    # (`preset_derivation.rework` re-works them where these move). A
+    # stat STATS cannot roll, or rolls the client gives no positive
+    # figures for, keeps its own.
+    for stat, values in ((held or {}).get("rolls") or {}).items():
+        info = STATS.get(stat)
+        if not info or info[3] <= 0 or not isinstance(values, (list, tuple)) \
+                or not values or not _numbers(values) or min(values) <= 0:
+            continue
+        bounds = (float(max(values)), float(min(values)))
+        if bounds != (float(info[3]), float(info[4])):
+            _set("STATS", stat, None, tuple(info[:3]) + bounds)
 
 
 def _rebuild_by_name():

@@ -158,7 +158,7 @@ def _tables(overlay):
     tables = {name: getattr(constants, name)
               for name in overlay.EXP_TABLES.values()}
     for name in ("AFFINITY_TO_NEXT", "FRIENDSHIP_BONUSES", "SLOT_MAIN_STATS",
-                 "SUBSTAT_DRAW"):
+                 "SUBSTAT_DRAW", "STATS"):
         tables[name] = getattr(constants, name)
     before = {name: copy.deepcopy(table) for name, table in tables.items()}
     # Level n at 100 * (n - 1) exp, to 62 for combatants and 60 for
@@ -177,7 +177,12 @@ def _tables(overlay):
         "fragment_stats": {"mains": {
             str(slot): [[ids[name], 1, 1] for name in reversed(names)]
             + ([["S_PROBE_UNNAMED", 1, 1]] if slot == 4 else [])
-            for slot, names in slots.items()}, "draws": draws},
+            for slot, names in slots.items()}, "draws": draws,
+            # Crit Rate rolls 1 to 3; an element, which STATS cannot
+            # roll, and a substat given a roll of 0, keep their own.
+            "rolls": {"S_CRI_INC_ADD": [1.0, 2.0, 3.0],
+                      "S_RED_DMG_RATE_INC_ADD": [1.0, 2.0],
+                      "S_ATK_INC_RATE_OUT": [0, 1.0]}},
     }
     per = materials_tab.EXP_PER_TIER["Basic"]
 
@@ -224,6 +229,14 @@ def _tables(overlay):
              list(reversed(slots[4]))),
             ("the substats' draw weights", dict(constants.SUBSTAT_DRAW),
              draws),
+            ("Crit Rate's roll bounds",
+             tuple(constants.STATS["S_CRI_INC_ADD"][3:]), (3.0, 1.0)),
+            ("an element's roll bounds, which STATS cannot roll",
+             tuple(constants.STATS["S_RED_DMG_RATE_INC_ADD"][3:]),
+             tuple(overlay.hand("STATS")["S_RED_DMG_RATE_INC_ADD"][3:])),
+            ("ATK%'s roll bounds, given a roll of 0",
+             tuple(constants.STATS["S_ATK_INC_RATE_OUT"][3:]),
+             tuple(overlay.hand("STATS")["S_ATK_INC_RATE_OUT"][3:])),
         )
         for what, got, wanted in readings:
             if got != wanted:
@@ -463,15 +476,15 @@ def _installed_items(client):
 
 def _installed_fragments(client):
     """Complaints from the installed client's Memory Fragment options
-    against the hand tables: the slots' main stats, which the client's
-    replace, and what is held but never replaced -- a maxed Legendary's
-    main stat (`MAIN_STAT_VALUES`, as the game draws it, rounded), a
-    substat's roll bounds (`STATS`, which the Gear Score divides by and
-    the shipped presets' weights were derived from) and each rarity's top
-    level (`MAX_LEVEL_PER_RARITY`)."""
+    against the hand tables: the slots' main stats and a substat's roll
+    bounds (`STATS`), which the client's replace, and what is held but
+    never replaced -- a maxed Legendary's main stat (`MAIN_STAT_VALUES`,
+    as the game draws it, rounded) and each rarity's top level
+    (`MAX_LEVEL_PER_RARITY`)."""
     import game_client
     from game_data.client_overlay import hand
-    from game_data.constants import MAIN_STAT_VALUES, MAX_LEVEL_PER_RARITY, STATS
+    from game_data.constants import MAIN_STAT_VALUES, MAX_LEVEL_PER_RARITY
+    STATS = hand("STATS")
     held = game_client.fragment_stats(client)
     names = {stat: info[0] for stat, info in STATS.items()}
     top, out = held["max_levels"].get(4), []
@@ -498,10 +511,10 @@ def _installed_fragments(client):
                        f"which STATS has no roll for.")
         elif (info[4], info[3]) != (min(rolls), max(rolls)):
             out.append(f"{info[0]} rolls {info[4]} to {info[3]} in STATS, "
-                       f"{min(rolls)} to {max(rolls)} in the client: the "
-                       f"Gear Score divides by the top roll, and the shipped "
-                       f"presets were derived from it (`docs/preset_"
-                       f"weights.md`).")
+                       f"{min(rolls)} to {max(rolls)} in the client. The "
+                       f"program now scores by the client's, and re-works "
+                       f"its presets for a moved top roll; update STATS and "
+                       f"re-derive the presets (`docs/preset_weights.md`).")
     for stat, info in STATS.items():
         if info[3] > 0 and stat not in held["rolls"]:
             out.append(f"{info[0]} rolls in STATS and is no substat in the "

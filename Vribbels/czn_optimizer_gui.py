@@ -101,6 +101,7 @@ from models.memory_fragment import (compute_gs_bounds,
                                     compute_fragment_potential_mean)
 # Reconciles bundled defaults in `default_settings/` with the user's
 # `settings/` folder. Must run BEFORE any manager loads.
+import defaults_sync
 from defaults_sync import resolve_defaults_dir, sync_defaults
 # Mends or sets aside a settings file that will not read. Must run
 # before the sync does.
@@ -214,6 +215,17 @@ def _defaults_dir() -> Path:
     folder, a fresh state would install nothing.
     """
     return resolve_defaults_dir(Path(__file__).resolve().parent)
+
+
+# What a source run tells the maintainer when the game client's max
+# substat rolls are not those the shipped presets were derived with.
+ROLLS_MOVED = (
+    "The game client's highest substat rolls are not the ones the shipped "
+    "Gear Score presets were derived with (preset_archetypes.json). This "
+    "launch scores by the client's, and re-worked every preset you never "
+    "edited.\n\nTo ship them: update the rolls in game_data/constants.py "
+    "(STATS), run `python docs/preset_weights.py --check`, then `--write`, "
+    "and release.")
 
 
 class OptimizerGUI:
@@ -1172,6 +1184,7 @@ class OptimizerGUI:
             # stands where it is newer than the shipped names.
             game_client.use(held if held is not None
                             else game_client.fallback(settings_dir))
+            self._presets_follow_client()
             return
 
         def work():
@@ -1235,7 +1248,35 @@ class OptimizerGUI:
             return
         self._client_read = None
         game_client.use(facts)
+        self._presets_follow_client()
         self._refresh_client_tabs()
+
+    def _presets_follow_client(self):
+        """Re-work the shipped presets for the game client's max rolls
+        and hand them to every preset the player never edited
+        (`defaults_sync.presets_follow`), once the client's facts are
+        laid over. Run from source, also tell the maintainer the rolls
+        moved: `STATS` and the shipped presets then want updating, and
+        a release."""
+        import perf_log
+        import preset_derivation
+        defaults = _defaults_dir()
+        try:
+            changed = defaults_sync.presets_follow(
+                self._client_settings_dir, defaults,
+                getattr(self, "preset_manager", None))
+            moved = preset_derivation.rolls_moved(
+                preset_derivation.read_archetypes(defaults))
+        except Exception as exc:                         # noqa: BLE001
+            perf_log.log("presets_follow:FAILED", error=repr(exc))
+            return
+        scoring = getattr(self, "scoring_tab_instance", None)
+        if changed and scoring is not None:
+            scoring.apply_active_weights()
+        if moved and not getattr(sys, "frozen", False) \
+                and not getattr(self, "_rolls_moved_told", False):
+            self._rolls_moved_told = True
+            self._warn("Substat rolls moved", ROLLS_MOVED)
 
     def _refresh_client_tabs(self):
         """Redraw the built tabs that show what the client says."""

@@ -1,6 +1,6 @@
 # Deriving the default Gear Score presets
 
-The shipped presets (`Vribbels/default_settings/presets.json`) weigh each substat for one combatant. They exist to rank fragments: which ones would make a combatant's top builds, and whether a fragment is worth levelling past +3, where the cost jumps. `docs/preset_weights.py` derives them from the Optimizer's own score, so a weight means the same thing for every combatant.
+The shipped presets (`Vribbels/default_settings/presets.json`) weigh each substat for one combatant. They exist to rank fragments: which ones would make a combatant's top builds, and whether a fragment is worth levelling past +3, where the cost jumps. `docs/preset_weights.py` derives them from the Optimizer's own score, so a weight means the same thing for every combatant; the derivation itself is `Vribbels/preset_derivation.py`, which the program runs too (*When the game's rolls move*, below).
 
 ## A weight
 
@@ -25,7 +25,7 @@ A fragment is judged without knowing what the combatant wears now, so the build 
 | Fragment stats          | Their ARCHETYPE's average                                                            | Below                                                                                                            |
 | Sets                    | Their own best build's, or the preset's named 4-piece                                | Below                                                                                                            |
 
-**The archetype's average fragment stats** are the mean of the fragment stats of every archetype member's best Optimizer build: substats and main stats, no sets. The build is run on their own settings at level 61, with nothing excluded and the global minimum-level and off-element filters. It uses the Optimizer tab's candidate cut too, the top of each slot by the combatant's assigned preset, so the archetypes lean slightly on the presets being derived: a re-derivation after new presets are written can move them a little. `archetype()` groups by what the settings say a combatant does: ATK DPS, ATK DPS with Extra damage, ATK DPS with DoT, DEF DPS, healers dealing ATK damage, healers. The averages and each member's set bonuses are kept in `preset_weights_archetypes.json`, so the weights are reproducible without running the Optimizer. It holds stats only, never a fragment's id, since it is tracked.
+**The archetype's average fragment stats** are the mean of the fragment stats of every archetype member's best Optimizer build: substats and main stats, no sets. The build is run on their own settings at level 61, with nothing excluded and the global minimum-level and off-element filters. It uses the Optimizer tab's candidate cut too, the top of each slot by the combatant's assigned preset, so the archetypes lean slightly on the presets being derived: a re-derivation after new presets are written can move them a little. `archetype()` groups by what the settings say a combatant does: ATK DPS, ATK DPS with Extra damage, ATK DPS with DoT, DEF DPS, healers dealing ATK damage, healers. The averages and each member's set bonuses are kept in `Vribbels/default_settings/preset_archetypes.json`, so the weights are reproducible without running the Optimizer, and the program ships them. It holds stats only, never a fragment's id, since it is tracked.
 
 Why archetype averages rather than each combatant's own best build. Both were compared: they agree on every flat and % weight and within about 0.1 on CRate and CDMG for most combatants. Where they part, the best build's crit is lopsided by what the inventory happens to hold — the in-a-vacuum judgement the presets exist for is the archetype's.
 
@@ -44,9 +44,16 @@ From the repo root:
     python docs/preset_weights.py --check    # would today's archetypes move the weights? records the check
     python docs/preset_weights.py --write    # the derived weights into default_settings/presets.json
 
-The report prints each preset's current and derived weights with the reference build's crit and ATK/DEF, and writes the whole proposal to `_tmp/preset_weights_proposal.json`. **Review it before `--write`**, and read the notes: a synthetic set, a combatant with no build. `--write` touches the shipped defaults only; the maintainer's own presets change through the app's Restore Defaults.
+The report prints each preset's current and derived weights with the reference build's crit and ATK/DEF, and writes the whole proposal to `_tmp/preset_weights_proposal.json`. **Review it before `--write`**, and read the notes: a synthetic set, a combatant with no build. `--write` touches the shipped defaults only, and records the max rolls it derived with; a player's preset they never edited takes the new weights at their next launch after the release (`settings_architecture.md`, *Three-stage sync*), and an edited one through Restore Defaults.
 
 **When:** on demand, and once per Galactic Disaster from its part 2. `checks/check_preset_weights.py` fails until `--check` has been run in the season's part 2 or later, because the archetypes follow the game: new sets, new main stats, a change to a roll range all move them. `--check` re-derives, compares, and prints every weight that would move by more than 10%. If any does, re-derive with `--derive` and review.
+
+## When the game's rolls move
+
+A weight is priced in max rolls, and the program takes the substats' rolls from the game client (`docs/client_data.md`). **Where the client's max rolls are not the ones the shipped presets were derived with** — `max_rolls` in the archetypes file, which `--write` records — the program re-works the presets at launch, source run and built exe alike (`preset_derivation.rework`): each weight is the shipped one plus what the new rolls move its derivation by, so a hand-set weight moves only by that. No inventory is read: the reference build takes nothing from the account, and `checks/check_preset_weights.py` holds an empty optimizer to the maintainer's.
+
+- Every preset a player never edited takes the re-worked weights (`defaults_sync.presets_follow`), and an edited one keeps its own; Restore Defaults offers it the re-worked ones. Once the rolls are the shipped presets' again, the re-worked copies go back.
+- **A source run tells the maintainer** in a startup dialog. Update `STATS` in `game_data/constants.py`, run `--check` and `--write`, and release: the shipped presets then carry the new rolls, and the re-work stops.
 
 ## Keeping it in step
 

@@ -20,7 +20,7 @@ Machine-wide rules — cp932, heredocs, editing, verifying, comment style, the s
 
 - **Build: `zCreate exe.bat`** (PyInstaller, onefile).
   - **Edit the bat, never the spec.** `--add-data` is passed on the command line, so `Vribbels_CZN_Optimizer_Ikkoru.spec` is an artifact the build overwrites.
-  - Three scripts run first, and any failing stops the build: `normalize_defaults.py` and `fold_shared_facts.py` in `Vribbels/default_settings/normalize/` (workflow: `docs/how_to_maintain_default_settings.md`), and `Vribbels/build_tcl/prepare_tcl_data.py`.
+  - Four scripts run first, and any failing stops the build: `normalize_defaults.py`, `fold_shared_facts.py` and `presets_history.py` in `Vribbels/default_settings/normalize/` (workflow: `docs/how_to_maintain_default_settings.md`), and `Vribbels/build_tcl/prepare_tcl_data.py`.
 - Spacing audit: `zRUN Spacing Audit.bat` prints every gap missing its target, at 100% and at 200%. The app is rendered, never shown, so a run takes nothing over and can go any time. A normal launch never imports it. The launchers and how to read the table: the `spacing-audit` skill.
 
 ## Headless verification

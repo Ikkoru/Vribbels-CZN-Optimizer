@@ -9,6 +9,7 @@ Maintainer workflow: what ships, what to hand-edit before a release, and how to 
 3. Check `zCreate exe.bat` reports a successful `optimizer_settings.json` cleanup.
 4. Run the release build in `dist\`.
 5. Review `shared_facts.json`'s diff: the build folded your own captures' game facts into it.
+6. Commit `presets_history.json` with the release: the build added this release's presets to it.
 
 ## The shipped files
 
@@ -25,6 +26,13 @@ Deleting the three from `default_settings/` and running the program copies your 
 `zCreate exe.bat` then runs `normalize_defaults.py`, which strips the per-user state that copy brings with it: exclude lists, the level-seen map, the levels you optimize at. Its line in the build output is step 3.
 
 **Review the diff before committing** — the copy takes your working state wholesale, so watch for anything you were mid-experiment on. The build fails outright while any of the three is missing, so you cannot ship without this.
+
+**A preset a player never edited follows the release**: the startup sync replaces it with the new shipped value (`settings_architecture.md`, *Three-stage sync*). So a changed default reaches everyone who kept the old one, without Restore Defaults. Two files beside the three serve the presets and are not copied to `settings/`:
+
+| File                     | Holds                                                                                                                        |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| `presets_history.json`   | Every value each preset has shipped with, from git: `zCreate exe.bat` rewrites it (`default_settings/normalize/presets_history.py`) |
+| `preset_archetypes.json` | The derivation's archetype averages and the max rolls the presets were derived with (`docs/preset_weights.md`)                |
 
 ## Shared game facts
 
@@ -44,4 +52,4 @@ The file goes through the same whitelist as your own facts, so nothing but game 
 
 **Point them at Restore Defaults first.** The Setup & Settings tab's panel has one button per shipped file, each opening a dialog listing what they are missing and what differs from defaults. It bypasses the tombstone gate, which makes it the sanctioned way back to a deleted or changed default.
 
-Deleting `settings/.defaults_sync.json` also works but is worse: two runs rather than one, and to pull back a CHANGED value they must also delete their own copy of that entry. Only if the dialog cannot reach the case.
+Deleting `settings/.defaults_sync.json` also works but is worse: two runs rather than one, and to pull back a CHANGED value they must also delete their own copy of that entry. It also drops the record of which presets were left unedited, which the next sync then rebuilds from `presets_history.json`. Only if the dialog cannot reach the case.

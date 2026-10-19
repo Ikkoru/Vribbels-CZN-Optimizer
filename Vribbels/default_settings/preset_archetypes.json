@@ -85,6 +85,19 @@
   "season": "disaster_s04"
  },
  "derived_at": "2026-09-28",
+ "max_rolls": {
+  "ATK%": 1.3,
+  "CDmg": 4.0,
+  "CRate": 2.0,
+  "DEF%": 1.3,
+  "DoT%": 3.4,
+  "Ego": 5.0,
+  "Extra DMG%": 3.4,
+  "Flat ATK": 8.0,
+  "Flat DEF": 5.0,
+  "Flat HP": 12.0,
+  "HP%": 1.3
+ },
  "members": {
   "ATK DPS": [
    "Chizuru",

@@ -20,7 +20,10 @@ Three stages, in order:
     since then are candidates for adding. This is what makes user
     deletions stick -- without the tombstone, a deleted default would
     reappear every launch. Entries the user already has are NEVER
-    overwritten.
+    overwritten, but for a preset they never edited, which takes a
+    release's changed weights: the sidecar also records each shipped
+    preset's weights, and `presets_history.json` every value one has
+    shipped with, for a copy no sync recorded (`_merge_presets`).
 
     Per-file merge keys:
       - presets.json:            preset name
@@ -45,8 +48,13 @@ discussion):
   - Renamed default entry: appears as a new key -> user gets both the
     old and new versions. Manual cleanup.
   - Changed default VALUES for a key the user has: not propagated (the
-    user's version wins). The Setup & Settings tab's Restore Defaults dialog is
-    the intended way to pick these up.
+    user's version wins), but for an unedited preset. The Setup &
+    Settings tab's Restore Defaults dialog is the intended way to pick
+    these up. A preset edited back to a shipped value reads as unedited.
+
+After the startup sync, once the game client's facts are laid over,
+`presets_follow` re-works the shipped presets where the client's max
+rolls moved them, and hands the result to every unedited copy.
   - A user file that does not read: its merge leaves it alone
     (`_user_json`). Startup mends or sets aside any that would not parse
     before this runs (`settings_repair`), so one still unreadable here
@@ -71,6 +79,16 @@ _DEFAULTABLE_FILES = (
 # a failure degrades to "no tombstone this run" (a previously-deleted
 # default may come back once, then be tombstoned on the next run).
 _SYNC_STATE_FILENAME = ".defaults_sync.json"
+# The sidecar's record of each shipped preset's weights at the last
+# sync, and of the weights the program re-worked a player's copy to
+# (`presets_follow`): what tells an unedited copy from an edited one.
+_PRESET_VALUES = "preset_values"
+_PRESET_REWORKED = "preset_reworked"
+# Every value each shipped preset has held, from the git history of
+# `default_settings/presets.json`: for a copy no sync recorded a value
+# for, which it then matches if it was never edited. Written by
+# `default_settings/normalize/presets_history.py` before every build.
+PRESETS_HISTORY_FILE = "presets_history.json"
 
 
 def resolve_defaults_dir(base_dir: Path) -> Path:
@@ -145,8 +163,11 @@ def sync_defaults(user_dir: Path, defaults_dir: Path) -> list:
     synced = _load_sync_state(state_file)
 
     new_synced: dict = dict(synced)
-    new_synced["presets"] = _merge_presets(
-        user_dir, defaults_dir, synced.get("presets", []), is_first_sync
+    (new_synced["presets"], new_synced[_PRESET_VALUES],
+     new_synced[_PRESET_REWORKED]) = _merge_presets(
+        user_dir, defaults_dir, synced.get("presets", []), is_first_sync,
+        _dict_of(synced.get(_PRESET_VALUES)),
+        _dict_of(synced.get(_PRESET_REWORKED)),
     )
     new_synced["character_preset"] = _merge_character_preset(
         user_dir, defaults_dir, synced.get("character_preset", []), is_first_sync
@@ -223,44 +244,162 @@ def _save_sync_state(path: Path, data: dict) -> None:
 # for the sidecar. On first sync they return the keys WITHOUT merging
 # (grandfathering).
 
+def _dict_of(value) -> dict:
+    return value if isinstance(value, dict) else {}
+
+
+def _preset_history(defaults_dir: Path) -> dict:
+    """{preset name: [every value it has shipped with]}, {} where the
+    history file is missing or does not read."""
+    data = _safe_load_json(Path(defaults_dir) / PRESETS_HISTORY_FILE, {})
+    return _dict_of(data.get("presets"))
+
+
+def _unedited(name, mine, last_values, history) -> bool:
+    """Whether a player's copy of preset `name` is one they never
+    edited: the value the last sync shipped, or, where no sync recorded
+    one, any value the preset has shipped with."""
+    from preset_manager import weights_equal
+    if name in last_values:
+        return weights_equal(mine, last_values[name])
+    return any(weights_equal(mine, past) for past in history.get(name, ()))
+
+
 def _merge_presets(
     user_dir: Path,
     defaults_dir: Path,
     known_keys: list,
     is_first_sync: bool,
-) -> list:
+    last_values: dict,
+    reworked: dict,
+) -> tuple:
     """presets.json: add preset by NAME if new-in-defaults and absent
-    from the user file."""
+    from the user file, and bring a copy the player never edited to the
+    shipped value where a release changed it.
+
+    Returns (the defaults' preset names, their weights, the re-worked
+    copies still standing) for the sidecar. A copy `presets_follow`
+    re-worked counts as unedited too, and keeps its re-worked weights
+    until a release changes the preset: then it takes the shipped one,
+    and `presets_follow` re-works it again if it still needs it."""
+    from preset_manager import weights_equal
     user_file = user_dir / "presets.json"
     default_file = defaults_dir / "presets.json"
     if not default_file.exists():
-        return list(known_keys)
+        return list(known_keys), last_values, reworked
 
     user_data = _user_json(user_file, {"presets": {}})
     if user_data is None:
-        return list(known_keys)
+        return list(known_keys), last_values, reworked
     default_data = _safe_load_json(default_file, {"presets": {}})
 
     user_presets = user_data.setdefault("presets", {})
     default_presets = default_data.get("presets", {})
     if not isinstance(user_presets, dict) or not isinstance(default_presets, dict):
-        return list(known_keys)
+        return list(known_keys), last_values, reworked
 
-    if is_first_sync:
-        return list(default_presets.keys())
-
-    known_set = set(known_keys)
-    added = False
+    changed = False
+    history = _preset_history(defaults_dir)
+    still_reworked = {}
     for name, weights in default_presets.items():
-        if name in known_set:
+        mine = user_presets.get(name)
+        if not isinstance(mine, dict) or not isinstance(weights, dict) \
+                or weights_equal(mine, weights):
             continue
-        if name not in user_presets:
-            user_presets[name] = weights
-            added = True
+        if name in reworked and weights_equal(mine, reworked[name]):
+            if name in last_values \
+                    and weights_equal(weights, last_values[name]):
+                still_reworked[name] = reworked[name]
+                continue
+        elif not _unedited(name, mine, last_values, history):
+            continue
+        user_presets[name] = dict(weights)
+        changed = True
 
-    if added:
+    # Grandfathering: with no sidecar, every current default counts as
+    # known, so a deletion made before tombstones existed sticks.
+    if not is_first_sync:
+        known_set = set(known_keys)
+        for name, weights in default_presets.items():
+            if name not in known_set and name not in user_presets:
+                user_presets[name] = weights
+                changed = True
+
+    if changed:
         _safe_write_json(user_file, user_data)
-    return list(default_presets.keys())
+    values = {name: weights for name, weights in default_presets.items()
+              if isinstance(weights, dict)}
+    return list(default_presets.keys()), values, still_reworked
+
+
+# What `presets_follow` last worked out the shipped presets to be, where
+# the game client's max rolls moved them: what Restore Defaults offers
+# (`effective_presets`). None where they stand as shipped.
+_effective = None
+
+
+def effective_presets(default_presets: dict) -> dict:
+    """The shipped presets as this launch has them: re-worked for the
+    game client's max rolls where `presets_follow` found those moved."""
+    out = dict(default_presets)
+    out.update(_effective or {})
+    return out
+
+
+def presets_follow(user_dir: Path, defaults_dir: Path, preset_manager=None):
+    """Re-work the shipped presets for the game client's max rolls, and
+    bring every copy the player never edited to them; run once the
+    client's facts are laid over (`game_client.use`).
+
+    Where the rolls are those the presets were derived with, a copy
+    re-worked at an earlier launch goes back to the shipped value. An
+    edited copy is never touched: Restore Defaults offers it the
+    re-worked value (`effective_presets`).
+
+    `preset_manager`, where the presets are loaded, is updated and
+    saves the file; else the file is written here. Returns the names of
+    the presets it changed."""
+    global _effective
+    import preset_derivation
+    from preset_manager import weights_equal
+    user_dir, defaults_dir = Path(user_dir), Path(defaults_dir)
+    defaults = _dict_of(_safe_load_json(defaults_dir / "presets.json",
+                                        {}).get("presets"))
+    targets = preset_derivation.rework(defaults_dir) or {}
+    _effective = targets or None
+    state_file = user_dir / _SYNC_STATE_FILENAME
+    state = _load_sync_state(state_file)
+    reworked = _dict_of(state.get(_PRESET_REWORKED))
+    if preset_manager is not None:
+        if preset_manager.is_corrupted():
+            return []
+        mine_all = preset_manager.presets
+    else:
+        data = _user_json(user_dir / "presets.json", {"presets": {}})
+        if data is None:
+            return []
+        mine_all = data.setdefault("presets", {})
+    changed = []
+    for name, shipped in defaults.items():
+        mine = mine_all.get(name)
+        target = targets.get(name, shipped)
+        if not isinstance(mine, dict) or weights_equal(mine, target):
+            continue
+        if weights_equal(mine, shipped) or (
+                name in reworked and weights_equal(mine, reworked[name])):
+            mine_all[name] = {k: float(v) for k, v in target.items()}
+            changed.append(name)
+    new_reworked = {name: weights for name, weights in targets.items()
+                    if weights_equal(mine_all.get(name), weights)}
+    if changed:
+        if preset_manager is not None:
+            preset_manager._write()
+        else:
+            _safe_write_json(user_dir / "presets.json", data)
+    if new_reworked != reworked:
+        state[_PRESET_REWORKED] = new_reworked
+        _save_sync_state(state_file, state)
+    return changed
 
 
 def _merge_character_preset(

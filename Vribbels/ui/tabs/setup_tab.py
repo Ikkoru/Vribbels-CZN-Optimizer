@@ -63,7 +63,7 @@ from ..utils.escape import close_on_escape
 from ..utils.scrolled_text import make_scrolled_text
 from ..utils.tooltip import Tooltip
 from ..utils.tab_header import make_tab_header
-from defaults_sync import resolve_defaults_dir
+from defaults_sync import effective_presets, resolve_defaults_dir
 from ui.scaling import px, px_after
 from ui import scaling
 from ui.update_check import (
@@ -2248,6 +2248,9 @@ class SetupTab(BaseTab):
         default_presets = default_data.get("presets", {})
         if not isinstance(default_presets, dict):
             return [], []
+        # The shipped presets as this launch has them: re-worked where
+        # the game client's max rolls moved them (`presets_follow`).
+        default_presets = effective_presets(default_presets)
 
         user_presets = preset_mgr.presets
         missing, changed = [], []
@@ -2361,13 +2364,8 @@ class SetupTab(BaseTab):
     def _preset_weights_equal(a: dict, b: dict) -> bool:
         """Compare two preset weight dicts as float maps. Missing keys
         on either side default to 1.0 (PresetManager pad behavior)."""
-        from preset_manager import SUPPORTED_STATS
-        for stat in SUPPORTED_STATS:
-            av = float(a.get(stat, 1.0))
-            bv = float(b.get(stat, 1.0))
-            if abs(av - bv) > 1e-9:
-                return False
-        return True
+        from preset_manager import weights_equal
+        return weights_equal(a, b)
 
     @staticmethod
     def _dict_equal_excluding_keys(a: dict, b: dict, exclude_keys) -> bool:
@@ -2494,6 +2492,9 @@ class SetupTab(BaseTab):
         default_presets = default_raw.get("presets", {})
         if not isinstance(default_presets, dict):
             raise ValueError("Bundled defaults file is structurally invalid.")
+        # As `_diff_presets` offered them: re-worked for the game
+        # client's max rolls where those moved.
+        default_presets = effective_presets(default_presets)
 
         rename_targets = {}  # orig -> new_name
         replace_only = []

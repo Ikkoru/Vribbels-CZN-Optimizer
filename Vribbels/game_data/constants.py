@@ -34,11 +34,14 @@ doesn't live on individual characters / partners / fragments:
 
 The game client's tables replace the contents of CHARACTER_EXP_TABLE,
 PARTNER_EXP_TABLE, AFFINITY_TO_NEXT, FRIENDSHIP_BONUSES,
-SLOT_MAIN_STATS and SUBSTAT_DRAW at launch (`client_overlay`); as typed here they are
-the fallback, and what `docs/client_tables.py --audit` holds the
-client against. STATS' roll bounds, MAIN_STAT_VALUES and
-MAX_LEVEL_PER_RARITY are held against the client's on every run
-(`checks/check_client_overlay.py`) and never replaced.
+SLOT_MAIN_STATS and SUBSTAT_DRAW at launch, and STATS' roll bounds
+(`client_overlay`); as typed here they are the fallback, and what
+`docs/client_tables.py --audit` holds the client against. Where the
+client's max rolls are not the ones the shipped presets were derived
+with, the program re-works the presets (`preset_derivation.rework`).
+MAIN_STAT_VALUES and MAX_LEVEL_PER_RARITY are held against the
+client's on every run (`checks/check_client_overlay.py`) and never
+replaced.
 
 
 Note on capture-related constants

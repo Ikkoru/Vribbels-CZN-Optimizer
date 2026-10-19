@@ -1,37 +1,24 @@
 """Derive the shipped Gear Score presets' weights from the Optimizer's own
 score. The method, its assumptions and how to redo it:
-`docs/preset_weights.md`.
+`docs/preset_weights.md`; the derivation itself is
+`Vribbels/preset_derivation.py`, which the program also runs.
 
     python docs/preset_weights.py            # derived against current
     python docs/preset_weights.py --derive   # re-derive the archetypes
     python docs/preset_weights.py --check    # have the weights drifted?
     python docs/preset_weights.py --write    # into default_settings/
 
-**A weight is what one MAX roll of a stat adds to the score**, divided
-by what one max roll of the preset's scaling stat adds: the relative
-gain of `(1 - h) * D + h * S`, `core.compute_score_components`'s damage
-and shield/heal terms, at a reference build. Max rolls, because the
-Gear Score divides every roll by its stat's max roll.
-
-**The reference build is in a vacuum**: the combatant at level 61 with
-their class's 5-star partner, their signature partner's passives (a
-5-star or 4.5-star one at limit break 0, a 4-star one at its highest),
-potential nodes 5 and 6 maxed, node 7 taken and the highest Affection,
-wearing their
-ARCHETYPE's average fragment stats -- the mean of the fragment stats of
-every archetype member's best Optimizer build -- and their own sets.
-Those averages are derived once and kept in
-`docs/preset_weights_archetypes.json`, so the weights are reproducible
-without running the Optimizer; `--derive` and `--check` run it again
-(`--check` also records the season part it ran in, which
-`checks/check_preset_weights.py` reads).
-
-**What the score cannot price keeps the preset's own weight**: Ego, HP,
-and any stat worth exactly nothing to the score -- a tie-breaker the
-maintainer sets (Ego and DEF ahead of HP), never a derived value.
+The archetype averages are derived from the maintainer's inventory and
+kept in `Vribbels/default_settings/preset_archetypes.json`, so the
+weights are reproducible without running the Optimizer; `--derive` and
+`--check` run it again (`--check` also records the season part it ran
+in, which `checks/check_preset_weights.py` reads). `--write` records
+beside them the max rolls the weights were derived with, which is what
+tells the program to re-work its presets when the game client's differ.
 
 Read-only over Vribbels/settings/ and the snapshots; `--write` writes
-default_settings/presets.json only, and prints what it changed.
+default_settings/presets.json and the archetypes file's `max_rolls`
+only, and prints what it changed.
 """
 
 import glob
@@ -45,183 +32,38 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 SOURCE = HERE.parent / "Vribbels"
-ARCHETYPES = HERE / "preset_weights_archetypes.json"
-PROPOSAL = HERE.parent / "_tmp" / "preset_weights_proposal.json"
 sys.path.insert(0, str(SOURCE))
 
-# ---------------------------------------------------------------------------
-# The assumptions. docs/preset_weights.md says why each is what it is.
-# ---------------------------------------------------------------------------
+import preset_derivation as pd                                # noqa: E402
+from preset_derivation import (                               # noqa: E402
+    LEVEL, STATS_SHOWN, VARIANTS, archetype, baseline, combatant_of,
+    current_max_rolls, derive_preset)
 
-LEVEL = 61
-PARTNER_GRADE = 5          # flat stats: the class's 5-star partner
-# The signature partner's limit break, by its grade: 5-star and
-# 4.5-star partners at 0, 4-star ones at their highest.
-PARTNER_LIMIT_BREAK = {5: 0, 4.5: 0, 4: 4}
-POTENTIAL_LEVEL = 5        # nodes 5 and 6 (wire 50 and 60), maxed
-
-# The partner a combatant is assumed to wear is
-# `game_data.partners.assumed_partner`'s, else the one equipped on the
-# maintainer's account.
-
-# Presets that are not their combatant's own Optimizer settings as they
-# stand. `settings` overrides fields of them; `set` is a 4-piece set the
-# preset assumes worn; `unique_lean` is Maribell's share of her
-# shield-scaling build, whose damage only CRate and CDMG move; `new`
-# marks a preset the maintainer's settings do not hold yet, whose
-# tie-breakers come from `like`.
-VARIANTS = {
-    "Beryl (Upgrade Deck)": {"settings": {"extra_pct": 100}},
-    "Beryl (no Extra DMG)": {"settings": {"extra_pct": 0}},
-    "Heidemarie (no Extra DMG)": {"settings": {"extra_pct": 0}},
-    "Haru (Line of Justice)": {"set": 20},
-    "Khalipe (Line of Justice)": {"set": 20},
-    "Nine (Line of Justice)": {"set": 20},
-    "Rita (Line of Justice)": {"set": 20},
-    "Renoa (Conqueror's Aspect)": {"set": 6},
-    "Rin (Conqueror's Aspect)": {"set": 6},
-    "Maribell (Shelter Strike DPS)": {"unique_lean": 0.5},
-    "Maribell": {"unique_lean": 0.0},
-    "Orlea (slight DMG skew)": {
-        "settings": {"shielding_healing_weight": 33}},
-    "Orlea (healing skew)": {
-        "settings": {"shielding_healing_weight": 80}, "new": True,
-        "like": "Orlea (slight DMG skew)"},
-    # Her tie-breakers are those of a plain ATK DPS. Her own best
-    # build's sets are in the stored archetypes; her fragment stats
-    # join the averages at the next `--derive`.
-    "Anika": {"new": True, "like": "Sereniel"},
-}
-
-# The 2-piece a forced 4-piece is paired with where the inventory has no
-# such build: the one nearly every best build wears.
-PAIRED_TWO_PIECE = 11      # Executioner's Tool
-
-STATS_SHOWN = ["Flat ATK", "ATK%", "Flat DEF", "DEF%", "Flat HP", "HP%",
-               "CRate", "CDmg", "Ego", "Extra DMG%", "DoT%"]
+ARCHETYPES = SOURCE / "default_settings" / pd.ARCHETYPES_FILE
+PROPOSAL = HERE.parent / "_tmp" / "preset_weights_proposal.json"
 MF_KEYS = STATS_SHOWN
 
 
-class Pseudo:
-    """Fragment stats with no set and no main stat: one max roll, or an
-    archetype's whole average."""
-    set_id = None
-    main_stat = None
-
-    def __init__(self, stats):
-        self._stats = dict(stats)
-
-    def get_total_stats(self):
-        return dict(self._stats)
-
-
-def combatant_of(preset):
-    return preset.split(" (", 1)[0]
-
-
-def archetype(s):
-    """The groups the averages are taken over, by what the settings say
-    the combatant does."""
-    heal = s.get("shielding_healing_weight", 0)
-    split = s.get("atk_def_split", 0)
-    if heal >= 50:
-        return "healer"
-    if heal > 0 and split < 50:
-        return "healer, ATK damage"
-    if split >= 50:
-        return "DEF DPS"
-    if s.get("dot_pct", 0) + s.get("fracture_pct", 0) >= 50:
-        return "ATK DPS, DoT"
-    if s.get("extra_pct", 0) >= 50:
-        return "ATK DPS, Extra"
-    return "ATK DPS"
-
-
-class World:
+class World(pd.Reference):
     """The program's data, read once: the optimizer on the newest
     snapshot, the maintainer's settings and presets."""
 
     def __init__(self):
         os.chdir(SOURCE)
         from optimizer.optimizer import GearOptimizer
-        self.opt = GearOptimizer()
+        opt = GearOptimizer()
         self.snapshot = max(glob.glob("snapshots/memory_fragments_*.json"),
                             key=os.path.getmtime)
-        self.opt.load_data(self.snapshot)
-        self.by_id = {f.id: f for f in self.opt.fragments}
+        opt.load_data(self.snapshot)
+        self.by_id = {f.id: f for f in opt.fragments}
         read = lambda p: json.load(io.open(p, encoding="utf-8"))
         osm = read("settings/optimizer_settings.json")["characters"]
-        self.settings = {s["name_hint"]: s for s in osm.values()}
-        self.presets = read("settings/presets.json")["presets"]
+        super().__init__({s["name_hint"]: s for s in osm.values()},
+                         read("settings/presets.json")["presets"], opt)
         self.glob_settings = read("settings/settings.json")
         real = self.opt._build_char_static
         self.opt._build_char_static = lambda name, level: self.statics(
             name, real)
-
-    # -- the reference combatant --------------------------------------------
-
-    def partner(self, name):
-        """(res_id, data) of the partner assumed for `name`."""
-        from game_data import PARTNERS
-        from game_data.partners import assumed_partner
-        rid, partner = assumed_partner(name)
-        if rid is not None:
-            return rid, partner
-        info = self.opt.character_info.get(name)
-        rid = info.partner_res_id if info else None
-        return rid, PARTNERS.get(rid) if rid else None
-
-    def statics(self, name, real=None):
-        """The char-static inputs of `name` in the vacuum."""
-        from game_data import FRIENDSHIP_BONUSES, PARTNER_CLASS_STATS
-        from game_data.characters import (get_character_by_name,
-                                          get_potential_stat_bonus)
-        from game_data.partners import get_partner_passive_stats
-        build = real or self.opt.__class__._build_char_static.__get__(
-            self.opt)
-        cs = dict(build(name, LEVEL))
-        char = get_character_by_name(name)
-        _tier, aff_atk, aff_def, aff_hp = FRIENDSHIP_BONUSES[-1]
-        cs.update(affection_atk=aff_atk, affection_def=aff_def,
-                  affection_hp=aff_hp)
-        for key in [k for k in cs if k.startswith("partner_")]:
-            cs[key] = 0
-        prid, partner = self.partner(name)
-        cls = (partner or {}).get("class") or char.get("class")
-        flat = PARTNER_CLASS_STATS[(PARTNER_GRADE, cls)]
-        cs.update(partner_flat_atk=flat["atk"], partner_flat_def=flat["def"],
-                  partner_flat_hp=flat["hp"])
-        if prid:
-            for cond, suffix in ((False, ""), (True, "_cond")):
-                passive = get_partner_passive_stats(
-                    prid, PARTNER_LIMIT_BREAK.get(partner.get("grade"), 0),
-                    conditional=cond)
-                for stat, key in (("ATK%", "atk_pct"), ("DEF%", "def_pct"),
-                                  ("HP%", "hp_pct"), ("CDmg", "cdmg"),
-                                  ("Extra DMG%", "extra_dmg"),
-                                  ("CRate", "crate"), ("DoT%", "dot"),
-                                  ("Ego", "ego")):
-                    cs["partner_" + key + suffix] = passive.get(stat, 0)
-        for key in ("pot_atk_pct", "pot_def_pct", "pot_hp_pct", "pot_crate",
-                    "pot_cdmg"):
-            cs[key] = 0
-        from game_data import CHARACTERS
-        rid = next((r for r, c in CHARACTERS.items()
-                    if isinstance(c, dict) and c.get("name") == name), None)
-        for node in (50, 60):
-            stat, bonus = get_potential_stat_bonus(rid, node,
-                                                   POTENTIAL_LEVEL)
-            key = {"ATK%": "pot_atk_pct", "DEF%": "pot_def_pct",
-                   "HP%": "pot_hp_pct", "CRate": "pot_crate",
-                   "CDmg": "pot_cdmg"}.get(stat)
-            if key:
-                cs[key] += bonus
-        # Node 7 taken, whatever the account's own combatant has: its
-        # growth is part of what a stat buys.
-        from optimizer import core
-        from game_data.potential_7 import get_potential_7
-        cs["potential_7"] = core.potential_7_effects(get_potential_7(rid))
-        return cs
 
     def run_settings(self, name, s, forced=None):
         """What `OptimizerTab._build_optimizer_settings` would build, at
@@ -365,126 +207,9 @@ def season_part(snapshot, now=None):
     return name, part_of(now, starts) if starts else None
 
 
-# ---------------------------------------------------------------------------
-# The weights.
-# ---------------------------------------------------------------------------
-
-def worths(world, name, s, vector, lean=0.0):
-    """{stat: relative gain of one max roll} at the reference build."""
-    from game_data import STATS
-    from optimizer import core
-    sp = core.build_score_precompute(s)
-    shares = sp["set_effect_shares"]
-    h = sp["heal_share"]
-    attribute = world.opt._resolve_attribute(name, s)
-    cs = world.statics(name)
-
-    def scored(extra):
-        stats = core.compute_build_stats([Pseudo(vector)] + extra, cs, shares)
-        return stats, core.compute_score_components([], stats, sp, attribute)
-    stats0, (d0, s0) = scored([])
-    out = {}
-    for info in STATS.values():
-        if info[3] <= 0:
-            continue
-        _st, (d, sv) = scored([Pseudo({info[0]: info[3]})])
-        gain = (1 - h) * (d / d0 - 1) if d0 else 0.0
-        if h and s0:
-            gain += h * (sv / s0 - 1)
-        out[info[0]] = gain
-    if lean:
-        # The build whose damage only crit moves: its gains are the crit
-        # multiplier's alone, blended with the ordinary build's.
-        cm = core.crit_multiplier(stats0)
-        crit = {stat: core.crit_multiplier(dict(
-            stats0, **{stat: stats0[stat] + max_roll(stat)})) / cm - 1
-            for stat in ("CRate", "CDmg")}
-        out = {k: lean * crit.get(k, 0.0) + (1 - lean) * v
-               for k, v in out.items()}
-    return out, stats0
-
-
-def max_roll(stat):
-    from game_data import STATS
-    return next(info[3] for info in STATS.values() if info[0] == stat)
-
-
-def baseline(s, current):
-    """The stat a preset reads 1 on: DEF% for a healer or a DEF scaler,
-    or where the preset already reads DEF% 1 over a smaller ATK%."""
-    if s.get("shielding_healing_weight", 0) >= 50 \
-            or s.get("atk_def_split", 0) >= 50:
-        return "DEF%"
-    if current.get("DEF%") == 1.0 and current.get("ATK%", 1.0) < 1.0:
-        return "DEF%"
-    return "ATK%"
-
-
-def rounded(value):
-    return round(value, 2) if value >= 1 else round(value, 3)
-
-
-def derive_preset(world, stored, preset):
-    """(derived weights, reference stats, notes) for one preset."""
-    name = combatant_of(preset)
-    spec = VARIANTS.get(preset) or {}
-    s = dict(world.settings[name], **spec.get("settings", {}))
-    current = world.presets.get(preset) or world.presets.get(
-        spec.get("like", ""), {})
-    vector = dict(stored["averages"][archetype(s)])
-    own_sets = stored["sets"].get(name)
-    notes = []
-    if spec.get("set") and (own_sets is None or not _has_set(
-            own_sets, spec["set"])):
-        from game_data import SETS
-        from optimizer import core
-        shares = core.build_score_precompute(s)["set_effect_shares"]
-        own_sets = synthetic_sets(spec["set"], shares)
-        notes.append("%s x4 assumed with %s x2: no such build in the "
-                     "inventory" % (SETS[spec["set"]]["name"],
-                                    SETS[PAIRED_TWO_PIECE]["name"]))
-    for k, v in (own_sets or {}).items():
-        vector[k] = vector.get(k, 0) + v
-    gains, stats = worths(world, name, s, vector,
-                          spec.get("unique_lean", 0.0))
-    unit_stat = baseline(s, current)
-    unit = gains[unit_stat] or 1e-12
-    out = {}
-    for stat in STATS_SHOWN:
-        gain = gains.get(stat, 0.0)
-        if abs(gain) < 1e-9:
-            # The score cannot price it: the preset's own tie-breaker.
-            out[stat] = current.get(stat, 0.0)
-        else:
-            out[stat] = rounded(gain / unit)
-    return out, stats, notes
-
-
-def _has_set(vector, sid):
-    from game_data import SETS
-    from game_data.sets import SET_STAT_NAME_MAP
-    stat = SET_STAT_NAME_MAP.get(SETS[sid].get("stat", ""))
-    return vector.get(stat, 0) >= SETS[sid].get("value", 0) * 0.5
-
-
-def synthetic_sets(sid, shares):
-    from game_data import SETS
-    from game_data.sets import SET_STAT_NAME_MAP
-    out = defaultdict(float)
-    for set_id, share in ((sid, shares.get(sid, 0.0)),
-                          (PAIRED_TWO_PIECE, 1.0)):
-        info = SETS[set_id]
-        value = info.get("value", 0) * (
-            share if info["type"] == "conditional" else 1.0)
-        out[SET_STAT_NAME_MAP.get(info.get("stat", ""))] += value
-    return dict(out)
-
-
-def all_presets(world):
-    names = list(world.presets)
-    names += [p for p, spec in VARIANTS.items()
-              if spec.get("new") and p not in names]
-    return names
+def _write_archetypes(data):
+    ARCHETYPES.write_text(json.dumps(data, indent=1, sort_keys=True),
+                          encoding="utf-8")
 
 
 def main(argv):
@@ -500,19 +225,22 @@ def main(argv):
         fresh.update(derived_at=time.strftime("%Y-%m-%d"),
                      checked={"season": season, "part": part,
                               "at": time.strftime("%Y-%m-%d")})
-        if "--check" in argv and ARCHETYPES.exists():
+        if ARCHETYPES.exists():
             old = json.loads(ARCHETYPES.read_text(encoding="utf-8"))
-            report_drift(world, old, fresh)
-            old["checked"] = fresh["checked"]
-            ARCHETYPES.write_text(json.dumps(old, indent=1, sort_keys=True),
-                                  encoding="utf-8")
-            print("Recorded the check: %s part %s." % (season, part))
-            return
-        ARCHETYPES.write_text(json.dumps(fresh, indent=1, sort_keys=True),
-                              encoding="utf-8")
+            # The rolls the shipped presets were derived with stay until
+            # `--write` writes presets derived with others.
+            if "max_rolls" in old:
+                fresh["max_rolls"] = old["max_rolls"]
+            if "--check" in argv:
+                report_drift(world, old, fresh)
+                old["checked"] = fresh["checked"]
+                _write_archetypes(old)
+                print("Recorded the check: %s part %s." % (season, part))
+                return
+        _write_archetypes(fresh)
         stored = fresh
     proposal = {}
-    for preset in all_presets(world):
+    for preset in pd.all_presets(world.presets):
         name = combatant_of(preset)
         if name not in world.settings:
             print("%s: no Optimizer settings for %s" % (preset, name))
@@ -545,13 +273,16 @@ def main(argv):
         shipped = json.load(io.open(target, encoding="utf-8"))
         shipped["presets"].update(proposal)
         target.write_text(json.dumps(shipped, indent=2), encoding="utf-8")
-        print("Written into %s" % target)
+        stored["max_rolls"] = current_max_rolls()
+        _write_archetypes(stored)
+        print("Written into %s, and the max rolls into %s" % (
+            target, ARCHETYPES))
 
 
 def report_drift(world, old, fresh):
     """How far the weights move with today's archetypes, per preset."""
     worst = []
-    for preset in all_presets(world):
+    for preset in pd.all_presets(world.presets):
         if combatant_of(preset) not in world.settings:
             continue
         before, _s, _n = derive_preset(world, old, preset)

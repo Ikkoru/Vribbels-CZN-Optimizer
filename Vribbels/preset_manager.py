@@ -54,6 +54,20 @@ SUPPORTED_STATS = [
 ]
 
 
+def weights_equal(a, b) -> bool:
+    """Whether two presets' weights are the same, a stat either lacks
+    reading 1.0 -- as `get_preset` and `save_preset` pad it. A copy
+    saved from the Scoring tab carries every stat; the one it came from
+    may not. False where either is not a dict of numbers."""
+    if not isinstance(a, dict) or not isinstance(b, dict):
+        return False
+    try:
+        return all(abs(float(a.get(stat, 1.0)) - float(b.get(stat, 1.0)))
+                   <= 1e-9 for stat in SUPPORTED_STATS)
+    except (TypeError, ValueError):
+        return False
+
+
 def preset_problem(name, weights) -> Optional[str]:
     """Why presets.json could not hold this preset, or None."""
     if not isinstance(name, str) or not name.strip():

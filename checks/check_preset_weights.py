@@ -1,13 +1,14 @@
 """The default presets' derivation still runs, and is re-checked once a
 Galactic Disaster season.
 
-`docs/preset_weights.py` derives the shipped Gear Score weights from the
-Optimizer's own score, at a reference build made of the program's own
-data (`docs/preset_weights.md`). It reaches deep into the program -- the
-optimizer's statics, the scoring core, the partner and potential
-helpers -- so a refactor can break it without anything else noticing,
-and the next time the weights are due the tool no longer runs. What
-this holds:
+`Vribbels/preset_derivation.py` derives the shipped Gear Score weights
+from the Optimizer's own score, at a reference build made of the
+program's own data (`docs/preset_weights.md`); `docs/preset_weights.py`
+runs it for the maintainer, and the program to re-work its presets. It
+reaches deep into the program -- the optimizer's statics, the scoring
+core, the partner and potential helpers -- so a refactor can break it
+without anything else noticing, and the next time the weights are due
+it no longer runs. What this holds:
 
 1. **Every preset derives** from the stored archetypes: the scaling
    stat reads 1, every weight is a finite number of zero or more, and a
@@ -54,7 +55,7 @@ def run():
     try:
         world = tool.World()
         out = []
-        for preset in tool.all_presets(world):
+        for preset in tool.pd.all_presets(world.presets):
             name = tool.combatant_of(preset)
             if name not in world.settings:
                 continue
@@ -88,6 +89,7 @@ def run():
                            f"score prices Ego at nothing, so the preset's "
                            f"weight must stand.")
         out.extend(_reference_is_documented(tool, world))
+        out.extend(_no_inventory_needed(tool, world, stored))
         out.extend(_not_overdue(tool, world, stored))
         return out
     finally:
@@ -113,7 +115,7 @@ def _reference_is_documented(tool, world):
                    f"{level['base_atk']} at level {tool.LEVEL}.")
     _prid, partner = world.partner(name)
     cls = (partner or {}).get("class") or char.get("class")
-    flat = PARTNER_CLASS_STATS[(tool.PARTNER_GRADE, cls)]
+    flat = PARTNER_CLASS_STATS[(tool.pd.PARTNER_GRADE, cls)]
     if cs["partner_flat_atk"] != flat["atk"]:
         out.append(f"{name}'s reference partner ATK is "
                    f"{cs['partner_flat_atk']}, not the class's 5-star "
@@ -126,7 +128,7 @@ def _reference_is_documented(tool, world):
     total = {}
     for node in (50, 60):
         stat, bonus = get_potential_stat_bonus(rid, node,
-                                               tool.POTENTIAL_LEVEL)
+                                               tool.pd.POTENTIAL_LEVEL)
         total[stat] = total.get(stat, 0) + bonus
     keys = {"ATK%": "pot_atk_pct", "DEF%": "pot_def_pct",
             "HP%": "pot_hp_pct", "CRate": "pot_crate", "CDmg": "pot_cdmg"}
@@ -134,7 +136,7 @@ def _reference_is_documented(tool, world):
         if stat in keys and abs(cs[keys[stat]] - bonus) > 1e-9:
             out.append(f"{name}'s reference {stat} from potential nodes is "
                        f"{cs[keys[stat]]}, not {bonus} at level "
-                       f"{tool.POTENTIAL_LEVEL}.")
+                       f"{tool.pd.POTENTIAL_LEVEL}.")
     from optimizer import core
     from game_data.potential_7 import get_potential_7
     if cs.get("potential_7") != core.potential_7_effects(get_potential_7(rid)):
@@ -142,6 +144,26 @@ def _reference_is_documented(tool, world):
                    f"so the weights leave out what its growth makes a "
                    f"stat worth.")
     return out
+
+
+def _no_inventory_needed(tool, world, stored):
+    """The built program re-works the presets with no inventory loaded
+    (`preset_derivation.rework`): every account input of the reference
+    build must be set by `Reference.statics`, so an empty optimizer
+    gives the weights the maintainer's own does."""
+    bare = tool.pd.Reference(world.settings, world.presets)
+    for preset in tool.pd.all_presets(world.presets):
+        if tool.combatant_of(preset) not in world.settings:
+            continue
+        theirs, _s, _n = tool.derive_preset(world, stored, preset)
+        mine, _s, _n = tool.derive_preset(bare, stored, preset)
+        if mine != theirs:
+            return [f"{preset} derives {mine} with no inventory loaded, "
+                    f"{theirs} on the maintainer's: an account's own "
+                    f"figure reaches the reference build, and the program's "
+                    f"re-worked presets would differ by account. See "
+                    f"`Reference.statics` in Vribbels/preset_derivation.py."]
+    return []
 
 
 def _not_overdue(tool, world, stored):

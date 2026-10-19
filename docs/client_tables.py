@@ -565,8 +565,8 @@ def fragment_problems(client):
     rarity's top level; and the substats' draw weights (`SUBSTAT_DRAW`,
     which the client's replace)."""
     from game_data.client_overlay import hand
-    from game_data.constants import (MAIN_STAT_VALUES, MAX_LEVEL_PER_RARITY,
-                                     STATS)
+    from game_data.constants import MAIN_STAT_VALUES, MAX_LEVEL_PER_RARITY
+    STATS = hand("STATS")
     held = game_client.fragment_stats(client)
     names = {stat: info[0] for stat, info in STATS.items()}
     ours, top, out = hand("SLOT_MAIN_STATS"), held["max_levels"].get(4), []
