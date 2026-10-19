@@ -6,10 +6,15 @@ and nothing says why. A rarity that resolves to no plate draws the icon
 with no background at all, which looks like a deliberately plateless
 item rather than a typo.
 
-The rarity is DERIVED for 57 of the ids: a shaped row states a tier and
-`TIER_RARITY` prices the word. So one unpriced tier word costs a whole
-family its plates at once, and the only thing that would show it is
-opening the tab and noticing.
+The rarity is DERIVED for most of the ids: a shaped row states a tier
+and `TIER_RARITY` prices the word. So one unpriced tier word costs a
+whole family its plates at once, and the only thing that would show it
+is opening the tab and noticing.
+
+The game client's rarity goes over the tables' wherever it rates an
+id (`game_client.known_item_rarities`), so each of ITS words needs a
+plate too, and a client read must reach `item_art` -- the rarities are
+worked out once per read, and a stale set draws last read's plates.
 
 No Tk: the tables and the files are all this needs.
 """
@@ -34,9 +39,12 @@ def run():
     # too, and from a rarity NO item table prices -- so nothing else
     # here would reach it.
     from ui.tabs.materials_tab import RESERVED_RARITY
+    import game_client
 
     for source, words in (("TIER_RARITY", set(TIER_RARITY.values())),
                           ("NAME_RARITY", set(NAME_RARITY.values())),
+                          ("the game client's rarities",
+                           set(game_client.ITEM_RARITY_WORDS.values())),
                           ("the Materials tab's reserved tiles",
                            {RESERVED_RARITY})):
         for word in sorted(words):
@@ -102,4 +110,33 @@ def run():
                     f"plate, and only opening the tab would show it."
                 )
 
+    failures.extend(_client_rarity_wins(game_client, item_art))
     return failures
+
+
+def _client_rarity_wins(game_client, item_art):
+    """A client read's rarity reaches `item_art` over the table's, and
+    the next read's replaces it."""
+    from game_data.constants import GROWTH_STONES, table_art
+    res_id = next(iter(GROWTH_STONES))
+    own = table_art(res_id).rarity
+    other = "Mythic" if own != "Mythic" else "Rare"
+    held = game_client._facts
+    out = []
+    try:
+        item_art(res_id)
+        game_client.use({"item_rarities": {str(res_id): other}})
+        if item_art(res_id).rarity != other:
+            out.append(f"with the client rating res_id {res_id} {other}, "
+                       f"`item_art` still draws {item_art(res_id).rarity}: "
+                       f"the client's rarity must go over the table's, and "
+                       f"a read must replace the last one's.")
+        game_client.use(None)
+        if item_art(res_id).rarity != (
+                game_client.known_item_rarities().get(res_id) or own):
+            out.append(f"after the client read went, `item_art` draws res_id "
+                       f"{res_id} {item_art(res_id).rarity}, a read that is "
+                       f"no longer there.")
+    finally:
+        game_client.use(held)
+    return out

@@ -806,6 +806,19 @@ def item_art(res_id):
     names, which is None -- one is known and undrawn, the other is not
     known at all, and a tile in the first case still carries a count.
 
+    **The game client's rarity wins** wherever it rates the id
+    (`game_client.known_item_rarities`); the tables' own, `table_art`,
+    is the fallback.
+    """
+    import game_client
+    art = table_art(res_id)
+    rarity = game_client.known_item_rarities().get(res_id)
+    return art._replace(rarity=rarity) if art and rarity else art
+
+
+def table_art(res_id):
+    """`item_art` from the item tables alone, as typed.
+
     **A row states its rarity only where nothing can derive it.** A
     shaped row carries a TIER, and `TIER_RARITY` prices every tier
     word; a named row carries a NAME, and `NAME_RARITY` prices those.

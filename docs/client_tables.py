@@ -197,6 +197,18 @@ def shipped_source(client):
     lines += ["    },",
               f"    'max_levels': {ascii(fragments['max_levels'])},",
               "}", ""]
+    rarities = {}
+    for res_id, word in sorted(game_client.item_rarities(client).items()):
+        rarities.setdefault(word, []).append(str(res_id))
+    lines += ["# {rarity: its items' res_ids}. See game_client.item_rarities;",
+              "# constants.item_art puts them over the item tables' own.",
+              "ITEM_RARITIES = {"]
+    for word in game_client.ITEM_RARITY_WORDS.values():
+        if word in rarities:
+            lines.append(f"    {ascii(word)}: [")
+            lines += _rows(rarities[word])
+            lines.append("    ],")
+    lines += ["}", ""]
     return "\n".join(lines)
 
 
@@ -223,7 +235,8 @@ POOL_TYPES = {
 }
 
 # The client's words for what `game_data` spells its own way: the
-# reader's own maps, so the audit and the program read alike.
+# reader's own maps, so the audit and the program read alike. A
+# class's name in the text goes over CLASSES (`game_client.class_names`).
 CLASSES = game_client.CLASS_NAMES
 ATTRIBUTES = game_client.ATTRIBUTE_NAMES
 GRADES = game_client.COMBATANT_GRADES
@@ -284,12 +297,11 @@ def audit(client):
     ascends = client.rows("char_base@combatant_ascend")
     derived = game_client.combatants(client)
     derived_partners = game_client.partners(client)
+    classes = {**CLASSES, **game_client.class_names(client)}
     out = []
 
     def differ(who, field, ours, theirs):
-        if _plain(ours) != _plain(theirs):
-            out.append(f"{who}: {field} is {ours!r} here, {theirs!r} in "
-                       f"the client")
+        _differ_into(out, who, field, ours, theirs)
 
     for rid, ours in sorted((r, c) for r, c in CHARACTERS.items()
                             if isinstance(r, int) and r > 0
@@ -304,7 +316,7 @@ def audit(client):
         differ(who, "grade", ours.get("grade"),
                GRADES.get(base.get(str(rid), {}).get("rarity")))
         differ(who, "class", ours.get("class"),
-               CLASSES.get(row["link_base_class_define_id"]))
+               classes.get(row["link_base_class_define_id"]))
         differ(who, "attribute", ours.get("attribute"),
                ATTRIBUTES.get(row["link_ego_type_id"]))
         stepped = _steps(levels, row["link_combatant_level_group"],
@@ -343,6 +355,7 @@ def audit(client):
 
     out += level_problems(client)
     out += fragment_problems(client)
+    out += item_problems(client)
 
     partner = {r["id"]: r for r in client.rows("partner_base@char_partner")}
     cards = {r["id"]: r for r in client.rows("card(partner)@card")}
@@ -363,7 +376,7 @@ def audit(client):
             continue
         differ(who, "name", ours.get("name"),
                texts.get(f"char_base@name@{rid}"))
-        differ(who, "class", ours.get("class"), CLASSES.get(
+        differ(who, "class", ours.get("class"), classes.get(
             row["passive_condition_link_base_class_define_id"]))
         differ(who, "passive_name", ours.get("passive_name"),
                texts.get(f"partner_passive@name@{rid}"))
@@ -593,6 +606,66 @@ def fragment_problems(client):
                    f"({', '.join(f'{n} {w}' for n, w in weights.items())}), "
                    f"where the Potential math draws every one alike")
     return out
+
+
+def item_problems(client):
+    """Where the classes, the item tables' art and the shops' names as
+    typed disagree with the client's: a class either side lacks, or in
+    another order than the Materials tab's; an item's rarity or icon;
+    a tracked shop whose name holds none of the game's for it (the
+    program's own goes over it, as with the Chaos names)."""
+    from game_data import constants
+    from game_data.constants import ITEM_TABLES, table_art
+    import shop_stock
+    from ui.tabs.materials_tab import CLASS_ORDER
+    out = []
+    classes = game_client.class_names(client)
+    if set(classes.values()) != set(constants.CLASSES):
+        out.append(f"classes: {sorted(constants.CLASSES)} here, "
+                   f"{sorted(classes.values())} in the client")
+    elif tuple(classes.values()) != tuple(CLASS_ORDER):
+        out.append(f"classes: the Materials tab lists {CLASS_ORDER}, the "
+                   f"game {tuple(classes.values())}")
+    rarities = game_client.item_rarities(client)
+    icons = {}
+    for path in client.archive.files:
+        if path.startswith("db/item_") and path.endswith("@item.db"):
+            icons.update({r.get("id"): r.get("icon")
+                          for r in client.rows(path[3:-3])})
+    for table in ITEM_TABLES:
+        for res_id in table:
+            art = table_art(res_id)
+            if art is None:
+                continue
+            _differ_into(out, f"item {res_id}", "rarity", art.rarity,
+                         rarities.get(res_id))
+            if art.icon:
+                _differ_into(out, f"item {res_id}", "icon",
+                             Path(art.icon).stem, icons.get(str(res_id)))
+    texts = client.text()
+    cats = {r["id"]: r for r in client.rows("shop_category@shop_category")}
+    subs = {r["id"]: r
+            for r in client.rows("shop_category@shop_sub_category")}
+    for (cat, sub), ours in sorted(shop_stock.SHOPS.items()):
+        names = [_plain(game_client.clean(texts.get(row.get(column))))
+                 for row, column in ((cats.get(cat), "main_category_name"),
+                                     (subs.get(sub), "sub_category_name"))
+                 if row]
+        if not names:
+            out.append(f"shop {cat}/{sub} {ours!r}: not in the client")
+        elif not any(name and name in _plain(ours) for name in names):
+            out.append(f"shop {cat}/{sub}: {ours!r} here, "
+                       f"{' - '.join(n for n in names if n)!r} in the "
+                       f"client (the program's name shows)")
+    return out
+
+
+def _differ_into(out, who, field, ours, theirs):
+    """A line added to `out` where `ours` and `theirs` disagree, the
+    client's typographic apostrophe read as the plain one."""
+    if _plain(ours) != _plain(theirs):
+        out.append(f"{who}: {field} is {ours!r} here, {theirs!r} in the "
+                   f"client")
 
 
 # The client's stat ids for the plain stats a set's `stat` names.

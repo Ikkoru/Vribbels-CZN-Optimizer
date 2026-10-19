@@ -7,7 +7,8 @@ to and pays toward the day's Activity, each Memory Fragment set's
 effect, the words of each combatant's own Potential nodes, every
 combatant's and partner's figures, the Chaos and Zero System names,
 the Normal Rescues' 5-stars, the exp each level and each Affinity
-level takes, and the main stats each Memory Fragment slot carries.
+level takes, the main stats each Memory Fragment slot carries, every
+item's rarity and every class's name.
 `docs/client_data.md` says where each is kept and how it was held
 against what the program already knew; `docs/client_tables.py` is the
 maintainer's tool over the same reader. Reads only: nothing here writes
@@ -72,7 +73,7 @@ GAMERES = Path("bin") / "appdata" / "cznlive" / "gameres"
 # What the cache is called in the settings folder, and the shape of
 # what it holds. A cache of another format is read as no cache.
 CACHE_FILE = "game_client.json"
-CACHE_FORMAT = 9
+CACHE_FORMAT = 10
 
 # The manifest layout this reads. A different version is a different
 # layout until shown otherwise.
@@ -182,7 +183,8 @@ NODE_EFFECT_TABLE = "potential_node@potential_node_effect"
 OWN_TEXT_NODES = {"7_0": 70, "5_1": 51}
 
 # The client's words for what `game_data` spells its own way: a class,
-# an attribute (`link_ego_type_id`, a colour), a combatant's grade.
+# an attribute (`link_ego_type_id`, a colour), a combatant's grade. A
+# class's own name in the text (`class_names`) goes over CLASS_NAMES.
 CLASS_NAMES = {"striker": "Striker", "vanguard": "Vanguard",
                "hunter": "Hunter", "ranger": "Ranger",
                "psionic": "Psionic", "controller": "Controller"}
@@ -253,6 +255,15 @@ PIECE_LEVEL_TABLE = "piece_reinforce@piece_reinforce"
 PIECE_LEVEL_ROW = re.compile(r"reinforce_([a-z]+)_(\d+)")
 PIECE_RARITIES = {"common": 1, "uncommon": 2, "rare": 3, "legend": 4,
                   "unique": 5}
+# The classes, a row each in the game's order, `class_name` the text
+# id of its English name; `CLASS_NAMES` stands in where the text holds
+# none.
+CLASS_TABLE = "base_class_define@base_class_define"
+# An item's rarity, as the `item_*@item` tables' `rarity` says it, in
+# the game's word (`constants.RARITY_PLATES`' keys).
+ITEM_RARITY_WORDS = {"RARITY_COMMON": "Common", "RARITY_UNCOMMON": "Uncommon",
+                     "RARITY_RARE": "Rare", "RARITY_LEGEND": "Legendary",
+                     "RARITY_UNIQUE": "Mythic"}
 
 # Markup the text carries for the game's own renderer: tags, a line
 # break, and a keyword's marker `$Name#level$`, drawn as the name.
@@ -695,6 +706,33 @@ def potential_texts(client):
     return out
 
 
+def class_names(client):
+    """{class id: the game's English name}, in the game's order: the ids
+    a combatant's `link_base_class_define_id` and a partner's passive
+    condition name."""
+    texts = client.text()
+    out = {}
+    for row in client.rows(CLASS_TABLE):
+        name = passage(texts.get(row.get("class_name")))
+        if row.get("id") and name:
+            out[row["id"]] = name
+    return out
+
+
+def item_rarities(client):
+    """{item res_id: the game's rarity word} for every item the
+    `item_*@item` tables hold."""
+    out = {}
+    for path in client.archive.files:
+        if path.startswith("db/item_") and path.endswith("@item.db"):
+            for row in client.rows(path[3:-3]):
+                rid = _figure(row.get("id"))
+                word = ITEM_RARITY_WORDS.get(row.get("rarity"))
+                if isinstance(rid, int) and word:
+                    out[rid] = word
+    return out
+
+
 def item_names(client):
     """{item res_id: English name} for every item the client names."""
     out = {}
@@ -739,6 +777,7 @@ def combatants(client):
     ascends = client.rows("char_base@combatant_ascend")
     effects = {r["id"]: r for r in client.rows(NODE_EFFECT_TABLE)}
     nodes = live_nodes(client)
+    classes = {**CLASS_NAMES, **class_names(client)}
     out = {}
     for row in client.rows("char_base@char_combatant"):
         rid = _figure(row.get("id"))
@@ -753,7 +792,7 @@ def combatants(client):
         entry = {
             "name": passage(texts.get(f"char_base@name@{rid}")) or None,
             "grade": COMBATANT_GRADES.get(base[row["id"]].get("rarity")),
-            "class": CLASS_NAMES.get(row.get("link_base_class_define_id")),
+            "class": classes.get(row.get("link_base_class_define_id")),
             "attribute": ATTRIBUTE_NAMES.get(row.get("link_ego_type_id")),
             "base_crit_rate": _percent(row.get("s_cri")),
             "base_crit_dmg": _percent(row.get("s_cri_dmg_rate")),
@@ -831,6 +870,7 @@ def partners(client):
     ascends = client.rows("partner_base@partner_ascend")
     cards = {r["id"]: r for r in client.rows("card(partner)@card")}
     stats = _passive_stats(client)
+    classes = {**CLASS_NAMES, **class_names(client)}
     lines = {}
     for key, text in texts.items():
         match = PASSIVE_LINE.fullmatch(key)
@@ -852,7 +892,7 @@ def partners(client):
         out[rid] = {
             "name": passage(texts.get(f"char_base@name@{rid}")) or None,
             "grade": PARTNER_GRADES.get(grade.group(1)) if grade else None,
-            "class": CLASS_NAMES.get(
+            "class": classes.get(
                 row.get("passive_condition_link_base_class_define_id")),
             "passive_name": passage(
                 texts.get(f"partner_passive@name@{rid}")) or None,
@@ -1059,6 +1099,8 @@ def read_facts(install):
         "exp_tables": exp_tables(client),
         "affinity": affinity(client),
         "fragment_stats": fragment_stats(client),
+        "item_rarities": {str(res_id): word for res_id, word
+                          in item_rarities(client).items()},
     }
 
 
@@ -1166,15 +1208,20 @@ def refresh(settings_dir, install):
 # changed in place: the worker that reads it hands it over by
 # assignment, which a reader on the Tk thread can never see half done.
 _facts = None
+# `known_item_rarities`, worked out once per `use`: `item_art` asks it
+# for every tile it draws.
+_rarities = None
 
 
 def use(facts):
     """Make `facts` (from `cached`, `refresh` or `fallback`) what the
-    accessors read, and lay its combatants, partners, exp tables and
-    Affinity over the hand tables (`game_data.client_overlay`). None
-    goes back to the shipped tables alone."""
-    global _facts
+    accessors read, and lay its combatants, partners, exp tables,
+    Affinity and slot options over the hand tables
+    (`game_data.client_overlay`). None goes back to the shipped tables
+    alone."""
+    global _facts, _rarities
     _facts = facts if isinstance(facts, dict) else None
+    _rarities = None
     from game_data import client_overlay
     client_overlay.apply(_facts)
 
@@ -1231,6 +1278,24 @@ def known_item_names():
         if str(res_id).isdigit() and name:
             out[int(res_id)] = name
     return out
+
+
+def known_item_rarities():
+    """{item res_id: the game's rarity word}: the shipped table, with
+    what this machine's client says over it. `constants.item_art` puts
+    these over the item tables' own."""
+    global _rarities
+    if _rarities is None:
+        from game_data import from_client
+        out = {res_id: word for word, ids
+               in getattr(from_client, "ITEM_RARITIES", {}).items()
+               for res_id in ids}
+        for res_id, word in ((_facts or {}).get("item_rarities")
+                             or {}).items():
+            if str(res_id).isdigit() and word in ITEM_RARITY_WORDS.values():
+                out[int(res_id)] = word
+        _rarities = out
+    return _rarities
 
 
 def known_chaos_names():

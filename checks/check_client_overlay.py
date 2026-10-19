@@ -23,9 +23,10 @@ goes wrong with nothing to show for it:
    wrong.
 5. **The client and the hand table disagree**, so the overlay changes a
    figure nobody chose. Held on the installed client: every combatant's
-   and partner's field, every level's exp, every Affinity level and
-   every Memory Fragment option, against the hand tables, the known
-   differences awaiting the maintainer noted rather than failed. The
+   and partner's field, every level's exp, every Affinity level, every
+   Memory Fragment option, the classes and the item tables' rarities
+   and icons, against the hand tables, the known differences awaiting
+   the maintainer noted rather than failed. The
    fragment figures the client is not laid over -- roll bounds, a
    maxed main stat, a rarity's top level -- are held the same way, so a
    patch that moves one fails here rather than scoring on stale ones.
@@ -417,6 +418,48 @@ def _installed_tables(client, seen_known):
                        f"client's, where it reads one. Settle which is right "
                        f"(`docs/client_tables.py --audit`).")
     out += _installed_fragments(client)
+    out += _installed_items(client)
+    return out
+
+
+def _installed_items(client):
+    """Complaints from the installed client's classes and item rarities
+    and icons against the hand tables: a class either side lacks, or
+    listed in another order than the Materials tab's; an item table's
+    rarity, which the client's replaces (`constants.item_art`), or its
+    icon."""
+    from pathlib import Path
+    import game_client
+    from game_data.constants import CLASSES, ITEM_TABLES, table_art
+    from ui.tabs.materials_tab import CLASS_ORDER
+    out = []
+    classes = tuple(game_client.class_names(client).values())
+    if set(classes) != set(CLASSES):
+        out.append(f"the client's classes are {classes}, constants.CLASSES "
+                   f"{CLASSES}: a class the program lacks needs its tables "
+                   f"(PARTNER_CLASS_STATS, the Materials tab's rows).")
+    elif classes != tuple(CLASS_ORDER):
+        out.append(f"the game lists the classes {classes}, the Materials "
+                   f"tab {CLASS_ORDER}.")
+    rarities = game_client.item_rarities(client)
+    icons = {}
+    for path in client.archive.files:
+        if path.startswith("db/item_") and path.endswith("@item.db"):
+            icons.update({r.get("id"): r.get("icon")
+                          for r in client.rows(path[3:-3])})
+    for table in ITEM_TABLES:
+        for res_id in table:
+            art = table_art(res_id)
+            if art is None:
+                continue
+            if art.rarity != rarities.get(res_id):
+                out.append(f"item {res_id} is {art.rarity!r} by the item "
+                           f"tables, {rarities.get(res_id)!r} by the client. "
+                           f"The program now draws the client's plate; "
+                           f"settle which is right.")
+            if art.icon and Path(art.icon).stem != icons.get(str(res_id)):
+                out.append(f"item {res_id} draws {art.icon}, the client "
+                           f"{icons.get(str(res_id))!r}.")
     return out
 
 
