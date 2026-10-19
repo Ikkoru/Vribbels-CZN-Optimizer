@@ -2,9 +2,10 @@
 
 What the client states of a combatant or a partner wins over what
 `characters.py` and `partners.py` type by hand, and its exp to each
-level and each Affinity level over `constants.py`'s tables; the hand
-tables are the fallback, for whatever the client does not hold. The
-order, the first that knows a fact winning (`docs/client_data.md`):
+level, each Affinity level and the main stats each Memory Fragment
+slot carries over `constants.py`'s tables; the hand tables are the
+fallback, for whatever the client does not hold. The order, the first
+that knows a fact winning (`docs/client_data.md`):
 
 1. this machine's client read (`game_client.use`): the read of this
    build, its cache, or the last cache of an earlier build;
@@ -18,7 +19,7 @@ The server's own readings still go over all three where they exist
 
 **Laid over in place.** The tables are read in many places, every one
 holding the same dict, so the facts are written into it field by field;
-an exp or Affinity table, which the client gives whole, has its
+an exp, Affinity or slot table, which the client gives whole, has its
 contents swapped inside the same list or dict. `apply` first puts back
 every field, entry and table an earlier `apply` laid down, then lays
 down the sources again, so it can run any number of times and a field
@@ -42,7 +43,8 @@ import re
 
 from .characters import CHARACTERS, CHARACTERS_BY_NAME, DEFAULT_CHARACTER
 from .constants import (AFFINITY_TO_NEXT, CHARACTER_EXP_TABLE,
-                        FRIENDSHIP_BONUSES, PARTNER_EXP_TABLE)
+                        FRIENDSHIP_BONUSES, PARTNER_EXP_TABLE,
+                        SLOT_MAIN_STATS, SLOT_ORDER, STATS)
 from .partners import DEFAULT_PARTNER, PARTNERS, PARTNER_CLASS_STATS
 
 _TABLES = {"CHARACTERS": CHARACTERS, "PARTNERS": PARTNERS,
@@ -50,7 +52,8 @@ _TABLES = {"CHARACTERS": CHARACTERS, "PARTNERS": PARTNERS,
            "CHARACTER_EXP_TABLE": CHARACTER_EXP_TABLE,
            "PARTNER_EXP_TABLE": PARTNER_EXP_TABLE,
            "AFFINITY_TO_NEXT": AFFINITY_TO_NEXT,
-           "FRIENDSHIP_BONUSES": FRIENDSHIP_BONUSES}
+           "FRIENDSHIP_BONUSES": FRIENDSHIP_BONUSES,
+           "SLOT_MAIN_STATS": SLOT_MAIN_STATS}
 # The hand tables as typed, before anything is laid over them: what the
 # validator checks and the audit holds the client against.
 _HAND = copy.deepcopy(_TABLES)
@@ -277,6 +280,22 @@ def _affinity(held):
         _replace("FRIENDSHIP_BONUSES", bonuses)
 
 
+def _fragments(held):
+    """The main stats each slot carries, by the client's stat ids in
+    `STATS`' names. A stat `STATS` lacks is left out, the program having
+    no name or roll for it; a slot left with none, or missing, leaves
+    the hand table standing whole."""
+    mains = (held or {}).get("mains") or {}
+    slots = {}
+    for slot, options in mains.items():
+        if str(slot).isdigit() and isinstance(options, (list, tuple)):
+            slots[int(slot)] = [STATS[option[0]][0] for option in options
+                                if isinstance(option, (list, tuple))
+                                and option and option[0] in STATS]
+    if sorted(slots) == sorted(SLOT_ORDER) and all(slots.values()):
+        _replace("SLOT_MAIN_STATS", slots)
+
+
 def _rebuild_by_name():
     CHARACTERS_BY_NAME.clear()
     CHARACTERS_BY_NAME.update({data["name"]: data
@@ -294,10 +313,13 @@ def apply(facts=None):
     for source in ({"combatants": getattr(from_client, "COMBATANTS", {}),
                     "partners": getattr(from_client, "PARTNERS", {}),
                     "exp_tables": getattr(from_client, "EXP_TABLES", {}),
-                    "affinity": getattr(from_client, "AFFINITY", {})},
+                    "affinity": getattr(from_client, "AFFINITY", {}),
+                    "fragment_stats": getattr(from_client, "FRAGMENT_STATS",
+                                              {})},
                    facts or {}):
         _combatants(source.get("combatants") or {})
         _partners(source.get("partners") or {})
         _exp(source.get("exp_tables"))
         _affinity(source.get("affinity"))
+        _fragments(source.get("fragment_stats"))
     _rebuild_by_name()

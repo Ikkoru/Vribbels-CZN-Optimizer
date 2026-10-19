@@ -6,16 +6,13 @@ Where to look when you want to change X
 
   Filter checkboxes:     populate_main_stat_filters, populate_set_filters,
                          rarity / equipped / slot filter logic.
-                         FILTER_SLOT_MAIN_STATS (below) drives the
-                         per-slot main-stat checkboxes -- it's a local
-                         dict separate from constants.SLOT_MAIN_STATS
-                         because the UI needs a deterministic display
-                         ORDER (the grid layout assumes specific row/col
-                         positions for elemental DMG% etc.) that the
-                         logical SLOT_MAIN_STATS doesn't constrain.
+                         constants.SLOT_MAIN_STATS, which the game
+                         client fills, says which main-stat checkboxes
+                         a slot enables; MAIN_STAT_LAYOUT (below) fixes
+                         where each one sits.
   ROW_TOP_PAD:           manual pixel spacing between checkbox-grid rows
                          to keep groups visually separated. Tied to the
-                         FILTER_SLOT_MAIN_STATS row layout; if you reorder
+                         MAIN_STAT_LAYOUT row layout; if you reorder
                          that, revisit these too.
   Highest GS column:     refresh_inventory iterates each preset once per
                          fragment to compute the max GS. Bounds are
@@ -50,7 +47,7 @@ from game_data.characters import ATTRIBUTE_COLORS
 # User-facing stat-name overrides (e.g. "Flat ATK" -> "ATK Flat",
 # "CDmg" -> "CDMG%"). Applied when rendering the tree's Main / Sub
 # columns so the Memory Fragments tab matches the Optimizer tab.
-from game_data.constants import DISPLAY_NAMES, MAX_LEVEL
+from game_data.constants import DISPLAY_NAMES, MAX_LEVEL, SLOT_MAIN_STATS
 from models.memory_fragment import (cached_potential_band,
                                     compute_gs_bounds,
                                     compute_fragment_potential,
@@ -76,7 +73,7 @@ INV_USE_LOG_FILTERS_KEY = "inventory_use_upgrade_log_filters"
 
 # Display label -> canonical stat name (as stored in main_stat.name).
 # The canonical names match the first element of STATS tuples and the values
-# in FILTER_SLOT_MAIN_STATS, so slot-driven filter logic can use them directly.
+# in SLOT_MAIN_STATS, so slot-driven filter logic can use them directly.
 # SETS is keyed by set id; the filter panel only ever holds the display
 # name, so it needs the reverse lookup.
 SETS_BY_NAME = {v["name"]: v for v in SETS.values()}
@@ -207,19 +204,6 @@ MAIN_STAT_DISPLAY = [
     ("Instinct%", "Instinct DMG%"),
     ("Ego",       "Ego"),
 ]
-
-# Per-slot list of valid main stats — authoritative for the filter UI.
-# Source: user-provided gameplay spec (NOT game_data.SLOT_MAIN_STATS, which
-# may include theoretically-possible-but-actually-impossible combinations
-# like DEF% on slot IV/V).
-# Slots 1/2/3 are intentionally absent: their mains (Flat ATK/DEF/HP) are
-# always-pass, never shown in the UI.
-FILTER_SLOT_MAIN_STATS = {
-    4: ["ATK%", "HP%", "CRate", "CDmg"],
-    5: ["ATK%", "HP%", "Passion DMG%", "Justice DMG%", "Order DMG%",
-        "Void DMG%", "Instinct DMG%"],
-    6: ["ATK%", "DEF%", "HP%", "Ego"],
-}
 
 # Layout grid for the Main Stats filter — fixed positions so checkboxes never
 # jump around when slot selections change. Format: list of rows, each row is
@@ -1020,7 +1004,8 @@ class InventoryTab(BaseTab):
             {4,5,6} if no slots are checked at all (parity with the
             "all-or-none = no filter" semantics used everywhere else).
           - A main stat is available iff at least one effective slot lists it
-            in FILTER_SLOT_MAIN_STATS.
+            in SLOT_MAIN_STATS, read here rather than once so the game
+            client's options, which land after this module loads, count.
           - Newly-available stats auto-check; newly-unavailable ones uncheck
             and disable.
           - Slots 1/2/3 are not part of this filter UI — their mains always
@@ -1037,7 +1022,7 @@ class InventoryTab(BaseTab):
 
         available_canonical = set()
         for slot_num in effective_slots:
-            available_canonical.update(FILTER_SLOT_MAIN_STATS.get(slot_num, []))
+            available_canonical.update(SLOT_MAIN_STATS.get(slot_num, []))
 
         for label, canonical in MAIN_STAT_DISPLAY:
             var = self.inv_main_stat_vars[label]

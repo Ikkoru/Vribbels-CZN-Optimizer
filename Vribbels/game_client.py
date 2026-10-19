@@ -6,11 +6,12 @@ many Excursion types each combatant has, what each daily task counts
 to and pays toward the day's Activity, each Memory Fragment set's
 effect, the words of each combatant's own Potential nodes, every
 combatant's and partner's figures, the Chaos and Zero System names,
-the Normal Rescues' 5-stars, and the exp each level and each Affinity
-level takes. `docs/client_data.md` says where each is kept and how it
-was held against what the program already knew; `docs/client_tables.py`
-is the maintainer's tool over the same reader. Reads only: nothing here
-writes inside the install.
+the Normal Rescues' 5-stars, the exp each level and each Affinity
+level takes, and the main stats each Memory Fragment slot carries.
+`docs/client_data.md` says where each is kept and how it was held
+against what the program already knew; `docs/client_tables.py` is the
+maintainer's tool over the same reader. Reads only: nothing here writes
+inside the install.
 
 **Read once per game build.** What is read goes to `CACHE_FILE` in the
 settings folder, keyed by the build the client's manifest states, so
@@ -71,7 +72,7 @@ GAMERES = Path("bin") / "appdata" / "cznlive" / "gameres"
 # What the cache is called in the settings folder, and the shape of
 # what it holds. A cache of another format is read as no cache.
 CACHE_FILE = "game_client.json"
-CACHE_FORMAT = 8
+CACHE_FORMAT = 9
 
 # The manifest layout this reads. A different version is a different
 # layout until shown otherwise.
@@ -237,6 +238,21 @@ EXP_COLUMNS = {
 AFFINITY_LEVEL_TABLE = "friendship_level@friendship_level"
 AFFINITY_BONUS_TABLE = "combatant_friendship_bonus@combatant_friendship_bonus"
 AFFINITY_GROUP = "link_combatant_friendship_bonus_group"
+# The Memory Fragment options: a row per main stat a slot can carry
+# (`main_piece_<slot>`) and per substat (`random_option`), by stat id,
+# with a figure list per rarity -- a main stat's level-0 value and what
+# each level-up adds, a substat's every roll. `ratio` is how often a
+# substat is drawn as a new one, against the others.
+PIECE_OPTION_TABLE = "piece_option@piece_option"
+PIECE_MAIN_GROUP = re.compile(r"main_piece_(\d+)")
+PIECE_ROLL_GROUP = "random_option"
+# A row per rarity and level a fragment can stand at, by the word the
+# option table's columns use; and those words as the program's rarity
+# tiers (`constants.RARITY`, Mythic 5).
+PIECE_LEVEL_TABLE = "piece_reinforce@piece_reinforce"
+PIECE_LEVEL_ROW = re.compile(r"reinforce_([a-z]+)_(\d+)")
+PIECE_RARITIES = {"common": 1, "uncommon": 2, "rare": 3, "legend": 4,
+                  "unique": 5}
 
 # Markup the text carries for the game's own renderer: tags, a line
 # break, and a keyword's marker `$Name#level$`, drawn as the name.
@@ -977,6 +993,41 @@ def affinity(client):
     return out
 
 
+def _figure_list(value):
+    """A table's `[a,b,...]` cell as numbers; None where any is not one."""
+    figures = [_figure(part)
+               for part in str(value or "").strip("[]").split(",")]
+    return figures if all(isinstance(f, (int, float)) for f in figures) \
+        else None
+
+
+def fragment_stats(client):
+    """Memory Fragment stats as the game rolls them, by stat id:
+    `mains`, {slot: [[stat, level-0 value, what each level-up adds],
+    ...]} for a Legendary, in the table's order; `rolls`, {stat: every
+    value one roll gives a Legendary}; and `max_levels`, {rarity tier:
+    its top level}."""
+    mains, rolls = {}, {}
+    for row in client.rows(PIECE_OPTION_TABLE):
+        stat, group = row.get("link_stat_list_id"), row.get("group") or ""
+        slot = PIECE_MAIN_GROUP.fullmatch(group)
+        start = _figure_list(row.get("legend_value"))
+        step = _figure_list(row.get("legend_reinforce_value"))
+        if slot and start and step and len(start) == len(step) == 1:
+            mains.setdefault(int(slot.group(1)), []).append(
+                [stat, start[0], step[0]])
+        elif group == PIECE_ROLL_GROUP and start:
+            rolls[stat] = start
+    max_levels = {}
+    for row in client.rows(PIECE_LEVEL_TABLE):
+        match = PIECE_LEVEL_ROW.fullmatch(str(row.get("id")))
+        tier = PIECE_RARITIES.get(match.group(1)) if match else None
+        if tier:
+            max_levels[tier] = max(max_levels.get(tier, 0),
+                                   int(match.group(2)))
+    return {"mains": mains, "rolls": rolls, "max_levels": max_levels}
+
+
 def read_facts(install):
     """Everything this module reads off an install, as the cache holds
     it. Raises whatever the reading meets."""
@@ -1007,6 +1058,7 @@ def read_facts(install):
         "general_units": general_units(client),
         "exp_tables": exp_tables(client),
         "affinity": affinity(client),
+        "fragment_stats": fragment_stats(client),
     }
 
 

@@ -111,13 +111,11 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 - **T24 — The game client as the source of the program's game data, the hand tables its fallback.** The maintainer's call: every family below. Each is read the way the launch facts are (`docs/client_data.md`): this client's read, cached per build; the last cache of an earlier build where this one will not read; the shipped extract (`game_data/from_client.py`); and last, the hand table it replaces, kept as the fallback. Where the server has said otherwise, the server still wins (`game_data.learned`).
 
   - **A family switches once its derivation reproduces the hand table**, `docs/client_tables.py --audit` extended to it. A disagreement left takes the client's figure, its check noting it until the maintainer settles which is right: a hand figure can be the newer.
-  - **Done**: combatants and partners; the Chaos names, Zero System specials and Normal Rescue pool; the exp and Affinity tables. `plan_t24.md` has what each found.
-  - **Left**, the work a patch costs by hand first:
-    1. Memory Fragment main stats and slot options (`MAIN_STAT_VALUES`, `SLOT_MAIN_STATS`) from `piece_option`, `piece_reinforce`, `equip_stat_define`.
-    2. Item rarities and icons (the `ITEM_TABLES`) from the `item_*@item` tables; shops (`shop_stock.SHOPS`) from `shop_product`, `shop_schedule`, `disaster_shop_product`; classes (`CLASSES`) from `base_class_define`. Potential node 7 and the set figures are already held to the client both ways (`check_set_wordings`); their hand wording stays.
+  - **Done**: combatants and partners; the Chaos names, Zero System specials and Normal Rescue pool; the exp and Affinity tables; the Memory Fragment slots' main stats, with the roll bounds, maxed main stats and top levels held to the client and not laid over. `plan_t24.md` has what each found.
+  - **Left**: item rarities and icons (the `ITEM_TABLES`) from the `item_*@item` tables; shops (`shop_stock.SHOPS`) from `shop_product`, `shop_schedule`, `disaster_shop_product`; classes (`CLASSES`) from `base_class_define`. Potential node 7 and the set figures are already held to the client both ways (`check_set_wordings`); their hand wording stays.
   - **Not in the client**: a banner's or a season's dates, which the server sends, and `stats_history.RIFT_CODENAMES`, the maintainer's names for a Great Rift's parts.
   - **Stays the program's own**: what the client does not hold as a value: Chaos run payouts (`chaos_estimate.SHIPPED`, from captures), leaderboard tops, and the UI's tables.
-  - The families left name the client tables found for them, not yet compared with the program's.
+  - What is left names the client tables found for it, not yet compared with the program's.
 
 ---
 

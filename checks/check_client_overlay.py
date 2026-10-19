@@ -2,8 +2,8 @@
 
 `game_data.client_overlay` writes the client's facts into `CHARACTERS`,
 `PARTNERS` and `PARTNER_CLASS_STATS` in place, and swaps the contents
-of the exp and Affinity tables in `constants`. Five ways that goes
-wrong with nothing to show for it:
+of the exp, Affinity and slot tables in `constants`. Five ways that
+goes wrong with nothing to show for it:
 
 1. **A fact lands on the wrong field, or a stale one stays.** Every
    later reader sees it as the table's own value. Held on synthetic
@@ -23,9 +23,12 @@ wrong with nothing to show for it:
    wrong.
 5. **The client and the hand table disagree**, so the overlay changes a
    figure nobody chose. Held on the installed client: every combatant's
-   and partner's field, every level's exp and every Affinity level,
-   against the hand tables, the known differences awaiting the
-   maintainer noted rather than failed.
+   and partner's field, every level's exp, every Affinity level and
+   every Memory Fragment option, against the hand tables, the known
+   differences awaiting the maintainer noted rather than failed. The
+   fragment figures the client is not laid over -- roll bounds, a
+   maxed main stat, a rarity's top level -- are held the same way, so a
+   patch that moves one fails here rather than scoring on stale ones.
 
 Skips the installed-client half where no client is installed.
 """
@@ -154,24 +157,33 @@ def _synthetic(overlay, characters, partners):
 
 
 def _tables(overlay):
-    """Complaints from synthetic exp and Affinity tables laid over."""
+    """Complaints from synthetic exp, Affinity and slot tables laid
+    over."""
     import game_data
     from game_data import constants
-    from ui.tabs import materials_tab
+    from ui.tabs import inventory_tab, materials_tab
     out = []
     tables = {name: getattr(constants, name)
               for name in overlay.EXP_TABLES.values()}
-    tables["AFFINITY_TO_NEXT"] = constants.AFFINITY_TO_NEXT
-    tables["FRIENDSHIP_BONUSES"] = constants.FRIENDSHIP_BONUSES
-    before = {name: copy.copy(table) for name, table in tables.items()}
+    for name in ("AFFINITY_TO_NEXT", "FRIENDSHIP_BONUSES", "SLOT_MAIN_STATS"):
+        tables[name] = getattr(constants, name)
+    before = {name: copy.deepcopy(table) for name, table in tables.items()}
     # Level n at 100 * (n - 1) exp, to 62 for combatants and 60 for
     # partners, so every Materials target has its level; Affinity capped
-    # at 3, on 30 exp. Keys as JSON hands them back.
+    # at 3, on 30 exp; each slot's main stats in the reverse of the hand
+    # table's order, slot 4's with a stat the program has no name for.
+    # Keys as JSON hands them back.
+    ids = {info[0]: stat for stat, info in constants.STATS.items()}
+    slots = overlay.hand("SLOT_MAIN_STATS")
     facts = {
         "exp_tables": {"combatant": [100 * n for n in range(62)],
                        "partner": [100 * n for n in range(60)]},
         "affinity": {"to_next": {"1": 10, "2": 20},
                      "bonuses": [[1, 0, 0, 0], [2, 1, 2, 3], [3, 4, 5, 6]]},
+        "fragment_stats": {"mains": {
+            str(slot): [[ids[name], 1, 1] for name in reversed(names)]
+            + ([["S_PROBE_UNNAMED", 1, 1]] if slot == 4 else [])
+            for slot, names in slots.items()}},
     }
     per = materials_tab.EXP_PER_TIER["Basic"]
 
@@ -183,9 +195,9 @@ def _tables(overlay):
         for name, table in tables.items():
             if isinstance(table, dict):
                 table.clear()
-                table.update(overlay.hand(name))
+                table.update(copy.deepcopy(overlay.hand(name)))
             else:
-                table[:] = overlay.hand(name)
+                table[:] = copy.deepcopy(overlay.hand(name))
         overlay.apply(None)
 
     try:
@@ -193,10 +205,12 @@ def _tables(overlay):
         if any(getattr(constants, name) is not table
                for name, table in tables.items()) \
                 or game_data.CHARACTER_EXP_TABLE is not \
-                tables["CHARACTER_EXP_TABLE"]:
-            out.append("an overlay put a new object where an exp or "
-                       "Affinity table was: whoever imported the table "
-                       "keeps reading the hand one.")
+                tables["CHARACTER_EXP_TABLE"] \
+                or inventory_tab.SLOT_MAIN_STATS is not \
+                tables["SLOT_MAIN_STATS"]:
+            out.append("an overlay put a new object where a table it lays "
+                       "over was: whoever imported the table keeps reading "
+                       "the hand one.")
         readings = (
             ("combatant level at 4950 exp", constants.get_level_from_exp(4950),
              50),
@@ -211,6 +225,9 @@ def _tables(overlay):
             ("the Materials tab's Level 50 EXP target",
              dict(materials_tab.COMBATANT_EXP_TARGETS).get("Level 50:"),
              -(-4900 // per)),
+            ("slot 4's main stats, in the client's order, a stat with no "
+             "name left out", constants.SLOT_MAIN_STATS.get(4),
+             list(reversed(slots[4]))),
         )
         for what, got, wanted in readings:
             if got != wanted:
@@ -226,11 +243,15 @@ def _tables(overlay):
             "exp_tables": {"combatant": [0, 100, 50], "partner": [5, 10]},
             "affinity": {"to_next": {"1": 10, "3": 30},
                          "bonuses": [[1, 0, 0, 0], [3, 1, 1, 1]]},
+            "fragment_stats": {"mains": {
+                key: options for key, options
+                in facts["fragment_stats"]["mains"].items() if key != "6"}},
         })
         for name, table in tables.items():
             if table != before[name]:
-                out.append(f"a source whose {name} falls, starts above 0 or "
-                           f"skips a level was laid over the hand table.")
+                out.append(f"a source whose {name} falls, starts above 0, "
+                           f"skips a level or lacks a slot was laid over "
+                           f"the hand table.")
         # Where no source lays a table again, what `apply` puts back
         # shows: the hand table, and a change made since the overlay
         # laid it must stay.
@@ -328,6 +349,29 @@ def _readers():
         if gc.affinity(client) != wanted:
             out.append(f"on {what}, `game_client.affinity` reads "
                        f"{gc.affinity(client)}, not {wanted}.")
+
+    # A main stat is one level-0 value and one step; a cell that is not
+    # a figure list is no roll.
+    pieces = _Rows({
+        gc.PIECE_OPTION_TABLE: [
+            {"group": "main_piece_1", "link_stat_list_id": "S_ATK_INC_ADD_OUT",
+             "legend_value": "[12]", "legend_reinforce_value": "[2]"},
+            {"group": "main_piece_1", "link_stat_list_id": "S_DEF_INC_ADD_OUT",
+             "legend_value": "[1,2]", "legend_reinforce_value": "[2]"},
+            {"group": gc.PIECE_ROLL_GROUP, "link_stat_list_id": "S_CRI_INC_ADD",
+             "legend_value": "[1.2,1.3]"},
+            {"group": gc.PIECE_ROLL_GROUP,
+             "link_stat_list_id": "S_HP_INC_ADD_OUT", "legend_value": "[x]"}],
+        gc.PIECE_LEVEL_TABLE: [{"id": "reinforce_legend_0"},
+                               {"id": "reinforce_legend_5"},
+                               {"id": "reinforce_rare_4"}, {"id": "other"}]})
+    wanted = {"mains": {1: [["S_ATK_INC_ADD_OUT", 12, 2]]},
+              "rolls": {"S_CRI_INC_ADD": [1.2, 1.3]},
+              "max_levels": {4: 5, 3: 4}}
+    if gc.fragment_stats(pieces) != wanted:
+        out.append(f"on synthetic Memory Fragment options, "
+                   f"`game_client.fragment_stats` reads "
+                   f"{gc.fragment_stats(pieces)}, not {wanted}.")
     return out
 
 
@@ -372,6 +416,60 @@ def _installed_tables(client, seen_known):
                        f"(`game_client.affinity`): the program now uses the "
                        f"client's, where it reads one. Settle which is right "
                        f"(`docs/client_tables.py --audit`).")
+    out += _installed_fragments(client)
+    return out
+
+
+def _installed_fragments(client):
+    """Complaints from the installed client's Memory Fragment options
+    against the hand tables: the slots' main stats, which the client's
+    replace, and what is held but never replaced -- a maxed Legendary's
+    main stat (`MAIN_STAT_VALUES`, as the game draws it, rounded), a
+    substat's roll bounds (`STATS`, which the Gear Score divides by and
+    the shipped presets' weights were derived from) and each rarity's top
+    level (`MAX_LEVEL_PER_RARITY`)."""
+    import game_client
+    from game_data.client_overlay import hand
+    from game_data.constants import MAIN_STAT_VALUES, MAX_LEVEL_PER_RARITY, STATS
+    held = game_client.fragment_stats(client)
+    names = {stat: info[0] for stat, info in STATS.items()}
+    top, out = held["max_levels"].get(4), []
+    for slot, options in sorted(held["mains"].items()):
+        theirs = [names.get(stat, stat) for stat, _start, _step in options]
+        if set(theirs) != set(hand("SLOT_MAIN_STATS").get(slot, ())):
+            out.append(f"slot {slot} carries {theirs} in the client, "
+                       f"{hand('SLOT_MAIN_STATS').get(slot)} in "
+                       f"constants.SLOT_MAIN_STATS. The program now offers "
+                       f"the client's; settle which is right.")
+        for stat, start, step in options:
+            typed = MAIN_STAT_VALUES.get((slot, names.get(stat, stat)))
+            ceiling = start + (top or 0) * step
+            places = len(repr(typed).split(".")[1]) \
+                if "." in repr(typed) else 0
+            if typed is None or round(ceiling, places) != typed:
+                out.append(f"slot {slot} {names.get(stat, stat)}: a maxed "
+                           f"Legendary's main is {typed} in "
+                           f"MAIN_STAT_VALUES, {ceiling:g} by the client.")
+    for stat, rolls in held["rolls"].items():
+        info = STATS.get(stat)
+        if not info or info[3] <= 0:
+            out.append(f"the client rolls {stat} as a substat ({rolls}), "
+                       f"which STATS has no roll for.")
+        elif (info[4], info[3]) != (min(rolls), max(rolls)):
+            out.append(f"{info[0]} rolls {info[4]} to {info[3]} in STATS, "
+                       f"{min(rolls)} to {max(rolls)} in the client: the "
+                       f"Gear Score divides by the top roll, and the shipped "
+                       f"presets were derived from it (`docs/preset_"
+                       f"weights.md`).")
+    for stat, info in STATS.items():
+        if info[3] > 0 and stat not in held["rolls"]:
+            out.append(f"{info[0]} rolls in STATS and is no substat in the "
+                       f"client.")
+    for tier, level in sorted(MAX_LEVEL_PER_RARITY.items()):
+        if held["max_levels"].get(tier) != level:
+            out.append(f"rarity {tier} tops out at level {level} in "
+                       f"MAX_LEVEL_PER_RARITY, "
+                       f"{held['max_levels'].get(tier)} in the client.")
     return out
 
 

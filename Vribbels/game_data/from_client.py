@@ -1963,3 +1963,57 @@ AFFINITY = {
         (40, 39, 13, 39),
     ],
 }
+
+# Memory Fragment stats by stat id: each slot's main stats for a
+# Legendary (stat, level-0 value, each level-up's), every roll a
+# substat can give one, and each rarity's top level. See
+# game_client.fragment_stats; game_data.client_overlay lays the
+# mains over SLOT_MAIN_STATS.
+FRAGMENT_STATS = {
+    'mains': {
+        1: [
+            ['S_ATK_INC_ADD_OUT', 12, 2],
+        ],
+        2: [
+            ['S_DEF_INC_ADD_OUT', 12, 2],
+        ],
+        3: [
+            ['S_HP_INC_ADD_OUT', 20, 3.33],
+        ],
+        4: [
+            ['S_ATK_INC_RATE_OUT', 7.5, 3.5],
+            ['S_HP_INC_RATE_OUT', 7.5, 3.5],
+            ['S_CRI_INC_ADD', 4.5, 4.5],
+            ['S_CRI_DMG_RATE_INC_ADD', 6.8, 6.8],
+        ],
+        5: [
+            ['S_ATK_INC_RATE_OUT', 7.5, 3.5],
+            ['S_HP_INC_RATE_OUT', 7.5, 3.5],
+            ['S_RED_DMG_RATE_INC_ADD', 5, 2.2],
+            ['S_GREEN_DMG_RATE_INC_ADD', 5, 2.2],
+            ['S_BLUE_DMG_RATE_INC_ADD', 5, 2.2],
+            ['S_PURPLE_DMG_RATE_INC_ADD', 5, 2.2],
+            ['S_ORANGE_DMG_RATE_INC_ADD', 5, 2.2],
+        ],
+        6: [
+            ['S_ATK_INC_RATE_OUT', 7.5, 3.5],
+            ['S_DEF_INC_RATE_OUT', 7.5, 3.5],
+            ['S_HP_INC_RATE_OUT', 7.5, 3.5],
+            ['S_CHARGING_POWER_INC_ADD', 10, 6],
+        ],
+    },
+    'rolls': {
+        'S_ATK_INC_ADD_OUT': [5, 6, 7, 8],
+        'S_DEF_INC_ADD_OUT': [3, 4, 5],
+        'S_HP_INC_ADD_OUT': [10, 11, 12],
+        'S_ATK_INC_RATE_OUT': [0.8, 0.9, 1, 1.1, 1.2, 1.3],
+        'S_DEF_INC_RATE_OUT': [0.8, 0.9, 1, 1.1, 1.2, 1.3],
+        'S_HP_INC_RATE_OUT': [0.8, 0.9, 1, 1.1, 1.2, 1.3],
+        'S_CRI_INC_ADD': [1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2],
+        'S_CRI_DMG_RATE_INC_ADD': [2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 4],
+        'S_CHARGING_POWER_INC_ADD': [2, 3, 4, 5],
+        'S_ADDI_ATK_DMG_RATE_INC_ADD': [2.7, 2.8, 2.9, 3, 3.1, 3.2, 3.3, 3.4],
+        'S_DOT_ATK_DMG_RATE_INC_ADD': [2.7, 2.8, 2.9, 3, 3.1, 3.2, 3.3, 3.4],
+    },
+    'max_levels': {1: 2, 2: 3, 3: 4, 4: 5, 5: 5},
+}

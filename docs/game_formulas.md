@@ -112,7 +112,7 @@ bonus = 0                                              if check < T
 
 A slot accepts a main stat only from its own set, and each main stat has one value per upgrade level, topping out at a ceiling fixed per stat.
 
-Both are in `game_data/constants.py` and nothing else: `SLOT_MAIN_STATS` says which stats a slot can carry, `MAIN_STAT_VALUES` gives each `(slot, stat)` pair its max-level Legendary ceiling. The optimizer never reads either for scoring — it takes `fragment.main_stat.value` from captured data — so they serve the UI's forcing constraints and sanity checks.
+Both are in `game_data/constants.py`: `SLOT_MAIN_STATS` says which stats a slot can carry, the game client's options replacing it at launch (`client_data.md`), and `MAIN_STAT_VALUES` gives each `(slot, stat)` pair its max-level Legendary ceiling as the game draws it. **The game draws a main stat rounded**, and the capture carries it whole: a Legendary's HP main is 20 plus 3.33 a level, 36.65 at level 5, drawn as 37. The optimizer never reads either for scoring — it takes `fragment.main_stat.value` from captured data. `SLOT_MAIN_STATS` drives the Memory Fragments tab's main-stat filter; `MAIN_STAT_VALUES` is reference, held to the client by `checks/check_client_overlay.py`.
 
 ### Rarity, levels and substats
 

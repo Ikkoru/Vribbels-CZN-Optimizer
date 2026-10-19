@@ -95,7 +95,9 @@ from optimizer import parallel
 
 # Slot V main stats that are element DMG% -- i.e. everything a Slot V
 # main can be except ATK%/HP%. Consumed by the off-element candidacy
-# filter in get_gear_by_slot.
+# filter in get_gear_by_slot. Taken once, from the slot table as
+# shipped: this machine's client read lands later, and can name no
+# element the shipped table lacks, since an element needs a STATS entry.
 SLOT5_ELEMENT_MAINS = frozenset(
     s for s in SLOT_MAIN_STATS[5] if s.endswith(" DMG%")
 )

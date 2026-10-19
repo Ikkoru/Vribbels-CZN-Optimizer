@@ -22,8 +22,8 @@ whose client the program cannot read sees instead: run it after a
 patch, before a release, and review its diff.
 
 `--audit` prints every place `game_data`'s combatants, partners, item
-names, exp and Affinity tables disagree with the client, and the ones
-either side lacks:
+names, exp, Affinity and Memory Fragment tables disagree with the
+client, and the ones either side lacks:
 the tables are typed by hand, and a patch that rebalances one changes
 nothing there. It writes nothing; a disagreement is for the maintainer
 to settle, since the hand-typed figure can be the newer one.
@@ -180,6 +180,23 @@ def shipped_source(client):
     lines += ["    },", "    'bonuses': ["]
     lines += [f"        {tuple(row)}," for row in held.get("bonuses", [])]
     lines += ["    ],", "}", ""]
+    fragments = game_client.fragment_stats(client)
+    lines += ["# Memory Fragment stats by stat id: each slot's main stats for a",
+              "# Legendary (stat, level-0 value, each level-up's), every roll a",
+              "# substat can give one, and each rarity's top level. See",
+              "# game_client.fragment_stats; game_data.client_overlay lays the",
+              "# mains over SLOT_MAIN_STATS.",
+              "FRAGMENT_STATS = {", "    'mains': {"]
+    for slot, options in sorted(fragments["mains"].items()):
+        lines.append(f"        {slot}: [")
+        lines += [f"            {ascii(option)}," for option in options]
+        lines.append("        ],")
+    lines += ["    },", "    'rolls': {"]
+    lines += [f"        {ascii(stat)}: {ascii(values)},"
+              for stat, values in fragments["rolls"].items()]
+    lines += ["    },",
+              f"    'max_levels': {ascii(fragments['max_levels'])},",
+              "}", ""]
     return "\n".join(lines)
 
 
@@ -325,6 +342,7 @@ def audit(client):
                        f"client, not in game_data/characters.py")
 
     out += level_problems(client)
+    out += fragment_problems(client)
 
     partner = {r["id"]: r for r in client.rows("partner_base@char_partner")}
     cards = {r["id"]: r for r in client.rows("card(partner)@card")}
@@ -516,6 +534,64 @@ def level_problems(client):
                            f"Affinity row {own.strip()} adds a stat, which "
                            f"FRIENDSHIP_BONUSES holds for every combatant "
                            f"alike")
+    return out
+
+
+def _decimals(figure):
+    """How many decimals `figure` is typed with."""
+    text = repr(figure)
+    return len(text.split(".")[1]) if "." in text else 0
+
+
+def fragment_problems(client):
+    """Where the Memory Fragment tables as typed (`game_data.constants`)
+    and the client's disagree: a slot's main stats, a main stat's
+    Legendary ceiling as the game draws it, a substat's roll bounds, a
+    rarity's top level; and the substats' draw weights, which the
+    Potential math (`models.memory_fragment`) takes as all alike."""
+    from game_data.client_overlay import hand
+    from game_data.constants import (MAIN_STAT_VALUES, MAX_LEVEL_PER_RARITY,
+                                     STATS)
+    held = game_client.fragment_stats(client)
+    names = {stat: info[0] for stat, info in STATS.items()}
+    ours, top, out = hand("SLOT_MAIN_STATS"), held["max_levels"].get(4), []
+    for slot, options in sorted(held["mains"].items()):
+        theirs = [names.get(stat, stat) for stat, _start, _step in options]
+        if set(theirs) != set(ours.get(slot, ())):
+            out.append(f"slot {slot}: main stats {ours.get(slot)} here, "
+                       f"{theirs} in the client")
+        for stat, start, step in options:
+            typed = MAIN_STAT_VALUES.get((slot, names.get(stat, stat)))
+            ceiling = start + (top or 0) * step
+            if typed is None or round(ceiling, _decimals(typed)) != typed:
+                out.append(f"slot {slot} {names.get(stat, stat)}: a maxed "
+                           f"Legendary's main is {typed} here (the game "
+                           f"draws it rounded), {ceiling:g} in the client")
+    for stat, rolls in held["rolls"].items():
+        info = STATS.get(stat)
+        if not info or info[3] <= 0:
+            out.append(f"substat {stat}: rolls {rolls} in the client, which "
+                       f"STATS has no roll for")
+        elif (info[4], info[3]) != (min(rolls), max(rolls)):
+            out.append(f"substat {info[0]}: rolls {info[4]} to {info[3]} "
+                       f"here, {min(rolls)} to {max(rolls)} in the client")
+    for stat, info in STATS.items():
+        if info[3] > 0 and stat not in held["rolls"]:
+            out.append(f"substat {info[0]}: rolls here, and is no substat "
+                       f"in the client")
+    for tier, level in sorted(MAX_LEVEL_PER_RARITY.items()):
+        if held["max_levels"].get(tier) != level:
+            out.append(f"rarity {tier}: top level {level} here, "
+                       f"{held['max_levels'].get(tier)} in the client")
+    weights = {names.get(row.get("link_stat_list_id"),
+                         row.get("link_stat_list_id")):
+               game_client._figure(row.get("ratio"))
+               for row in client.rows(game_client.PIECE_OPTION_TABLE)
+               if row.get("group") == game_client.PIECE_ROLL_GROUP}
+    if len(set(weights.values())) > 1:
+        out.append(f"substats: the client draws a new one by weight "
+                   f"({', '.join(f'{n} {w}' for n, w in weights.items())}), "
+                   f"where the Potential math draws every one alike")
     return out
 
 

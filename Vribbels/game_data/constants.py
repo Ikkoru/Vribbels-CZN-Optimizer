@@ -13,11 +13,6 @@ doesn't live on individual characters / partners / fragments:
     is the cumulative TOTAL (ATK, DEF, HP) at that level, NOT the
     increment.
 
-    The game client's tables replace the contents of the three above,
-    and of AFFINITY_TO_NEXT, at launch (`client_overlay`); as typed
-    here they are the fallback, and what `docs/client_tables.py
-    --audit` holds the client against.
-
   - Equipment slot definitions (EQUIPMENT_SLOTS / SLOT_ORDER) and rarity
     tables (RARITY, RARITY_COLORS, RARITY_BG_COLORS, RARITY_ICONS,
     RARITY_STARTING_SUBSTATS, UPGRADES_PER_RARITY).
@@ -36,6 +31,14 @@ doesn't live on individual characters / partners / fragments:
 
   - GROWTH_STONES for the leveling-item registry used by the materials
     display (UI sugar; not part of stat math).
+
+The game client's tables replace the contents of CHARACTER_EXP_TABLE,
+PARTNER_EXP_TABLE, AFFINITY_TO_NEXT, FRIENDSHIP_BONUSES and
+SLOT_MAIN_STATS at launch (`client_overlay`); as typed here they are
+the fallback, and what `docs/client_tables.py --audit` holds the
+client against. STATS' roll bounds, MAIN_STAT_VALUES and
+MAX_LEVEL_PER_RARITY are held against the client's on every run
+(`checks/check_client_overlay.py`) and never replaced.
 
 
 Note on capture-related constants
@@ -294,7 +297,9 @@ DISPLAY_NAMES = {
     "Instinct DMG%": "Instinct%",
 }
 
-# Which main stats each slot can carry.
+# Which main stats each slot can carry, in the game's order. The game
+# client's options replace these at launch (`client_overlay`); typed
+# here, they are the fallback.
 SLOT_MAIN_STATS = {
     1: ["Flat ATK"],
     2: ["Flat DEF"],
@@ -468,10 +473,9 @@ NAMED_MATERIALS = {
     3000003: ("Undetermined Ego Crystal", "icon_item_card_levelup_all_1.png"), # Used for the final level of specific Potential Nodes
     3110001: ("Eye of Wailing Prodigal", "icon_item_akcalion_3.png"),          # Used for the final several levels of specific Potential Nodes
     3110004: ("Shards of Condemnation", "currency_chaos.png"),                 # Used for the final several levels of specific Potential Nodes
-    # The two gacha currencies. NO ART YET -- the empty icon field is
-    # what says so, and the rarity beside it is what draws in its
-    # place. That rarity is a display choice rather than the game's
-    # word: neither is priced anywhere a capture reaches.
+    # The two gacha currencies. Neither has a tier or a NAME_RARITY
+    # entry to derive a rarity from, so each row states it: Mythic, the
+    # game client's `RARITY_UNIQUE`.
     2000004: ("Crystals", "currency_paid_crystal.png", "Mythic"),                                     # 160 to a pull
     2000010: ("Signal Amplification Anchor", "currency_gacha_ticket_rateup_supporter.png", "Mythic"), # one pull each
 }
