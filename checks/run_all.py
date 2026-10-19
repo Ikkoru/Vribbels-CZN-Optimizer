@@ -7,6 +7,8 @@
                                         each combatant on its real
                                         settings (hours, not seconds)
     python checks/run_all.py --list     names only, run nothing
+    python checks/run_all.py check_x ...  only the checks named, by module
+                                        (`check_` may be left off)
 
 A check either passes, fails with reasons, or SKIPS with a reason --
 skipping is what happens on a fresh clone with no captured snapshot, and
@@ -109,7 +111,7 @@ from checks import (                                    # noqa: E402
     check_potential_mean,
     check_potential_band,
     check_preset_weights,
-    check_presets_follow,
+    check_defaults_follow,
     check_theme_scaling,
     check_window_render,
     check_dpi_hold,
@@ -152,7 +154,7 @@ CHECKS = [
     check_game_data,
     check_client_overlay,
     check_client_fallbacks,
-    check_presets_follow,
+    check_defaults_follow,
     check_potential_nodes,
     check_item_art,
     check_materials_targets,
@@ -249,12 +251,25 @@ def main(argv=None):
                     help="optimizer parity on the newest snapshot, "
                          "unbounded")
     ap.add_argument("--list", action="store_true", help="list checks only")
+    ap.add_argument("names", nargs="*", metavar="check",
+                    help="run only these, by module name")
     args = ap.parse_args(argv)
 
     if args.list:
         for mod in CHECKS:
-            print(f"  {mod.NAME}")
+            print(f"  {_module(mod):<36} {mod.NAME}")
         return 0
+    if args.names:
+        wanted = {n if n.startswith("check_") else f"check_{n}"
+                  for n in args.names}
+        unknown = sorted(wanted - {_module(mod) for mod in CHECKS})
+        if unknown:
+            print(f"{RED}no such check{RESET}: {', '.join(unknown)} "
+                  f"(--list names them)")
+            return 2
+        args.suite = [mod for mod in CHECKS if _module(mod) in wanted]
+    else:
+        args.suite = CHECKS
 
     # A run inside a run -- a check exercising this runner -- keeps the
     # outer run's folder: removing its own would pull the folder out from
@@ -281,10 +296,15 @@ def main(argv=None):
                   f"{e}{RESET}")
 
 
+def _module(mod):
+    """A check's module name, as the command line names it."""
+    return getattr(mod, "__name__", "").rsplit(".", 1)[-1]
+
+
 def _run(args):
     failed = skipped = 0
     started = time.time()
-    for mod in CHECKS:
+    for mod in args.suite:
         t = time.time()
         take_notes()               # anything left by a check that raised
         try:
@@ -332,10 +352,10 @@ def _run(args):
         for said in take_notes():
             print(f"       {YELLOW}note{RESET} {DIM}{said}{RESET}")
 
-    total = len(CHECKS)
+    total = len(args.suite)
     print(f"\n{total - failed - skipped}/{total} passed, {failed} failed, "
           f"{skipped} skipped in {time.time() - started:.1f}s")
-    if not args.full:
+    if not args.full and check_optimizer_parity in args.suite:
         print(f"{DIM}parity ran on the synthetic inventory; --full runs "
               f"the newest snapshot{RESET}")
     return 1 if failed else 0

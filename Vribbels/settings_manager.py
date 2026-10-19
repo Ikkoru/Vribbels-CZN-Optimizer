@@ -139,6 +139,10 @@ class SettingsManager:
         # `checks/check_ui_scales.py` holds the two together.
         ("ui_scale", "100%"),
         ("capture_archive", "balanced"),
+        # Whether settings the user never changed take a release's new
+        # defaults. Read before this manager exists, by the startup
+        # sync: `defaults_sync.FOLLOW_KEY`.
+        ("follow_defaults", True),
         ("#4", "_Memory_"),
         ("first_launch_done", False),
         ("update_last_checked", ""),
@@ -153,6 +157,23 @@ class SettingsManager:
         # not name. Empty finds it. See `game_client.find_install`.
         ("game_client_dir", ""),
     )
+
+    # The section of LAYOUT holding the program's own memory rather than
+    # the user's choices. Its keys never take a new default from a
+    # release (`defaults_sync._merge_settings`): what they hold is a
+    # reading, such as the last update check, not a preference.
+    STATE_SECTION = "_Memory_"
+
+    @classmethod
+    def state_keys(cls) -> frozenset:
+        """The keys under `STATE_SECTION`, up to the next marker."""
+        keys, inside = set(), False
+        for key, value in cls.LAYOUT:
+            if key.startswith("#"):
+                inside = value == cls.STATE_SECTION
+            elif inside:
+                keys.add(key)
+        return frozenset(keys)
 
     def apply_layout(self, legacy_config_files=()) -> None:
         """Materialise the canonical key set in LAYOUT order, folding in

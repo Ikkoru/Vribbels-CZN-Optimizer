@@ -24,10 +24,10 @@ REM The game facts every copy reads beside its own captures: yours are
 REM folded into the shipped file here. Review its diff before committing.
 %COLOUR% python "./default_settings/normalize/fold_shared_facts.py" || (echo %RED%SHARED FACTS FOLD FAILED%OFF% & pause & exit /b 1)
 
-REM Every value each shipped preset has held, from git: what tells a
-REM player's unedited preset from an edited one where no sync recorded
-REM it. Commit the file it writes with the release.
-%COLOUR% python "./default_settings/normalize/presets_history.py" || (echo %RED%PRESETS HISTORY FAILED%OFF% & pause & exit /b 1)
+REM Every value each default has held, from git: what tells a player's
+REM unchanged settings from changed ones where no sync recorded them.
+REM Commit the file it writes with the release.
+%COLOUR% python "./default_settings/normalize/defaults_history.py" || (echo %RED%DEFAULTS HISTORY FAILED%OFF% & pause & exit /b 1)
 
 REM Tcl/Tk 9 keeps its library inside the DLL, where PyInstaller cannot
 REM find it -- and its runtime hook then raises on the built exe's first
@@ -46,7 +46,7 @@ echo on
   --add-data "images;images" ^
   --add-data "zstd_dictionary.bin;." ^
   --add-data "default_settings\presets.json;default_settings" ^
-  --add-data "default_settings\presets_history.json;default_settings" ^
+  --add-data "default_settings\defaults_history.json;default_settings" ^
   --add-data "default_settings\preset_archetypes.json;default_settings" ^
   --add-data "default_settings\character_preset.json;default_settings" ^
   --add-data "default_settings\optimizer_settings.json;default_settings" ^

@@ -1245,11 +1245,88 @@ class OptimizerGUI:
             if reading and attempts < 600:
                 self.root.after(
                     100, lambda: self._apply_client_read(attempts + 1))
+                return
+            # Nothing new to lay over: the facts already in place stand,
+            # and the presets follow those, once a launch.
+            if not getattr(self, "_presets_followed", False):
+                self._presets_follow_client()
+            self._report_defaults_updates()
             return
         self._client_read = None
         game_client.use(facts)
         self._presets_follow_client()
         self._refresh_client_tabs()
+        self._report_defaults_updates()
+
+    def _report_defaults_updates(self):
+        """Show what this launch changed in the user's settings
+        (`defaults_sync.report`): once the client read has settled, since
+        the presets' re-work for its rolls reports into it too, and again
+        only where a later read added to it. Not under the audit, whose
+        window nobody looks at."""
+        report = defaults_sync.report
+        seen = (len(report.updated), len(report.kept))
+        if not report or self._spacing_audit_wanted() \
+                or seen == getattr(self, "_defaults_reported", (0, 0)):
+            return
+        self._defaults_reported = seen
+        from ui import defaults_notice
+        try:
+            defaults_notice.show(self.root, self.colors, report,
+                                 on_undo=self._undo_defaults_update,
+                                 on_open=self._open_settings_backup)
+        except tk.TclError:
+            pass
+
+    def _open_settings_backup(self):
+        """Open this launch's settings backup in Explorer."""
+        folder = defaults_sync.report.backup
+        if folder is not None:
+            try:
+                os.startfile(str(folder))
+            except (OSError, AttributeError):
+                pass
+
+    def _undo_defaults_update(self):
+        """Put back the settings files this launch changed, and reload
+        what holds them in place (`defaults_sync.undo`): the managers,
+        then the tabs that show them, as Restore Defaults refreshes
+        them. The values put back are the user's from then on."""
+        restored = defaults_sync.undo(self._client_settings_dir)
+        managers = {"presets.json": "preset_manager",
+                    "character_preset.json": "character_preset_manager",
+                    "optimizer_settings.json": "optimizer_settings_manager",
+                    "settings.json": "settings_manager"}
+        for name in restored:
+            manager = getattr(self, managers.get(name, ""), None)
+            if manager is not None:
+                manager.load()
+        if "optimizer_settings.json" in restored:
+            # The backup predates this launch's own entries for new
+            # combatants, which the bootstrap makes again.
+            self.optimizer_settings_manager.bootstrap_known_characters(
+                CHARACTERS)
+        for tab, method in (("heroes_tab", "refresh_heroes"),
+                            ("scoring_tab", "refresh_presets"),
+                            ("scoring_tab", "apply_active_weights"),
+                            ("optimizer_tab", "refresh_after_load")):
+            target = getattr(self.app_context, tab, None)
+            try:
+                if target is not None:
+                    getattr(target, method)()
+            except Exception:                            # noqa: BLE001
+                pass
+        if not restored:
+            return
+        text = ("Your settings are as they were before this launch, and "
+                "those changes will not be made again.")
+        if "settings.json" in restored:
+            text += ("\n\nRestart the program for every restored setting "
+                     "to show.")
+        try:
+            messagebox.showinfo("Settings put back", text)
+        except tk.TclError:
+            pass
 
     def _presets_follow_client(self):
         """Re-work the shipped presets for the game client's max rolls
@@ -1260,6 +1337,7 @@ class OptimizerGUI:
         a release."""
         import perf_log
         import preset_derivation
+        self._presets_followed = True
         defaults = _defaults_dir()
         try:
             changed = defaults_sync.presets_follow(

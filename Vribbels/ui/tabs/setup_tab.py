@@ -63,7 +63,7 @@ from ..utils.escape import close_on_escape
 from ..utils.scrolled_text import make_scrolled_text
 from ..utils.tooltip import Tooltip
 from ..utils.tab_header import make_tab_header
-from defaults_sync import effective_presets, resolve_defaults_dir
+from defaults_sync import FOLLOW_KEY, effective_presets, resolve_defaults_dir
 from ui.scaling import px, px_after
 from ui import scaling
 from ui.update_check import (
@@ -112,6 +112,16 @@ def _pady_pair(value):
 RESTORE_ROW_GAP = 4     # spacing: button -> button -- button, button ↕
 RESTORE_EDGE_PAD = 3    # spacing: border edge -> button -- panel, button ↔↕
 RESTORE_TEXT_TRIM = -2  # spacing: button -> button -- button, button ↕
+
+# The switch under Window Size, and what it says when hovered.
+FOLLOW_TEXT = "Update unchanged settings\nto new defaults"
+FOLLOW_TIP = (
+    "When a new version changes a default, settings you never changed take "
+    "it at launch: Gear Score presets, Combatant presets, Combatant "
+    "settings and the "
+    "settings file. Settings you changed are always kept.\nA launch that "
+    "changes anything backs your files up first, and says what it "
+    "changed, with Undo. Applies on the next launch.")
 
 # The first column of Restore Defaults against the second. The first
 # column's own width is its widest explanation, so this is the whole of
@@ -695,6 +705,21 @@ class SetupTab(BaseTab):
             second, text="Window Size", width=BUTTON_W_LARGE,
             command=self._restore_window_size)
         self._window_size_button.pack(anchor=tk.NW)
+
+        # Whether the startup sync brings the settings the user never
+        # changed to a release's new defaults (`defaults_sync.FOLLOW_KEY`).
+        # Read at the next launch's sync, before any manager exists.
+        sm = self.context.settings_manager
+        self.follow_defaults_var = tk.BooleanVar(
+            value=bool(sm.get(FOLLOW_KEY, True)) if sm is not None else True)
+        follow = make_checkbox(
+            second, self.colors, text=FOLLOW_TEXT,
+            variable=self.follow_defaults_var,
+            command=lambda: self._save_setting(
+                FOLLOW_KEY, bool(self.follow_defaults_var.get())))
+        # spacing: TBD -- the Restore Defaults panel's switch under Window Size
+        follow.pack(anchor=tk.NW, pady=px((RESTORE_ROW_GAP, 0)))
+        Tooltip(self.colors).bind(follow, FOLLOW_TIP)
 
         for index, (label, explanation, kind) in enumerate(button_specs):
             row = ttk.Frame(rows)
