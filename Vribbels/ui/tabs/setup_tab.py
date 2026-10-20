@@ -114,12 +114,12 @@ RESTORE_EDGE_PAD = 3    # spacing: border edge -> button -- panel, button ↔↕
 RESTORE_TEXT_TRIM = -2  # spacing: button -> button -- button, button ↕
 
 # The switch under Window Size, and what it says when hovered.
-FOLLOW_TEXT = "Update unchanged settings\nto new defaults"
+FOLLOW_TEXT = "Update unchanged settings\nto new defaults automatically"
 FOLLOW_TIP = (
     "When a new version changes a default, settings you never changed take "
     "it at launch: Gear Score presets, Combatant presets, Combatant "
-    "settings and the "
-    "settings file. Settings you changed are always kept.\nA launch that "
+    "settings and the settings file. Settings you changed are always kept.\n"
+    "A launch that "
     "changes anything backs your files up first, and says what it "
     "changed, with Undo. Applies on the next launch.")
 
