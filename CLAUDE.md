@@ -56,6 +56,7 @@ Snapshots are the maintainer's captured game data. Read them; never write to `Vr
 | The Gacha History: pull records, pity, 50/50s, luck, imports | `docs/gacha_history.md` |
 | `game_data/*.py`, the launch-time validator, stat vocabularies | `docs/game_data_files.md` |
 | The game client's own tables and English text, and reading them | `docs/client_data.md`, `Vribbels/game_client.py` and `docs/client_tables.py` |
+| `decks/`: the card catalogue, Save Data as decks, deck points and deck-building rules | `docs/decks.md` |
 | Which item res_ids are known, used, or still to identify | `docs/items_id_dump.py` and the item TSVs it writes |
 | What each shop sells, at what price and cap | `docs/items_shops.tsv` |
 | What each Mutation (a Save Data's `corruption_option_<n>`) does | the game client's `savedata_edit_corruption` table: `docs/client_data.md` |

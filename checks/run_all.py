@@ -71,6 +71,8 @@ from checks import (                                    # noqa: E402
 
     check_affinity,
     check_day_index,
+    check_deck_catalogue,
+    check_deck_rules,
     check_dot_types,
     check_event_names,
     check_event_shapes,
@@ -155,6 +157,8 @@ CHECKS = [
     check_game_data,
     check_client_overlay,
     check_client_fallbacks,
+    check_deck_catalogue,
+    check_deck_rules,
     check_defaults_follow,
     check_potential_nodes,
     check_item_art,
