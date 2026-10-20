@@ -2942,51 +2942,31 @@ def _checklist_columns_come_first(tab):
     return []
 
 
-def _follow_switch_reads_as_one(tab):
-    """The defaults switch reads as one checkbox with its box beside its
-    LAST line: the checkbox holds that line, a label over it the lines
-    before, indented to where the checkbox's text starts, and a click on
-    the label toggles the switch and saves it as a click on the box does.
+def _follow_switch_sits_at_the_foot(tab):
+    """The defaults switch sits at the foot of the Restore Defaults
+    panel, its lines flush left: its bottom is no higher than the first
+    column's, which is the panel's own.
 
-    Every part of that fails quietly: lines split otherwise put the box
-    back between them or drop a line, a lost indent leaves the first
-    line ragged, and a lost binding leaves half the text dead to the
-    mouse. Structural, since the rendering needs a mapped window; the
-    scale survey shows it rendered.
+    Packed under Window Size, or with its column left at its content's
+    height, it floats up with nothing to say so, and a Checkbutton
+    centres its lines unless told otherwise. Read off the tab laid out
+    at alpha 0, as the Checklist's wheel check lays its own.
 
     Returns a list of complaints.
     """
-    from defaults_sync import FOLLOW_KEY
-    from ui.tabs.setup_tab import FOLLOW_TEXT
-    from ui.utils.checkbox import text_start
-    head = getattr(tab, "_follow_head", None)
-    box = getattr(tab, "_follow_check", None)
-    if head is None or box is None:
-        return ["the Setup & Settings tab holds no defaults switch to "
-                "check (`_follow_head`, `_follow_check`)."]
-    *first, last = FOLLOW_TEXT.split("\n")
-    out = []
-    if box.cget("text") != last or head.cget("text") != "\n".join(first):
-        out.append(f"the defaults switch's checkbox reads "
-                   f"{box.cget('text')!r} and the label over it "
-                   f"{head.cget('text')!r}: the checkbox must hold "
-                   f"FOLLOW_TEXT's last line, its box beside it, and the "
-                   f"label the lines before.")
-    padx = head.pack_info().get("padx", 0)
-    left = padx[0] if isinstance(padx, (tuple, list)) else str(padx).split()[0]
-    indent = head.winfo_pixels(left)
-    if indent != text_start(box):
-        out.append(f"the defaults switch's first line is indented "
-                   f"{indent}px, where the checkbox's text starts "
-                   f"{text_start(box)}px in: the lines do not start "
-                   f"together (`checkbox.text_start`).")
-    # A click reaches only a mapped window: the tab is laid out at alpha
-    # 0, as the Checklist's wheel check lays its own, and the event is
-    # delivered before `event_generate` returns.
     import tkinter as tk
+    box = getattr(tab, "_follow_check", None)
+    rows = getattr(tab, "_restore_rows", None)
+    if box is None or rows is None:
+        return ["the Setup & Settings tab holds no defaults switch to "
+                "check (`_follow_check`, `_restore_rows`)."]
+    out = []
+    if str(box.cget("justify")) != "left":
+        out.append("the defaults switch's lines are centred, not flush "
+                   "left: a Checkbutton centres them unless told "
+                   "`justify=tk.LEFT`.")
     root = tab.frame.winfo_toplevel()
     notebook = tab.frame.master
-    settings = tab.context.settings_manager
     try:
         root.attributes("-alpha", 0.0)
         if str(tab.frame) not in notebook.tabs():
@@ -2995,20 +2975,18 @@ def _follow_switch_reads_as_one(tab):
         notebook.select(tab.frame)
         root.deiconify()
         root.update_idletasks()
-        before = bool(tab.follow_defaults_var.get())
-        head.event_generate("<Button-1>")
-        after = bool(tab.follow_defaults_var.get())
-        if after == before:
-            out.append("a click on the defaults switch's first line did "
-                       "not toggle it.")
-        elif settings is not None and settings.get(FOLLOW_KEY) is not after:
-            out.append("a click on the defaults switch's first line "
-                       "toggled it without saving follow_defaults.")
-        if after != before:
-            head.event_generate("<Button-1>")
+        foot = rows.winfo_rooty() + rows.winfo_height()
+        bottom = box.winfo_rooty() + box.winfo_height()
+        if rows.winfo_height() <= 1:
+            out.append("the Setup & Settings tab never laid out, so where "
+                       "the defaults switch sits went unread.")
+        elif bottom < foot:
+            out.append(f"the defaults switch ends {foot - bottom}px above "
+                       f"the Restore Defaults panel's foot, where its first "
+                       f"column ends: it has floated up from the foot.")
     except tk.TclError as e:
         out.append(f"the Setup & Settings tab could not be laid out to "
-                   f"click its defaults switch: {e}")
+                   f"read where its defaults switch sits: {e}")
     finally:
         root.withdraw()
     return out
@@ -5996,7 +5974,8 @@ def run():
             failures.extend(_messagebox_defaults_name_their_own_buttons())
             failures.extend(_archive_size_carries_its_tooltip(
                 built["SetupTab"]))
-            failures.extend(_follow_switch_reads_as_one(built["SetupTab"]))
+            failures.extend(
+                _follow_switch_sits_at_the_foot(built["SetupTab"]))
             failures.extend(_archive_count_stays_off_the_ui_thread(
                 built["SetupTab"]))
             failures.extend(_percent_fields_are_clamped(built["OptimizerTab"]))
@@ -6142,13 +6121,14 @@ def run():
 # What this check must catch, for `checks/faults.py`.
 RESTORE = "ui.tabs.setup_tab:SetupTab._build_restore"
 FAULTS = [
-    ("the switch's first line dead to the mouse", RESTORE,
-     'head.bind("<Button-1>", lambda _event: follow.invoke())', "pass",
-     "did not toggle it"),
-    ("the switch's first line not indented", RESTORE,
-     "head.pack(anchor=tk.NW, padx=(text_start(follow), 0))",
-     "head.pack(anchor=tk.NW)", "the lines do not start together"),
-    ("the switch's label holding every line", RESTORE,
-     'text="\\n".join(first_lines),', "text=FOLLOW_TEXT,",
-     "the checkbox must hold"),
+    ("the switch's column at its content's height", RESTORE,
+     "second.pack(side=tk.LEFT, anchor=tk.NW, fill=tk.Y,",
+     "second.pack(side=tk.LEFT, anchor=tk.NW,",
+     "it has floated up from the foot"),
+    ("the switch packed under Window Size", RESTORE,
+     "follow.pack(side=tk.BOTTOM, anchor=tk.SW,", "follow.pack(anchor=tk.NW,",
+     "it has floated up from the foot"),
+    ("the switch's lines centred", RESTORE,
+     "text=FOLLOW_TEXT, justify=tk.LEFT,", "text=FOLLOW_TEXT,",
+     "not flush left"),
 ]

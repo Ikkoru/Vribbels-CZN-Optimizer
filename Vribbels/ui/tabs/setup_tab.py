@@ -58,7 +58,7 @@ from ..title_bar import apply_title_bar
 from ..utils.all_none_row import make_all_none_row
 from ..utils.button_width import (BUTTON_W_LARGE, BUTTON_W_MEDIUM,
                                  BUTTON_W_SMALL)
-from ..utils.checkbox import make_checkbox, text_start
+from ..utils.checkbox import make_checkbox
 from ..utils.escape import close_on_escape
 from ..utils.scrolled_text import make_scrolled_text
 from ..utils.tooltip import Tooltip
@@ -694,7 +694,9 @@ class SetupTab(BaseTab):
         rows.pack(side=tk.LEFT, anchor=tk.NW)
         second = ttk.Frame(restore_frame)
         # spacing: control group ↔ control group -- label, button ↔
-        second.pack(side=tk.LEFT, anchor=tk.NW,
+        # The panel's whole height, so the switch at its foot ends where
+        # the first column does.
+        second.pack(side=tk.LEFT, anchor=tk.NW, fill=tk.Y,
                     padx=px((RESTORE_COLUMN_GAP, 0)))
 
         # The window's own size is a default like any other, and this
@@ -711,37 +713,20 @@ class SetupTab(BaseTab):
         sm = self.context.settings_manager
         self.follow_defaults_var = tk.BooleanVar(
             value=bool(sm.get(FOLLOW_KEY, True)) if sm is not None else True)
-        follow_box = ttk.Frame(second)
-        # spacing: TBD -- the Restore Defaults panel's switch under Window Size
-        follow_box.pack(anchor=tk.NW, pady=px((RESTORE_ROW_GAP, 0)))
-        # Its box beside the last line, every line flush left. A
-        # Checkbutton centres its box on the whole of its text, so the
-        # checkbox holds the last line, at Tk's own distance from the
-        # box, and a label over it the lines before, starting where the
-        # checkbox's text does (`text_start`).
-        *first_lines, last_line = FOLLOW_TEXT.split("\n")
-        # Its own padding stays: the lines sit 2px further apart than a
-        # wrapped label's, but twice as far at 200%. With none, Tk's
-        # fixed surplus at 200% leaves the gap a pixel over double.
+        # Its lines flush left: a Checkbutton centres them otherwise.
         follow = make_checkbox(
-            follow_box, self.colors, text=last_line,
+            second, self.colors, text=FOLLOW_TEXT, justify=tk.LEFT,
             variable=self.follow_defaults_var,
             command=lambda: self._save_setting(
                 FOLLOW_KEY, bool(self.follow_defaults_var.get())))
-        head = tk.Label(
-            follow_box, text="\n".join(first_lines),
-            font=follow.cget("font"), justify=tk.LEFT, anchor=tk.W,
-            bd=0, padx=0, pady=0, highlightthickness=0,
-            bg=self.colors["bg"], fg=self.colors["fg"])
-        head.pack(anchor=tk.NW, padx=(text_start(follow), 0))
-        follow.pack(anchor=tk.NW)
-        # The first line toggles too: it reads as the checkbox's text.
-        head.bind("<Button-1>", lambda _event: follow.invoke())
-        tip = Tooltip(self.colors)
-        for widget in (head, follow):
-            tip.bind(widget, FOLLOW_TIP)
+        # spacing: TBD -- the Restore Defaults panel's switch under Window Size
+        # At the panel's foot. The gap above it is a floor, met only
+        # where this column is the taller.
+        follow.pack(side=tk.BOTTOM, anchor=tk.SW,
+                    pady=px((RESTORE_ROW_GAP, 0)))
+        Tooltip(self.colors).bind(follow, FOLLOW_TIP)
         # Held for `check_tabs_build`.
-        self._follow_head, self._follow_check = head, follow
+        self._restore_rows, self._follow_check = rows, follow
 
         for index, (label, explanation, kind) in enumerate(button_specs):
             row = ttk.Frame(rows)
