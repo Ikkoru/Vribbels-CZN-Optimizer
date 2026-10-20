@@ -22,7 +22,15 @@ Read with `game_client.Client` (`docs/client_data.md`), each table named as `--t
 
 **A Combatant's cards are `c_<res_id>_<kind>`**: `srt1`–`srt3` the Basic cards, `srt4` the preset Signature card, `uni1`–`uni4` the other Signature cards, `<card>_rsp1`–`_rsp5` a card's Signature Epiphany versions, `srtN_pot` a Basic card a Potential node upgrades, `eps` the Ego skill, `cre<n>` the cards it creates in battle. A deck starts from the eight `srt` and `uni` cards. A card's kind (`sort`) is `SORT_START` or `SORT_UNIQUE` for those, `SORT_NEUTRAL`, `SORT_ETC` (an Event Neutral card), `SORT_MONSTER_UNIQUE`, `SORT_TABOO` (Forbidden), `SORT_EIDOLON` (Persona), `SORT_DESIRE` or `SORT_MEMORY`; its category `CARD_ATK`, `CARD_SKILL` or `CARD_POWER`, the game's Upgrade.
 
-**The read checks itself** (`Catalogue.problems`): every released Combatant has its eight cards and a known class, every effect a card names is read, every Signature Epiphany turns its card into one the tables hold, the battle constants are whole numbers, both Neutral and Divine Epiphanies exist, the in-game deck builder offers something, and no deck point rule is missing or unknown to the program. A patch that renames or repurposes a column breaks one of those shapes rather than misreading quietly.
+**The read checks itself** (`Catalogue.problems`). A patch that renames or repurposes a column breaks one of these shapes rather than misreading quietly:
+
+- every released Combatant has its eight cards and a known class;
+- every effect a card names is read;
+- every Signature Epiphany turns its card into one the tables hold;
+- the battle constants are whole numbers;
+- Neutral and Divine Epiphanies both exist;
+- the in-game deck builder offers something;
+- no deck point rule is missing or unknown to the program.
 
 **The cache**, `deck_catalogue.json.gz` beside the settings, holds one build's read as gzipped JSON, replaced whole through a temp file. `catalogue.for_install` serves it while it holds the installed build, and reads the client again once a patch moves the build on.
 
@@ -87,11 +95,20 @@ Read with `game_client.Client` (`docs/client_data.md`), each table named as `--t
 - **`unique`**: a Unique card (`TALENT_ORIGIN`, "Only 1 of each Unique card can be included in the Deck") more than once, counted by its base card and read off each copy's own version: two versions of one card may not both be in a deck when both are Unique.
 - **`removals`**: more than `rules.MAX_REMOVALS` removals, counting only the Combatant's own cards in the removal record (`rules.own_removals`). A Desire card's removal never counts (help 022), nor a removed card the run had added.
 
-The readings set aside, each failing decks the game accepted: a Divine Epiphany held to the base card; the replace cost applied to Divine Epiphanies too, or a Neutral Epiphany's cost read without it or after a Divine one's change; include keywords all required; a Persona effect's tags as a condition; every removal counted.
+The readings set aside, each failing decks the game accepted:
 
-**Before `RULES_SINCE`, a warning can be the card's change rather than the deck's.** One deck made in February 2026 holds a Neutral Epiphany that its card's cost, 0 AP in the client now, no longer fits, and the client archive holds no build from then to show the cost it had.
+- a Divine Epiphany held to the base card;
+- the replace cost applied to Divine Epiphanies too, or a Neutral Epiphany's cost read without it or after a Divine one's change;
+- include keywords all required;
+- a Persona effect's tags as a condition;
+- every removal counted.
+
+**Before `RULES_SINCE`, a warning can be the card's change rather than the deck's.** One deck made in February 2026 holds a Neutral Epiphany its card's cost no longer fits: 0 AP in the client today. The client archive holds no build from then to show the cost it had.
 
 ## Checks
 
 - `checks/check_deck_catalogue.py`: the installed client's read passes `Catalogue.problems`, each of its shapes speaks up when broken in a copy of the read, nothing Sortie-only got in, and the cache serves only its own build and survives a failed write.
-- `checks/check_deck_rules.py`: every captured Save Data made since `RULES_SINCE` weighs what it recorded and raises no warning; a catalogue of the check's own, with a figure per row, shows each charge comes off its row and each rule warns about the deck built to break it and nothing else; and the wire import fills, drops and orders what it should.
+- `checks/check_deck_rules.py`:
+  - every captured Save Data made since `RULES_SINCE` weighs what it recorded and raises no warning;
+  - on a catalogue of the check's own, with a figure per row, each charge comes off its row, and each rule warns about the deck built to break it and nothing else;
+  - the wire import fills, drops and orders what it should.

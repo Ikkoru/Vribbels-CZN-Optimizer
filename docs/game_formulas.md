@@ -126,7 +126,7 @@ Memory Fragments come in three of the game's five rarity tiers — Mythic and No
 
 **A level-up ADDS a new substat while the fragment has fewer than four**; once it has four, each further level-up rolls into an existing one. Every rarity therefore lands on exactly 4 substats at max level. There is **no per-substat cap** — one substat can absorb every remaining roll.
 
-**A new substat is drawn by weight, not alike.** The game client gives each substat a weight (`piece_option`'s `ratio`, held as `constants.SUBSTAT_DRAW`), and an added substat is each stat the fragment can still gain in proportion to its weight among them: neither its main nor one it holds. That reading is the client's data, not a measurement: an inventory holds only the fragments that were kept. A level-up into an existing substat lands on each of the four alike. The Average and Likely Potential follow both (`models/memory_fragment.py`).
+**A new substat is drawn by weight, not alike.** The game client gives each substat a weight (`piece_option`'s `ratio`, held as `constants.SUBSTAT_DRAW`). An added substat is drawn among the stats the fragment can still gain, neither its main nor one it holds, each in proportion to its weight. That reading is the client's data, not a measurement: an inventory holds only the fragments that were kept. A level-up into an existing substat lands on each of the four alike. The Average and Likely Potential follow both (`models/memory_fragment.py`).
 
 Visible in captured data: a piece's `stat_list` holds `1 + starting_substats + level` entries.
 
