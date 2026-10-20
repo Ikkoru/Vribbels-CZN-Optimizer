@@ -46,7 +46,7 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from ._harness import add_source_to_path, SOURCE_ROOT, Skip
+from ._harness import add_source_to_path, SOURCE_ROOT, Skip, destroy_root
 
 NAME = "every distance doubles at 200%"
 
@@ -442,10 +442,7 @@ def _build(scale, work, problems):
             # sizes, and the comparison wants the tab as built.
             problems.extend(_rewraps(tab.get_frame(), scale, attr))
     finally:
-        try:
-            root.destroy()
-        except Exception:
-            pass
+        destroy_root(root)
         scaling.set_scale("100%")
     return found
 

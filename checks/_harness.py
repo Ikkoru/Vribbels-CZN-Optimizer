@@ -71,3 +71,35 @@ def take_notes():
 
 def describe(path) -> str:
     return os.path.basename(str(path))
+
+
+def pending_timers(root):
+    """Every `after()` still pending in `root`'s interpreter, as
+    (id, script) pairs. Readable after `root.destroy()`: the
+    interpreter outlives its windows."""
+    tk = root.tk
+    return [(aid, tk.splitlist(tk.call("after", "info", aid))[0])
+            for aid in tk.splitlist(tk.call("after", "info"))]
+
+
+def destroy_root(root):
+    """Destroy a check's Tk root and cancel every timer it still holds.
+
+    A built tab arms `after()` chains -- the Optimizer's `check_queue`,
+    the Capture tab's prerequisite probe, every blink and settle step --
+    and `destroy()` deletes their commands but not their timers. Timers
+    belong to the thread, not the window, so the next check that runs
+    Tk's event loop fires each one into nothing and prints `invalid
+    command name "...check_queue"` under its own name. Cancelled after
+    the destroy, so a timer a `<Destroy>` handler arms goes too.
+    `run_all` fails a check that leaves one; check_runner_timers pins it.
+    """
+    try:
+        root.destroy()
+    except Exception:
+        pass
+    try:
+        for aid, _script in pending_timers(root):
+            root.tk.call("after", "cancel", aid)
+    except Exception:           # the interpreter itself is gone
+        pass

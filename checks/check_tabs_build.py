@@ -39,7 +39,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from ._harness import (add_source_to_path, SOURCE_ROOT, Skip,
-                       newest_snapshot, note)
+                       destroy_root, newest_snapshot, note)
 
 NAME = "tabs build"
 
@@ -6109,10 +6109,7 @@ def run():
                 _upgraded_line_marks_what_beats(built["CaptureTab"]))
             failures.extend(_slot6_atk_filter_is_wired(built["CaptureTab"]))
     finally:
-        try:
-            root.destroy()
-        except Exception:
-            pass
+        destroy_root(root)
         shutil.rmtree(work, ignore_errors=True)
 
     return failures

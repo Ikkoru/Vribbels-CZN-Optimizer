@@ -30,7 +30,7 @@ import tempfile
 from pathlib import Path
 
 from ._harness import (add_source_to_path, SOURCE_ROOT, Skip,
-                       newest_snapshot, note)
+                       destroy_root, newest_snapshot, note)
 
 NAME = "optimizer starts with no combatant"
 
@@ -127,10 +127,7 @@ def run():
                 "beside a set res_id still writes."
             )
     finally:
-        try:
-            root.destroy()
-        except Exception:
-            pass
+        destroy_root(root)
         shutil.rmtree(work, ignore_errors=True)
 
     return failures

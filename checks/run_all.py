@@ -38,7 +38,7 @@ for _stream in (sys.stdout, sys.stderr):
     except (AttributeError, ValueError):
         pass
 
-from checks._harness import Skip, take_notes           # noqa: E402
+from checks._harness import Skip, pending_timers, take_notes  # noqa: E402
 from checks import (                                    # noqa: E402
     check_addon_template,
     check_archive,
@@ -93,6 +93,7 @@ from checks import (                                    # noqa: E402
     check_repo_root,
     check_runner_collects,
     check_runner_temp,
+    check_runner_timers,
     check_settings_repair,
     check_settings_roundtrip,
     check_shared_facts,
@@ -167,6 +168,7 @@ CHECKS = [
     check_settings_repair,
     check_runner_collects,
     check_runner_temp,
+    check_runner_timers,
     check_no_flash,
     check_bmp_glyphs,
     check_presettle,
@@ -301,12 +303,51 @@ def _module(mod):
     return getattr(mod, "__name__", "").rsplit(".", 1)[-1]
 
 
+def _record_tk_roots():
+    """Record every Tk root made from here on, until `undo()`.
+
+    Returns (the list they land in, undo). Chains to whatever
+    `Tk.__init__` was, so a run inside a run records into both."""
+    try:
+        import tkinter
+    except ImportError:
+        return [], lambda: None
+    made = []
+    before = tkinter.Tk.__init__
+
+    def recording(self, *args, **kwargs):
+        before(self, *args, **kwargs)
+        made.append(self)
+
+    def undo():
+        tkinter.Tk.__init__ = before
+
+    tkinter.Tk.__init__ = recording
+    return made, undo
+
+
+def _leftover_timers(made):
+    """Cancel every `after()` the roots in `made` still hold, and name
+    each by its callback (the script less tkinter's numeric prefix)."""
+    left = []
+    for root in made:
+        try:
+            pending = pending_timers(root)
+        except Exception:                   # the interpreter is gone
+            continue
+        for aid, script in pending:
+            root.tk.call("after", "cancel", aid)
+            left.append(script.lstrip("0123456789") or script)
+    return left
+
+
 def _run(args):
     failed = skipped = 0
     started = time.time()
     for mod in args.suite:
         t = time.time()
         take_notes()               # anything left by a check that raised
+        made, stop_recording = _record_tk_roots()
         try:
             kwargs = {"full": args.full} if mod is check_optimizer_parity else {}
             problems = mod.run(**kwargs)
@@ -320,6 +361,15 @@ def _run(args):
             failed += 1
             continue
         finally:
+            # A timer outlives its root's destroy(), and the next check
+            # to run Tk's event loop fires it into nothing: `invalid
+            # command name "...check_queue"` under a check that had
+            # nothing to do with it. Cancelled here so it cannot, and
+            # the check that left it fails below. Pinned by
+            # check_runner_timers.
+            stop_recording()
+            left = _leftover_timers(made)
+            made.clear()
             # NOT redundant. A built tab is a reference cycle, so its Tk
             # Variables outlive the check as garbage, and the cyclic
             # collector runs on whichever thread next allocates enough.
@@ -339,6 +389,15 @@ def _run(args):
             learned = sys.modules.get("game_data.learned")
             if learned is not None:
                 learned.clear()
+        if left:
+            problems = list(problems) + [
+                f"left {len(left)} Tk timer(s) pending on a root it "
+                f"made: {', '.join(sorted(set(left)))}. destroy() deletes "
+                f"a timer's command but not the timer, so the next check "
+                f"that runs Tk's event loop fires each one into nothing "
+                f"and prints 'invalid command name' under its own name. "
+                f"Destroy the root with checks._harness.destroy_root."
+            ]
         elapsed = f"{time.time() - t:.1f}s"
         if problems:
             print(f"{RED}FAIL{RESET} {mod.NAME} {DIM}{elapsed}{RESET}")
