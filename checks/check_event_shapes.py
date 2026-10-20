@@ -51,7 +51,7 @@ def _onto(ct, raw, known=None):
     """`raw` with the client's totals put on it, as a refresh does.
     `known` is {event id: (rewards, final, steps)}; none where not
     given, never the machine's own client."""
-    ct.event_totals_onto(raw, NOW, known or {})
+    ct.event_totals_onto(raw, NOW, known or {}, {})
     return raw
 
 

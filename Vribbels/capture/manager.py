@@ -157,6 +157,13 @@ EVENT_FIELDS_HANDLED = frozenset({
     "result_event_mission_reward_entities",
 })
 
+# The story-map episodes cleared: the login's list of them, and one
+# episode's clear. Neither reply names what it is, so the command that
+# asked is what does. Saved as `EPISODES_FIELD`.
+EPISODES_LISTED = "story_system/get_completed_episode_ids"
+EPISODE_CLEARED = "story_system/complete_episode"
+EPISODES_FIELD = "completed_episode_ids"
+
 # How much of a payload the wire catalogue keeps as an example, and how
 # many entries it will hold. The sample says what SHAPE a field is, not
 # what is in it -- a reader who wants the whole thing turns debug
@@ -515,6 +522,9 @@ class Addon:
         # {trial event id: [slot ids]}, learned from claims and
         # kept forever -- see `reward_combatant_trial`.
         self.trial_slots = {}
+        # {episode id} -- the story-map episodes cleared. See the
+        # episode branch below.
+        self.episodes = set()
         self.combat_trials = None
         self.overclock = None
         self.season_pass = None
@@ -696,7 +706,9 @@ class Addon:
           but not always before the first save: a snapshot written in
           between held none, and the Stats lists read `-` on every
           half until the next one. The login's table replaces these
-          whole when it comes.
+          whole when it comes. The cleared story episodes likewise: a
+          clear is never undone, so the last list is never wrong, only
+          short.
 
         Read once, at startup, and failures are silent: a missing or
         unreadable snapshot means starting empty, which is where this
@@ -727,6 +739,9 @@ class Addon:
         offensives = previous.get("remnants_rankings")
         if isinstance(offensives, dict):
             self.remnants_rankings = offensives
+        episodes = previous.get(EPISODES_FIELD)
+        if isinstance(episodes, list):
+            self.episodes = {str(e) for e in episodes}
         # Runs recorded before they had a file of their own rode in the
         # snapshot. See `_load_chaos_runs`.
         runs = previous.get("chaos_runs")
@@ -1514,6 +1529,23 @@ class Addon:
             table = self.login_tables.setdefault("story_event_entities", {})
             table.setdefault(str(story["event_id"]), {})[
                 str(story["story_id"])] = story
+            self._save_pending = True
+        # The story-map episodes the account has cleared, which is what
+        # a story-chapter event's progress counts. The login asks for
+        # the whole list, and its reply names nothing but `ids` -- a key
+        # far too generic to take on its own, so the command that asked
+        # is what says this is the list. Replaced whole: the reply IS
+        # the list. Each clear after it answers `complete_episode` with
+        # the node's `res_id` and `is_clear`, and is added.
+        if (asked == EPISODES_LISTED
+                and isinstance(data.get("ids"), list)):
+            self.episodes = {str(e) for e in data["ids"]}
+            self._save_pending = True
+        cleared = data.get("result")
+        if (asked == EPISODE_CLEARED and isinstance(cleared, dict)
+                and cleared.get("is_clear")
+                and cleared.get("res_id") is not None):
+            self.episodes.add(str(cleared["res_id"]))
             self._save_pending = True
         # The login-streak events: days shown up, days claimed.
         #
@@ -3480,6 +3512,7 @@ class Addon:
             "remnants_rankings": self.remnants_rankings or None,
             "combat_trial_entities": self.combat_trials or None,
             "combatant_trial_slots": self.trial_slots or None,
+            EPISODES_FIELD: sorted(self.episodes) or None,
             "season_pass_entity": self.season_pass,
             "mission_entities": self.missions or None,
             "shop_list": self.shop_products or None,

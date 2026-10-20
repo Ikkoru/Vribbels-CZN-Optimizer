@@ -40,7 +40,7 @@ Answer them in this order for any event. Each one is cheap and rules out work on
 
 Generic implies Tallied — it is a Tallied event with a second property — and `event_is` applies that so the table need not say it twice.
 
-**The categories say what the wire alone can tell.** A mission or login-streak event the game client holds reads against the client's total, and goes green once all of it is claimed, whatever its category.
+**The categories say what the wire alone can tell.** A mission or login-streak event the game client holds reads against the client's total, and goes green once all of it is claimed, whatever its category. A story-chapter event reads its episodes against the client's chapter the same way (*Story chapters*).
 
 ### The `+?` on an Open-ended row
 
@@ -109,7 +109,7 @@ The same applies to a mission-tallied event: the write-down holds while the rows
 | `EVENT_OVERCLOCK` | Generic, Forced Daily | `overclock_entities[event id]` | doubled Simulation runs. `count` is today's tally, `total_count` the event's lifetime one, `reset_time` when the day's was last written. The cap is not stated; `_overclock_cap` reads the shapes off the ended events' own counts, and the live event's own days or the last event pick one |
 | `EVENT_DAILY_CHECK` | Tallied | `attendance_entities` | a login streak. The attendance row is the FIRST one started after the event was — the ids do not match |
 | `EVENT_COMBATANT_TRIAL` | Tallied, Generic | `combat_trial_entities` | three trials per combatant banner sharing the event's window |
-| `EVENT_SCHEDULE` | Open-ended | `event_mission_entities`, plus `event_mission_reward_entities` for the completion flag | the catch-all: story events, seasonal events, `event_bartender_1`. A step-track event (below) reads its completion record instead |
+| `EVENT_SCHEDULE` | Open-ended | `event_mission_entities`, plus `event_mission_reward_entities` for the completion flag | the catch-all: story events, seasonal events, `event_bartender_1`. A step-track event (below) reads its completion record instead, and a story-chapter event its episodes cleared, `completed_episode_ids` (*Story chapters*) |
 | `EVENT_NODELIST_PAGE` | Open-ended | same two | the missions are named after the combatant, not the list: paired by issue time, see *A Node List shares no word with its missions* |
 | `LOBBY_COUNTDOWN` | unmapped | `issued_limit_entities["1st_countdown"]`: `usable_time` and `expire_time` are the schedule's window, `vs1` the days reached and `vs2` the days claimed (offsets from 0, as a JSON list), `vi1` and `vi2` the day ids of the last of each | a login event under a group of its own, the Nightmare Carnival's countdown check-in (`countdown_attendance_1st`). Each day's reward claims itself at login, `lobby_countdown_reward`, whose `popup_infos` name the day (`countdown_attendance_1st_01`) and its items. With nothing to do, the row shows only its deadline |
 
@@ -222,6 +222,24 @@ Overturned, `_client_steps` and `_step_progress` would take `version` as the ste
 **A step-track event has one mission row and a ladder of rewards on it.** The row accumulates a score and is never itself claimed: `event_love_04_01` stood at 2190 with `complete_time` 0 long after its event ended. The rewards are thresholds on that score, counted on the completion record once the first is claimed. Seen on love (from its second instalment), `event_half_year_mission_1`, `event_anniversary_gacha_1`, `event_daily_mission_check_1` and the Sortie's launch event, `event_chaos_assault_1`.
 
 `_step_records` finds them: a record paired to the event with `reward_step` above 0. A track the client holds reads the steps claimed against the client's ladder, `7/21`, plus a final reward where the client lists one (`_client_steps`). One it does not hold reads the record alone (`_step_progress`): the steps over themselves with `+?`, `~7/21` where two of its family's instalments in the client agree, green on the flag. **Before the first step is claimed there is no record**: a track the client holds reads `0/21`, and one it does not reads its lone row, `0/1+?`, which is true: at least one reward, none taken.
+
+### Story chapters
+
+**A story-chapter event has nothing to claim.** Escape from Judgment, `event_disaster_s05_c0`, is the fifth Galactic Disaster's prologue: a chapter of the story map, seven story episodes, each paying its reward as it is cleared. No mission row, no completion record, no claim, so every reader above finds nothing and the row showed its deadline alone. The game's event screen shows a **Progress** percentage instead, and that is the chapter's episodes cleared.
+
+| Side | Where | What |
+| ---- | ----- | ---- |
+| Client | `event@event` | `type` `EVENT_STORY_SHORTCUT`, the only event of that type so far; `multiple_link` names the chapter, `link_event_schedule_id` the schedule |
+| Client | `story_map@story_map_chapter` | the chapter (`disaster_s05_00`); its `link_story_map_node_key` (`story_node_01_18`) begins every episode's id |
+| Client | `story_map@story_map_node` | the episodes, `<key>_<n>`. **A node with `no_use` YES is not one**: several earlier Disaster chapters carry such nodes beside their live ones |
+| Wire, at login | `story_system / get_completed_episode_ids` | `{"ids": [...]}`: every story-map node the account has ever cleared, main story, battle nodes and every Disaster chapter together |
+| Wire, each clear | `story_system / complete_episode`, with `res_id` and `replay` | `result.res_id`, `result.is_clear` and the episode's pay under `result.story_reward_result` |
+
+`game_client.story_chapters` pairs the three client tables into {schedule: episodes}; `event_totals_onto` puts the live ones on `raw` as `EVENT_STORY_FIELD`. The capture keeps the wire's list as `completed_episode_ids`, replaced by the login's and added to by each clear. **The login's reply names nothing but `ids`**, a key far too generic to take on its own, so the capture takes it only on the reply to the command that asked; the replay tools pair it the same way.
+
+`_story_progress` reads it: the chapter's episodes cleared over all of them, as a percentage rounded down, `57%`. Exact, since the client lists the chapter whole, so it carries no `+?`, asks no `Finished?`, and goes green at `100%`. Rounded down so that a long chapter one episode short never reads `100%`. **A snapshot without the list shows the deadline alone**: one taken before the capture kept it cannot say what was cleared, which is not 0%.
+
+Replayed over every login on record, the prologue read `0%`, `14%`, `28%` and `57%`, and the live log ended at seven of seven, which the game showed as 100%.
 
 ## Telling a rectangular family from a ragged one
 
@@ -373,6 +391,7 @@ So a new event's rewards are recognisable before anything else is known about it
 | `event_mission_reward_entities` | the `mission` reply at login | the final reward's claim sends its one row under the bare `entity`; an ordinary reward claim sends nothing |
 | `event_mission_entities` | login | its own rows, under the BARE key `entities` — not under its own name. A task that MOVES, its row issued or its score raised, is in the moving reply's `mission_condition.event_mission` and nowhere else until the next login; merged, never over a claim's `complete_time` |
 | `event_summer_set_entities` | the `event/get_list` payload | the one row that changed, under the SINGULAR `event_summer_set_entity` |
+| `completed_episode_ids` | the `story_system / get_completed_episode_ids` reply at login, as the bare `ids` | the cleared episode's id, in `complete_episode`'s `result`, added to the list |
 
 ### A Daily Check-in claim's reply
 
@@ -453,6 +472,7 @@ Every event row needs the same three answers -- rewards claimed, rewards held, a
    | Mission ladder | rows with `res_id` and `complete_time` under the event's key | rows with a `complete_time` | a write-down, a grid, the family in the client, pages issued whole, else a floor | the completion record, once claimed |
    | Step track | ONE row whose `score` climbs and never gets a `complete_time`; a record with `reward_step` above 0 after the first claim | `reward_step`, read as a tally | the family in the client | the same record's flag |
    | A table of its own | a new `event_*` table in `event/get_list`, or a named one like `story_event_entities` | whatever its rows stamp -- one claim shows which field moves | its row count, only if it did not move between two logins a day apart | -- |
+   | Story chapter | nothing to claim; its `event@event` row's `type` is `EVENT_STORY_SHORTCUT` | episodes cleared, `completed_episode_ids` | the client's chapter only; nothing on the wire lists it | -- |
 
    Streaks, trials and Overclock events have shapes of their own, each under its own heading above.
 6. **Watch for a final reward** where the client says there is one: claim it with a capture running, and `mission / reward_event_limit` answering under `entity` confirms it. The row counts the final from the start, off the client, and reads it as waiting until it is claimed.
@@ -463,6 +483,7 @@ Every event row needs the same three answers -- rewards claimed, rewards held, a
 ## Still open
 
 * **`reward_step` vs `version`.** Read as a tally on the evidence under *`reward_step` and `version`*, which also says how the next live step track settles it against the client's size.
+* **Whether the game rounds a story chapter's Progress down.** Only 0% and 100% have been seen on its screen; at two episodes of seven the program reads `28%`, and a screen saying `29%` there means the game rounds to nearest. `_story_progress` and `check_story_chapters` hold the rule.
 * **Rhythm games, the Disaster Marble, Trauma Codes and the collab coupon read nothing.** Their schedules share no word with their records (`ds_s3_event_rhythm_game` owns `event_rhythm_*`; `marble_s01` keeps its ladder in `marble_achievement_entities`), and each is one instalment on record, too few to pair by rule.
 
 Settled, and kept so they are not re-suggested:

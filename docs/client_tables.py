@@ -96,6 +96,13 @@ def shipped_source(client):
     lines += [f"    {ascii(key)}: ({rewards}, {final}, {steps}),"
               for key, (rewards, final, steps) in sorted(totals.items())]
     lines += ["}", "",
+              "# {schedule id: (episode ids)}. See "
+              "game_client.story_chapters.",
+              "STORY_CHAPTERS = {"]
+    lines += [f"    {ascii(key)}: {ascii(tuple(episodes))},"
+              for key, episodes in sorted(
+                  game_client.story_chapters(client).items())]
+    lines += ["}", "",
               "# {item res_id: English name}. See game_client.item_names.",
               "ITEM_NAMES = {"]
     lines += [f"    {res_id}: {ascii(name)},"

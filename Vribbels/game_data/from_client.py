@@ -429,6 +429,11 @@ EVENT_TOTALS = {
     'event_summer_01': (20, 0, 0),
 }
 
+# {schedule id: (episode ids)}. See game_client.story_chapters.
+STORY_CHAPTERS = {
+    'event_disaster_s05_c0': ('story_node_01_18_1', 'story_node_01_18_2', 'story_node_01_18_3', 'story_node_01_18_4', 'story_node_01_18_5', 'story_node_01_18_6', 'story_node_01_18_7'),
+}
+
 # {item res_id: English name}. See game_client.item_names.
 ITEM_NAMES = {
     2000001: 'Unit',

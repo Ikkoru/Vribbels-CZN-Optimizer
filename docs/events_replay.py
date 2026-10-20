@@ -58,6 +58,10 @@ from ui.tabs import checklist_tab as ct                       # noqa: E402
 # What a login reply is reduced to: the fields the event readers take.
 MISSION_FIELDS = ("event_mission_reward_entities", "attendance_entities",
                   "combat_trial_entities")
+# The story episodes cleared: the login's list, and each clear after it,
+# read as the capture reads them (`capture/manager.py`).
+EPISODES_LISTED = "story_system/get_completed_episode_ids"
+EPISODE_CLEARED = "story_system/complete_episode"
 
 # What `--fallback` scores: the groups whose readers take a total, and
 # how a reading's figures are read back.
@@ -84,12 +88,14 @@ def logs():
 def logins():
     """[(log, login dict)], plus every schedule window seen anywhere.
 
-    A login dict holds the `mission/get_list` reply's event fields and
-    the `event/get_list` tables that came before it in the same log.
+    A login dict holds the `mission/get_list` reply's event fields, the
+    `event/get_list` tables that came before it in the same log, and
+    the story episodes cleared, as the capture keeps them (None where
+    the log has not listed them yet).
     """
     windows, found = {}, []
     for name, fh in logs():
-        pending, tables = {}, {}
+        pending, tables, episodes = {}, {}, None
         for line in fh:
             if not line.strip():
                 continue
@@ -117,10 +123,19 @@ def logins():
                 if cmd == "event/get_list":
                     tables = {k: v for k, v in r.items()
                               if k.startswith("event_")}
+                if cmd == EPISODES_LISTED and isinstance(r.get("ids"), list):
+                    episodes = {str(e) for e in r["ids"]}
+                cleared = r.get("result")
+                if (cmd == EPISODE_CLEARED and episodes is not None
+                        and isinstance(cleared, dict)
+                        and cleared.get("is_clear")):
+                    episodes.add(str(cleared.get("res_id")))
                 if cmd == "mission/get_list":
                     login = {k: r.get(k) for k in MISSION_FIELDS}
                     login["missions"] = r.get("event_mission_entities") or []
                     login["tables"] = dict(tables)
+                    login["episodes"] = (None if episodes is None
+                                         else sorted(episodes))
                     login["now"] = r.get("service_server_time") or \
                         datetime.datetime.fromisoformat(frame["ts"]).replace(
                             tzinfo=datetime.UTC).timestamp()
@@ -138,6 +153,8 @@ def login_raw(login, windows):
     for field in MISSION_FIELDS:
         raw[field] = login[field] or []
     raw.update(login["tables"])
+    if login["episodes"] is not None:
+        raw[ct.EPISODES_FIELD] = login["episodes"]
     return raw
 
 

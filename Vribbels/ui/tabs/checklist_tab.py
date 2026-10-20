@@ -1722,8 +1722,29 @@ def _final_reward(raw, name):
 
 
 def _event_missions(raw, name, _window, _now):
-    """[(words, state)] for an event scored by its own missions."""
-    return _event_progress(raw, name)
+    """[(words, state)] for an event scored by its own missions, or by
+    its story chapter's episodes where it is one (`_story_progress`)."""
+    return _story_progress(raw, name) or _event_progress(raw, name)
+
+
+def _story_progress(raw, name):
+    """[(words, state)] for a story-chapter event, or [] for any other
+    or where the snapshot has no episode list.
+
+    **The game's Progress, as a percentage**: the chapter's episodes
+    cleared against all of them, both from `EVENT_STORY_FIELD` and
+    `EPISODES_FIELD`. Rounded down, so it reads 100% only once every
+    episode is cleared. Exact either way -- the client lists the
+    chapter whole -- so the row goes green at 100%.
+    """
+    episodes = ((raw or {}).get(EVENT_STORY_FIELD) or {}).get(name)
+    cleared = (raw or {}).get(EPISODES_FIELD)
+    if not episodes or not isinstance(cleared, list):
+        return []
+    cleared = set(cleared)
+    done = sum(1 for episode in episodes if episode in cleared)
+    return [("%d%%" % (100 * done // len(episodes)),
+             _done(done >= len(episodes)))]
 
 
 # What a schedule group IS. **A group can be several of these at
@@ -2043,25 +2064,31 @@ def family_final(name, known):
                and _stem(key) == family)
 
 
-def event_totals_onto(raw, now, known=None):
+def event_totals_onto(raw, now, known=None, stories=None):
     """Put what the game client says each live event holds onto `raw`.
 
     `EVENT_CLIENT_FIELD` for every live event the client holds, by its
     id or by the id the game also gives it; `EVENT_TOTALS_FIELD` for
     one it does not, its family's agreed total; `EVENT_FINALS_FIELD`
-    for the ones paying a final reward, by the same two routes. The
-    readers take all three off `raw`.
+    for the ones paying a final reward, by the same two routes;
+    `EVENT_STORY_FIELD` for the story-chapter events, their episodes.
+    The readers take all four off `raw`.
 
-    `known` defaults to `game_client.known_event_totals()`: this
-    machine's client over the copy the program ships.
+    `known` defaults to `game_client.known_event_totals()` and
+    `stories` to `game_client.known_story_chapters()`: this machine's
+    client over the copy the program ships.
     """
     if not isinstance(raw, dict):
         return
     known = game_client.known_event_totals() if known is None else known
+    stories = (game_client.known_story_chapters() if stories is None
+               else stories)
     by_key = _known_by_key(known)
-    client, totals, finals = {}, {}, set()
+    client, totals, finals, chapters = {}, {}, set(), {}
     for group in EVENT_GROUPS:
         for name, _window in schedules.all_live(group, raw, now):
+            if stories.get(name):
+                chapters[name] = tuple(stories[name])
             held = known.get(name) or by_key.get(_event_key(name))
             if held is not None:
                 client[name] = tuple(held)
@@ -2076,6 +2103,7 @@ def event_totals_onto(raw, now, known=None):
     raw[EVENT_CLIENT_FIELD] = client
     raw[EVENT_TOTALS_FIELD] = totals
     raw[EVENT_FINALS_FIELD] = frozenset(finals)
+    raw[EVENT_STORY_FIELD] = chapters
 
 
 def _grid_total(rows):
@@ -2433,6 +2461,21 @@ EVENT_TOTALS_FIELD = "_checklist_event_totals"
 # reward, as a set of event ids: the client's word, or for an event it
 # does not hold, whether its family has paid one. Same arrangement.
 EVENT_FINALS_FIELD = "_checklist_event_finals"
+
+# Where `event_totals_onto` leaves the live events that are a chapter
+# of the story map, as {event id: (episode ids)}: the chapter's
+# episodes, from the game client (`game_client.story_chapters`). Same
+# arrangement.
+EVENT_STORY_FIELD = "_checklist_event_story"
+
+# The story-map episodes the account has cleared, a list the capture
+# keeps (`capture/manager.py`, `EPISODES_FIELD`). A story-chapter event
+# has no rewards to claim -- each episode pays as it is cleared -- so
+# its progress is its episodes cleared, which the game shows as a
+# percentage. Absent from a snapshot taken before the capture kept it,
+# and then the row shows its deadline alone: a missing list is not
+# nothing cleared.
+EPISODES_FIELD = "completed_episode_ids"
 
 # The two fields of a completion record that make it a STEP TRACK: an
 # event whose rewards are thresholds on one accumulating mission row

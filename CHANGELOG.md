@@ -8,6 +8,10 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 ## [2.6.0] - unreleased
 
+### Added
+
+- Checklist: a story event with nothing to claim, such as Escape from Judgment, shows its Progress the way the game does, as a percentage of its episodes cleared.
+
 ### Changed
 
 - Combatants and partners take their names, classes, stats and plain passive bonuses from the game client, so a patch that rebalances one needs no program update. One released after the program shows with the game's figures instead of as Unknown.

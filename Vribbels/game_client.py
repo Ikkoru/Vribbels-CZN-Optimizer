@@ -73,7 +73,7 @@ GAMERES = Path("bin") / "appdata" / "cznlive" / "gameres"
 # What the cache is called in the settings folder, and the shape of
 # what it holds. A cache of another format is read as no cache.
 CACHE_FILE = "game_client.json"
-CACHE_FORMAT = 11
+CACHE_FORMAT = 12
 
 # The manifest layout this reads. A different version is a different
 # layout until shown otherwise.
@@ -155,6 +155,15 @@ CHECK_IN_DAYS = "event_daily_check@event_daily_check"
 # is the event's number, never a schedule, and kept out so a family
 # worked out over these keys holds instalments and nothing else.
 SCHEDULE_JOINS = ("link_event_schedule_id", "multiple_link", "multiple_key")
+
+# An event that is a chapter of the story map: its `event@event` row's
+# `multiple_link` names the chapter, the chapter's node key starts every
+# one of its episodes' ids (`<key>_<n>`), and a node marked `no_use` is
+# not one of them. The wire lists the episodes cleared by the same ids.
+STORY_EVENT_TYPE = "EVENT_STORY_SHORTCUT"
+STORY_CHAPTER_TABLE = "story_map@story_map_chapter"
+STORY_NODE_TABLE = "story_map@story_map_node"
+STORY_NODE_UNUSED = ("no_use", "YES")
 
 # The daily tasks: a row per task, `count` what its score has to reach
 # and `point_count` what it then adds to the day's Activity. The wire's
@@ -637,6 +646,35 @@ def event_totals(client):
     return out
 
 
+def story_chapters(client):
+    """{schedule id: [episode ids]} for every event that is a chapter
+    of the story map, such as a Galactic Disaster's prologue: the
+    chapter's episodes, which is what the game's Progress counts.
+
+    Such an event pays as each episode is cleared and has nothing to
+    claim, so it has no rewards for `event_totals` to list.
+    """
+    episodes = collections.defaultdict(list)
+    for row in client.rows(STORY_NODE_TABLE):
+        node = row.get("id") or ""
+        if (row.get(STORY_NODE_UNUSED[0]) != STORY_NODE_UNUSED[1]
+                and "_" in node):
+            episodes[node.rsplit("_", 1)[0]].append(node)
+    keys = {row.get("id"): row.get("link_story_map_node_key")
+            for row in client.rows(STORY_CHAPTER_TABLE)}
+    out = {}
+    events = sorted(client.rows(EVENT_TABLE),
+                    key=lambda row: row.get(EVENT_DELETED[0])
+                    == EVENT_DELETED[1])
+    for row in events:
+        listed = episodes.get(keys.get(row.get("multiple_link")))
+        key = row.get("link_event_schedule_id")
+        if (row.get("type") == STORY_EVENT_TYPE and listed and key
+                and key not in NO_REWARD):
+            out.setdefault(key, list(listed))
+    return out
+
+
 def daily_tasks(client):
     """{daily task res_id: [score it counts to, Activity it pays]}."""
     out = {}
@@ -1083,6 +1121,7 @@ def read_facts(install):
         "build": client.archive.build,
         "event_names": event_names(client),
         "event_totals": event_totals(client),
+        "story_chapters": story_chapters(client),
         "item_names": {str(res_id): name for res_id, name
                        in item_names(client).items()},
         "excursion_types": {str(res_id): count for res_id, count
@@ -1255,6 +1294,19 @@ def known_event_totals():
     for key, value in ((_facts or {}).get("event_totals") or {}).items():
         if (isinstance(value, (list, tuple)) and len(value) == 3
                 and all(isinstance(n, int) and n >= 0 for n in value)):
+            out[key] = tuple(value)
+    return out
+
+
+def known_story_chapters():
+    """{schedule id: (episode ids)}: the shipped table, with what this
+    machine's client says over it. See `story_chapters`."""
+    from game_data import from_client
+    out = {key: tuple(value) for key, value
+           in from_client.STORY_CHAPTERS.items()}
+    for key, value in ((_facts or {}).get("story_chapters") or {}).items():
+        if (isinstance(value, (list, tuple)) and value
+                and all(isinstance(e, str) for e in value)):
             out[key] = tuple(value)
     return out
 
