@@ -1,6 +1,12 @@
 # Decks
 
-`Vribbels/decks/` is the Deck Builder's model, with no UI in it. `catalogue.py` reads everything a deck is made of off the game client, `model.py` holds a deck and a team, `wire.py` turns the captured Save Data into decks, and `rules.py` weighs a deck and lists the deck-building rules it breaks. None of it needs Tk.
+`Vribbels/decks/` is the Deck Builder's model, with no UI in it. None of it needs Tk.
+
+- `catalogue.py` reads everything a deck is made of off the game client.
+- `model.py` holds a deck and a team.
+- `wire.py` turns the captured Save Data into decks.
+- `rules.py` weighs a deck and lists the deck-building rules it breaks.
+- `turns.py` reads what each card costs, draws and gives in AP, and which turns it counts in.
 
 ## The client's tables
 
@@ -11,6 +17,7 @@ Read with `game_client.Client` (`docs/client_data.md`), each table named as `--t
 | Cards | every `card(<group>)@card`, and season 5's `memory_grade_define@card` | `cards`, by id: its group, name, text, kind (`sort`), category, rarity, cost, keywords (`talent`), classes, `r_spark_replace_cost`, Epiphany tags (`r_spark_tag_default`), effects, child cards |
 | A card's versions | every `card(<group>)@card_r_spark` | `versions`, the five Signature Epiphanies (`rsp1`–`rsp5_<card>`); `upgrades`, a Potential node's (`pot_`) and Ego Manifestation's (`lbk_`) |
 | Effects and statuses | every `@skill_eff` and `@cs` | `effects`, `statuses`: only those a card, an Epiphany, a Persona effect, a piece of Equipment, a Buff or a Mutation reaches, through `link_cs_id`, `link_skill_eff_id` and `show_link_cs_id` |
+| Conditions | every `condition(<group>)` set's `@condition`, `@condition_control`, `@cond_card`, `@cond_unit` and `@cond_timing` | `conditions`: for each condition an effect names (`eff_link_condition_id`), its control rows in order, `<key>_<n>`. A `stack` row tests its card, unit and timing parts; a `reset` row says at which battle timing the count starts over |
 | Neutral and Divine Epiphanies | `r_spark@r_spark` | `epiphanies`: a Divine one names its god (`god_type`), a Neutral one none, and each holds the conditions below |
 | Persona effects | `eidolon_card_define@eidolon_card_slot_info`, `@eidolon_card_reward`, `@eidolon_card_illust_comb` | `persona`: a Persona card's slots, each Lux and Umbra effect, and the names that follow two effects |
 | Equipment and its Buffs | `relic@relic`, `relic(disaster)@relic`; `relic_reinforce@relic_reinforce` | `equipment`, each star level's effect; `buffs`, of kind `ARENA`, `LUX` or `UMBRA` |
@@ -30,7 +37,8 @@ Read with `game_client.Client` (`docs/client_data.md`), each table named as `--t
 - the battle constants are whole numbers;
 - Neutral and Divine Epiphanies both exist;
 - the in-game deck builder offers something;
-- no deck point rule is missing or unknown to the program.
+- no deck point rule is missing or unknown to the program;
+- every condition an effect names is read, each with its control rows.
 
 **The cache**, `deck_catalogue.json.gz` beside the settings, holds one build's read as gzipped JSON, replaced whole through a temp file. `catalogue.for_install` serves it while it holds the installed build, and reads the client again once a patch moves the build on.
 
@@ -105,6 +113,29 @@ The readings set aside, each failing decks the game accepted:
 
 **Before `RULES_SINCE`, a warning can be the card's change rather than the deck's.** One deck made in February 2026 holds a Neutral Epiphany its card's cost no longer fits: 0 AP in the client today. The client archive holds no build from then to show the cost it had.
 
+## The turn
+
+`turns.played` reads what a card in a deck costs, draws and gives in AP each time it is played, as a `Played`. It reads the version the card plays as, with its Neutral or Divine Epiphany's added effects, keywords and cost change, and its Persona effects'.
+
+**A card's effects are walked as the client chains them.** An effect can put a status on the card itself, on other cards or on a unit, and a status holds effects of its own; what an effect does depends on who holds it. A figure is plain only where nothing on the way to it waits for the battle:
+
+- every effect on the way works on play (`OPERATION_ACTIVE`) or while its status is held (`OPERATION_PASSIVE`), not on a trigger;
+- every condition on the way only asks for a matching card in the draw pile, or the draw and discard piles (`turns.available`): "Draw 1 Attack Card of this unit";
+- its value is a plain figure (`VALUE_COMMON`), not a count the battle makes, such as one per card discarded.
+
+**Anything else shows as ?** and counts as 0 (plan D12). The figure keeps the part with its amount where the data gives one, so the user sees what to type.
+
+- **A draw** is a `SKILL_EFF_CARD_DRAW`, or a card moved from the draw pile to hand: "Check 3 cards, select and draw one". A card that moves itself to hand needs no draw, so it counts as 1 drawn (plan D69).
+- **AP gained** is a `SKILL_EFF_ENERGY_CHANGE`, or another card's cost cut (plan D68): on each card a status sits on, or on every card a unit's status covers.
+- **The cost** is the version's printed cost, with the Epiphanies' and the Persona effects' changes. An X card's (−1) and one with none (−2) are the battle's. So is a cost the battle lowers: a cut the card's own status makes, Ignition and Lead (plan D19).
+- **A Quietus card costs 0** (plan D67): a deck procs it by discarding it. `Played.printed_cost` keeps its own.
+- **A status that lasts a number of uses** takes them from the effect that puts it on ("the next 2 times"), and its figures count once per use.
+- **A choice** takes its first option, and a note says so (plan D44).
+
+**Which turns a card counts in** (plan 3.2): setup for an Upgrade (`CARD_POWER`), any Exhaust keyword and Remove; neither for a card both Unusable and Ephemeral; regular for the rest. An Opener card is marked (`Played.opener`), since its cost also comes out of the setup turn (plan D18).
+
+**Held to the maintainer's figures.** The maintainer's deck spreadsheet prices the cards of each of its teams, by hand, on its Deck Calcs tab. The cards the program reads exactly as the sheet does are the check's fixture (`DECK_CALCS` in `checks/check_deck_turns.py`); the rest go to the maintainer for review.
+
 ## Checks
 
 - `checks/check_deck_catalogue.py`: the installed client's read passes `Catalogue.problems`, each of its shapes speaks up when broken in a copy of the read, nothing Sortie-only got in, and the cache serves only its own build and survives a failed write.
@@ -112,3 +143,6 @@ The readings set aside, each failing decks the game accepted:
   - every captured Save Data made since `RULES_SINCE` weighs what it recorded and raises no warning;
   - on a catalogue of the check's own, with a figure per row, each charge comes off its row, and each rule warns about the deck built to break it and nothing else;
   - the wire import fills, drops and orders what it should.
+- `checks/check_deck_turns.py`:
+  - on a catalogue of the check's own, each reading rule above holds for the card built to exercise it;
+  - the cards whose figures the Deck Calcs tab gives read the same off the installed client.

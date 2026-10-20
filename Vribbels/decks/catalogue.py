@@ -23,7 +23,7 @@ import re
 import tempfile
 from pathlib import Path
 
-CATALOGUE_FORMAT = 1
+CATALOGUE_FORMAT = 2
 CACHE_FILE = "deck_catalogue.json.gz"
 
 # The tables, as `game_client.Client.table` names them. Sortie's own
@@ -47,6 +47,13 @@ PERSONA_SLOTS = "eidolon_card_define@eidolon_card_slot_info"
 PERSONA_EFFECTS = "eidolon_card_define@eidolon_card_reward"
 PERSONA_NAMES = "eidolon_card_define@eidolon_card_illust_comb"
 ARCHIVE_TABLE = re.compile(r"^archive_card\([^)]+\)@archive_card$")
+# A condition (`@condition`) names a control key, whose rows in
+# `@condition_control`, `<key>_<n>`, each test cards, units or a timing
+# (`@cond_card`, `@cond_unit`, `@cond_timing`), or say when the count
+# resets. Every `condition(<group>)` set is one table set of these.
+CONDITION_TABLE = re.compile(
+    r"^condition(?:\([^)]+\))?@(condition|condition_control|cond_card"
+    r"|cond_unit|cond_timing)$")
 
 # The battle's own figures (`constant_metagame`): a turn's draw and AP,
 # and the hand's cap.
@@ -158,12 +165,13 @@ def _epiphany(row, texts):
         "add_cost": _number(row.get("add_cost_value"), 0),
         "add_cost_sign": row.get("add_cost_mathsign") or "",
         "effects": _list(row.get("add_link_skill_eff_id")),
+        "talents": _list(row.get("add_talent")),
         # What a Divine Epiphany adds to the card's own effects, kept
         # whole for the damage calculator (T20).
         "adds": {key: row[key] for key in row
                  if key.startswith("add_") and row[key] not in EMPTY
                  and key not in ("add_cost_value", "add_cost_mathsign",
-                                 "add_link_skill_eff_id")},
+                                 "add_link_skill_eff_id", "add_talent")},
     }
 
 
@@ -304,7 +312,57 @@ def read(client):
                     data["released"][row["link_card_id"]] = _list(
                         row.get("link_archive_card_sub_category_id"))
     _keep_reachable(data)
+    data["conditions"] = _conditions(client, names, data["effects"])
     return data
+
+
+def _conditions(client, names, effects):
+    """{condition id: its controls, in order} for every condition a kept
+    effect names. A control is {"type", "and_or", "cards", "units",
+    "timings", "battle_timing"}: "stack" ones test their parts, "reset"
+    ones say at which `battle_timing` the count starts over."""
+    rows = {kind: {} for kind in ("condition", "condition_control",
+                                  "cond_card", "cond_unit", "cond_timing")}
+    for name in names:
+        found = CONDITION_TABLE.match(name)
+        if found:
+            for row in client.rows(name):
+                rows[found.group(1)].setdefault(row["id"], row)
+    controls = {}
+    for key, row in rows["condition_control"].items():
+        controls.setdefault(key.rsplit("_", 1)[0], []).append(row)
+    wanted = {held for effect in effects.values()
+              for held in _list(effect.get("eff_link_condition_id"))}
+    out = {}
+    for condition_id in sorted(wanted):
+        condition = rows["condition"].get(condition_id)
+        if condition is None:
+            continue
+        key = condition.get("link_condition_control_key") or condition_id
+        out[condition_id] = [{
+            "type": control.get("type") or "",
+            "and_or": control.get("and_or") or "",
+            "cards": [_compact(rows["cond_card"][part])
+                      for part in _list(control.get("link_cond_card_id"))
+                      if part in rows["cond_card"]],
+            "units": [_compact(rows["cond_unit"][part])
+                      for part in _list(control.get("link_cond_unit_id"))
+                      if part in rows["cond_unit"]],
+            "timings": [_compact(rows["cond_timing"][part])
+                        for part in _list(control.get("link_cond_timing_id"))
+                        if part in rows["cond_timing"]],
+            "battle_timing": [timing for timing in (control.get("battle_timing_0"),
+                                                    control.get("battle_timing_1"))
+                              if timing and timing != "TIMING_NONE"],
+        } for control in sorted(controls.get(key, ()), key=_control_order)]
+    return out
+
+
+def _control_order(row):
+    """A control row's place in its condition: `<key>_<n>` by n, as a
+    number, so `_10` comes after `_2`."""
+    tail = row["id"].rsplit("_", 1)[-1]
+    return int(tail) if tail.isdigit() else 0
 
 
 # The columns that link an effect or a status onward.
@@ -425,6 +483,9 @@ class Catalogue:
         self.mutations = data.get("mutations", {})
         self.released = data.get("released", {})
         self.constants = data.get("constants", {})
+        self.effects = data.get("effects", {})
+        self.statuses = data.get("statuses", {})
+        self.conditions = data.get("conditions", {})
 
     @property
     def build(self):
@@ -504,4 +565,15 @@ class Catalogue:
                        f"Epiphanies of {len(self.epiphanies)}: no "
                        f"{'Divine' if not divine else 'Neutral'} one "
                        f"(r_spark's god_type).")
+        named = {held for effect in self.effects.values()
+                 for held in _list(effect.get("eff_link_condition_id"))}
+        unread = sorted(named - set(self.conditions))
+        if unread:
+            out.append(f"{len(unread)} conditions effects name are in no "
+                       f"condition table, such as {unread[:3]}: decks.turns "
+                       f"reads each such draw or AP gain as the battle's.")
+        hollow = sorted(key for key, controls in self.conditions.items() if not controls)
+        if hollow:
+            out.append(f"{len(hollow)} conditions read with no condition_control "
+                       f"rows, such as {hollow[:3]}: what they test is lost.")
         return out

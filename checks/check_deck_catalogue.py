@@ -81,6 +81,10 @@ def _every_epiphany_a_gods(data):
                                   for key, held in data["epiphanies"].items()})
 
 
+def _conditions_unread(data):
+    return dict(data, conditions={})
+
+
 # (what the misread is, the misread, a piece of what `problems` must say)
 MISREADS = [
     ("a Combatant short of a starting card", _short_a_card,
@@ -100,6 +104,8 @@ MISREADS = [
      "offers no card"),
     ("every Epiphany read as a god's", _every_epiphany_a_gods,
      "no Neutral one"),
+    ("the condition tables unread", _conditions_unread,
+     "are in no condition table"),
 ]
 
 
@@ -244,6 +250,13 @@ FAULTS = [
      "decks.catalogue:read",
      'if not row["id"].startswith(SORTIE_EPIPHANY)}', "}",
      "Sortie's Epiphanies are in the deck catalogue"),
+    ("the unread-condition check passes",
+     "decks.catalogue:Catalogue.problems",
+     "if unread:", "if False:", "the condition tables unread"),
+    ("a condition's control rows not found",
+     "decks.catalogue:_conditions",
+     'controls.setdefault(key.rsplit("_", 1)[0], []).append(row)', "pass",
+     "read with no condition_control rows"),
     ("the cache serves another build",
      "decks.catalogue:load",
      'if build is not None and data.get("build") != build:', "if False:",
