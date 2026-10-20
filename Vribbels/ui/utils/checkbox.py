@@ -67,6 +67,23 @@ def pad_beside_label(distance):
             - px_inset(SIDE_INSET) - px_inset(LABEL_INK_INSET))
 
 
+def text_start(checkbox):
+    """Where a `make_checkbox` checkbox's own text starts, from its left
+    edge: the side inset, then the indicator and Tk's gap after it.
+
+    Read off the requested width, less the text and the far side's
+    inset, because Tk sizes the indicator itself. A label set over a
+    checkbox's text starts here, to read as another line of it -- a
+    Checkbutton centres its indicator on the whole of its text, so a
+    box beside the LAST line takes a label for the lines above. A
+    MEASURED distance: the caller does not put it through px()."""
+    text = checkbox.cget("text")
+    width = checkbox.tk.getint(checkbox.tk.call(
+        "font", "measure", checkbox.cget("font"), text))
+    side = checkbox.winfo_pixels(checkbox.cget("padx")) + FOCUS_INSET
+    return checkbox.winfo_reqwidth() - width - side
+
+
 def make_checkbox(parent, colors, *, text="", variable=None, command=None,
                   font=("Segoe UI", 9), fg=None, compact=False,
                   wraplength=None, **kwargs):

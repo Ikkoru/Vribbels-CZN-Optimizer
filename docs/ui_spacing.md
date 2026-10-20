@@ -570,7 +570,7 @@ Both ends of a line-to-line reading are the line's first CAPITAL. A capital's to
 | Description | Location | Rule/Question |
 | ----------- | -------- | ------------- |
 | the Links panel's own button styling and pitch | `ui/tabs/setup_tab.py`, `_link_button` | Flat `tk.Button`s with their own `padx`/`pady`, packed `fill=X` at a pitch of 2. A flat button's painted edge is its fill rather than a border, so `button -> button` may not be the rule that applies. |
-| the Restore Defaults panel's switch under Window Size | `ui/tabs/setup_tab.py`, `_build_restore` | A two-line checkbox under a button in the panel's second column, at `RESTORE_ROW_GAP` below it. No rule covers a button above a checkbox; `button -> button` is the nearest. |
+| the Restore Defaults panel's switch under Window Size | `ui/tabs/setup_tab.py`, `_build_restore` | Two lines under a button in the panel's second column, at `RESTORE_ROW_GAP` below it: a checkbox holding the last, its box beside that line, and a label over it holding the first, starting where the checkbox's text does (`checkbox.text_start`). The lines sit the checkbox's top inset further apart than a wrapped label's. No rule covers a button above a checkbox; `button -> button` is the nearest. |
 
 ## Checking spacing
 

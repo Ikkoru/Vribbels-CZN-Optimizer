@@ -2942,6 +2942,78 @@ def _checklist_columns_come_first(tab):
     return []
 
 
+def _follow_switch_reads_as_one(tab):
+    """The defaults switch reads as one checkbox with its box beside its
+    LAST line: the checkbox holds that line, a label over it the lines
+    before, indented to where the checkbox's text starts, and a click on
+    the label toggles the switch and saves it as a click on the box does.
+
+    Every part of that fails quietly: lines split otherwise put the box
+    back between them or drop a line, a lost indent leaves the first
+    line ragged, and a lost binding leaves half the text dead to the
+    mouse. Structural, since the rendering needs a mapped window; the
+    scale survey shows it rendered.
+
+    Returns a list of complaints.
+    """
+    from defaults_sync import FOLLOW_KEY
+    from ui.tabs.setup_tab import FOLLOW_TEXT
+    from ui.utils.checkbox import text_start
+    head = getattr(tab, "_follow_head", None)
+    box = getattr(tab, "_follow_check", None)
+    if head is None or box is None:
+        return ["the Setup & Settings tab holds no defaults switch to "
+                "check (`_follow_head`, `_follow_check`)."]
+    *first, last = FOLLOW_TEXT.split("\n")
+    out = []
+    if box.cget("text") != last or head.cget("text") != "\n".join(first):
+        out.append(f"the defaults switch's checkbox reads "
+                   f"{box.cget('text')!r} and the label over it "
+                   f"{head.cget('text')!r}: the checkbox must hold "
+                   f"FOLLOW_TEXT's last line, its box beside it, and the "
+                   f"label the lines before.")
+    padx = head.pack_info().get("padx", 0)
+    left = padx[0] if isinstance(padx, (tuple, list)) else str(padx).split()[0]
+    indent = head.winfo_pixels(left)
+    if indent != text_start(box):
+        out.append(f"the defaults switch's first line is indented "
+                   f"{indent}px, where the checkbox's text starts "
+                   f"{text_start(box)}px in: the lines do not start "
+                   f"together (`checkbox.text_start`).")
+    # A click reaches only a mapped window: the tab is laid out at alpha
+    # 0, as the Checklist's wheel check lays its own, and the event is
+    # delivered before `event_generate` returns.
+    import tkinter as tk
+    root = tab.frame.winfo_toplevel()
+    notebook = tab.frame.master
+    settings = tab.context.settings_manager
+    try:
+        root.attributes("-alpha", 0.0)
+        if str(tab.frame) not in notebook.tabs():
+            notebook.add(tab.frame, text="Setup & Settings")
+        notebook.pack(fill=tk.BOTH, expand=True)
+        notebook.select(tab.frame)
+        root.deiconify()
+        root.update_idletasks()
+        before = bool(tab.follow_defaults_var.get())
+        head.event_generate("<Button-1>")
+        after = bool(tab.follow_defaults_var.get())
+        if after == before:
+            out.append("a click on the defaults switch's first line did "
+                       "not toggle it.")
+        elif settings is not None and settings.get(FOLLOW_KEY) is not after:
+            out.append("a click on the defaults switch's first line "
+                       "toggled it without saving follow_defaults.")
+        if after != before:
+            head.event_generate("<Button-1>")
+    except tk.TclError as e:
+        out.append(f"the Setup & Settings tab could not be laid out to "
+                   f"click its defaults switch: {e}")
+    finally:
+        root.withdraw()
+    return out
+
+
 def _setup_columns_hold_their_shape(tab):
     """The Setup & Settings tab's two columns, and what each is pinned to.
 
@@ -5924,6 +5996,7 @@ def run():
             failures.extend(_messagebox_defaults_name_their_own_buttons())
             failures.extend(_archive_size_carries_its_tooltip(
                 built["SetupTab"]))
+            failures.extend(_follow_switch_reads_as_one(built["SetupTab"]))
             failures.extend(_archive_count_stays_off_the_ui_thread(
                 built["SetupTab"]))
             failures.extend(_percent_fields_are_clamped(built["OptimizerTab"]))
@@ -6064,3 +6137,18 @@ def run():
         shutil.rmtree(work, ignore_errors=True)
 
     return failures
+
+
+# What this check must catch, for `checks/faults.py`.
+RESTORE = "ui.tabs.setup_tab:SetupTab._build_restore"
+FAULTS = [
+    ("the switch's first line dead to the mouse", RESTORE,
+     'head.bind("<Button-1>", lambda _event: follow.invoke())', "pass",
+     "did not toggle it"),
+    ("the switch's first line not indented", RESTORE,
+     "head.pack(anchor=tk.NW, padx=(text_start(follow), 0))",
+     "head.pack(anchor=tk.NW)", "the lines do not start together"),
+    ("the switch's label holding every line", RESTORE,
+     'text="\\n".join(first_lines),', "text=FOLLOW_TEXT,",
+     "the checkbox must hold"),
+]
