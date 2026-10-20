@@ -89,7 +89,9 @@ def _synthetic(overlay, characters, partners):
                           ["Draws a 2-Cost card, gain 25% Shield"] * 4
                           + ["Draws a 2-Cost card, gain 50% Shield"]],
                       "ego_name": "Probe Ego", "ego_cost": 2,
-                      "level_60": {"atk": 5, "def": 44, "hp": 105}},
+                      # Unlike the class's own figures, or laying them
+                      # over would change nothing to see.
+                      "level_60": {"atk": 7, "def": 47, "hp": 107}},
         },
     }
     try:
@@ -117,7 +119,7 @@ def _synthetic(overlay, characters, partners):
                        f"with the level must become a placeholder, one that "
                        f"does not must stay as written.")
         if PARTNER_CLASS_STATS.get((4.5, "Vanguard")) != \
-                {"atk": 5, "def": 44, "hp": 105}:
+                {"atk": 7, "def": 47, "hp": 107}:
             out.append("a class's level-60 flat stats from its partners were "
                        "not laid over PARTNER_CLASS_STATS.")
         problems = validator.find_data_problems()
@@ -607,3 +609,178 @@ def run():
     failures += _readers()
     failures += _installed(characters, partners)
     return failures
+
+
+def _hand(name, change):
+    """Change the hand table `name` as `change` says: one typed wrong."""
+    from game_data import client_overlay
+    change(client_overlay.hand(name))
+
+
+def _hand_exp_off():
+    def change(rows):
+        i = next(i for i, (_exp, level) in enumerate(rows) if level == 40)
+        rows[i] = (rows[i][0] + 1, 40)
+    _hand("CHARACTER_EXP_TABLE", change)
+
+
+def _hand_affinity_off():
+    _hand("AFFINITY_TO_NEXT", lambda table: table.update({5: 999}))
+
+
+def _hand_roll_off():
+    def change(stats):
+        info = stats["S_CRI_INC_ADD"]
+        stats["S_CRI_INC_ADD"] = info[:3] + (2.1, info[4])
+    _hand("STATS", change)
+
+
+def _hand_unrollable():
+    def change(stats):
+        stats["S_CRI_INC_ADD"] = stats["S_CRI_INC_ADD"][:3] + (0, 0)
+    _hand("STATS", change)
+
+
+def _hand_slot_off():
+    _hand("SLOT_MAIN_STATS", lambda slots: slots[4].append("DEF%"))
+
+
+def _main_value_off():
+    from game_data import constants
+    constants.MAIN_STAT_VALUES[(4, "CRate")] = 28
+
+
+def _max_level_off():
+    from game_data import constants
+    constants.MAX_LEVEL_PER_RARITY[4] = 6
+
+
+def _tier_rarity_off():
+    from game_data import constants
+    constants.TIER_RARITY["Common"] = "Uncommon"
+
+
+def _class_added():
+    from game_data import constants
+    constants.CLASSES = constants.CLASSES + ("Sniper",)
+
+
+def _class_order_off():
+    from ui.tabs import materials_tab
+    order = list(materials_tab.CLASS_ORDER)
+    order[2], order[3] = order[3], order[2]
+    materials_tab.CLASS_ORDER = tuple(order)
+
+
+def _icon_off():
+    from game_data import constants
+    row = constants.GROWTH_STONES[3120001]
+    constants.GROWTH_STONES[3120001] = row[:2] + ("icon_item_probe.png",)
+
+
+def _inventory_copies():
+    """The Memory Fragments tab holding a copy of the slots' main stats,
+    which the overlay cannot reach."""
+    from game_data import constants
+    from ui.tabs import inventory_tab
+    inventory_tab.SLOT_MAIN_STATS = copy.deepcopy(constants.SLOT_MAIN_STATS)
+
+
+# What this check must catch, for `checks/faults.py`.
+OVERLAY, CLIENT = "game_data.client_overlay", "game_client"
+FAULTS = [
+    ("a client-only combatant left out", f"{OVERLAY}:_combatants",
+     'elif rid and "name" in known and rid not in CHARACTERS:', "elif False:",
+     "a combatant only the client knows got no entry"),
+    ("a class's flat stats not laid", f"{OVERLAY}:_partners",
+     '_set("PARTNER_CLASS_STATS", pair, None, seen[0])', "pass",
+     "a class's level-60 flat stats"),
+    ("a new object for a replaced table", f"{OVERLAY}:_replace",
+     "_fill(table, contents)",
+     "table = type(table)(contents)\n    _TABLES[name] = table\n"
+     "    from . import constants as _laid\n    setattr(_laid, name, table)",
+     "an overlay put a new object"),
+    ("the Memory Fragments tab's own copy", _inventory_copies, None, None,
+     "an overlay put a new object"),
+    ("the Materials targets worked out at import",
+     "ui.tabs.materials_tab:COMBATANT_EXP_TARGETS",
+     "_LiveExpTargets(CHARACTER_EXP_TABLE", "_exp_targets(CHARACTER_EXP_TABLE",
+     "the Materials tab's Level 50 EXP target"),
+    ("the Affinity cap fixed", "game_data.constants:affinity_level",
+     "level = max(AFFINITY_TO_NEXT, default=0) + 1\n"
+     "    threshold = sum(AFFINITY_TO_NEXT.values())",
+     "level, threshold = 40, 14000", "Affinity at 30 exp, the cap"),
+    ("a falling or late exp table laid", f"{OVERLAY}:_exp",
+     "and _ints(reached) and reached[0] == 0", "and _ints(reached)",
+     "starts above 0"),
+    ("a slot missing laid", f"{OVERLAY}:_fragments",
+     "if sorted(slots) == sorted(SLOT_ORDER) and all(slots.values()):",
+     "if slots:", "lacks a slot or a substat"),
+    ("a main stat with no name kept", f"{OVERLAY}:_fragments",
+     ["slots[int(slot)] = [STATS[option[0]][0] for option in options",
+      "and option and option[0] in STATS]"],
+     ["slots[int(slot)] = [STATS.get(option[0], (option[0],))[0] "
+      "for option in options", "and option]"],
+     "a stat with no name left out"),
+    ("a partial set of draw weights laid", f"{OVERLAY}:_fragments",
+     "if set(draws) == rolled and all(", "if draws and all(",
+     "lacks a slot or a substat"),
+    ("the client's rolls never laid", f"{OVERLAY}:_fragments",
+     'for stat, values in ((held or {}).get("rolls") or {}).items():',
+     "for stat, values in {}.items():", "Crit Rate's roll bounds"),
+    ("a roll of 0 laid", f"{OVERLAY}:_fragments",
+     "or not values or not _numbers(values) or min(values) <= 0:",
+     "or not values or not _numbers(values):", "given a roll of 0"),
+    ("a table laid back over someone's change", f"{OVERLAY}:_undo",
+     "        if _TABLES[name] == laid:\n"
+     "            _fill(_TABLES[name], before)",
+     "        _fill(_TABLES[name], before)",
+     "apply put back an Affinity table someone else"),
+    ("a replaced table never put back", f"{OVERLAY}:_undo",
+     "if _TABLES[name] == laid:", "if False:", "with no source left to lay it"),
+    ("exp summed across a gap", f"{CLIENT}:exp_columns",
+     "            if not isinstance(step, int):\n"
+     "                reached = None",
+     "            if not isinstance(step, int) and level > 99:\n"
+     "                reached = None\n"
+     "            elif not isinstance(step, int):\n"
+     "                level += 1",
+     "on a level missing"),
+    ("grades levelling apart read", f"{CLIENT}:exp_tables",
+     "if tables[0] and all(table == tables[0] for table in tables):",
+     "if tables[0]:", "on a combatant grade levelling apart"),
+    ("an Affinity level missing read", f"{CLIENT}:affinity",
+     "if to_next and sorted(to_next) == list(range(1, len(to_next) + 1)):",
+     "if to_next:", "on an Affinity level missing"),
+    ("two bonus groups read", f"{CLIENT}:affinity",
+     "if len(groups) != 1:\n        return out\n"
+     "    group, rows = groups.pop(), {}",
+     "if not groups:\n        return out\n"
+     "    group, rows = sorted(groups)[0], {}",
+     "on two bonus groups"),
+    ("a main stat of several values read", f"{CLIENT}:fragment_stats",
+     "if slot and start and step and len(start) == len(step) == 1:",
+     "if slot and start and step:", "on synthetic Memory Fragment options"),
+    ("the hand exp table typed wrong", _hand_exp_off, None, None,
+     "CHARACTER_EXP_TABLE: level 40 is reached at"),
+    ("the hand Affinity table typed wrong", _hand_affinity_off, None, None,
+     "AFFINITY_TO_NEXT as typed is not the client's"),
+    ("a hand roll typed wrong", _hand_roll_off, None, None,
+     "to 2.1 in STATS"),
+    ("a hand substat with no roll", _hand_unrollable, None, None,
+     "which STATS has no roll for"),
+    ("a hand slot typed wrong", _hand_slot_off, None, None,
+     "slot 4 carries"),
+    ("a maxed main stat typed wrong", _main_value_off, None, None,
+     "a maxed Legendary's main is 28"),
+    ("a rarity's top level typed wrong", _max_level_off, None, None,
+     "rarity 4 tops out at level 6"),
+    ("a tier's rarity typed wrong", _tier_rarity_off, None, None,
+     "by the item tables"),
+    ("a class the client lacks", _class_added, None, None,
+     "a class the program lacks needs its tables"),
+    ("the classes in another order", _class_order_off, None, None,
+     "the game lists the classes"),
+    ("an item's icon typed wrong", _icon_off, None, None,
+     "draws icon_item_probe.png"),
+]

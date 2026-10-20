@@ -27,7 +27,7 @@ Deleting the three from `default_settings/` and running the program copies your 
 
 **Review the diff before committing** — the copy takes your working state wholesale, so watch for anything you were mid-experiment on. The build fails outright while any of the three is missing, so you cannot ship without this.
 
-**A setting a player never changed follows the release**: the startup sync brings it to the new shipped value (`settings_architecture.md`, *Three-stage sync*). That holds for the three files' entries and for the defaults in `SettingsManager.LAYOUT`, so a changed default reaches everyone who kept the old one, without Restore Defaults, and a launch that changes anything says so and backs the files up first. Two files beside the three serve this and are not copied to `settings/`:
+**A setting a player never changed follows the release**: the startup sync brings it to the new shipped value (`settings_architecture.md`, *Three-stage sync*). That holds for the three files' entries and for the defaults in `SettingsManager.LAYOUT`. So a changed default reaches everyone who kept the old one, without Restore Defaults. A launch that changes anything says so, and backs the files up first. Two files beside the three serve this and are not copied to `settings/`:
 
 | File                     | Holds                                                                                                                        |
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |

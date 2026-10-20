@@ -26,7 +26,9 @@ names, exp, Affinity and Memory Fragment tables disagree with the
 client, and the ones either side lacks:
 the tables are typed by hand, and a patch that rebalances one changes
 nothing there. It writes nothing; a disagreement is for the maintainer
-to settle, since the hand-typed figure can be the newer one.
+to settle, since the hand-typed figure can be the newer one. A name the
+maintainer chose over the client's is listed in `INTENDED` and left
+out, until either side's spelling moves.
 
 `--archive` keeps the installed build's every table and its English
 text in `Vribbels/client_archive/` (`Vribbels/client_archive.py`),
@@ -234,6 +236,24 @@ POOL_TYPES = {
     "card_factor": "gacha_type_card_factor",
     "partner_reform": "gacha_type_partner_reform",
     "first_select": "gacha_type_first_select",
+}
+
+# The program's own words where the maintainer chose them over the
+# client's, as (what, the program's, the client's). The audit leaves a
+# pair out while both sides read as they do here, so a patch renaming
+# either shows it again.
+INTENDED = {
+    ("rescue pool pickup_combatant", "Combatant Rate-Up Rescue",
+     "Combatant Rate Up Event"),
+    ("rescue pool pickup_supporter", "Partner Rate-Up Rescue",
+     "Partner Pickup Event"),
+    ("rescue pool pickup_supporter_rerun", "Normal Partner Rate-Up Rescue",
+     "Partner Pickup Event"),
+    ("rescue pool partner_reform", "Partner Special Rescue",
+     chr(0x2605) + "5 Partner Special Rescue"),
+    ("rescue pool first_select", "Special Rescue Request",
+     "Special Signal Selective Rescue"),
+    ("shop shop_assault/none", "Sortie - Chaos Analysis Lab", "Sortie Shop"),
 }
 
 # The client's words for what `game_data` spells its own way: the
@@ -460,7 +480,7 @@ def audit(client):
              for r in client.rows("gacha_type@gacha_type")}
     for pool, label in gacha_history.POOL_LABELS.items():
         theirs = types.get(POOL_TYPES.get(pool))
-        if theirs:
+        if theirs and (f"rescue pool {pool}", label, theirs) not in INTENDED:
             differ(f"rescue pool {pool}", "label", label, theirs)
 
     effects = game_client.set_effects(client)
@@ -650,11 +670,12 @@ def item_problems(client):
                  for row, column in ((cats.get(cat), "main_category_name"),
                                      (subs.get(sub), "sub_category_name"))
                  if row]
+        theirs = " - ".join(n for n in names if n)
         if not names:
             out.append(f"shop {cat}/{sub} {ours!r}: not in the client")
-        elif not any(name and name in _plain(ours) for name in names):
-            out.append(f"shop {cat}/{sub}: {ours!r} here, "
-                       f"{' - '.join(n for n in names if n)!r} in the "
+        elif not any(name and name in _plain(ours) for name in names) \
+                and (f"shop {cat}/{sub}", ours, theirs) not in INTENDED:
+            out.append(f"shop {cat}/{sub}: {ours!r} here, {theirs!r} in the "
                        f"client (the program's name shows)")
     return out
 

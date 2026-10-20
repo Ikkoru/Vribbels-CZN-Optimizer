@@ -41,5 +41,8 @@ only names a mismatch leaves them to rediscover why it matters.
 
 **Prove a new check FAILS before trusting it.** Break the thing it
 guards, watch it report, put it back. A check that has never failed is
-an untested claim.
+an untested claim. List the faults in the check's `FAULTS` and run them
+with `python checks/faults.py <check>`, which says how to write one:
+they stay with the check, so the proof runs again whenever the check or
+the code it guards changes.
 """

@@ -27,7 +27,7 @@ Machine-wide rules — cp932, heredocs, editing, verifying, comment style, the s
 
 **Run `python checks/run_all.py` before handing work over** (`zRUN Checks.bat` for a window that stays open; same flags). No GUI, and quick enough to run every time. They cover the invariants that fail QUIETLY: optimizer scoring and parity, game data, settings round-trips, the capture pipeline, the spacing markers and registry, and the UI's own construction and geometry at both scales. `--list` names every one — read that rather than a copy of it here — and naming some runs only those (`run_all.py check_game_data defaults_follow`): the way to re-run what a change touched, rather than a scratch runner. A check with no captured data to work on skips, or notes what it could not cover. Parity runs on a synthetic inventory (`checks/_parity_fixture.py`); `--full` runs the newest snapshot and can take hours.
 
-**Add a check whenever you fix something that failed silently** — that is what the directory is for. `checks/__init__.py` says how.
+**Add a check whenever you fix something that failed silently** — that is what the directory is for. `checks/__init__.py` says how. **Prove it fails with `python checks/faults.py <check>`**, not a scratch script: the check lists the faults it must catch in `FAULTS`, and the runner breaks the code one fault at a time, each in a process of its own, without touching the source.
 
 `Vribbels/` imports without Tk, so the optimizer, the managers, the validator and the game-data tables can all be exercised from a snippet run in that directory.
 
@@ -51,6 +51,7 @@ Snapshots are the maintainer's captured game data. Read them; never write to `Vr
 | `*_manager.py`, `defaults_sync.py`, Restore Defaults, settings files, shared game facts | `docs/settings_architecture.md` |
 | Shipping `default_settings/` — maintainer workflow | `docs/how_to_maintain_default_settings.md` |
 | `capture/`, snapshot parsing, char-vs-partner classification | `docs/capture_pipeline.md` |
+| What a debug capture would log and save, replayed through the real addon | `docs/replay_log.py`, from the command line or imported by a probe |
 | Folding superseded captures into the archive | `Vribbels/capture/archive.py`, run by hand with `docs/snapshots_archive.py` |
 | The Gacha History: pull records, pity, 50/50s, luck, imports | `docs/gacha_history.md` |
 | `game_data/*.py`, the launch-time validator, stat vocabularies | `docs/game_data_files.md` |
@@ -69,6 +70,7 @@ Snapshots are the maintainer's captured game data. Read them; never write to `Vr
 | Panel layout, spacing rules, the ledger, ttk styles | `docs/ui_spacing.md` |
 | Running a spacing audit and reading its table | `.claude/skills/spacing-audit/SKILL.md` |
 | `tasks.md` / `plan.md` / CHANGELOG conventions | `docs/repo_conventions.md` |
+| The doc audit's sweeps, the privacy sweep first | `docs/doc_sweeps.py`; how to judge what it finds is the kit's `craft:doc-audit` with `.claude/overlays/doc-audit.md` |
 | The executable checks, and how to add one | `checks/__init__.py` |
 | Why a settled question was settled: the archive's index | `past_plans/README.md` |
 

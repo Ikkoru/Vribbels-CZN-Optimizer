@@ -267,3 +267,16 @@ def run():
         failures.append("a fragment with nothing left to roll shows an "
                         "average beside its one number.")
     return failures
+
+
+# What this check must catch, for `checks/faults.py`.
+FAULTS = [
+    ("new substats drawn alike",
+     "models.memory_fragment:compute_fragment_potential_mean",
+     "_draw_shares(candidates), added)) if added else 0.0",
+     "[1.0] * len(candidates), added)) if added else 0.0",
+     "where every outcome enumerated averages"),
+    ("a drawn substat drawn again", "models.memory_fragment:_draw_chances",
+     "left -= shares[i]", "left -= 0",
+     "where every outcome enumerated puts a tenth"),
+]

@@ -731,5 +731,15 @@ def run():
     return failures
 
 
+# What this check must catch, for `checks/faults.py`.
+FAULTS = [
+    ("an earlier build's read never the fallback", "game_client:fallback",
+     "held = json.loads((Path(settings_dir) / CACHE_FILE).read_text(",
+     "return None\n"
+     "        held = json.loads((Path(settings_dir) / CACHE_FILE).read_text(",
+     "was not the fallback"),
+]
+
+
 if __name__ == "__main__":
     print(json.dumps(_measure(sys.argv[1])))

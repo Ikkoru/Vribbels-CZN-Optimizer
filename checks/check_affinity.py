@@ -128,3 +128,31 @@ def run():
                        f"`GearOptimizer.load_data`.")
             break
     return out
+
+
+def _steps_in_force(levels, step):
+    """The Affinity table in force -- the client's, laid over the hand
+    one -- with `levels`' steps made `step`."""
+    from game_data import constants
+    for level in levels:
+        constants.AFFINITY_TO_NEXT[level] = step
+
+
+def _thirties_short():
+    _steps_in_force(range(30, 40), 500)
+
+
+def _twenties_long():
+    _steps_in_force(range(20, 30), 600)
+
+
+# What this check must catch, for `checks/faults.py`.
+FAULTS = [
+    ("the rewards claimed read as the level",
+     "optimizer.optimizer:GearOptimizer._parse_character_data",
+     'char.get("friendship_exp", 0) or 0,', "0,", "the program reads"),
+    ("the 30s' steps short", _thirties_short, None, None,
+     "where the game says"),
+    ("the 20s' steps long", _twenties_long, None, None,
+     "a level can never be below its rewards"),
+]

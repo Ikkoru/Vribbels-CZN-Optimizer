@@ -826,3 +826,141 @@ def _notice_builds():
         tk.Toplevel.__init__ = build
         root.destroy()
     return out
+
+
+def _history_lags(section):
+    """Point the check at a copy of the shipped defaults whose history
+    lacks one value that ships, in `section`."""
+    global SOURCE_ROOT
+    import defaults_sync
+    root = Path(tempfile.mkdtemp(prefix="lagging_"))
+    shutil.copytree(SOURCE_ROOT / "default_settings",
+                    root / "default_settings",
+                    ignore=shutil.ignore_patterns("normalize"))
+    path = root / "default_settings" / defaults_sync.HISTORY_FILE
+    history = _read(path)
+    if section == "presets":
+        shipped = _read(root / "default_settings" / "presets.json")
+        history["presets"][sorted(shipped["presets"])[-1]] = []
+    else:
+        history["settings"]["optimizer_workers"] = [12345]
+    _write(path, history)
+    SOURCE_ROOT = root
+
+
+def _history_lags_presets():
+    _history_lags("presets")
+
+
+def _history_lags_settings():
+    _history_lags("settings")
+
+
+# What this check must catch, for `checks/faults.py`.
+SYNC, NOTICE = "defaults_sync", "ui.defaults_notice"
+FAULTS = [
+    ("the history ignored", f"{SYNC}:_decide",
+     'return "update" if any(equal(mine, p) for p in past) else "own"',
+     'return "own"', "at a value it once shipped with"),
+    ("a changed entry overwritten", f"{SYNC}:_decide",
+     'return "own" if equal(last, shipped) else "kept"', 'return "update"',
+     "which the player tuned"),
+    ("a changed entry never reported", f"{SYNC}:_decide",
+     'return "own" if equal(last, shipped) else "kept"', 'return "own"',
+     "is not in the notice's kept list"),
+    ("an undone entry's moved default unreported", f"{SYNC}:_decide",
+     'return "kept" if moved else "own"', 'return "own"',
+     "again after Undo put it back"),
+    ("a program-made entry needs no history",
+     f"{SYNC}:_merge_optimizer_settings",
+     "if not last_entry and not undone_entry",
+     "if not last_entry and not past_entry and not undone_entry",
+     "did not take the shipped ones whole"),
+    ("a program-made entry never as made", f"{SYNC}:_as_made",
+     'scalars = [g["set_effect_pct"] for g in generic',
+     "return False\n    scalars = [g for g in generic",
+     "did not take the shipped ones whole"),
+    ("the program's Default Preset kept", f"{SYNC}:_merge_character_preset",
+     "if mine is None and preset is not None and rid not in last",
+     "if False and mine is None and rid not in last",
+     "the program's own from before its default shipped"),
+    ("a deleted preset assigned", f"{SYNC}:_merge_character_preset",
+     "if preset is not None and ctx.preset_names is not None",
+     "if False and ctx.preset_names is not None",
+     "a preset the player deleted"),
+    ("a missing field never filled", f"{SYNC}:_merge_optimizer_settings",
+     "value):\n                    moved.append(field)",
+     "value):\n                    pass",
+     "which its entry lacked"),
+    ("a list's order read as a choice", f"{SYNC}:_same",
+     "return sorted(a) == sorted(b)", "return a == b",
+     "an order read as a choice"),
+    ("the combatant's name followed", f"{SYNC}:_OPTIMIZER_OWN",
+     'frozenset({"name_hint"})', "frozenset()", "keeping the name"),
+    ("the program's own state followed", f"{SYNC}:_merge_settings",
+     "and key not in SettingsManager.state_keys()", "",
+     "the program's own memory"),
+    ("the switch followed", f"{SYNC}:_merge_settings",
+     "and key != FOLLOW_KEY}", "}", "followed a release's default itself"),
+    ("the switch ignored", f"{SYNC}:follows",
+     "return data.get(FOLLOW_KEY, True) is not False", "return True",
+     "with following off, a release changed the player's files"),
+    ("the records move on while off", f"{SYNC}:sync_defaults",
+     "if ctx.follow:\n        new_synced.update(ctx.values)",
+     "if True:\n        new_synced.update(ctx.values)",
+     "the records moved on without it"),
+    ("reported while off", f"{SYNC}:_apply",
+     "if not ctx.follow:\n        return False",
+     "if not ctx.follow:\n        report.kept.append(entry)\n"
+     "        return False",
+     "with following off, a launch reported"),
+    ("the sync drops a re-work while off", f"{SYNC}:_merge_presets",
+     "if ctx.follow:\n        ctx.reworked = still_reworked",
+     "if True:\n        ctx.reworked = still_reworked",
+     "the record of the re-work did not survive"),
+    ("the re-work drops its record while off", f"{SYNC}:presets_follow",
+     "if follow and new_reworked != reworked:",
+     "if new_reworked != reworked:",
+     "the record of the re-work did not survive"),
+    ("no backup", f"{SYNC}:_write_user",
+     "if not _backup(user_dir, fname):", "if False:",
+     "made no backup"),
+    ("the backup made after the write", f"{SYNC}:_write_user",
+     "if not _backup(user_dir, fname):\n        return False\n"
+     "    return _safe_write_json(Path(user_dir) / fname, data)",
+     "ok = _safe_write_json(Path(user_dir) / fname, data)\n"
+     "    _backup(user_dir, fname)\n    return ok",
+     "is not the file as it was before the launch changed it"),
+    ("a backup per file", f"{SYNC}:_backup",
+     "if report.backup is None:", "if True:",
+     "is not the file as it was before the launch changed it"),
+    ("old backups kept", f"{SYNC}:_prune", "if old != keep:", "if False:",
+     "backups stand, not the newest"),
+    ("the player's folders pruned", f"{SYNC}:_BACKUP_NAME",
+     r're.compile(r"\d{4}-\d{2}-\d{2} \d{6} ")', 're.compile("")',
+     "took a folder of the player's own"),
+    ("Undo forgets what it put back", f"{SYNC}:undo",
+     ["state[_UNDONE] = undone", "undone = _dict_of(state.get(_UNDONE))"],
+     ["pass", "undone = {}"],
+     "what Undo put back is the player's"),
+    ("Undo puts nothing back", f"{SYNC}:undo",
+     "shutil.copy2(report.backup / fname, user_dir / fname)", "pass",
+     "Undo did not put back every file"),
+    ("Undo leaves the report", f"{SYNC}:undo", "report = done", "pass",
+     "after Undo, the report still lists updates"),
+    ("the re-work ignores Undo", f"{SYNC}:presets_follow",
+     "or (name in undone and weights_equal(mine, undone[name]))", "or False",
+     "what Undo put back is the player's"),
+    ("no Undo in the notice", f"{NOTICE}:show", "if report.updated:",
+     "if False:", "has the buttons"),
+    ("the notice misnames the switch", f"{NOTICE}:SWITCH_WORDS",
+     '"Update unchanged settings to new defaults automatically"',
+     '"Follow new defaults"', "otherwise than its label reads"),
+    ("the notice names fields raw", f"{NOTICE}:FIELD_WORDS",
+     '"dot_pct": "Agony share",', '"dot_pct": "dot_pct",',
+     "Beta (Agony share, Extra share)"),
+    ("the history lags a preset", _history_lags_presets, None, None,
+     "lacks what ships for preset"),
+    ("the history lags a setting", _history_lags_settings, None, None,
+     "lacks what ships for settings.json's"),
+]

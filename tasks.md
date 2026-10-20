@@ -108,11 +108,6 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
   - The deck model and the card catalogue are UI-free (`Vribbels/decks/`), so T20 adds damage to the same model.
   - **Once the feature is complete, a cleanup pass:** remove from `plan.md` and the docs whatever turned out not to be needed, move the reference material into `docs/`, and archive the plan.
 
-- **T24 — The game client as the source of the program's game data, the hand tables its fallback.** The maintainer's call: every family below. Each is read the way the launch facts are (`docs/client_data.md`): this client's read, cached per build; the last cache of an earlier build where this one will not read; the shipped extract (`game_data/from_client.py`); and last, the hand table it replaces, kept as the fallback. Where the server has said otherwise, the server still wins (`game_data.learned`).
-
-  - **Every family is in** (`docs/client_data.md`, *What the program reads at launch*, and what is not in the client): combatants and partners; the Chaos names, Zero System specials and Normal Rescue pool; the exp and Affinity tables; the Memory Fragment slots' main stats; item rarities and class names. The roll bounds too, the presets re-worked where a max roll moves; the maxed main stats and top levels are held to the client and not laid over. `plan_t24.md` has what each found.
-  - **Left, for the maintainer to settle**: the disagreements `checks/check_client_overlay.py` notes as known, the client's figure showing meanwhile, and the names and substat weights `docs/client_tables.py --audit` lists, the program's own showing meanwhile. Then the plan goes to `past_plans/`.
-
 ---
 
 ## TBD (parked — ignore for now)

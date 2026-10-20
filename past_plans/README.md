@@ -12,3 +12,4 @@ An archive: each file is the record of a decision, dated and tagged as it was ta
 | Why shared game facts overlay rather than merge, and what counts as news | `shared_game_facts.md` |
 | What the server showed of Potential 7, and the decisions that shaped it | `potential_7.md` |
 | How a patch is captured, and what the 2026-09-30 one settled | `patch_2026_09_30.md` |
+| Why the game client is the source of the game data, and what each difference with the hand tables settled | `game_client_data.md` |

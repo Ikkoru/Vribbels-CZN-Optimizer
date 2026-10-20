@@ -178,3 +178,19 @@ def _not_overdue(tool, world, stored):
             f"({checked.get('season')} part {checked.get('part')}): run "
             f"`python docs/preset_weights.py --check`, and re-derive if "
             f"it reports weights that moved."]
+
+
+# What this check must catch, for `checks/faults.py`.
+FAULTS = [
+    ("the account's partner in the reference",
+     "preset_derivation:Reference.partner",
+     "rid, partner = assumed_partner(name)\n"
+     "        if rid is not None:",
+     "info = self.opt.character_info.get(name)\n"
+     "        if info and info.partner_res_id:\n"
+     "            return info.partner_res_id, PARTNERS.get("
+     "info.partner_res_id)\n"
+     "        rid, partner = assumed_partner(name)\n"
+     "        if rid is not None:",
+     "with no inventory loaded"),
+]

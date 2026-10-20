@@ -72,3 +72,21 @@ def run():
         gh._general_units = held_general
         game_client.use(held_facts)
     return out
+
+
+# What this check must catch, for `checks/faults.py`.
+FAULTS = [
+    ("the client's Chaos spelling over the table's",
+     "chaos_estimate:chaos_names",
+     "return {**game_client.known_chaos_names(), **CHAOS_NAMES}",
+     "return {**CHAOS_NAMES, **game_client.known_chaos_names()}",
+     "took the client's spelling"),
+    ("a special only the client names left as its id",
+     "chaos_estimate:zero_special_name",
+     "return game_client.known_zero_specials().get(special, special)",
+     "return special", "only the client names read as its id"),
+    ("no client pool for the Normal Rescues",
+     "game_client:known_general_units",
+     "return set(units) if units else None", "return None",
+     "was not taken as Seasonal"),
+]

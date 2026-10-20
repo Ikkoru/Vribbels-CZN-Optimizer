@@ -146,3 +146,23 @@ def run():
     finally:
         shutil.rmtree(work, ignore_errors=True)
     return out
+
+
+# What this check must catch, for `checks/faults.py`.
+FAULTS = [
+    ("the index forgets every blob", "client_archive:_index",
+     ['return {"builds": list(held["builds"]), "blobs": set(held["blobs"])}',
+      'return {"builds": builds, "blobs": blobs}'],
+     ['return {"builds": [], "blobs": set()}',
+      'return {"builds": [], "blobs": set()}'],
+     "are being stored again"),
+    ("a text lost on the way back", "client_archive:Archived.text",
+     "merged.update(json.loads(self._load(held)))",
+     "merged.update({k: v for k, v in json.loads(self._load(held)).items() "
+     "if k != 'plain_key'})",
+     "came back changed from the archive"),
+    ("the opt-in ignored", "client_archive:needs",
+     "return (build is not None and folder.is_dir()\n"
+     "            and latest_build(folder) != build)",
+     "return True", "the folder is the opt-in"),
+]

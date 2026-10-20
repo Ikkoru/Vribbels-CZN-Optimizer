@@ -349,6 +349,10 @@ Dedup was measured and not taken. Two logins three minutes apart were byte-for-b
 
 So the login burst — the bulk of every capture — is almost pure repetition between launches. Storing it content-addressed would beat gzip handily, at the cost of the one property that makes these files useful: that a two-line script can read them.
 
+### Replaying a debug log
+
+`docs/replay_log.py` drives debug logs through the addon a capture generates, on each log's own clock, into a scratch folder: what the Capture Log would have said and what the program would have saved. Seeded from the snapshot held before the log (`--seed`), a replay saves what the capture saved, under the same name. The server region is the one thing no log records, since the proxy's routing names it: `--region`, or the seeding snapshot's. A probe asking a question of its own imports it, rather than driving the addon by hand.
+
 ### Telling a relaunch from a reconnect
 
 Four signals look like a new game and three of them are traps. **This game drops its connection often**, and a reconnect closes and reopens the websocket, redoes the handshake and re-sends the lobby. So `websocket_end` fires, `helo` arrives with its `qid: 1` and its device block, `lobby_update` comes back with `from_title: true`, and a fresh `session` token is issued. An evening with a few dropped connections is indistinguishable from an evening of relaunches by any of them.

@@ -140,3 +140,16 @@ def _client_rarity_wins(game_client, item_art):
     finally:
         game_client.use(held)
     return out
+
+
+# What this check must catch, for `checks/faults.py`.
+FAULTS = [
+    ("the tables' rarity over the client's", "game_data.constants:item_art",
+     "return art._replace(rarity=rarity) if art and rarity else art",
+     "return art", "the client's rarity must go over the table's"),
+    ("a read's rarities kept after it went", "game_client:use",
+     "_rarities = None", "pass", "a read must replace the last one's"),
+    ("a client rarity with no plate", "game_client:ITEM_RARITY_WORDS",
+     '"RARITY_UNIQUE": "Mythic"', '"RARITY_UNIQUE": "Unique"',
+     "does not name a plate for"),
+]

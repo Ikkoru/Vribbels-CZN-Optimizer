@@ -11,7 +11,8 @@ What the kit's `craft:doc-audit` needs to know about this repository; the skill 
 
 ## The repository's own checks
 
-- `checks/check_instruction_files.py` resolves every backticked path in `CLAUDE.md`, `.claude/rules/`, `.claude/skills/` and `docs/`, but not identifiers, and not paths in code comments: a constant or a function a doc names has no guard.
+- `docs/doc_sweeps.py` runs the skill's sweeps over this scope: the privacy sweep over every tracked file first, taking the account id from the newest snapshot, then the table's patterns over the lines added since the last audit (`--all` for every line, `--sweep` to choose). It skips fenced blocks and reads code for its comments and docstrings alone. Its hits are questions: the false positives below match them too.
+- `checks/check_instruction_files.py` resolves every backticked path in `CLAUDE.md`, `.claude/rules/`, `.claude/skills/` and `docs/`, but not identifiers, and not paths in code comments. The sweeps' `idents` resolves backticked identifiers in prose against the source; one in a code comment still has no guard.
 - Invocation modes are in `.claude/settings.local.json` (`skillOverrides`): the `release` skill is manual only.
 
 ## Hard gate

@@ -116,12 +116,11 @@ RESTORE_TEXT_TRIM = -2  # spacing: button -> button -- button, button ↕
 # The switch under Window Size, and what it says when hovered.
 FOLLOW_TEXT = "Update unchanged settings\nto new defaults automatically"
 FOLLOW_TIP = (
-    "When a new version changes a default, settings you never changed take "
-    "it at launch: Gear Score presets, Combatant presets, Combatant "
+    "Unchanged (default) settings will be automatically updated if changed "
+    "in a new version.\n"
+    "Settings affected: Gear Score presets, assigned presets, Combatant "
     "settings and the settings file. Settings you changed are always kept.\n"
-    "A launch that "
-    "changes anything backs your files up first, and says what it "
-    "changed, with Undo. Applies on the next launch.")
+    "Old settings are backed up.")
 
 # The first column of Restore Defaults against the second. The first
 # column's own width is its widest explanation, so this is the whole of

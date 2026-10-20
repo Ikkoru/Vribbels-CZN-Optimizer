@@ -238,3 +238,18 @@ def run():
     add_source_to_path()
     return (_split_matches_every_draw() + _search_matches_every_preset()
             + _cache_follows_draws())
+
+
+# What this check must catch, for `checks/faults.py`.
+FAULTS = [
+    ("added substats drawn alike", "models.memory_fragment:_added_then_rest",
+     "_draw_chances(shares or [1.0] * len(pool), added)",
+     "_draw_chances([1.0] * len(pool), added)",
+     "the split distribution differs from every draw"),
+    ("a drawn substat drawn again", "models.memory_fragment:_draw_chances",
+     "left -= shares[i]", "left -= 0",
+     "the split distribution differs from every draw"),
+    ("the cache blind to the draw weights", "models.memory_fragment:_band_key",
+     "tuple(sorted(SUBSTAT_DRAW.items())))", ")",
+     "was served from the cache"),
+]

@@ -56,7 +56,7 @@ KEPT_HEADER = ("Left as they are, though their defaults changed (Restore "
 
 # The Setup & Settings switch, as its label reads on one line
 # (`setup_tab.FOLLOW_TEXT`).
-SWITCH_WORDS = "Update unchanged settings to new defaults"
+SWITCH_WORDS = "Update unchanged settings to new defaults automatically"
 
 # The text's font, as the app's other text panels set it, and its size:
 # characters across, and the most lines it shows before it scrolls.

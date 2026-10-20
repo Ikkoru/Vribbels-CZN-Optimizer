@@ -17,7 +17,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Checklist: the Seasonal Shop is the Galactic Disaster Shop, the game's name for it.
 - Settings you never changed take each release's new defaults at launch, without Restore Defaults: Gear Score presets, Combatant presets, Combatant settings and the settings file. Ones you changed keep yours.
   - A launch that changes any backs your files up first, then says what it changed, with Undo.
-  - Setup & Settings: Update unchanged settings to new defaults turns it off.
+  - Setup & Settings: Update unchanged settings to new defaults automatically turns it off.
 - Substat roll ranges come from the game client. When a patch changes a substat's highest roll, presets you never edited are re-worked to match at launch.
 
 ### Fixed
