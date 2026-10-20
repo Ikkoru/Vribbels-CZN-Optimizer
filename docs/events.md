@@ -483,7 +483,7 @@ Every event row needs the same three answers -- rewards claimed, rewards held, a
 ## Still open
 
 * **`reward_step` vs `version`.** Read as a tally on the evidence under *`reward_step` and `version`*, which also says how the next live step track settles it against the client's size.
-* **Whether the game rounds a story chapter's Progress down.** Only 0% and 100% have been seen on its screen; at two episodes of seven the program reads `28%`, and a screen saying `29%` there means the game rounds to nearest. `_story_progress` and `check_story_chapters` hold the rule.
+* **Whether the game rounds a story chapter's Progress down.** Only 100% has been read off its screen. At two episodes of seven the program reads `28%`; a screen saying `29%` there means the game rounds to nearest. `_story_progress` and `check_story_chapters` hold the rule.
 * **Rhythm games, the Disaster Marble, Trauma Codes and the collab coupon read nothing.** Their schedules share no word with their records (`ds_s3_event_rhythm_game` owns `event_rhythm_*`; `marble_s01` keeps its ladder in `marble_achievement_entities`), and each is one instalment on record, too few to pair by rule.
 
 Settled, and kept so they are not re-suggested:

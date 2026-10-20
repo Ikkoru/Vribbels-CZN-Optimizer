@@ -81,7 +81,7 @@ Read with `game_client.Client` (`docs/client_data.md`), each table named as `--t
   - **A Divine Epiphany is held to the card's Signature Epiphany version**; a Neutral one to the base card, since a card holds one or a Signature Epiphany, not both.
 - **`persona`**: more effects than the Persona has slots, or an effect whose class, category or cost the card fails. An effect's own tags are no condition: Save Data hold effects that share a tag with their card. The same effect twice is allowed.
 - **`desire`**: a Desire card whose points do not add up to its level.
-- **`one_per_deck`**: a second Persona, Desire or Memory card. The client says so in words only, of the first two (`disaster_s03_guide_1_desc`, `disaster_s04_guide_1_desc`, help 021 and 022).
+- **`one_per_deck`**: a second Persona, Desire or Memory card. The client says so in words only of Persona and Desire cards (`disaster_s03_guide_1_desc`, `disaster_s04_guide_1_desc`, help 021 and 022).
 - **`copies`**: more than `rules.MAX_COPIES` duplicates.
 - **`no_copy`**: a duplicate of a card whose keywords forbid one, Memory (`TALENT_MEMORY`, "cannot … be Duplicated") or Memory Shard. A Forbidden card's kind reads the same way (`tooltip@desc@sort_taboo`), yet the client has a reward that copies one, so a Forbidden duplicate is no warning.
 - **`unique`**: a Unique card (`TALENT_ORIGIN`, "Only 1 of each Unique card can be included in the Deck") more than once, counted by its base card and read off each copy's own version: two versions of one card may not both be in a deck when both are Unique.

@@ -14,6 +14,7 @@ What changes every patch and the server never sends:
 
 - each event's name, for the Checklist's Events block;
 - how many rewards each event holds and whether it pays a final reward, for the same rows (`game_client.event_totals`);
+- the episodes of each event that is a story chapter, for its Progress on the same rows (`game_client.story_chapters`);
 - every item's name, for the Capture Log and the Checklist's shops;
 - how many Excursion types each combatant has, for the Combatants tab;
 - what each daily task counts to and pays toward the day's Activity, for the Checklist's Activities row (`game_client.daily_tasks`);
