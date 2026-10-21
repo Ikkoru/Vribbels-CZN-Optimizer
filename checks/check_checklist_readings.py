@@ -1602,6 +1602,24 @@ def _run():
                 f"four days into the new season's first part, {key} "
                 f"still reads {DISASTER_NOT_OPEN!r}. Its weekly content "
                 f"is running, and a week unplayed must read red.")
+    # **The Great Rift opens with the second part**, which the pages
+    # date one rotation after the first: until then the row counts down
+    # to it in no colour, an opening being no deadline; from then on it
+    # reads the week's score.
+    second = int(ended + 42 * DAY)
+    want = [(countdown_words(second - later), UNKNOWN)]
+    if said.get("seasonal_score") != want:
+        failures.append(
+            f"four days into the new season's first part, the Great Rift "
+            f"row reads {said.get('seasonal_score')!r}, not {want!r}: it "
+            f"opens with the second part, and the time until then is no "
+            f"deadline to colour (`rift_opens`).")
+    opened = _readings(raw, second + DAY).get("seasonal_score") or [("", "")]
+    if is_countdown(opened[0][0]) or opened[0][1] is UNKNOWN:
+        failures.append(
+            f"a day into the second part the Great Rift row reads "
+            f"{opened!r}, still counting down: from then on it reads the "
+            f"week's score.")
 
     # And between seasons, with nothing of the next on the wire yet.
     raw = handover(tail=False, successor=False)
@@ -2592,6 +2610,16 @@ def _run():
 
 # What this check must catch, for `checks/faults.py`.
 FAULTS = [
+    ("the Great Rift's opening coloured as a deadline",
+     "ui.tabs.checklist_tab:_readings",
+     'out["seasonal_score"] = _one(countdown_words(opens - now), UNKNOWN)',
+     'out["seasonal_score"] = _one(countdown_words(opens - now), '
+     '_countdown_state(opens - now))',
+     "the Great Rift row reads"),
+    ("the Great Rift read from the season's first part",
+     "ui.tabs.checklist_tab:rift_opens",
+     "return starts[1] if starts and len(starts) > 1 else None",
+     "return None", "the Great Rift row reads"),
     ("a shop of two currencies given none",
      "ui.tabs.checklist_tab:shop_currency",
      "if not ranked or (len(ranked) > 1 and ranked[0][1] == ranked[1][1]):",

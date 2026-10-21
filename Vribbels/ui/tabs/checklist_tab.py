@@ -5246,8 +5246,14 @@ def _readings(raw, now=None, tracked=None):
     # past it the week went -- the Chaos progress row likewise.
     score, target = _great_rift(raw, now)
     off_season = disaster_off_season(raw, now)
+    opens = None if off_season else rift_opens(raw, now)
     if off_season:
         out["seasonal_score"] = _one(DISASTER_NOT_OPEN, MUTED)
+    elif opens is not None and now < opens:
+        # **Not open before the season's second part**, so the row says
+        # how long until it is, in no colour: an opening is no deadline,
+        # and drawing it as one would warn of nothing.
+        out["seasonal_score"] = _one(countdown_words(opens - now), UNKNOWN)
     elif score is None:
         out["seasonal_score"] = _one("%s/%d" % (NO_DATA, target), UNKNOWN)
     else:
@@ -5949,6 +5955,17 @@ def _great_rift(raw, now):
         row, now, GREAT_RIFT_WEEK_STAMP) else 0
     return score, (target if _is_count(target) and target > 0
                    else stand_in)
+
+
+def rift_opens(raw, now):
+    """When the live Galactic Disaster season's Great Rift opens, or
+    None: with its second part, as the shop's pages date the parts
+    (`_page_openings`). None where nothing dates a second part, and the
+    row reads the standings as it always has."""
+    name, window = schedules.live(
+        shop_stock.season_group_of(SEASONAL_SHOP_CATEGORY), raw, now)
+    starts = _page_openings(raw, name, window) if name else None
+    return starts[1] if starts and len(starts) > 1 else None
 
 
 def _products_of(key):
