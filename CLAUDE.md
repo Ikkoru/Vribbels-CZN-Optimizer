@@ -20,7 +20,8 @@ Machine-wide rules — cp932, heredocs, editing, verifying, comment style, the s
 
 - **Build: `zCreate exe.bat`** (PyInstaller, onefile).
   - **Edit the bat, never the spec.** `--add-data` is passed on the command line, so `Vribbels_CZN_Optimizer_Ikkoru.spec` is an artifact the build overwrites.
-  - Four scripts run first, and any failing stops the build: `normalize_defaults.py`, `fold_shared_facts.py` and `defaults_history.py` in `Vribbels/default_settings/normalize/` (workflow: `docs/how_to_maintain_default_settings.md`), and `Vribbels/build_tcl/prepare_tcl_data.py`.
+  - Four scripts run first, and any failing stops the build: `normalize_defaults.py`, `fold_shared_facts.py` and `defaults_history.py` in `Vribbels/default_settings/normalize/` (workflow: `docs/how_to_maintain_default_settings.md`), and `Vribbels/build_tcl/prepare_tcl_data.py`. `docs/client_tables.py --ship` runs among them, and a client it cannot read is said without stopping the build.
+  - **`--ship` writes into `game_data/` on its own**, at a launch from source when the client is a newer build than the shipped copy, as well as at the build: lines marked `# client` or between `# client block start` / `# client block end` are the client's (`docs/client_data.md`, *game_data kept level with the client*). Commit what it wrote at the start of a turn like any of the maintainer's edits.
 - Spacing audit: `zRUN Spacing Audit.bat` prints every gap missing its target, at 100% and at 200%. The app is rendered, never shown, so a run takes nothing over and can go any time. A normal launch never imports it. The launchers and how to read the table: the `spacing-audit` skill.
 
 ## Headless verification

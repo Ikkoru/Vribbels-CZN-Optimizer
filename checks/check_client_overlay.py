@@ -549,13 +549,26 @@ def _installed(characters, partners):
     out, seen_known = [], []
     hand_c, hand_p = hand("CHARACTERS"), hand("PARTNERS")
     hand_s = hand("PARTNER_CLASS_STATS")
+    # What the tool wrote from the client vouches for nothing: an entry
+    # it fills whole, and a value marked `# client` in one of the
+    # maintainer's (`game_data.client_sync`).
+    from game_data import client_sync
+    marked_c = client_sync.marked("CHARACTERS")
+    marked_p = client_sync.marked("PARTNERS")
+    marked_s = client_sync.marked("PARTNER_CLASS_STATS")
+    written = []
     for rid, theirs in game_client.combatants(client).items():
         ours = hand_c.get(rid)
         if not isinstance(ours, dict):
             note(f"combatant {rid} {theirs.get('name')} is in the client and "
                  f"not in characters.py: it shows from the client's facts")
             continue
+        if ours.get(client_sync.FROM_CLIENT):
+            written.append(ours.get("name"))
+            continue
         for field in COMBATANT_FIELDS:
+            if field in marked_c.get(rid, {}):
+                continue
             pair = (ours.get(field), theirs.get(field))
             if pair[0] == pair[1]:
                 continue
@@ -567,6 +580,8 @@ def _installed(characters, partners):
                        f"client. The program now shows the client's; settle "
                        f"which is right (`docs/client_tables.py --audit`).")
         for level in (61, 62):
+            if "level_gains" in marked_c.get(rid, {}):
+                break
             if level_bonus(ours, level) != theirs["level_gains"][level]:
                 out.append(f"combatant {rid} {ours.get('name')}: level {level} "
                            f"adds {level_bonus(ours, level)} by the class "
@@ -578,21 +593,30 @@ def _installed(characters, partners):
             note(f"partner {pid} {theirs.get('name')} is in the client and "
                  f"not in partners.py: it shows from the client's facts")
             continue
+        if ours.get(client_sync.FROM_CLIENT):
+            written.append(ours.get("name"))
+            continue
         for field in PARTNER_FIELDS:
-            if ours.get(field) != theirs.get(field):
+            if field not in marked_p.get(pid, {}) \
+                    and ours.get(field) != theirs.get(field):
                 out.append(f"partner {pid} {ours.get('name')}: {field} is "
                            f"{ours.get(field)!r} in partners.py, "
                            f"{theirs.get(field)!r} in the client.")
         for stat, steps in (theirs.get("stats") or {}).items():
+            if "stats" in marked_p.get(pid, {}):
+                break
             if tuple((ours.get("stats") or {}).get(stat, ())) != tuple(steps):
                 out.append(f"partner {pid} {ours.get('name')}: {stat} is "
                            f"{(ours.get('stats') or {}).get(stat)} in "
                            f"partners.py, {tuple(steps)} in the client.")
         pair = (ours.get("grade"), ours.get("class"))
-        if hand_s.get(pair) != theirs.get("level_60"):
+        if pair not in marked_s and hand_s.get(pair) != theirs.get("level_60"):
             out.append(f"partner {pid} {ours.get('name')}: level-60 stats are "
                        f"{hand_s.get(pair)} for {pair} in PARTNER_CLASS_STATS, "
                        f"{theirs.get('level_60')} in the client.")
+    if written:
+        note(f"written from the client, so held to nothing: "
+             f"{', '.join(written)}")
     out += _installed_tables(client, seen_known)
     if seen_known:
         note(f"awaiting the maintainer, the client's taken: "

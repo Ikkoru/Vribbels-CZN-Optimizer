@@ -92,6 +92,13 @@ the `passive_desc` templates and `values`, the markers. A partner only
 the client knows gets an entry from it alone, its passive drawn from
 the client's lines.
 
+An entry between `# client block start` and `# client block end`, and a
+line marked `# client` -- here, in `PARTNER_CLASS_STATS` and in the two
+pairing tables -- are the client's: `docs/client_tables.py --ship`
+writes them, a patch's new partner and a new combatant's pairing among
+them, and rewrites them at the next (`client_sync`). Everything
+unmarked is the maintainer's, and never rewritten.
+
 Unknown partners
 ================
 
@@ -1045,6 +1052,62 @@ PARTNERS = {
         "ego_cost": 3,
         "ego_desc": "Deal 350% Damage.",
     },
+    20023: {
+        "name": "Blanche",  # client block start
+        "grade": 4.5,
+        "class": "Vanguard",
+        "passive_name": "Blood Detection",
+        "passive_desc": "Increase the assigned Combatant's Defense by {v1}%.\nEach time the assigned Combatant Draws a 2-Cost or higher card, gain {v2}% Shield",
+        "values": {
+            "v1": (18, 21, 24, 27, 30),
+            "v2": (25, 32, 38, 44, 50),
+        },
+        "stats": {
+            "DEF%": (18, 21, 24, 27, 30),
+        },
+        "ego_name": "Here's a shot!",
+        "ego_cost": 3,
+        "ego_desc": "",
+        "from_client": True,  # client block end
+    },
+    20028: {
+        "name": "Capri",  # client block start
+        "grade": 4.5,
+        "class": "Ranger",
+        "passive_name": "Super Cute Quantum Computer",
+        "passive_desc": "Increase the assigned Combatant's Attack by {v1}%.\nWhen a Skill Card of the assigned Combatant is activated, increase Damage dealt by {v2}% for a turn. Stacks up to 3 times.",
+        "values": {
+            "v1": (18, 21, 24, 27, 30),
+            "v2": (5, 7, 8, 9, 10),
+        },
+        "stats": {
+            "ATK%": (18, 21, 24, 27, 30),
+        },
+        "ego_name": "High-Powered Beam Shooter",
+        "ego_cost": 2,
+        "ego_desc": "",
+        "from_client": True,  # client block end
+    },
+    30135: {
+        "name": "Sig",  # client block start
+        "grade": 5,
+        "class": "Striker",
+        "passive_name": "Child of the Cycle",
+        "passive_desc": "Increase the assigned Combatant's Attack by {v1}%.\nWhen a Justice Card of the assigned Combatant is polarized, +{v2}% to Critical Chance (cannot stack).\nWhen the assigned Combatant's Bind card is stacked, gain 1 Memory of a Past Life.\nMemory of a Past Life: +{v3}% Critical Damage to the assigned Combatant and an additional +{v4}% Critical Damage to the assigned Combatant's Unique Attack Cards (cannot stack)",
+        "values": {
+            "v1": (16, 18, 20, 22, 24),
+            "v2": (10, 13, 15, 18, 20),
+            "v3": (15, 19, 23, 27, 30),
+            "v4": (15, 19, 23, 27, 30),
+        },
+        "stats": {
+            "ATK%": (16, 18, 20, 22, 24),
+        },
+        "ego_name": "Frail Dominion of Kyrken",
+        "ego_cost": 3,
+        "ego_desc": "",
+        "from_client": True,  # client block end
+    },
 }
 
 # Base stats by grade and class at level 60
@@ -1204,6 +1267,7 @@ SIGNATURE_PARTNERS = {
     "Hugo": "Tina", "Kayron": "Bria", "Khalipe": "Zeta", "Luke": "Janet",
     "Magna": "Erica", "Mei Lin": "Marianne", "Orlea": "Noel",
     "Renoa": "Kiara", "Rin": "Scarlet", "Veronica": "Marin",
+    "Rossweisse": "Sig",  # client
 }
 
 # PARTNER_EXCEPTIONS: a combatant with no signature partner -- 4-stars

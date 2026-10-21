@@ -10,7 +10,10 @@ that knows a fact winning (`docs/client_data.md`):
 1. this machine's client read (`game_client.use`): the read of this
    build, its cache, or the last cache of an earlier build;
 2. the shipped extract, `from_client.py`, as of the build the program
-   shipped with;
+   shipped with: its exp, Affinity and Memory Fragment tables. It holds
+   no combatants or partners -- `docs/client_tables.py --ship` writes
+   the ones the hand tables lack into them (`client_sync`), so for
+   those the hand tables are the shipped copy;
 3. the hand tables as typed.
 
 The server's own readings still go over all three where they exist
@@ -33,9 +36,11 @@ client's (`game_client._passive_stats`).
 
 **A unit only the client knows** gets an entry built from the client
 alone, marked `from_client`, so it shows by name with its stats instead
-of as Unknown. `game_data_validator` checks the hand tables as typed
-(`hand`), so such an entry never asks for a hand table's companions,
-such as a Potential 7 entry.
+of as Unknown: one a patch after the last `--ship` added, which the hand
+tables do not hold yet. `game_data_validator` checks the hand tables as
+typed (`hand`), so such an entry never asks for a hand table's
+companions, such as a Potential 7 entry; nor does one `--ship` wrote
+into them, which carries the same mark.
 """
 
 import copy
@@ -187,7 +192,7 @@ def _combatants(facts):
                                      "from_client": True})
 
 
-def _template(lines):
+def passive_template(lines):
     """A client-only partner's `passive_desc` and `values` from its lines
     at each level: a figure that moves with the level becomes a
     placeholder holding its five values, one that does not stays as
@@ -231,7 +236,7 @@ def _partners(facts):
                 merged.update(stats)
                 _set("PARTNERS", rid, "stats", merged)
         elif "name" in known:
-            desc, values = _template(fact.get("passive_lines") or [])
+            desc, values = passive_template(fact.get("passive_lines") or [])
             _add("PARTNERS", rid, {**copy.deepcopy(DEFAULT_PARTNER), **known,
                                    "passive_desc": desc, "values": values,
                                    "stats": stats, "ego_desc": "",

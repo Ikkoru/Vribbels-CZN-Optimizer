@@ -6,6 +6,8 @@ These tables are hand-maintained and most mistakes in them are silent: a misspel
 
 **What the game client states of a combatant or partner is laid over `characters.py` and `partners.py` at launch**, and its exp, Affinity and slot tables replace the contents of `constants.py`'s (`game_data/client_overlay.py`, `docs/client_data.md`). The hand tables are the fallback, for whatever the client does not hold and for a player whose client cannot be read. This machine's client read lands after every module has loaded, so a figure worked out from one of those tables as a module loads misses it: work it out when it is asked for, as `constants.affinity_level` does the cap. The validator checks the tables as typed (`client_overlay.hand`), never the client's facts over them; a fault planted to test it goes into that copy.
 
+**A line marked `# client`, or between `# client block start` and `# client block end`, is the client's**: `docs/client_tables.py --ship` writes it, a patch's new combatant or partner arriving as a block, and rewrites it at the next run; the launch from source and the build run it on their own (`docs/client_data.md`, *game_data kept level with the client*). Never edit inside one by hand: the next run puts the client's back. To take a value over, delete its marker first. A block carries `"from_client": True`, which the validator reads as asking it for none of the maintainer's companions -- so a new combatant's Potential 7 entry is for `--audit`, and its notice at launch, to list.
+
 ## Launch-time validation: two layers
 
 `game_data_validator.py` lives at the top level, NOT inside `game_data/`, and reports problems in a message box.

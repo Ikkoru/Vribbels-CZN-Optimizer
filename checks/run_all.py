@@ -69,6 +69,7 @@ from checks import (                                    # noqa: E402
     check_client_archive,
     check_client_fallbacks,
     check_client_overlay,
+    check_client_sync,
 
     check_affinity,
     check_day_index,
@@ -188,6 +189,7 @@ CHECKS = [
     check_day_index,
     check_checklist_readings,
     check_checklist_limits,
+    check_client_sync,
     check_event_shapes,
     check_story_chapters,
     check_audit_states,

@@ -227,11 +227,76 @@ ROLLS_MOVED = (
     "(STATS), run `python docs/preset_weights.py --check`, then `--write`, "
     "and release.")
 
-LIMITS_MOVED = (
-    "The game client states other maximums than the Checklist's own. The "
-    "Checklist reads the client's; update the constants in "
-    "ui/tabs/checklist_tab.py so a player whose client cannot be read "
-    "gets the same.\n\n%s")
+# What a launch from source tells the maintainer where the game client
+# and the program's own tables part (`_report_client_parts`), a section
+# each, and how many lines of a section it shows before pointing at the
+# tool that lists the rest.
+CLIENT_PARTS = (
+    "The game client and the program's own tables part. The program "
+    "shows the client's; this is what is left to update, so that a player "
+    "whose client cannot be read gets the same.\n\n%s")
+CLIENT_PARTS_SHIPPED = (
+    "Brought level with build %s by `python docs/client_tables.py --ship`. "
+    "Review the diff before committing:")
+CLIENT_PARTS_AUDIT = (
+    "Where game_data's own values part from the client (`python "
+    "docs/client_tables.py --audit`):")
+CLIENT_PARTS_LIMITS = (
+    "The Checklist's maximums, for the snapshot loaded (the constants in "
+    "ui/tabs/checklist_tab.py):")
+CLIENT_PARTS_LINES = 20
+# The tool, beside the source: absent from a frozen build.
+CLIENT_TOOL = Path(__file__).resolve().parent.parent / "docs" / \
+    "client_tables.py"
+# The tool's own summary lines, which say nothing the notice needs.
+CLIENT_TOOL_SUMMARY = re.compile(
+    r"build \d+: \d+ disagreement|game_data agrees with|already level with")
+
+
+def ship_wanted(build, read_build, shipped_build):
+    """Whether a launch brings the shipped copy level: the installed
+    client a newer build than the one it was written from, and read at
+    that very build -- one that would not read has nothing to ship."""
+    return (isinstance(build, int) and read_build == build
+            and build > (shipped_build or 0))
+
+
+def client_tool_lines(option, stdout, stderr, returncode):
+    """What `docs/client_tables.py <option>` printed, its own summary
+    lines left out, and a line saying so where it failed."""
+    lines = [line for line in stdout.splitlines()
+             if line.strip() and not CLIENT_TOOL_SUMMARY.match(line)]
+    if returncode:
+        said = stderr.strip().splitlines()
+        lines.append(f"{CLIENT_TOOL.name} {option} stopped: "
+                     f"{said[-1] if said else returncode}")
+    return lines
+
+
+def client_parts_text(build, shipped, audited, limits):
+    """The notice a launch from source raises, or None where the client
+    and the program agree: what `--ship` wrote, what `--audit` lists,
+    and the Checklist's maximums for the snapshot loaded, a section
+    each. The audit names every id's maximum as `Checklist <line>`, so a
+    snapshot's own line it already holds is said once."""
+    heard = set(audited)
+    sections = []
+    if shipped:
+        sections.append((CLIENT_PARTS_SHIPPED % build, shipped))
+    if audited:
+        sections.append((CLIENT_PARTS_AUDIT, audited))
+    limits = [line for line in limits if f"Checklist {line}" not in heard]
+    if limits:
+        sections.append((CLIENT_PARTS_LIMITS, limits))
+    if not sections:
+        return None
+    text = []
+    for heading, lines in sections:
+        shown = list(lines[:CLIENT_PARTS_LINES])
+        if len(lines) > len(shown):
+            shown.append(f"... and {len(lines) - len(shown)} more")
+        text.append(heading + "\n" + "\n".join(f"- {line}" for line in shown))
+    return CLIENT_PARTS % "\n\n".join(text)
 
 
 class OptimizerGUI:
@@ -1257,37 +1322,99 @@ class OptimizerGUI:
             if not getattr(self, "_presets_followed", False):
                 self._presets_follow_client()
             self._report_defaults_updates()
-            self._report_limit_moves()
+            self._report_client_parts()
             return
         self._client_read = None
         game_client.use(facts)
         self._presets_follow_client()
         self._refresh_client_tabs()
         self._report_defaults_updates()
-        self._report_limit_moves()
+        self._report_client_parts()
 
-    def _report_limit_moves(self):
-        """Run from source, tell the maintainer where the Checklist's own
-        maximums and the game client's part
-        (`checklist_tab.limit_mismatches`), for the snapshot loaded: the
-        tab reads the client's, and the constants want updating. Once a
-        launch, and never in a frozen build, whose player has nothing to
-        update."""
+    def _report_client_parts(self):
+        """Run from source, tell the maintainer where the game client and
+        the program's own tables part, so a patch cannot slip past
+        unnoticed. Once a launch, and never in a frozen build, whose
+        player has nothing to update.
+
+        On a worker: where the client is a newer build than the one the
+        shipped copy was written from, `docs/client_tables.py --ship`
+        brings it level first (`game_data.client_sync`); then `--audit`
+        lists what is left. Each runs as a process of its own -- the
+        audit puts figures of its own into `game_client` while it runs,
+        which here would take the launch's away. The Checklist's
+        maximums for the snapshot loaded (`limit_mismatches`) join them,
+        read here."""
         if getattr(sys, "frozen", False) or self._spacing_audit_wanted() \
-                or getattr(self, "_limits_told", False):
+                or getattr(self, "_parts_told", False):
             return
-        self._limits_told = True
+        self._parts_told = True
         import perf_log
         try:
             from ui.tabs import checklist_tab
             raw = getattr(getattr(self, "optimizer", None), "raw_data", None)
-            moved = checklist_tab.limit_mismatches(raw or None)
+            limits = checklist_tab.limit_mismatches(raw or None)
         except Exception as exc:                         # noqa: BLE001
             perf_log.log("limit_mismatches:FAILED", error=repr(exc))
+            limits = []
+        try:
+            install = game_client.find_install(
+                self.settings_manager.get("game_client_dir", "") or None)
+        except Exception as exc:                         # noqa: BLE001
+            perf_log.log("game_client:FAILED", error=repr(exc))
+            install = None
+        if not CLIENT_TOOL.exists() or install is None:
+            self._show_client_parts(limits, (None, [], []))
             return
-        if moved:
-            self._warn("Checklist maximums moved",
-                       LIMITS_MOVED % "\n".join(moved))
+        self._client_parts = None
+
+        def work():
+            build = game_client.build_of(install)
+            from game_data import from_client
+            ship = ship_wanted(build, game_client.facts_build(),
+                               getattr(from_client, "BUILD", 0))
+            shipped = self._run_client_tool(install, "--ship") if ship else []
+            self._client_parts = (build, shipped,
+                                  self._run_client_tool(install, "--audit"))
+
+        threading.Thread(target=work, daemon=True).start()
+        self._show_client_parts(limits)
+
+    @staticmethod
+    def _run_client_tool(install, option):
+        """The lines `docs/client_tables.py <option>` prints for `install`,
+        its own summary lines left out; a line saying so where it fails."""
+        import perf_log
+        command = [sys.executable, str(CLIENT_TOOL), option,
+                   "--client", str(install)]
+        try:
+            done = subprocess.run(
+                command, capture_output=True, timeout=600,
+                cwd=str(CLIENT_TOOL.parent.parent),
+                env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        except (OSError, subprocess.SubprocessError) as exc:
+            perf_log.log("client_tool:FAILED", option=option, error=repr(exc))
+            return [f"{CLIENT_TOOL.name} {option} did not run: {exc}"]
+        return client_tool_lines(option,
+                                 done.stdout.decode("utf-8", "replace"),
+                                 done.stderr.decode("utf-8", "replace"),
+                                 done.returncode)
+
+    def _show_client_parts(self, limits, parts=None, attempts=0):
+        """The notice, once the worker has its sections: polled on the UI
+        thread, which alone may raise a dialog. Gives up waiting after ten
+        minutes, the Checklist's maximums said alone."""
+        parts = parts or getattr(self, "_client_parts", None)
+        if parts is None:
+            if attempts < 6000:
+                self.root.after(100, lambda: self._show_client_parts(
+                    limits, None, attempts + 1))
+                return
+            parts = (None, [], [])
+        text = client_parts_text(*parts, limits)
+        if text:
+            self._warn("The game client and the program part", text)
 
     def _report_defaults_updates(self):
         """Show what this launch changed in the user's settings

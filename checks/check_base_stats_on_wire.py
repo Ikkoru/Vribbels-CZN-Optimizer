@@ -298,6 +298,16 @@ def _guests_are_not_missing():
     if found["guests"] != [99002, 99003, 999995, 999996]:
         out.append(f"the guests read {found['guests']}, not the two "
                    f"combatants and two partners seen only as guests.")
+    # Filed before the mark, beside the player's own: the client's
+    # unplayable list is what says it is a guest.
+    found = bs.audit([_battle([_row(999994, 60, [1, 2, 3])])],
+                     guests={999994})
+    if found["missing"] or found["guests"] != [999994]:
+        out.append(f"a unit the client calls unplayable, filed unmarked "
+                   f"in a party of the player's, reads missing "
+                   f"{found['missing']}, guests {found['guests']}: the "
+                   f"client's list stands for the mark a battle filed "
+                   f"before it lacks.")
     return out
 
 
@@ -730,6 +740,23 @@ def _potential_7_at_its_threshold():
     return []
 
 
+def _unplayable():
+    """The combatant ids the installed game client marks unplayable, for
+    the battles filed before the capture marked a guest; none where no
+    client is installed or its table will not read."""
+    import game_client
+    try:
+        install = game_client.find_install()
+        rows = game_client.Client(install).rows("char_base@char_base") \
+            if install is not None else []
+    except Exception:                                    # noqa: BLE001
+        return set()
+    return {int(row["id"]) for row in rows
+            if str(row.get("id", "")).isdigit()
+            and row.get("char_type") == "CHAR_COMBATANT"
+            and row.get("char_use_playable") != "YES"}
+
+
 def _the_maintainers_readings(snapshots=None):
     import base_stats_store
     from game_data import CHARACTERS
@@ -748,7 +775,7 @@ def _the_maintainers_readings(snapshots=None):
                        f"sheet: {moved}. Name it in "
                        f"base_stats_store.MUTATIONS_ON_THE_SHEET, so readings "
                        f"from its decks stop being believed.")
-    found = base_stats_store.audit(battles)
+    found = base_stats_store.audit(battles, guests=_unplayable())
     odd = dict(UNEXPLAINED)
     for name, level, wire, program, _last, how in found["differs"]:
         if odd.get((name, level)) == wire:
@@ -851,6 +878,9 @@ FAULTS = [
      "base_stats_store:own_units",
      'if battle.get("asked") in PRESET_REQUESTS:', "if False:",
      "a guest the game put in the party"),
+    ("the client's unplayable list ignored", "base_stats_store:audit",
+     "own -= set(guests)", "own -= set()",
+     "the client's list stands for the mark"),
     ("a guest not marked", "capture.manager:ADDON_TEMPLATE",
      '            if rec.get("is_custom_char") is True:\n'
      '                row["guest"] = True\n',

@@ -143,8 +143,9 @@ __all__ = [
     'get_friendship_bonus',
 ]
 
-# The shipped extract's combatants and partners over the hand tables,
-# from the first import; a client read lays its own over them at launch
-# (`game_client.use`). Last, so the tables it reads are complete.
+# The shipped extract's exp, Affinity and Memory Fragment tables over the
+# hand tables, from the first import; a client read lays its own, with
+# its combatants and partners, over them at launch (`game_client.use`).
+# Last, so the tables it reads are complete.
 from . import client_overlay as _client_overlay
 _client_overlay.apply()

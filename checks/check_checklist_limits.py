@@ -299,6 +299,12 @@ def _mismatches(ct, gc):
 
 
 def run():
+    from ._harness import no_shipped_limits
+    with no_shipped_limits():
+        return _run()
+
+
+def _run():
     add_source_to_path()
     import game_client as gc
     from ui.tabs import checklist_tab as ct

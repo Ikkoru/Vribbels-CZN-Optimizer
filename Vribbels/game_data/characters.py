@@ -59,6 +59,12 @@ attribute, level-60 stats, crit, node 50's and 60's stat, the steps to
 this table is the fallback for whatever it does not hold, and a
 combatant only the client knows gets an entry from it alone.
 
+An entry between `# client block start` and `# client block end`, and a
+value marked `# client`, are the client's: `docs/client_tables.py
+--ship` writes them, a patch's new combatant among them, and rewrites
+them at the next (`client_sync`). Everything unmarked is the
+maintainer's, and never rewritten.
+
 The server's own readings
 =========================
 
@@ -599,6 +605,24 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "CDmg",
+    },
+    30134: {
+        "name": "Rossweisse",  # client block start
+        "grade": 5,
+        "attribute": "Justice",
+        "class": "Striker",
+        "base_atk": 467,
+        "base_def": 155,
+        "base_hp": 376,
+        "base_crit_rate": 3.0,
+        "base_crit_dmg": 125.0,
+        "node_50": "CRate",
+        "node_60": "CDmg",
+        "level_gains": {
+            61: {"atk": 8, "def": 3, "hp": 9},
+            62: {"atk": 8, "def": 3, "hp": 9},
+        },
+        "from_client": True,  # client block end
     },
 }
 

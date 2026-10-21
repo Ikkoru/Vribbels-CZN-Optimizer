@@ -153,6 +153,11 @@ TRIAL_NAME = "%s - %s"           # the trial's name, then the combatant
 # as it has slots, two for the ★4s beside a banner and one for its ★5.
 TRIAL_SLOT_COLUMN = re.compile(r"slot_\d+_link_event_combatant_trial_slot_id")
 
+# A combatant's own information page: a row each, `<res_id>_info`,
+# naming the partner the game recommends for it.
+COMBATANT_INFO_TABLE = "combatant_info@combatant_info"
+COMBATANT_INFO_ROW = re.compile(r"(\d+)_info")
+
 # Where a combatant's Excursion types are listed: one row each, and
 # the row's `group` is `normal_visit_<res_id>`.
 VISIT_TABLE = "town_visit@town_normal_visit"
@@ -1309,6 +1314,21 @@ def zero_specials(client):
     return out
 
 
+def recommended_partners(client):
+    """{combatant res_id: the partner res_id the game recommends for it},
+    `combatant_info`'s `<res_id>_info` rows. A 5-star's is the partner it
+    was released with, which `partners.SIGNATURE_PARTNERS` pairs it with;
+    a 4-star's is the game's suggestion, which `PARTNER_EXCEPTIONS` is
+    free to differ from."""
+    out = {}
+    for row in client.rows(COMBATANT_INFO_TABLE):
+        match = COMBATANT_INFO_ROW.fullmatch(row.get("id") or "")
+        partner = _figure(row.get("recommend_partner_link_char_base_id"))
+        if match and isinstance(partner, int) and partner > 0:
+            out[int(match.group(1))] = partner
+    return out
+
+
 def general_units(client):
     """The 5-stars the Normal Rescues offer, as res_ids: the client's
     own `general_ssr_c`/`general_ssr_s` pools, the ids a banner's rates
@@ -1608,6 +1628,12 @@ def use(facts):
     _generation += 1
     from game_data import client_overlay
     client_overlay.apply(_facts)
+
+
+def facts_build():
+    """The build the facts in use were read at, or None where the
+    shipped tables alone stand."""
+    return (_facts or {}).get("build")
 
 
 def generation():

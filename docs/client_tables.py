@@ -6,7 +6,7 @@
     python docs/client_tables.py --text REGEX        English text by id or words
     python docs/client_tables.py --grep REGEX        every table row holding it
     python docs/client_tables.py --season SEASON     what a season pays
-    python docs/client_tables.py --ship              rewrite the shipped names
+    python docs/client_tables.py --ship              the shipped copy, level
     python docs/client_tables.py --audit             game_data against the client
     python docs/client_tables.py --archive           keep this build's whole data
     python docs/client_tables.py --archived          the builds the archive holds
@@ -31,18 +31,24 @@ week, everything else once. A season's tables fill in by part, so it is
 re-run after each patch; `docs/client_data.md`, *Where each fact is*,
 says which table is which term.
 
-`--ship` rewrites `Vribbels/game_data/from_client.py`, what a player
-whose client the program cannot read sees instead: run it after a
-patch, before a release, and review its diff.
+`--ship` brings the program's own copy of the client's facts level
+with the client, what a player whose client the program cannot read
+sees instead: it rewrites `Vribbels/game_data/from_client.py`, and
+writes the combatants and partners a patch added into `game_data`'s own
+tables, marked as the client's (`Vribbels/game_data/client_sync.py`).
+A launch from source and the build run it on their own; review its
+diff. With `--audit` beside it, the audit runs after it, on the tables
+it left.
 
 `--audit` prints every place `game_data`'s combatants, partners, item
 names, exp, Affinity and Memory Fragment tables disagree with the
 client, and the ones either side lacks:
 the tables are typed by hand, and a patch that rebalances one changes
 nothing there. It writes nothing; a disagreement is for the maintainer
-to settle, since the hand-typed figure can be the newer one. A name the
-maintainer chose over the client's is listed in `INTENDED` and left
-out, until either side's spelling moves.
+to settle, since the hand-typed figure can be the newer one. What
+`--ship` wrote is left out, being the client's. A name the maintainer
+chose over the client's is listed in `INTENDED` and left out, until
+either side's spelling moves.
 
 `--archive` keeps the installed build's every table and its English
 text in `Vribbels/client_archive/` (`Vribbels/client_archive.py`),
@@ -60,6 +66,7 @@ program runs at launch. Python 3.14, for `compression.zstd`.
 import argparse
 import collections
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -77,7 +84,9 @@ SHIPPED_HEAD = '''"""What the program reads off the game client (`game_client`),
 Written by `python docs/client_tables.py --ship`, as of the game build
 `BUILD`; never edited by hand. What a player's own client says wins
 over these (`game_client`), so this is what a player sees whose client
-the program could not find or read.
+the program could not find or read. The combatants and partners are not
+here: `--ship` writes the ones the hand tables lack into
+`characters.py` and `partners.py` themselves (`game_data.client_sync`).
 
 ASCII throughout: a name's other characters are written as escapes.
 """
@@ -176,21 +185,6 @@ def shipped_source(client):
                   for wire, words in sorted(nodes.items())]
         lines.append("    },")
     lines += ["}", "",
-              "# {combatant res_id: what game_data.characters holds of it}. "
-              "See",
-              "# game_client.combatants; game_data.client_overlay lays it "
-              "over CHARACTERS.",
-              "COMBATANTS = {"]
-    lines += [f"    {res_id}: {ascii(entry)},"
-              for res_id, entry in sorted(game_client.combatants(client).items())]
-    lines += ["}", "",
-              "# {partner res_id: what game_data.partners holds of it}. See",
-              "# game_client.partners; game_data.client_overlay lays it "
-              "over PARTNERS.",
-              "PARTNERS = {"]
-    lines += [f"    {res_id}: {ascii(entry)},"
-              for res_id, entry in sorted(game_client.partners(client).items())]
-    lines += ["}", "",
               "# {stage id: (English name, season)}. See "
               "game_client.chaos_names.",
               "CHAOS_NAMES = {"]
@@ -261,6 +255,29 @@ def shipped_source(client):
             lines.append("    ],")
     lines += ["}", ""]
     return "\n".join(lines)
+
+
+def ship(client):
+    """Bring the program's own copy of the client's facts level with
+    `client`: `from_client.py`, and the marked lines of `game_data`'s
+    tables, a unit they lack added (`game_data.client_sync`). Returns
+    lines saying what changed. Nothing is written where a table would
+    come out wrong (`client_sync.SyncError`, raised)."""
+    from game_data import client_sync, from_client
+    said, changed = client_sync.sync(
+        {"combatants": game_client.combatants(client),
+         "partners": game_client.partners(client),
+         "recommended": game_client.recommended_partners(client)},
+        write=False)
+    source = shipped_source(client)
+    client_sync.write_out(changed)
+    held = SHIPPED.read_text(encoding="utf-8") if SHIPPED.exists() else ""
+    if source != held:
+        SHIPPED.write_text(source, encoding="utf-8", newline="\n")
+        said.append(f"{SHIPPED.relative_to(REPO).as_posix()}: build "
+                    f"{getattr(from_client, 'BUILD', '?')} -> "
+                    f"{client.archive.build}")
+    return said
 
 
 def _rows(items, per=10):
@@ -434,10 +451,16 @@ def _figures(numbers):
 def audit(client):
     """Lines saying where `game_data`'s hand tables and `client`
     disagree: the tables as typed, not with the client's facts laid over
-    them (`game_data.client_overlay`), which would agree with anything."""
+    them (`game_data.client_overlay`), which would agree with anything.
+    What `--ship` wrote from the client is left out (`client_sync`): an
+    entry it fills whole, and a value marked `# client`."""
+    from game_data import client_sync
     from game_data.characters import table_stats_at_level
     from game_data.client_overlay import hand
     CHARACTERS, PARTNERS = hand("CHARACTERS"), hand("PARTNERS")
+    marked_c = client_sync.marked("CHARACTERS")
+    marked_p = client_sync.marked("PARTNERS")
+    marked_s = client_sync.marked("PARTNER_CLASS_STATS")
     texts = client.text()
     combat = {r["id"]: r for r in client.rows("char_base@char_combatant")}
     base = {r["id"]: r for r in client.rows("char_base@char_base")}
@@ -447,9 +470,13 @@ def audit(client):
     derived_partners = game_client.partners(client)
     classes = {**CLASSES, **game_client.class_names(client)}
     out = []
+    marks = {}
 
     def differ(who, field, ours, theirs):
-        _differ_into(out, who, field, ours, theirs)
+        # `field` reads `base_atk at 60` where it is a figure at a level:
+        # the mark is on its first word.
+        if field.split(" ")[0] not in marks:
+            _differ_into(out, who, field, ours, theirs)
 
     for rid, ours in sorted((r, c) for r, c in CHARACTERS.items()
                             if isinstance(r, int) and r > 0
@@ -459,6 +486,9 @@ def audit(client):
         if row is None:
             out.append(f"{who}: not in the client")
             continue
+        if ours.get(client_sync.FROM_CLIENT):
+            continue
+        marks = marked_c.get(rid, {})
         differ(who, "name", ours.get("name"),
                texts.get(f"char_base@name@{rid}"))
         differ(who, "grade", ours.get("grade"),
@@ -494,6 +524,7 @@ def audit(client):
         theirs = derived.get(rid) or {}
         for field in ("node_50", "node_60"):
             differ(who, field, ours.get(field), theirs.get(field))
+    marks = {}
     for rid in sorted(combat, key=int):
         if int(rid) not in CHARACTERS and base.get(rid, {}).get(
                 "char_use_playable") == "YES":
@@ -522,6 +553,9 @@ def audit(client):
         if row is None:
             out.append(f"{who}: not in the client")
             continue
+        if ours.get(client_sync.FROM_CLIENT):
+            continue
+        marks = marked_p.get(rid, {})
         differ(who, "name", ours.get("name"),
                texts.get(f"char_base@name@{rid}"))
         differ(who, "class", ours.get("class"), classes.get(
@@ -539,10 +573,11 @@ def audit(client):
         for stat, steps in sorted((theirs.get("stats") or {}).items()):
             differ(who, f"stats {stat}",
                    tuple((ours.get("stats") or {}).get(stat, ())), steps)
-        differ(who, "level-60 stats (PARTNER_CLASS_STATS)",
-               hand("PARTNER_CLASS_STATS").get((ours.get("grade"),
-                                                 ours.get("class"))),
-               theirs.get("level_60"))
+        if (ours.get("grade"), ours.get("class")) not in marked_s:
+            differ(who, "level-60 stats (PARTNER_CLASS_STATS)",
+                   hand("PARTNER_CLASS_STATS").get((ours.get("grade"),
+                                                     ours.get("class"))),
+                   theirs.get("level_60"))
         values = {key: steps for key, steps
                   in (ours.get("values") or {}).items()
                   if isinstance(steps, (list, tuple))}
@@ -559,18 +594,33 @@ def audit(client):
             theirs = " ".join(passives.get((str(rid), level), ()))
             if _numbers(said) != _numbers(theirs):
                 apart.append((level, _numbers(said), _numbers(theirs)))
-        if apart:
+        if apart and not {"passive_desc", "values"} & set(marks):
             level, here, there = apart[0]
             out.append(
                 f"{who}: passive figures differ at level"
                 f"{'s' if len(apart) > 1 else ''} "
                 f"{', '.join(str(a[0]) for a in apart)}; at {level} "
                 f"{_figures(here)} here, {_figures(there)} in the client")
+    marks = {}
     for rid in sorted(partner, key=int):
         if int(rid) not in PARTNERS:
             out.append(f"partner {rid} "
                        f"{texts.get(f'char_base@name@{rid}')}: in the "
                        f"client, not in game_data/partners.py")
+    # A 5-star's signature partner is the one the game recommends for it
+    # (`client_sync.pairings`); a 4-star's exception is the maintainer's
+    # own choice, so it is no disagreement.
+    from game_data.partners import SIGNATURE_PARTNERS
+    marked_sig = client_sync.marked("SIGNATURE_PARTNERS")
+    recommended = game_client.recommended_partners(client)
+    for rid, ours in sorted((r, c) for r, c in CHARACTERS.items()
+                            if isinstance(r, int) and isinstance(c, dict)):
+        name, held = ours.get("name"), SIGNATURE_PARTNERS.get(ours.get("name"))
+        theirs = (PARTNERS.get(recommended.get(rid)) or {}).get("name")
+        if ours.get("grade") == 5 and held and theirs and held != theirs \
+                and name not in marked_sig:
+            out.append(f"combatant {rid} {name}: SIGNATURE_PARTNERS pairs "
+                       f"it with {held}, the client recommends {theirs}")
 
     # The client's item names go over the program's own, so a name that
     # differs is one of the program's tables gone stale. Its tables
@@ -1063,13 +1113,17 @@ def node_51_problems(client):
     return out
 
 
-def potential_7_problems(client):
+def potential_7_problems(client, to_write=None):
     """Lines saying where `potential_7.py` and the client's node 7s
     disagree: an effect one side states and the other does not, the
     figures `potential_7.py` holds that the game's text never states,
     a `TEXT_FIXES` entry whose words the text no longer holds, and a
     combatant either side lacks. The data is the source; the text is
-    compared as the Combatants tab shows it, its fixes applied."""
+    compared as the Combatants tab shows it, its fixes applied.
+
+    A combatant whose entry `--ship` wrote from the client
+    (`client_sync`) and that has no node 7 goes to `to_write` where one
+    is given: an entry still to write, not one typed wrong."""
     from game_data import CHARACTERS
     from game_data.potential_7 import POTENTIAL_7
     effect_rows = {r["id"]: r for r
@@ -1089,8 +1143,10 @@ def potential_7_problems(client):
         words = _shown_words(rid, 70, texts.get(node.get("desc")), who, out)
         if rid not in POTENTIAL_7:
             if isinstance(char, dict):
-                out.append(f"{who} is in the client, not in "
-                           f"game_data/potential_7.py: {words!r}")
+                written = to_write is not None and char.get("from_client")
+                (to_write if written else out).append(
+                    f"{who} is in the client, not in "
+                    f"game_data/potential_7.py: {words!r}")
             continue
         links = (node.get("link_potential_node_effect_id") or "")
         rows = [effect_rows[k] for k in links.strip("[]").split(",")
@@ -1228,15 +1284,32 @@ def main(argv=None):
         print(f"{args.season} pays in {item} ({name}), build {archive.build}:")
         for words, paid, note in terms:
             print(f"  {words:42} {paid:>8,}  {note}")
-    elif args.audit:
-        found = audit(client)
-        print("\n".join(found) if found else
-              "game_data agrees with the client")
-        print(f"build {archive.build}: {len(found)} disagreement(s)")
-    elif args.ship:
-        SHIPPED.write_text(shipped_source(client), encoding="utf-8",
-                           newline="\n")
-        print(f"build {archive.build} to {SHIPPED.relative_to(REPO)}")
+    elif args.ship or args.audit:
+        # Shipped first, so the audit holds the tables as `--ship` left
+        # them: a unit it just added is no disagreement.
+        if args.ship:
+            from game_data.client_sync import SyncError
+            try:
+                said = ship(client)
+            except SyncError as exc:
+                print(f"nothing written: {exc}")
+                return 1
+            print("\n".join(said) if said else
+                  f"already level with build {archive.build}")
+            if args.audit and said:
+                # This process holds the tables as they were before
+                # `--ship` wrote them: the audit reads them afresh.
+                sys.stdout.flush()
+                again = [sys.executable, __file__, "--audit"]
+                again += ["--client", args.client] if args.client else []
+                again += ["--from-archive", args.from_archive] \
+                    if args.from_archive else []
+                return subprocess.call(again)
+        if args.audit:
+            found = audit(client)
+            print("\n".join(found) if found else
+                  "game_data agrees with the client")
+            print(f"build {archive.build}: {len(found)} disagreement(s)")
     elif args.from_archive:
         tables = sum(1 for n in archive.files if n.startswith("db/"))
         print(f"archived build {archive.build}: {tables} tables, "

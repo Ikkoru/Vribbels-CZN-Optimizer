@@ -29,6 +29,13 @@ REM unchanged settings from changed ones where no sync recorded them.
 REM Commit the file it writes with the release.
 %COLOUR% python "./default_settings/normalize/defaults_history.py" || (echo %RED%DEFAULTS HISTORY FAILED%OFF% & pause & exit /b 1)
 
+REM The game client's facts the build ships, brought level with this
+REM machine's client: game_data/from_client.py, and the units a patch
+REM added written into game_data's own tables. Review its diff before
+REM committing. A client it cannot read leaves the last copy shipped,
+REM which is said and does not stop the build.
+%COLOUR% python "../docs/client_tables.py" --ship || (echo %RED%THE CLIENT'S FACTS WERE NOT SHIPPED: the build carries the last copy%OFF%)
+
 REM Tcl/Tk 9 keeps its library inside the DLL, where PyInstaller cannot
 REM find it -- and its runtime hook then raises on the built exe's first
 REM line. This unpacks the library only when PyInstaller needs the help;

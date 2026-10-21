@@ -34,12 +34,30 @@ What changes every patch and the server never sends:
 The first source that knows an id wins:
 
 1. what this machine's client says, saved to `settings/game_client.json` with the install and build it was read at, so the client is read again only after a patch. **Where this build will not read, or the client is not found, that file's read of an earlier build stands in, while it is newer than the shipped table** (`game_client.fallback`);
-2. `Vribbels/game_data/from_client.py`, the same reading as of the build the program shipped with: `python docs/client_tables.py --ship` after a patch, before a release, and review the diff. The release procedure runs it (`.claude/skills/release/SKILL.md`);
+2. the program's own copy, as of the build it was last brought level with: `Vribbels/game_data/from_client.py`, and for combatants and partners the entries `--ship` wrote into `game_data`'s own tables (*game_data kept level with the client*, below);
 3. nothing: the Checklist shows the event's id and reads its rewards off the wire alone (`events.md`, *An event the client does not hold*). The Capture Log shows the item's id, and the Combatants tab `7?`, the floor every combatant has, for the total.
 
 **A name goes the same way: the client's first.** An item's, a Chaos's and a Zero System special's from the two sources above go over the program's own tables, which name only what neither does (`game_data.constants.item_names`, `chaos_estimate.chaos_names`), and `--audit` lists where the tables disagree with the client: a patch can give an id to another thing, and a name kept by hand would go on naming the old one. A client name with no letter or digit, the `???` an unreleased item can carry, is no name. What stays the program's on purpose is its own wording, not a name the game gives: a set's `bonus`, the Gacha History's pool labels (`INTENDED` in `docs/client_tables.py` lists where they part from the game's), `potential_7.TEXT_FIXES`, and the shops' names. A set's name stays the program's too: the tabs read it off `game_data/sets.py` directly, and `--audit` lists where it parts from the game's. The capture addon takes its names when it is written, so a client read that lands after a capture starts reaches the next capture.
 
 `check_event_names` holds the readers, the cache, the shipped table and the order of the sources.
+
+## game_data kept level with the client
+
+**`python docs/client_tables.py --ship` brings the program's own copy level with this machine's client**: it rewrites `from_client.py`, and writes into `game_data`'s own tables what a patch added that they lack (`game_data/client_sync.py`). A combatant or partner neither table has arrives as an entry of its own in `characters.py` or `partners.py`; with it come a new partner class's level-60 flats (`PARTNER_CLASS_STATS`), and the partner the client recommends for a new combatant (`game_client.recommended_partners`): a 5-star's in `SIGNATURE_PARTNERS`, being the one it was released with, which every 5-star there agrees with, anyone else's in `PARTNER_EXCEPTIONS` as a default the maintainer's own choice replaces. `from_client.py` holds no combatants or partners for that reason: one copy of each, the hand tables'.
+
+**Only what is marked is the tool's**, each marker the whole of a line's comment:
+
+- `# client block start` on an entry's first value and `# client block end` on its last: an entry the client fills whole, rewritten from the one marker to the other at each `--ship`. It carries `"from_client": True`, which the data check sees: it asks such an entry for none of the maintainer's companions, a Potential 7 entry among them.
+- `# client` on one value's line in an entry of the maintainer's, or on a line table's entry (`PARTNER_CLASS_STATS`, the two pairing tables) on a line of its own: that value is the client's.
+
+**Everything unmarked is the maintainer's and is never rewritten**, only listed where it parts from the client, by `--audit`. A value read in game stays unmarked: `checks/check_client_overlay.py` holds the reader to it, and one the tool wrote would vouch for nothing, so the check and `--audit` skip what is marked. To take a value over, delete its marker; to hand one to the tool, add it. A block whose unit the client no longer holds is left as it was, and said.
+
+**It runs without being asked**, so a patch cannot slip past:
+
+- A launch from source runs `--ship` when the client is a newer build than `from_client.BUILD` and the launch read it, then `--audit`, and tells the maintainer what the first wrote and what the second lists, with the Checklist's maximums for the snapshot loaded (`OptimizerGUI._report_client_parts`). Each runs as a process of its own, on a worker; a frozen build and the spacing audit run neither.
+- `zCreate exe.bat` runs `--ship` before building, so a build never ships an older copy than the client it was built beside. A client it cannot read leaves the last copy, which the build says and goes on.
+
+Review the diff either one leaves before committing it. `checks/check_client_sync.py` holds the writer: what it may touch, the files' line endings, a second run changing nothing, the pairings, and when a launch ships.
 
 ## The archive
 

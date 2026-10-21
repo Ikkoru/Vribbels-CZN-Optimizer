@@ -66,6 +66,12 @@ def _snapshot(amounts=(), expiries=(), day_point=None, spent=None,
 
 
 def run():
+    from ._harness import no_shipped_limits
+    with no_shipped_limits():
+        return _run()
+
+
+def _run():
     add_source_to_path()
     import excursions
     import weekly_reset

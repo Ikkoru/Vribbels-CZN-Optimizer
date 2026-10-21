@@ -37,6 +37,11 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
 - **I39 — A Trauma Code's rewards on the Checklist.** The client gives Blade Poised Against the Cycle 6 rewards and its sticker after them (`trauma_code_06_01`–`06`, `style_link_item_id`), and the capture now keeps `trauma_code_entities` and the code's event tables (`docs/unread_stats.md`), empty in every capture so far. Needs, with capture on, one of its event battles cleared and its reward claimed, and later the sticker: which table records each, then a reader in `EVENT_READERS` for `EVENT_TRAUMA_CODE`. Until then the row asks `Finished?`.
 
+- **I40 — The 10-21 patch's new units, past what the client gives.** `--ship` wrote Rossweisse (30134), Sig (30135), Blanche (20023) and Capri (20028) into `characters.py` and `partners.py` as the client's, and Rossweisse's pairing with Sig into `SIGNATURE_PARTNERS`. What only the maintainer can add, which `--audit` and the launch's notice list until it is in:
+  1. Rossweisse's node 7 in `potential_7.py`. The client's text: "If Rossweisse's Attack is 600 or higher, +5% Justice Attribute Damage Amount, and for every 20 Attack exceeding 600, add an additional +2% to the modifier (additional +10% max)".
+  2. Sets 30 Veiled Radiance and 31 Snowflake of Our First Meeting in `sets.py`: a wording and the optimizer's model (`type`, `stat`, `value`). Until then they show by number, in the game's words, and the Optimizer has no bonus of theirs to count.
+  3. Any conditional effect of the three partners' passives (`stats_conditional`): their blocks carry the plain stat lines alone. Sig's second line, Memory of a Past Life, is one.
+
 - **I35 — After the 2026-09-30 patch.** What the patch's plan left open. The rest is in `past_plans/patch_2026_09_30.md`.
 
   1. **Season 5.** Its Chaos, Celestial Bulwark, is stage 100000, and Relic of a Frozen Civilization (3920032) is its currency, off the build-126 client. Its shop pages open on the client's own offsets, 21, 42 and 63 days into the season's schedule: 10-21, 11-11, 12-02. `SEASON_ESTIMATE["disaster_s05"]` is in, from `python docs/client_tables.py --season disaster_s05`.
@@ -111,12 +116,6 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
   - The deck model and the card catalogue are UI-free (`Vribbels/decks/`), so T20 adds damage to the same model.
   - **Once the feature is complete, a cleanup pass:** remove from `plan.md` and the docs whatever turned out not to be needed, move the reference material into `docs/`, and archive the plan.
-
-- **T25 — `game_data/` kept up to date from the client.** The maintainer's proposal: a tool rewrites the hand tables' client-sourced values after a patch, marking each with `# client` to the right of a value set amid hand-coded ones, and `# client block start` / `# client block end` to the right of the first and last value of a block the client fills whole, such as a combatant's or a partner's entry. Proposed conditions, awaiting the maintainer:
-  1. A maintainer tool beside `--ship`, its output reviewed as a diff; never at a launch, which a frozen build could not write anyway.
-  2. Only marked values and blocks are the tool's. An unmarked value is the maintainer's and is never rewritten, only listed where it parts from the client, as `--audit` does now; a new unit arrives as a block.
-  3. One generated copy: the synced tables replace `from_client.py`'s copies of the same facts (`COMBATANTS`, `PARTNERS` and the rest) as what a player without the client sees.
-  4. The values read in game stay unmarked. The reader is held to them (`check_client_overlay`), and a table the tool wrote itself vouches for nothing.
 
 ---
 

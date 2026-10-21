@@ -347,8 +347,11 @@ def _name(rid):
     return char["name"] if isinstance(char, dict) else rid
 
 
-def audit(battles):
-    """Set the readings against characters.py and partners.py.
+def audit(battles, guests=()):
+    """Set the readings against characters.py and partners.py. `guests`
+    are ids known to be no player's, whatever their rows say: the ones
+    the game client marks unplayable, for a battle filed before the
+    capture marked a guest.
 
     Returns a dict of lists:
 
@@ -382,6 +385,7 @@ def audit(battles):
            "guests": [], "unseen": []}
     bases, out["conflicts"] = resolve(battles)
     own, own_partners = own_units(battles)
+    own -= set(guests)
     guests = set()
 
     history = {}

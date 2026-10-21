@@ -1,5 +1,6 @@
 """Shared plumbing: import path, snapshot discovery, result types."""
 
+import contextlib
 import glob
 import os
 import sys
@@ -19,6 +20,27 @@ def add_source_to_path() -> None:
     if str(SOURCE_ROOT) not in sys.path:
         sys.path.insert(0, str(SOURCE_ROOT))
     os.chdir(SOURCE_ROOT)
+
+
+@contextlib.contextmanager
+def no_shipped_limits():
+    """The block run as a player sees the Checklist who has neither a
+    client nor a shipped table's maximums: `from_client.LIMITS` held
+    out, so synthetic cases read the module's own figures and dates and
+    a check's own `game_client.use` gives the only client figures. The
+    shipped table states the live seasons' shop dates and every pass's
+    caps under ids the cases use too."""
+    add_source_to_path()
+    import game_client
+    from game_data import from_client
+    held = getattr(from_client, "LIMITS", {})
+    from_client.LIMITS = {}
+    game_client._limits = None
+    try:
+        yield
+    finally:
+        from_client.LIMITS = held
+        game_client._limits = None
 
 
 def newest_snapshot():

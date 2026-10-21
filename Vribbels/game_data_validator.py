@@ -658,7 +658,10 @@ def _check_potential_7(problems: list[str]) -> None:
     rep = _Reporter("potential_7.py", _line_map("potential_7.py",
                                                 "POTENTIAL_7"))
     for rid, data in CHARACTERS.items():
-        if rid and isinstance(data, dict) and rid not in POTENTIAL_7:
+        # An entry the client fills whole (`game_data.client_sync`) has
+        # no node 7 of the maintainer's yet either.
+        if rid and isinstance(data, dict) and rid not in POTENTIAL_7 \
+                and not data.get("from_client"):
             rep.add(rid, f"{data.get('name', '?')} ({rid})",
                     "has no Potential 7 entry -- node 7 scores as nothing "
                     "and the Fill button has nothing to fill")

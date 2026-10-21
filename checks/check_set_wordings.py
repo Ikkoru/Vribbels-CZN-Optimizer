@@ -147,6 +147,10 @@ def run():
                      f"docs/client_tables.py --ship`."
                      for line in tool.set_changes(shipped, installed)
                      + tool.set_problems(installed)]
-    failures += tool.potential_7_problems(client)
+    to_write = []
+    failures += tool.potential_7_problems(client, to_write)
+    for line in to_write:
+        note(f"{line} -- the combatant's entry is the client's, its node 7 "
+             f"still to write")
     failures += tool.node_51_problems(client)
     return failures
