@@ -62,6 +62,7 @@ The columns this script owns:
 | `special` | a Zero System map's special options, by `chaos_estimate.ZERO_SPECIALS` where named, else the game client's name (`zero_special_name`) |
 | `options` | a Zero System map's bonus and penalty options: `b001 p112` |
 | `rolled`  | the bonus and penalties the run rolled, any door, as effects: `ELITE_ADD:p008 CREDIT_DOWN:p016` |
+| `amplified` | how many of the season's `Memory Resonance Amplification` nodes were in force: each pays +1% of the season's currency (`AMPLIFY_GROUP`); `?` for a run filed before runs kept their effects |
 | `mode`    | `delegated`, played by the Delegation Module down one path, or `ordinary` |
 | `client`  | the game client and data patch it ran on: `cznlive 1.464 r688`  |
 | `total`   | what the run paid in the season's currency                      |
@@ -188,11 +189,21 @@ CURRENCY = {3920001: "s01", 3920002: "s02", 3920006: "s03", 3920031: "s04",
 # What this script fills in. Anything after them in an existing file
 # is the maintainer's and is carried over by `date`.
 OWNED = ["date", "season", "part", "chaos", "door", "difficulty",
-         "special", "options", "rolled", "mode", "client", "total",
-         "payouts", "marked", "marked_at", "fought", "lost"]
+         "special", "options", "rolled", "amplified", "mode", "client",
+         "total", "payouts", "marked", "marked_at", "fought", "lost"]
 # The effect ids a run's rolled bonus and penalties come as, whichever
 # door it was entered by.
 ROLLED = (("zero_orb_bonus_", "b"), ("zero_orb_penalty_", "p"))
+# **A season's skill tree raises what its Chaos pays.** The Environment
+# Variables tree, bought with Memory of Light, holds small nodes called
+# Memory Resonance Amplification, each `Increase <the season's
+# currency> Gain Amount by 1%`: an effect of this group, the % its
+# second option and the currency its third (the client's
+# `zero_orb_season_skilltree` and `zero_system_eff` tables). A season's
+# own nodes are `zero_season_s<N>_skill_...`, and only they raise its
+# currency, so a run counts its own season's alone.
+AMPLIFY_GROUP = "ZERO_ITEM_GET_INCREASE__AREA_VALUE_ID"
+SEASON_SKILL = re.compile(r"zero_season_s(\d+)_skill_")
 
 # Colour for a terminal; none where the output goes to a file or a pipe,
 # or NO_COLOR is set.
@@ -489,6 +500,21 @@ def rolled_of(run):
     return " ".join(out)
 
 
+def amplified_of(run, season):
+    """How many of `season`'s amplification nodes a run had in force,
+    as the `amplified` column writes it (`AMPLIFY_GROUP`); `?` for a run
+    filed before runs kept their effects."""
+    if "effects" not in run:
+        return "?"
+    number = int(season[1:]) if str(season)[1:].isdigit() else None
+    held = 0
+    for group, eid, _values in run.get("effects") or ():
+        own = SEASON_SKILL.match(str(eid))
+        if group == AMPLIFY_GROUP and own and int(own.group(1)) == number:
+            held += 1
+    return str(held)
+
+
 def rolled_counts(cell):
     """{group: effect id} from a `rolled` cell, or None for `?`."""
     if (cell or "?") == "?":
@@ -541,6 +567,7 @@ def row_of(run, source, parts):
             short_option(o) for kind in ("bonus", "penalty")
             for o in (run.get("codex") or {}).get(kind) or ()),
         "rolled": rolled_of(run),
+        "amplified": amplified_of(run, season),
         "mode": ("delegated" if run.get("delegated") else "ordinary")
                 if "delegated" in run else "?",
         "client": run.get("client") or "?",
@@ -681,7 +708,7 @@ def changes(rows):
     for date in sorted(rows):
         row = rows[date]
         where = ("%s %s" % (row["season"], row["part"]),
-                 row.get("client") or "?")
+                 row.get("client") or "?", row.get("amplified") or "?")
         for mark in counts_of(row.get("marked")):
             for part in mark.split("+"):
                 if part not in MARKS and part not in unnamed:
@@ -703,7 +730,10 @@ def changes(rows):
                 moved = ["the part (%s -> %s)" % (there[0], where[0])
                          if there[0] != where[0] else None,
                          "the game version (%s -> %s)" % (there[1], where[1])
-                         if there[1] != where[1] else None]
+                         if there[1] != where[1] else None,
+                         "the amplification nodes (%s -> %s)"
+                         % (there[2], where[2]) if there[2] != where[2]
+                         else None]
                 moved = [m for m in moved if m]
                 out.append("   ! %s: %s paid %d, where %s paid %d; %s" % (
                     date, _named(key), amount, when, was,
