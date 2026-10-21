@@ -277,10 +277,9 @@ SEASON_EARNED_LABEL = "You have earned this Season:"
 # the patch that opens the part, so a season's entry is re-read after
 # each of its patches.
 #
-# **The weekly Chaos progress is counted at the week's top score**,
-# 8,000, as the maintainer counts it, where the client's five score
-# tiers pay 1,000 each (`docs/client_data.md`, *What it was held
-# against*).
+# **The weekly Chaos progress is what its five score tiers pay**, 1,000
+# each. The week's top score, 8,000, is in points and pays nothing
+# itself.
 #
 # **Keyed by SEASON, so a table left behind says nothing rather than
 # something wrong.** A season this does not name gets no estimate,
@@ -301,7 +300,7 @@ SEASON_ESTIMATE = {
         "days": 63,
         # Everything that does not depend on how often it is played.
         "fixed": (
-            9 * 8000,                               # Chaos weekly progress
+            9 * 5 * 1000,                           # Chaos weekly progress
             (4 + 4) * 4000,                         # Great Rift weekly
             (10 + 10) * 500,                        # Great Rift records, both halves
             12 * 100 + 200 + 300 + 400 + 30 * 200,  # Mission Records
@@ -317,7 +316,7 @@ SEASON_ESTIMATE = {
     "disaster_s05": {
         "days": 63,
         "fixed": (
-            9 * 8000,                               # Chaos weekly progress
+            9 * 5 * 1000,                           # Chaos weekly progress
             (4 + 4) * 4000,                         # Great Rift weekly: season 4's
             (10 + 10) * 500,                        # Great Rift records: season 4's
             9800,                                   # Mission Records
@@ -680,14 +679,21 @@ PRESEASON_SAME_START = 24 * 3600
 DISASTER_NOT_OPEN = "Not open"
 
 # When each Supply Store round of a Galactic Disaster season opens -- its
-# shop pages, first to last -- as the season's first update notice lists
-# them ("1st Supply: 07/29/2026 after the maintenance"). The wire names
-# no round, so this is the one statement of them; a season it does not
-# name has its pages dated off the Sortie seasons instead, which opened
-# with the rounds through season 4. Dates only, in UTC: a round opens
-# when that day's maintenance ends, and every schedule starting that day
-# starts then, so the hour is read off the wire (`_supply_rounds`).
-# Add each new season from its notice.
+# shop pages, first to last. **The game client states it**: page `n`
+# opens `unlock_disaster_shop_<n>` days after the season's schedule
+# does (`disaster_constant_meta`: 21, 42 and 63), which is what the
+# game's own `[2nd Supply] arrives after 20d.` counts down to
+# (`_client_rounds`). The wire names no round.
+#
+# Where the client is not read, the season's first update notice
+# ("1st Supply: 07/29/2026 after the maintenance") stands in, and a
+# season it does not name has its pages dated off the Sortie seasons,
+# which opened with the rounds through season 5. Dates only, in UTC: a
+# round opens when that day's maintenance ends, and every schedule
+# starting that day starts then, so the hour is read off the wire
+# (`_supply_rounds`). `limit_mismatches` says where a notice and the
+# client part.
+CLIENT_ROUND = "unlock_disaster_shop_%d"
 SUPPLY_ROUNDS = {
     "disaster_s04": ("2026-07-29", "2026-08-19", "2026-09-09"),
 }
@@ -935,6 +941,25 @@ def _preseason_end(raw, season):
     return end if _is_count(end) else None
 
 
+def _client_rounds(raw, name):
+    """When each of season `name`'s Supply rounds opens by the game
+    client's offsets (`CLIENT_ROUND`), counted from the season's own
+    schedule opening, or None where the client states none or the
+    snapshot holds no window for the season."""
+    windows = schedules.groups(raw).get(
+        shop_stock.season_group_of(SEASONAL_SHOP_CATEGORY)) or {}
+    window = windows.get(name) if isinstance(windows, dict) else None
+    start = window.get("start_time") if isinstance(window, dict) else None
+    if not _is_count(start):
+        return None
+    out, page = [], 1
+    while _limit("disaster_constants", CLIENT_ROUND % page) is not None:
+        out.append(start + _limit("disaster_constants",
+                                  CLIENT_ROUND % page) * 86400)
+        page += 1
+    return out or None
+
+
 def _supply_rounds(raw, name):
     """When each of season `name`'s Supply rounds opens, from
     `SUPPLY_ROUNDS`, or None where the table does not name the season.
@@ -963,11 +988,12 @@ def _supply_rounds(raw, name):
 
 def _page_openings(raw, name, season):
     """When each of a season's shop pages opens, first to last, or None:
-    the notice's Supply rounds where `SUPPLY_ROUNDS` has them, and the
-    Sortie seasons after the preseason otherwise."""
-    rounds = _supply_rounds(raw, name)
-    if rounds is not None:
-        return rounds
+    the game client's offsets (`_client_rounds`), else the notice's
+    Supply rounds where `SUPPLY_ROUNDS` has them, else the Sortie seasons
+    after the preseason."""
+    for rounds in (_client_rounds(raw, name), _supply_rounds(raw, name)):
+        if rounds is not None:
+            return rounds
     starts = _season_rotations(raw, season)
     return None if starts is None else starts[1:]
 
@@ -982,8 +1008,10 @@ def shop_pages_open(shop, period, raw, now):
 
     **Nothing on the wire says a page is open.** No schedule names
     one, and `shop_res_data` sends all three from the season's first
-    login. The update notices do -- each page is a Supply round, and
-    `SUPPLY_ROUNDS` holds their dates where they have been copied in.
+    login. The game client does -- each page is a Supply round, opening
+    a stated number of days after the season's schedule (`SUPPLY_ROUNDS`
+    says where) -- and so do the update notices, whose dates
+    `SUPPLY_ROUNDS` holds where they have been copied in.
     Past those, the pages are read off the SORTIE seasons falling
     inside the season: the first of them is the preseason -- a Galactic
     Disaster season's schedule opens three weeks before its content
@@ -1537,10 +1565,12 @@ def _day_offsets(value):
 
 
 def _overclock_cap(rows, name):
-    """How many doubled runs one Overclock event's day holds.
+    """How many doubled runs one Overclock event's day holds, for an
+    event the game client does not hold (`_event_overclock` reads its
+    `limit_count` first).
 
-    **The cap is not stated.** What the wire does state is the SET of
-    caps the game uses: `overclock_entities` keeps every Overclock
+    **The wire does not state the cap.** What it does state is the SET
+    of caps the game uses: `overclock_entities` keeps every Overclock
     event the account has ever played, and a row's `count` is that
     event's own daily tally. Two shapes across thirteen events, six a
     day and two, and the current one is a two.
@@ -1614,9 +1644,10 @@ def _event_overclock(raw, name, window, now):
     what a finished row looks like everywhere else.
 
     FORCED DAILY, so a finished day is orange rather than green: the
-    two come back tomorrow and today's are gone. It is also GENERIC,
-    which is why a cap the wire never states can be answered from the
-    shapes the game has used before. See `EVENT_CATEGORIES`.
+    two come back tomorrow and today's are gone. **Its cap is the game
+    client's** (`event_overclock`'s `limit_count`); where the client
+    does not hold the event, the event being GENERIC answers it from
+    the shapes the game has used before. See `EVENT_CATEGORIES`.
 
     **On the LAST day it goes green.** Orange says the row will be
     back tomorrow, and on the final day there is no tomorrow -- taking
@@ -1634,16 +1665,21 @@ def _event_overclock(raw, name, window, now):
         if not (_is_count(touched)
                 and touched < weekly_reset.last_daily_reset(now)):
             used = max(row["count"], 0)
-    shapes = _overclock_cap(rows, name)
-    needed = max(used, _overclock_days_before(row, window, now, used))
-    cap = next((shape for shape in shapes if shape >= needed),
-               max(OVERCLOCK_USES, needed))
-    # Where nothing on the live event's own record settles the shape,
-    # it reads as the last event's: a day that opens on `0/2` would
-    # otherwise stay a two until a third run proves the six.
-    latest = _latest_overclock_shape(rows, name, shapes)
-    if latest is not None and latest >= needed:
-        cap = latest
+    stated = _limit("overclocks", name)
+    if stated is not None:
+        cap = max(stated, used)
+    else:
+        shapes = _overclock_cap(rows, name)
+        needed = max(used, _overclock_days_before(row, window, now, used))
+        cap = next((shape for shape in shapes if shape >= needed),
+                   max(OVERCLOCK_USES, needed))
+        # Where nothing on the live event's own record settles the
+        # shape, it reads as the last event's: a day that opens on
+        # `0/2` would otherwise stay a two until a third run proves
+        # the six.
+        latest = _latest_overclock_shape(rows, name, shapes)
+        if latest is not None and latest >= needed:
+            cap = latest
     if used < cap:
         return [("%d/%d" % (used, cap), TODO)]
     return [("%d/%d" % (used, cap),
@@ -3072,10 +3108,11 @@ SORTIE_CAP = 9
 CHAOS_CAP = 4
 
 # What each gains at the Sunday reset, and the ceiling that gain stops
-# at. **Not on the wire in any form**, and the only two numbers on this
-# tab that are the game's rule rather than a reading -- so the row they
-# produce is marked as an expectation with `EXPECTED_VALUE` until a
-# capture replaces it with the real figure. See `_weekly_stock`.
+# at. **Not on the wire in any form**: the game client states both
+# (`currency_charge`, `_charge`), and these stand where it is not read.
+# A week the wire has not reported yet reads as an expectation, marked
+# with `EXPECTED_VALUE`, until a capture replaces it with the real
+# figure. See `_weekly_stock`.
 #
 # The grants are the game's own wording, and they match what the
 # account did: `total_amount` moved by exactly these across each of the
@@ -3151,10 +3188,11 @@ PASS_WEEK_EXP_FULL = 10000
 PASS_LEVEL_FULL = 70
 
 # How many daily missions the pass hands out, and which they are: the
-# LOWEST numbered, `_01` through `_06`. The count is not derivable --
-# the game issues a mission lazily, so the rows carrying today's
-# `issued_time` are the ones handed out so far and counting them
-# understates the day. Read off the game's own screen.
+# LOWEST numbered, `_01` through `_06`. The count is not derivable from
+# the wire -- the game issues a mission lazily, so the rows carrying
+# today's `issued_time` are the ones handed out so far and counting them
+# understates the day. The client states it, a pass's missions that
+# reset daily (`_pass_limits`); this stands where it is not read.
 #
 # **Being issued today does not make a mission daily.** A patch added
 # `pass_mission_008_28`, a one-off issued and claimed the same day,
@@ -3231,8 +3269,9 @@ MATRIX_LEVELS = 100
 
 # The Galactic Disaster's weekly CHAOS progress, and its ceiling. The
 # score is not capped on the wire -- `week_clear_score` reads 8000 with
-# the screen showing 8000/8000 -- so the cap is stated and the display
-# clamps to it, marking a reading that went over.
+# the screen showing 8000/8000 -- so the cap is the client's for the
+# live season (`disaster_season`'s `max_clear_score`), else this, and
+# the display clamps to it.
 DISASTER_FIELD = "disaster_entities"
 CHAOS_PROGRESS_FULL = 8000
 
@@ -3246,6 +3285,107 @@ GREAT_RIFT_TARGET = 300000
 # The standings spell the week stamp their own way, where every other
 # weekly record uses `WEEK_STAMP`.
 GREAT_RIFT_WEEK_STAMP = "score_week_id"
+
+# **The maximums above are the game client's where it states them**
+# (`game_client.known_limits`), and these figures stand where it does
+# not -- a client the program cannot read, an id it does not hold.
+# `limit_mismatches` lists where the two part, which run from source the
+# launch says. Communication Passes (`excursions.DAILY_PASSES`) are the
+# one with no client figure found.
+
+
+def _limit(kind, key=None):
+    """The game client's figure for one of the maximums above, or None
+    where it states none and this module's stands. `key` picks within a
+    kind kept by id: a pass, a season, an Offensive, a reward track."""
+    held = game_client.known_limits().get(kind)
+    if key is None:
+        return None if isinstance(held, dict) else held
+    return held.get(key) if isinstance(held, dict) else None
+
+
+def _charge(res_id, grant, cap):
+    """(what a week adds to `res_id`, the cap it adds up to): the
+    client's, else `grant` and `cap`."""
+    stated = _limit("charges", str(res_id))
+    return (stated[0], stated[1]) if stated else (grant, cap)
+
+
+def _pass_limits(pass_id):
+    """(a pass's weekly EXP, its top level, its daily missions): the
+    client's for `pass_id`, else this module's."""
+    stated = _limit("passes", pass_id) if pass_id else None
+    return tuple(stated) if stated else (
+        PASS_WEEK_EXP_FULL, PASS_LEVEL_FULL, PASS_DAILY_COUNT)
+
+
+def limit_mismatches(raw=None, now=None):
+    """Lines naming each maximum the game client states otherwise than
+    this module, and each Supply round `SUPPLY_ROUNDS` dates otherwise
+    than the client's offsets do: what the maintainer updates, the tab
+    already reading the client's.
+
+    With `raw`, the ids the snapshot has live -- its pass, its season,
+    its Offensive, its reward track; without, every id the client holds
+    but the Chinese server's (`_ch_`), which runs its own."""
+    now = time.time() if now is None else now
+    out = []
+
+    def compare(what, ours, theirs):
+        if theirs is not None and theirs != ours:
+            out.append(f"{what}: {ours} here, {theirs} in the client")
+
+    def keys(kind, live):
+        held = game_client.known_limits().get(kind)
+        if not isinstance(held, dict):
+            return []
+        if raw is not None:
+            return [live] if live in held else []
+        return sorted(key for key in held if "_ch" not in key)
+
+    compare("ACTIVITY_FULL", ACTIVITY_FULL, _limit("activity"))
+    for res_id, grant, cap, names in (
+            (CHAOS_CURRENCY, CHAOS_WEEKLY_GRANT, CHAOS_CAP,
+             ("CHAOS_WEEKLY_GRANT", "CHAOS_CAP")),
+            (SORTIE_CURRENCY, SORTIE_WEEKLY_GRANT, SORTIE_CAP,
+             ("SORTIE_WEEKLY_GRANT", "SORTIE_CAP"))):
+        stated = _limit("charges", str(res_id))
+        if stated:
+            compare(names[0], grant, stated[0])
+            compare(names[1], cap, stated[1])
+    live_pass = _live_pass(raw, now).get("res_id") if raw else None
+    for pass_id in keys("passes", live_pass):
+        for name, ours, theirs in zip(
+                ("PASS_WEEK_EXP_FULL", "PASS_LEVEL_FULL", "PASS_DAILY_COUNT"),
+                (PASS_WEEK_EXP_FULL, PASS_LEVEL_FULL, PASS_DAILY_COUNT),
+                _limit("passes", pass_id)):
+            compare(f"{name} ({pass_id})", ours, theirs)
+    compare("SIMULATION_RUNS", SIMULATION_RUNS,
+            _limit("simulation", SIMULATION_STAGE))
+    live, _window = (schedules.live(COUNTDOWNS["offensive"], raw, now)
+                     if raw else (None, None))
+    for define in keys("offensives", live):
+        bosses, stars = _limit("offensives", define)
+        compare(f"OFFENSIVE_BOSSES ({define})", OFFENSIVE_BOSSES, bosses)
+        compare(f"OFFENSIVE_STARS * OFFENSIVE_BOSSES ({define})",
+                OFFENSIVE_STARS * OFFENSIVE_BOSSES, stars)
+    track = ((raw.get(MATRIX_FIELD) or {}).get("reward_list_id")
+             if raw and isinstance(raw.get(MATRIX_FIELD), dict) else None)
+    for list_id in keys("matrix", track):
+        compare(f"MATRIX_LEVELS ({list_id})", MATRIX_LEVELS,
+                _limit("matrix", list_id))
+    for season in keys("disaster_weekly", _live_season(raw) if raw else None):
+        compare(f"CHAOS_PROGRESS_FULL ({season})", CHAOS_PROGRESS_FULL,
+                _limit("disaster_weekly", season))
+    compare("GREAT_RIFT_TARGET", GREAT_RIFT_TARGET, _limit("rift_target"))
+    for season, days in sorted(SUPPLY_ROUNDS.items()):
+        stated = _client_rounds(raw, season) if raw else None
+        if stated is None:
+            continue
+        theirs = tuple(datetime.fromtimestamp(t, timezone.utc).strftime(
+            "%Y-%m-%d") for t in stated)
+        compare(f"SUPPLY_ROUNDS[{season!r}]", tuple(days), theirs)
+    return out
 
 
 # What a value reads before any snapshot has reached the tab. NOT `0`,
@@ -4622,17 +4762,18 @@ LINE_SEP = "\n"
 COLUMN_SEP = "\t"
 
 
-def _pass_daily_number(res_id):
+def _pass_daily_number(res_id, count=PASS_DAILY_COUNT):
     """Whether a mission id is one of the pass's DAILY ones.
 
-    `pass_mission_<season>_NN` with NN in the first six. The season sits
-    in the middle and changes; the trailing number does not.
+    `pass_mission_<season>_NN` with NN in the first `count`, the live
+    pass's daily missions (`_pass_limits`). The season sits in the
+    middle and changes; the trailing number does not.
     """
     text = str(res_id)
     if not text.startswith(PASS_MISSION_PREFIX):
         return False
     tail = text.rsplit("_", 1)[-1]
-    return tail.isdigit() and 1 <= int(tail) <= PASS_DAILY_COUNT
+    return tail.isdigit() and 1 <= int(tail) <= count
 
 
 def _this_week(record, now, field=WEEK_STAMP):
@@ -4755,9 +4896,16 @@ def _at_ceiling(words):
     return int(parts[0]) >= int(parts[1])
 
 
+def _activity_full():
+    """The day's Activity at its top tier: the client's, else
+    `ACTIVITY_FULL`."""
+    return _limit("activity") or ACTIVITY_FULL
+
+
 def _activity_points(raw, now):
-    """Today's Activity points, at most `ACTIVITY_FULL`, or None where
-    the snapshot holds no daily tasks or nothing says what they pay.
+    """Today's Activity points, at most the day's top tier
+    (`_activity_full`), or None where the snapshot holds no daily tasks
+    or nothing says what they pay.
 
     A task pays once its score reaches the client's count for it, and
     only on the day its row was issued: `issued_time` before the last
@@ -4777,7 +4925,7 @@ def _activity_points(raw, now):
         if (task and _is_count(issued) and issued >= since
                 and _is_count(score) and score >= task[0]):
             total += task[1]
-    return min(total, ACTIVITY_FULL)
+    return min(total, _activity_full())
 
 
 def _day_block(raw, now):
@@ -4948,20 +5096,19 @@ def _readings(raw, now=None, tracked=None):
     claimed = day if (_is_count(day_id) and _is_count(day)
                       and day_id >= weekly_reset.day_index(now)) else 0
     points = _activity_points(raw, now)
-    if claimed >= ACTIVITY_FULL:
-        out["activity"] = _one(
-            ACTIVITY_READING % (ACTIVITY_FULL, ACTIVITY_FULL), DONE)
+    full = _activity_full()
+    if claimed >= full:
+        out["activity"] = _one(ACTIVITY_READING % (full, full), DONE)
     elif points is None:
         # No tasks on record: a claim below the full 100 is all there
         # is to show, and no claim at all says nothing about the day.
-        out["activity"] = (_one(ACTIVITY_READING % (claimed, ACTIVITY_FULL),
-                                TODO) if claimed else _one(NO_DATA, UNKNOWN))
-    elif max(points, claimed) >= ACTIVITY_FULL:
-        out["activity"] = _one(
-            ACTIVITY_READING % (ACTIVITY_FULL, ACTIVITY_FULL), WARN_BLINK)
+        out["activity"] = (_one(ACTIVITY_READING % (claimed, full), TODO)
+                           if claimed else _one(NO_DATA, UNKNOWN))
+    elif max(points, claimed) >= full:
+        out["activity"] = _one(ACTIVITY_READING % (full, full), WARN_BLINK)
     else:
         out["activity"] = _one(
-            ACTIVITY_READING % (max(points, claimed), ACTIVITY_FULL), TODO)
+            ACTIVITY_READING % (max(points, claimed), full), TODO)
 
     # Today's coffee. **The field is a CAPABILITY, so the row inverts
     # it**: `is_coffee_possible` true means one is still going begging.
@@ -5008,16 +5155,16 @@ def _readings(raw, now=None, tracked=None):
     # past still carries last week's leftover, so the row shows what
     # the week's rule says to EXPECT, marked as worked out rather
     # than read. See `_weekly_stock`.
-    cards, exact = _weekly_stock(raw, CHAOS_CURRENCY, CHAOS_WEEKLY_GRANT,
-                                 CHAOS_CAP, now)
+    grant, cap = _charge(CHAOS_CURRENCY, CHAOS_WEEKLY_GRANT, CHAOS_CAP)
+    cards, exact = _weekly_stock(raw, CHAOS_CURRENCY, grant, cap, now)
     out["chaos_currency"] = _one(
-        "%s%d/%d" % ("" if exact else EXPECTED_VALUE, cards, CHAOS_CAP),
+        "%s%d/%d" % ("" if exact else EXPECTED_VALUE, cards, cap),
         _done(cards == 0))
-    reason, exact = _weekly_stock(raw, SORTIE_CURRENCY, SORTIE_WEEKLY_GRANT,
-                                  SORTIE_CAP, now)
+    grant, cap = _charge(SORTIE_CURRENCY, SORTIE_WEEKLY_GRANT, SORTIE_CAP)
+    reason, exact = _weekly_stock(raw, SORTIE_CURRENCY, grant, cap, now)
     out["sortie_currency"] = _one(
-        "%s%d/%d" % ("" if exact else EXPECTED_VALUE, reason, SORTIE_CAP),
-        _spend_state(reason, SORTIE_CAP, SORTIE_WEEKLY_GRANT))
+        "%s%d/%d" % ("" if exact else EXPECTED_VALUE, reason, cap),
+        _spend_state(reason, cap, grant))
 
     # The Great Rift's weekly score against the threshold that pays.
     # **Capped in the DISPLAY**, because the figure runs to seven digits
@@ -5068,66 +5215,64 @@ def _readings(raw, now=None, tracked=None):
     # the week's exp, so once that is capped there is nothing left for
     # them to earn and the day's remainder is not work owed.
     record = _live_pass(raw, now)
+    week_top, level_top, dailies = _pass_limits(record.get("res_id"))
     week_exp = record.get("week_exp")
     # The pass's own `week_id` says which week that EXP belongs to.
     # Nothing zeroes it at the reset, so last week's full 10000 reads
     # as a finished week into a week with nothing done in it.
     if _is_count(week_exp) and not _this_week(record, now):
         week_exp = 0
-    week_full = _is_count(week_exp) and week_exp >= PASS_WEEK_EXP_FULL
+    week_full = _is_count(week_exp) and week_exp >= week_top
     # A maxed pass ends the whole ladder: the dailies feed the week and
     # the week feeds the level, so once the level is full there is
     # nothing either of them can still earn. Read before the rows that
     # use it, the same way `week_full` already settles the dailies.
     level = record.get("free_reward_rank")
-    season_full = _is_count(level) and level >= PASS_LEVEL_FULL
+    season_full = _is_count(level) and level >= level_top
     missions = raw.get(PASS_MISSION_FIELD)
     if isinstance(missions, dict):
         since = weekly_reset.last_daily_reset(now)
         claimed = sum(1 for res_id, row in missions.items()
-                      if _pass_daily_number(res_id)
+                      if _pass_daily_number(res_id, dailies)
                       and _is_count(row.get("complete_time"))
                       and row["complete_time"] >= since)
         out["supply_daily"] = _one(
-            "%d/%d" % (claimed, PASS_DAILY_COUNT),
-            _done(season_full or week_full
-                  or claimed >= PASS_DAILY_COUNT))
+            "%d/%d" % (claimed, dailies),
+            _done(season_full or week_full or claimed >= dailies))
     else:
-        out["supply_daily"] = _one("%s/%d" % (NO_DATA, PASS_DAILY_COUNT), UNKNOWN)
+        out["supply_daily"] = _one("%s/%d" % (NO_DATA, dailies), UNKNOWN)
 
     # The week's EXP and the pass's level, both off the pass's own
     # record. EXP rather than a mission count, because only one of the
     # twelve weekly missions has been identified.
     if _is_count(week_exp):
         out["supply_weekly"] = _one(
-            "%d/%d" % (min(week_exp, PASS_WEEK_EXP_FULL), PASS_WEEK_EXP_FULL),
-            _done(season_full or week_exp >= PASS_WEEK_EXP_FULL))
+            "%d/%d" % (min(week_exp, week_top), week_top),
+            _done(season_full or week_exp >= week_top))
     else:
-        out["supply_weekly"] = _one("%s/%d" % (NO_DATA, PASS_WEEK_EXP_FULL),
-                                UNKNOWN)
+        out["supply_weekly"] = _one("%s/%d" % (NO_DATA, week_top), UNKNOWN)
     if _is_count(level):
-        out["supply_season"] = _one("%d/%d" % (min(level, PASS_LEVEL_FULL),
-                                           PASS_LEVEL_FULL),
-                                _done(level >= PASS_LEVEL_FULL))
+        out["supply_season"] = _one("%d/%d" % (min(level, level_top),
+                                               level_top),
+                                    _done(level >= level_top))
     else:
-        out["supply_season"] = _one("%s/%d" % (NO_DATA, PASS_LEVEL_FULL), UNKNOWN)
+        out["supply_season"] = _one("%s/%d" % (NO_DATA, level_top), UNKNOWN)
 
     # Simulation Challenges: the runs LEFT this week. Stale across a
     # reset the same way a shop row is, and read through the same
     # boundary.
     stage = (raw.get(SIMULATION_FIELD) or {}).get(SIMULATION_STAGE)         if isinstance(raw.get(SIMULATION_FIELD), dict) else None
+    runs = _limit("simulation", SIMULATION_STAGE) or SIMULATION_RUNS
     left = None
     if isinstance(stage, dict) and _is_count(stage.get("count")):
         started = shop_stock.period_start("weekly", raw, now)
         touched = stage.get("reset_time")
         stale = isinstance(touched, int) and touched < started
-        left = SIMULATION_RUNS if stale else max(
-            0, SIMULATION_RUNS - stage["count"])
+        left = runs if stale else max(0, runs - stage["count"])
     if left is None:
-        out["simulation"] = _one("%s/%d" % (NO_DATA, SIMULATION_RUNS), UNKNOWN)
+        out["simulation"] = _one("%s/%d" % (NO_DATA, runs), UNKNOWN)
     else:
-        out["simulation"] = _one("%d/%d" % (left, SIMULATION_RUNS),
-                             _done(left == 0))
+        out["simulation"] = _one("%d/%d" % (left, runs), _done(left == 0))
 
     # The Basin of Hyperspace: objectives done, out of the season's own
     # total. Nothing states the total, so it is how many the season
@@ -5135,11 +5280,13 @@ def _readings(raw, now=None, tracked=None):
     # The Chaos Matrix's reward track, in levels claimed.
     matrix = raw.get(MATRIX_FIELD)
     claimed = matrix.get("reward_level") if isinstance(matrix, dict) else None
+    levels = (_limit("matrix", matrix.get("reward_list_id"))
+              if isinstance(matrix, dict) else None) or MATRIX_LEVELS
     if not _is_count(claimed):
         out["matrix"] = _one(NO_DATA, UNKNOWN)
     else:
-        out["matrix"] = _one("%d/%d" % (claimed, MATRIX_LEVELS),
-                             _done(claimed >= MATRIX_LEVELS))
+        out["matrix"] = _one("%d/%d" % (claimed, levels),
+                             _done(claimed >= levels))
 
     # The Full-Scale Offensive, scored in STARS. Each of its stages
     # carries a `star_count` out of three and its own `best_score`; the
@@ -5169,15 +5316,14 @@ def _readings(raw, now=None, tracked=None):
     # the wire does not carry, and capped at it -- see the Great Rift
     # row above.
     score = _chaos_progress(raw, now)
+    full = _limit("disaster_weekly", _live_season(raw)) or CHAOS_PROGRESS_FULL
     if off_season:
         out["chaos_progress"] = _one(DISASTER_NOT_OPEN, MUTED)
     elif score is None:
-        out["chaos_progress"] = _one("%s/%d" % (NO_DATA, CHAOS_PROGRESS_FULL),
-                                     UNKNOWN)
+        out["chaos_progress"] = _one("%s/%d" % (NO_DATA, full), UNKNOWN)
     else:
-        out["chaos_progress"] = _one(
-            "%d/%d" % (min(score, CHAOS_PROGRESS_FULL), CHAOS_PROGRESS_FULL),
-            _done(score >= CHAOS_PROGRESS_FULL))
+        out["chaos_progress"] = _one("%d/%d" % (min(score, full), full),
+                                     _done(score >= full))
 
     # Every live event: what is left to claim of it, and how long it
     # has. See `EVENT_MISSIONS` -- an event nobody has mapped shows the
@@ -5538,10 +5684,13 @@ def _offensive(raw, now):
     """(stars taken in the live Full-Scale Offensive, stars it holds),
     or (0, None) where the snapshot holds no Offensive at all.
 
-    Its bosses are the rows the board holds, or the most stages a past
-    Offensive on record had, or `OFFENSIVE_BOSSES`, whichever is most: a
-    boss has no row until it is fought. A row of another Offensive than
-    the one running is a past season's and counts nothing.
+    **Its stars are the game client's** for the Offensive running
+    (`remnants_reward`'s most, over its `remnants_boss_penalty_list`
+    stages). Where the client does not hold it, its bosses are the rows
+    the board holds, or the most stages a past Offensive on record had,
+    or `OFFENSIVE_BOSSES`, whichever is most: a boss has no row until it
+    is fought. A row of another Offensive than the one running is a past
+    season's and counts nothing.
 
     **The stars are the board's or the rewards claimed, whichever is
     more.** Resetting a boss zeroes its row's `star_count` and keeps
@@ -5569,7 +5718,8 @@ def _offensive(raw, now):
             and standing.get("define_id") in (None, live)
             and _is_count(standing.get("reward_count"))):
         stars = max(stars, standing["reward_count"])
-    return stars, OFFENSIVE_STARS * bosses
+    stated = _limit("offensives", live)
+    return stars, (stated[1] if stated else OFFENSIVE_STARS * bosses)
 
 
 def _one(text, state):
@@ -5697,10 +5847,11 @@ def _great_rift(raw, now):
     one scores nothing this week. See `_this_week`.
 
     The threshold rides in the chosen row once the week's reward is
-    claimed, and reads 0 until then; `GREAT_RIFT_TARGET` stands in for
-    a 0 as for a row with none. A 0 taken at its word is a target every
-    score clears.
+    claimed, and reads 0 until then; the client's top weekly tier, else
+    `GREAT_RIFT_TARGET`, stands in for a 0 as for a row with none. A 0
+    taken at its word is a target every score clears.
     """
+    stand_in = _limit("rift_target") or GREAT_RIFT_TARGET
     seasons = raw.get(GREAT_RIFT_FIELD)
     live = None
     for slots in (seasons or {}).values() if isinstance(seasons, dict) else ():
@@ -5715,13 +5866,13 @@ def _great_rift(raw, now):
             if live is None or rank > live[0]:
                 live = (rank, row)
     if live is None:
-        return None, GREAT_RIFT_TARGET
+        return None, stand_in
     row = live[1]
     target = row.get("week_total_score_reward")
     score = row["week_total_score"] if _this_week(
         row, now, GREAT_RIFT_WEEK_STAMP) else 0
     return score, (target if _is_count(target) and target > 0
-                   else GREAT_RIFT_TARGET)
+                   else stand_in)
 
 
 def _products_of(key):

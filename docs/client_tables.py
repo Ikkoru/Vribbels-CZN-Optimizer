@@ -124,6 +124,18 @@ def shipped_source(client):
               for key, event in sorted(
                   game_client.payment_events(client).items())]
     lines += ["}", "",
+              "# {kind: figure or {id: figure}}: the Checklist's maximums. "
+              "See game_client.limits.",
+              "LIMITS = {"]
+    for kind, value in sorted(game_client.limits(client).items()):
+        if isinstance(value, dict):
+            lines.append(f"    {ascii(kind)}: {{")
+            lines += [f"        {ascii(key)}: {ascii(figure)},"
+                      for key, figure in sorted(value.items())]
+            lines.append("    },")
+        else:
+            lines.append(f"    {ascii(kind)}: {ascii(value)},")
+    lines += ["}", "",
               "# {schedule id: (episode ids)}. See "
               "game_client.story_chapters.",
               "STORY_CHAPTERS = {"]
@@ -604,7 +616,22 @@ def audit(client):
     out += set_changes(from_client.SET_EFFECTS, effects)
     out += potential_7_problems(client)
     out += node_51_problems(client)
+    out += limit_problems(client)
     return out
+
+
+def limit_problems(client):
+    """Lines naming each of the Checklist's maximums the client states
+    otherwise, over every id the client holds
+    (`checklist_tab.limit_mismatches` with no snapshot): the tab reads
+    the client's, and the constant wants updating."""
+    from ui.tabs import checklist_tab
+    try:
+        game_client.use({"limits": game_client.limits(client)})
+        return [f"Checklist {line}"
+                for line in checklist_tab.limit_mismatches()]
+    finally:
+        game_client.use(None)
 
 
 # The column naming a combatant's own Affinity rows, beside the group

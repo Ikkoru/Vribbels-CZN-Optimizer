@@ -227,6 +227,12 @@ ROLLS_MOVED = (
     "(STATS), run `python docs/preset_weights.py --check`, then `--write`, "
     "and release.")
 
+LIMITS_MOVED = (
+    "The game client states other maximums than the Checklist's own. The "
+    "Checklist reads the client's; update the constants in "
+    "ui/tabs/checklist_tab.py so a player whose client cannot be read "
+    "gets the same.\n\n%s")
+
 
 class OptimizerGUI:
     def __init__(self):
@@ -1251,12 +1257,37 @@ class OptimizerGUI:
             if not getattr(self, "_presets_followed", False):
                 self._presets_follow_client()
             self._report_defaults_updates()
+            self._report_limit_moves()
             return
         self._client_read = None
         game_client.use(facts)
         self._presets_follow_client()
         self._refresh_client_tabs()
         self._report_defaults_updates()
+        self._report_limit_moves()
+
+    def _report_limit_moves(self):
+        """Run from source, tell the maintainer where the Checklist's own
+        maximums and the game client's part
+        (`checklist_tab.limit_mismatches`), for the snapshot loaded: the
+        tab reads the client's, and the constants want updating. Once a
+        launch, and never in a frozen build, whose player has nothing to
+        update."""
+        if getattr(sys, "frozen", False) or self._spacing_audit_wanted() \
+                or getattr(self, "_limits_told", False):
+            return
+        self._limits_told = True
+        import perf_log
+        try:
+            from ui.tabs import checklist_tab
+            raw = getattr(getattr(self, "optimizer", None), "raw_data", None)
+            moved = checklist_tab.limit_mismatches(raw or None)
+        except Exception as exc:                         # noqa: BLE001
+            perf_log.log("limit_mismatches:FAILED", error=repr(exc))
+            return
+        if moved:
+            self._warn("Checklist maximums moved",
+                       LIMITS_MOVED % "\n".join(moved))
 
     def _report_defaults_updates(self):
         """Show what this launch changed in the user's settings

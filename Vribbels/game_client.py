@@ -76,7 +76,7 @@ GAMERES = Path("bin") / "appdata" / "cznlive" / "gameres"
 # reader that changes what it reads raises this: every install then
 # reads its client again once, rather than at the next patch.
 CACHE_FILE = "game_client.json"
-CACHE_FORMAT = 14
+CACHE_FORMAT = 15
 
 # The manifest layout this reads. A different version is a different
 # layout until shown otherwise.
@@ -186,6 +186,29 @@ PAYMENT_TIERS = "event_payment_reward@event_payment_reward"
 # code's achievement key>_<n>`, and its sticker (`style_link_item_id`)
 # once every one is claimed. Its row is `TRAUMA_CODE_TABLE`'s.
 TRAUMA_ACHIEVEMENTS = "trauma_code_achievement@trauma_code_achievement"
+
+# What the Checklist counts up to, where the client states it: the
+# day's Activity tiers, the weekly currencies' grants and caps, each
+# Arkhianon Supply's weekly EXP, top level and daily missions, the
+# Simulation Challenges' weekly runs, each Full-Scale Offensive's
+# bosses and stars, each Zero System reward track's top level, each
+# Galactic Disaster season's weekly score, the Great Rift's top weekly
+# tier, each Overclock's daily runs, and the Galactic Disaster's
+# constants -- its shop pages' day offsets among them. See `limits`.
+ACTIVITY_TIERS = "guide_daily@guide_daily"
+WEEKLY_CHARGES = "currency_charge@currency_charge"
+PASS_TABLE = "season_pass@season_pass"
+PASS_MISSIONS = "season_pass_mission@season_pass_mission"
+SIMULATION_TABLE = "simulation_content_define@simulation_content_define"
+OFFENSIVE_DEFINES = "remnants_boss_penalty_define@remnants_boss_penalty_define"
+OFFENSIVE_STAGES = "remnants_boss_penalty_list@remnants_boss_penalty_list"
+OFFENSIVE_REWARDS = "remnants_reward@remnants_reward"
+MATRIX_LISTS = "zero_reward@zero_reward_list"
+MATRIX_LEVELS = "zero_reward@zero_reward"
+DISASTER_SEASONS = "disaster_season@disaster_season"
+RIFT_TIERS = "disaster_rank_score_reward@disaster_rank_score_reward"
+OVERCLOCK_TABLE = "event_overclock@event_overclock"
+DISASTER_CONSTANTS = "disaster_constant_meta@disaster_constant_meta"
 # The columns of `event@event` that carry a schedule's id. Its own `id`
 # is the event's number, never a schedule, and kept out so a family
 # worked out over these keys holds instalments and nothing else.
@@ -771,6 +794,123 @@ def payment_events(client):
     return out
 
 
+def limits(client):
+    """{kind: figure or {id: figure}}: the maximums the Checklist counts
+    against, where the client states them (`ACTIVITY_TIERS` and the
+    rest). Each kind is read alone, and one whose table is missing or
+    reads wrong is left out: the Checklist's own figure stands for it.
+
+    * `activity`: the day's Activity, its top tier's points;
+    * `charges`: {res_id: [what a week adds, the cap]};
+    * `passes`: {pass id: [weekly EXP, top level, daily missions]};
+    * `simulation`: {content id: weekly runs};
+    * `offensives`: {define id: [bosses, stars]};
+    * `matrix`: {reward list id: top level};
+    * `disaster_weekly`: {season: the week's top score};
+    * `rift_target`: the Great Rift's top weekly tier;
+    * `overclocks`: {event id: daily runs};
+    * `disaster_constants`: {constant id: figure}, the Galactic
+      Disaster's, its shop pages' days into the season's schedule among
+      them (`unlock_disaster_shop_<page>`).
+    """
+    readers = {
+        "activity": lambda: max(_figure(row.get("point_count")) or 0
+                                for row in client.rows(ACTIVITY_TIERS)),
+        "charges": lambda: {
+            row["id"]: [_figure(row["add_value"]), _figure(row["max"])]
+            for row in client.rows(WEEKLY_CHARGES)
+            if row.get("charge_type") == "CHARGE_WEEK"},
+        "passes": lambda: _passes(client),
+        "simulation": lambda: {
+            row["id"]: _figure(row["limit_count"])
+            for row in client.rows(SIMULATION_TABLE)
+            if row.get("limit_type") == "LIMIT_WEEK"},
+        "offensives": lambda: _offensives(client),
+        "matrix": lambda: _matrix_levels(client),
+        "disaster_weekly": lambda: {
+            row["id"]: _figure(row["max_clear_score"])
+            for row in client.rows(DISASTER_SEASONS)},
+        "rift_target": lambda: max(_figure(row.get("total_reward")) or 0
+                                   for row in client.rows(RIFT_TIERS)),
+        "overclocks": lambda: {
+            row["id"]: _figure(row["limit_count"])
+            for row in client.rows(OVERCLOCK_TABLE)
+            if row.get("limit_type") == "LIMIT_DAY"},
+        "disaster_constants": lambda: {
+            row["id"]: _figure(row["value"])
+            for row in client.rows(DISASTER_CONSTANTS)
+            if isinstance(_figure(row.get("value")), int)},
+    }
+    out = {}
+    for kind, read in readers.items():
+        try:
+            value = read()
+        except (KeyError, ValueError, TypeError):
+            continue
+        if isinstance(value, dict):
+            value = {key: figure for key, figure in value.items()
+                     if _whole(figure)}
+        if value and (isinstance(value, dict) or _whole(value)):
+            out[kind] = value
+    return out
+
+
+def _whole(figure):
+    """Whether a limit's figure is a count, or a list of them."""
+    if isinstance(figure, list):
+        return bool(figure) and all(_whole(f) for f in figure)
+    return isinstance(figure, int) and not isinstance(figure, bool) \
+        and figure > 0
+
+
+def _passes(client):
+    """{pass id: [weekly EXP, top level, daily missions]} for every pass
+    not retired. A pass's missions are `<its mission key>_<n>`; the
+    daily ones reset daily."""
+    missions = client.rows(PASS_MISSIONS)
+    out = {}
+    for row in client.rows(PASS_TABLE):
+        if row.get("delete_flag") == "YES":
+            continue
+        daily = sum(1 for mission in _numbered(missions, row.get("mission_key"))
+                    if mission.get("reset_type") == "RESET_DAILY")
+        out[row["id"]] = [_figure(row.get("weekly_max_exp")),
+                          _figure(row.get("max_level")), daily]
+    return out
+
+
+def _offensives(client):
+    """{define id: [bosses, stars]} for every Full-Scale Offensive: its
+    stages, and the most stars its reward track pays for."""
+    stages = client.rows(OFFENSIVE_STAGES)
+    rewards = client.rows(OFFENSIVE_REWARDS)
+    out = {}
+    for row in client.rows(OFFENSIVE_DEFINES):
+        bosses = sum(1 for stage in stages
+                     if stage.get("link_remnants_boss_penalty_define_id")
+                     == row["id"])
+        # `ink_` is the table's own spelling of `link_`, and the plain
+        # one stands by for a patch that corrects it.
+        track = _numbered(rewards, row.get("ink_remnants_reward_key")
+                          or row.get("link_remnants_reward_key"))
+        stars = max((_figure(tier.get("total_star_count")) or 0
+                     for tier in track), default=0)
+        out[row["id"]] = [bosses, stars]
+    return out
+
+
+def _matrix_levels(client):
+    """{reward list id: its top level}: a list names its track's key, and
+    the track's rows are `<key>_<n>`, each a level."""
+    levels = client.rows(MATRIX_LEVELS)
+    out = {}
+    for row in client.rows(MATRIX_LISTS):
+        track = _numbered(levels, row.get("link_zero_reward_key"))
+        out[row["id"]] = max((_figure(level.get("reward_level")) or 0
+                              for level in track), default=0)
+    return out
+
+
 def trial_slots(client):
     """{trial id: [slot ids]}: every slot a Combatant Trial offers, in
     its order. The wire names a slot only when it is claimed."""
@@ -1261,6 +1401,7 @@ def read_facts(install):
         "event_totals": event_totals(client),
         "trial_slots": trial_slots(client),
         "payment_events": payment_events(client),
+        "limits": limits(client),
         "story_chapters": story_chapters(client),
         "item_names": {str(res_id): name for res_id, name
                        in item_names(client).items()},
@@ -1397,6 +1538,8 @@ _facts = None
 _rarities = None
 # How many times `use` has run: see `generation`.
 _generation = 0
+# `known_limits`, worked out once per `use`.
+_limits = None
 
 
 def use(facts):
@@ -1405,9 +1548,10 @@ def use(facts):
     Affinity and slot options over the hand tables
     (`game_data.client_overlay`). None goes back to the shipped tables
     alone."""
-    global _facts, _rarities, _generation
+    global _facts, _rarities, _generation, _limits
     _facts = facts if isinstance(facts, dict) else None
     _rarities = None
+    _limits = None
     _generation += 1
     from game_data import client_overlay
     client_overlay.apply(_facts)
@@ -1447,6 +1591,30 @@ def known_event_totals():
                 and all(isinstance(n, int) and n >= 0 for n in value)):
             out[key] = tuple(value)
     return out
+
+
+def known_limits():
+    """{kind: figure or {id: figure}}: the shipped table, with what this
+    machine's client says over it, kind by kind and, within a kind, id
+    by id. See `limits`. Worked out once per `use`: the Checklist asks
+    for one on every row it reads."""
+    global _limits
+    if _limits is None:
+        from game_data import from_client
+        out = {}
+        for source in (getattr(from_client, "LIMITS", {}),
+                       (_facts or {}).get("limits") or {}):
+            for kind, value in (source.items() if isinstance(source, dict)
+                                else ()):
+                if isinstance(value, dict):
+                    held = out.setdefault(kind, {})
+                    if isinstance(held, dict):
+                        held.update({key: figure for key, figure
+                                     in value.items() if _whole(figure)})
+                elif _whole(value):
+                    out[kind] = value
+        _limits = out
+    return _limits
 
 
 def known_trial_slots():
