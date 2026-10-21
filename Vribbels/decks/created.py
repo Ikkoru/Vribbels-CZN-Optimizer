@@ -18,11 +18,12 @@ table (plan D14):
 
 from dataclasses import dataclass, field
 
-from .catalogue import _list
+from .catalogue import _list, chained
 from .exceptions import EXCEPTIONS
 from .model import DeckCard
 from .turns import (AT_START, BATTLE, EPHEMERAL, EXHAUST, PLAY, REGULAR, REMOVE,
-                    SETUP, UPGRADE, Figure, _keyword, _trigger_words, fires, played)
+                    SETUP, UPGRADE, Figure, _keyword, _trigger_words, available,
+                    by_this_effect, fires, played)
 
 CARD_GETS = ("SKILL_EFF_CARD_GET", "SKILL_EFF_CARD_GET_IGNORE_COND",
              "SKILL_EFF_CARD_GET_USER", "SKILL_EFF_CARD_GET_REPLACED")
@@ -82,8 +83,10 @@ class CreatedCard:
     needs_draw: bool = True
     # How many a turn counts: a creation's count, made once a turn.
     copies: int = 1
-    # Made every time and staying: the deck grows by `copies` a turn
-    # (plan D16).
+    # Made every time its maker plays or its trigger fires, as against
+    # once; and made every time and staying: the deck grows by `copies`
+    # a turn (plan D16).
+    every_time: bool = False
     grows: bool = False
     # It changes no sum (plan D43): to hand, free, gone by the turn's
     # end, with no draw, AP or creation of its own.
@@ -172,6 +175,19 @@ def creations(effect_ids, catalogue, once_by_kind):
                 lasting = status.get("term_type_1") in LASTING
                 walk(_list(status.get("link_skill_eff_id")), via_lasting or lasting, fired,
                      here, words)
+            # Its follow-ups: those met by this effect's own work, then
+            # those the battle decides. Each group is walked together so
+            # the keywords a creation's follow-up gives (`_what_follows`)
+            # reach the card it makes.
+            met, gated = [], []
+            for condition, follow in chained(effect):
+                waits = condition and not by_this_effect(condition, catalogue) \
+                    and not available(condition, catalogue)
+                (gated if waits else met).append((condition, follow))
+            walk([follow for _condition, follow in met], via_lasting, fired, here, words)
+            if gated:
+                walk([follow for _condition, follow in gated], via_lasting, True, BATTLE,
+                     words or _trigger_words(*gated[0], catalogue))
 
     walk(list(effect_ids), False, False, PLAY, "")
     return out
@@ -223,6 +239,9 @@ def _place(creation, by, by_name, catalogue, every_time, upgrades, notes=(), dep
     if creation.cost_change and not made.cost.unknown:
         made.cost = Figure(max(0, made.cost.value + creation.cost_change))
     exception = EXCEPTIONS.get(card_id) or EXCEPTIONS.get(base_id, {})
+    # NOT a repeat of `played`'s: that one knows only the upgrade's id,
+    # so misses an upgraded card's base entry, and the maker's cost
+    # change comes after it. The practical cost is the final word.
     if "cost" in exception:
         made.cost = Figure(exception["cost"])
     gone = _gone(card_id, talents, catalogue) and not exception.get("cycles")
@@ -236,13 +255,14 @@ def _place(creation, by, by_name, catalogue, every_time, upgrades, notes=(), dep
             and not (made.draw.value or made.draw.unknown or made.ap.value
                      or made.ap.unknown)
             and not creations(catalogue.card(card_id)["effects"], catalogue, gone))
-    if exception.get("why"):
+    # `played` notes a practical cost's reason already.
+    if exception.get("why") and exception["why"] not in made.notes:
         notes.append(exception["why"])
     out = [CreatedCard(
         creation=creation, by=by, card=card_id, played=made,
         gone=gone, turns=turns, needs_draw=needs_draw,
         copies=creation.count if creation.count is not None else 1,
-        grows=every_time and not gone, idle=idle,
+        every_time=every_time, grows=every_time and not gone, idle=idle,
         hidden=bool(exception.get("hidden") or exception.get("ignore")),
         notes=notes + ([] if creation.count is not None
                        else ["how many the battle decides: 1 assumed"]))]

@@ -79,8 +79,11 @@ def _rule(god=None, **conditions):
 
 def _catalogue(points):
     from decks.catalogue import Catalogue
-    cards = {_own(kind): _card("SORT_START", "CARD_ATK") for kind in OWN[:3]}
-    cards.update({_own(kind): _card("SORT_UNIQUE") for kind in OWN[3:]})
+    # As in the client, the Basic cards and the Mythic one take no Epiphany.
+    cards = {_own(kind): _card("SORT_START", "CARD_ATK", epiphany=False)
+             for kind in OWN[:3]}
+    cards.update({_own(kind): _card("SORT_UNIQUE", epiphany=kind != "uni4")
+                  for kind in OWN[3:]})
     cards.update({
         _own("srt4_rsp1"): _card("SORT_UNIQUE", "CARD_ATK", 2,
                                  talents=["TALENT_ORIGIN"]),
@@ -116,6 +119,7 @@ def _catalogue(points):
                                          cost_min=2),
             "add_r_spark_vitor_free": _rule("vitor", categories=["CARD_ATK"],
                                             cost_max=0),
+            "add_r_spark_vitor_skill": _rule("vitor", categories=["CARD_SKILL"]),
         },
         "persona": {
             "slots": {"card_eid_a": {"count": 2, "tags": []},
@@ -268,6 +272,16 @@ def _warning_cases():
          {"divine"}),
         ("a Divine Epiphany the replace cost would fit",
          _deck(C("card_ne_a", divine="add_r_spark_vitor_free")), {"divine"}),
+        ("a Neutral Epiphany on a card that takes one",
+         _deck(C(_own("uni1"), neutral="c_skill"), drop=["uni1"]), set()),
+        ("a Neutral Epiphany on a card that takes none",
+         _deck(C(_own("uni4"), neutral="c_skill"), drop=["uni4"]), {"neutral"}),
+        ("a Divine Epiphany on a card that takes one",
+         _deck(C(_own("uni1"), divine="add_r_spark_vitor_skill"), drop=["uni1"]),
+         set()),
+        ("a Divine Epiphany on a card that takes none",
+         _deck(C(_own("uni4"), divine="add_r_spark_vitor_skill"), drop=["uni4"]),
+         {"divine"}),
         ("a Persona with one effect twice",
          _deck(C("card_eid_a", persona=("ds03_lux_0001",) * 2)), set()),
         ("a Persona with three effects",
@@ -581,4 +595,12 @@ FAULTS = [
     ("the owned Combatant's partner ignored", "decks.rules:warnings",
      "partner_id = deck.state(owned).partner", "partner_id = deck.partner",
      "an owned Combatant's captured partner"),
+    ("a Neutral Epiphany let onto a card that takes none", "decks.rules:warnings",
+     'elif not card.get("epiphany", True):\n                warn("neutral"',
+     'elif False:\n                warn("neutral"',
+     "a Neutral Epiphany on a card that takes none"),
+    ("a Divine Epiphany let onto a card that takes none", "decks.rules:warnings",
+     'elif not card.get("epiphany", True):\n                warn("divine"',
+     'elif False:\n                warn("divine"',
+     "a Divine Epiphany on a card that takes none"),
 ]

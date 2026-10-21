@@ -68,8 +68,11 @@ class DeckCard:
     converted_away: bool = False
     conversion: int | None = None
     # The user's own figures, over what `turns` reads: "cost", "draw",
-    # "ap" (a number, for a figure the battle decides; plan D12) and
-    # "turns" ("setup", "regular" or "neither"; plan 3.2).
+    # "ap" (a number, for a figure the battle decides; plan D12),
+    # "turns" ("setup", "regular" or "neither"; plan 3.2), and "plays"
+    # and "drawn", how many times a turn the deck plays it (Retrieve) and
+    # draws it (an Attunement card discarded and drawn again), 1 unless
+    # set.
     overrides: dict = field(default_factory=dict)
 
     @property

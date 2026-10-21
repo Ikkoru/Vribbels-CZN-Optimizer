@@ -15,7 +15,8 @@ from ._harness import add_source_to_path, note
 NAME = "per-card cost, draw and AP gain"
 
 # (card id, Signature Epiphany, cost, draw, AP gain): what the Deck Calcs
-# tab gives for a card and the program reads off it as printed.
+# tab gives for a card and the program reads off it, as printed or as
+# decks/exceptions.py prices it.
 DECK_CALCS = [
     ("c_1003_srt4", 0, 1, 1, 0),
     ("c_1003_uni3", 0, 0, 1, 0), ("c_1003_uni3", 1, 0, 2, 0),
@@ -27,6 +28,7 @@ DECK_CALCS = [
     ("c_1028_srt1", 0, 1, 0, 0), ("c_1033_uni1", 1, 0, 2, 0),
     ("c_1049_uni1", 5, 0, 1, 0), ("c_1049_uni2", 0, 1, 0, 0),
     ("c_1049_uni2", 4, 0, 0, 0), ("c_1052_uni1", 2, 0, 0, 2),
+    ("c_1052_uni4", 0, 0, 0, 0),
     ("c_1055_uni2_mut1", 0, 0, 0, 0), ("c_1055_uni2_mut2", 0, 0, 0, 0),
     ("c_1055_uni3", 4, 0, 0, 0), ("c_1056_srt4", 0, 1, 0, 0),
     ("c_1056_uni4", 0, 1, 0, 0), ("c_1057_srt2", 0, 2, 0, 0),
@@ -189,6 +191,29 @@ def _catalogue():
                             eff_link_condition_id="cd_turn"),
         "make_made": _make("[c_9_made]"),
         "make_dirge": _make("[c_1041_cre1]"),
+        # Attunement: a status on the card itself, drawing 1 and giving 1
+        # AP each time it is drawn; and the same status on other cards and
+        # on the unit.
+        "attune_put": _effect(STATUS, operation="OPERATION_PASSIVE",
+                              target_card_set="CARD_SET_THIS_CARD", link_cs_id="[st_attuned]"),
+        "attune_others": _effect(STATUS, target_card_set="CARD_SET_ALL",
+                                 target_card_set_list_card_place="CARD_PLACE_HAND",
+                                 link_cs_id="[st_attuned]"),
+        "attune_unit": _effect(STATUS, target_card_set="CARD_SET_NONE",
+                               link_cs_id="[st_attuned]"),
+        "attune_draw": _effect(DRAW, operation="OPERATION_TRIGGER",
+                               eff_link_condition_id="cd_attuned"),
+        "attune_ap": _effect(ENERGY, operation="OPERATION_TRIGGER", sign="MATHSIGN_ADD",
+                             eff_link_condition_id="cd_attuned"),
+        "hit": _effect("SKILL_EFF_DMG", 100),
+        # A discard whose follow-ups make a card, on the discard being
+        # done, and draw, on the battle's condition.
+        "discard_then": _effect("SKILL_EFF_CARD_DISCARD", target_card_set="CARD_SET_ALL",
+                                target_card_set_list_card_place="CARD_PLACE_HAND",
+                                during_eff_0_link_skill_eff_id="make_temp_hand",
+                                during_eff_0_link_condition_id="cd_by_this",
+                                during_eff_1_link_skill_eff_id="draw1",
+                                during_eff_1_link_condition_id="cd_battle"),
     }
     statuses = {
         "st_self": {"link_skill_eff_id": "[self_move]", "term_type_1": "TERM_BATTLE"},
@@ -214,6 +239,7 @@ def _catalogue():
         "st_lb4": {"link_skill_eff_id": "[start_make]", "term_type_1": "TERM_BATTLE"},
         "st_lb6": {"link_skill_eff_id": "[turn_ap2]", "term_type_1": "TERM_BATTLE"},
         "st_eq_maker": {"link_skill_eff_id": "[battle_make]", "term_type_1": "TERM_BATTLE"},
+        "st_attuned": {"link_skill_eff_id": "[attune_draw,attune_ap]", "term_type_1": "TERM_BATTLE"},
     }
     conditions = {
         "cd_pile": _condition({"condition_card": "CONDITION_CARD_AMOUNT",
@@ -242,6 +268,18 @@ def _catalogue():
         "cd_turn_begin": _checked_at(["TIMING_TURN_BEGIN"]),
         "cd_card_use": _checked_at(["TIMING_USE_CARD_FINISH"]),
         "cd_first_turn_use": _checked_at(["TIMING_USE_CARD_FINISH"], first_turn=True),
+        # Attunement's: a card holding the status is drawn. And a
+        # follow-up's: a card discarded through this effect.
+        "cd_attuned": _condition({"condition_card": "CONDITION_CARD_DRAW",
+                                  "condition_card_opt": "[card_with_this_cs]",
+                                  "condition_card_card_place": "CARD_PLACE_NONE",
+                                  "condition_card_value_ineq": "INEQUALITY_EQ",
+                                  "condition_card_value": "1"}),
+        "cd_by_this": _condition({"condition_card": "CONDITION_CARD_DISCARD",
+                                  "condition_card_opt": "[by_this_card_eff]",
+                                  "condition_card_card_place": "CARD_PLACE_NONE",
+                                  "condition_card_value_ineq": "INEQUALITY_EQ",
+                                  "condition_card_value": "1"}),
     }
     cards = {
         "c_9_plain": _card(effects=["draw1", "ap1"]),
@@ -326,6 +364,23 @@ def _catalogue():
                          effects=["draw2", "make_temp_hand", "make_stay"]),
         "c_9_eps_lbk": _card(category="CARD_ATK", cost=4, effects=["draw1"], name="Ego"),
         "p_7": _card(cost=3, effects=["ap1"], name="Partner Ego"),
+        # Attunement: a card drawn for it and never played (an Exhaust
+        # Skill, as Forbidden: Eternal Hunger is), one played as well, and
+        # one putting it on other cards; Mealtime, which the exceptions
+        # table prices at 0, and its Ego Manifestation version.
+        "c_9_attuned": _card(cost=0, effects=["attune_put"], talents=["TALENT_EXHAUST"],
+                             name="Attuned"),
+        "c_9_attuned_attack": _card(category="CARD_ATK", effects=["hit", "attune_put"],
+                                    name="Attuned Attack"),
+        "c_9_attunes_others": _card(effects=["attune_others"], name="Attunes Others"),
+        "c_9_attunes_unit": _card(effects=["attune_unit"], name="Attunes Unit"),
+        "c_1052_uni4": _card(category="CARD_ATK", cost=6, name="Mealtime"),
+        "c_1052_uni4_lbk": _card(category="CARD_ATK", cost=6, name="Mealtime"),
+        # The discard's follow-ups, on a card played every turn and on one
+        # played once.
+        "c_9_discarder": _card(cost=0, effects=["discard_then"], name="Discarder"),
+        "c_9_discarder_once": _card(cost=0, effects=["discard_then"],
+                                    talents=["TALENT_EXHAUST"], name="Discarder Once"),
     }
     return Catalogue({
         "cards": cards, "effects": effects, "statuses": statuses,
@@ -784,6 +839,76 @@ def _progress_report():
     return out
 
 
+def _replays_report():
+    """Attunement, a card's plays and draws a turn, follow-up effects,
+    and an exception priced for a deck card."""
+    from decks import created, turns
+    from decks.model import Deck, DeckCard
+    catalogue = _catalogue()
+    out = []
+    if turns.fires("cd_attuned", catalogue) != turns.DRAWN:
+        out.append("Attunement's condition (a card holding the status is drawn) does not "
+                   "read as firing each time the card is drawn. See `fires` and "
+                   "`_attunement` in decks/turns.py.")
+    hunger = turns.played(DeckCard("c_9_attuned", overrides={"drawn": 3}), catalogue)
+    got = (hunger.unplayed, hunger.turns, hunger.per_turn())
+    if got != (True, "regular", (3, 0, 3, 3)):
+        out.append(f"a card drawn for its Attunement alone, 3 times a turn, reads as "
+                   f"(never played, list, (cards, cost, draw, AP a turn)) {got}, not (True, "
+                   f"'regular', (3, 0, 3, 3)): each draw takes a draw and gives its own, "
+                   f"and it is never played. See `played` in decks/turns.py.")
+    attack = turns.played(DeckCard("c_9_attuned_attack"), catalogue)
+    if (attack.unplayed, attack.per_turn()) != (False, (1, 1, 1, 1)):
+        out.append(f"a card played that is also attuned reads as never played "
+                   f"{attack.unplayed}, a turn {attack.per_turn()}, not False and (1, 1, 1, 1).")
+    for card in ("c_9_attunes_others", "c_9_attunes_unit"):
+        others = turns.played(DeckCard(card), catalogue)
+        if others.drawn_draw.value or others.draw.value:
+            out.append(f"an Attunement put on other cards or the unit ({card}) counts as "
+                       f"this card's own draw: theirs fires on another card's draw.")
+    replayed = turns.played(DeckCard("c_9_plain", overrides={"plays": 3}), catalogue)
+    if replayed.per_turn() != (1, 3, 3, 3):
+        out.append(f"a card played 3 times a turn reads a turn as {replayed.per_turn()}, not "
+                   f"(1, 3, 3, 3): its cost, draw and AP times its plays, one draw.")
+    held = turns.deck_turns(Deck(combatant=9, cards=[DeckCard("c_9_maker_hand",
+                                                              overrides={"plays": 2})]),
+                            catalogue)
+    temps = sum(1 for card in held.regular_cards if card.card == "c_9_temp")
+    if temps != 4:
+        out.append(f"a card played twice a turn, making 2 cards each time, puts {temps} of "
+                   f"them in the regular list, not 4. See `deck_turns` in decks/turns.py.")
+    mealtime = turns.played(DeckCard("c_1052_uni4"), catalogue,
+                            {"c_1052_uni4": "c_1052_uni4_lbk"})
+    if (mealtime.card, mealtime.cost.value) != ("c_1052_uni4_lbk", 0):
+        out.append(f"Mealtime, upgraded, costs {mealtime.cost.value}: the exceptions "
+                   f"table's practical cost holds for a deck card and its upgrade. See "
+                   f"`played` in decks/turns.py and decks/exceptions.py.")
+    discarder = turns.played(DeckCard("c_9_discarder"), catalogue)
+    made = created.created_cards(DeckCard("c_9_discarder"), discarder, catalogue)
+    if [m.card for m in made] != ["c_9_temp"] or str(discarder.draw) != "?":
+        out.append(f"a discard's follow-ups read as making {[m.card for m in made]} and "
+                   f"drawing {discarder.draw}, not one Temp card, made on the discard being "
+                   f"done, and a draw the battle decides. See `chained` in "
+                   f"decks/catalogue.py and `by_this_effect` in decks/turns.py.")
+    held = DeckCard("c_9_discarder_once")
+    made = [(m.card, m.every_time)
+            for m in created.created_cards(held, turns.played(held, catalogue), catalogue)]
+    if made != [("c_9_temp", False)]:
+        out.append(f"a card played once, whose discard's follow-up makes a card, reads as "
+                   f"making {made}, not one Temp card made once: that follow-up waits on "
+                   f"the discard alone, not on its sibling's condition of the battle's. "
+                   f"See `creations` in decks/created.py.")
+    upgrade = turns.deck_turns(Deck(combatant=9, cards=[DeckCard("c_9_upgrade_hand",
+                                                                 overrides={"plays": 2})]),
+                               catalogue)
+    temps = sum(1 for card in upgrade.setup_cards if card.card == "c_9_temp")
+    if temps != 2:
+        out.append(f"an Upgrade played twice a turn, making 2 cards once, puts {temps} of "
+                   f"them in the setup list, not 2: its plays multiply only what it makes "
+                   f"every time.")
+    return out
+
+
 def _ego_report():
     """The Ego skills behind the team's options (plan D2, D40): used once,
     in setup turn 1, for Ego Points, and what the Combatant's makes,
@@ -913,7 +1038,7 @@ def run():
     add_source_to_path()
     return (_rules_report() + _totals_report() + _bonuses_report() + _pool_report()
             + _setup_report() + _created_report() + _progress_report() + _ego_report()
-            + _deck_calcs_report())
+            + _replays_report() + _deck_calcs_report())
 
 
 FAULTS = [
@@ -969,8 +1094,7 @@ FAULTS = [
     ("the user's figure ignored", "decks.turns:played",
      "if key in held.overrides:", "if False:", "the user's own figure"),
     ("a card left out of its list's count", "decks.turns:Sums.add",
-     "self.cards += 1 if played.needs_draw else 0", "pass",
-     "a deck's regular list sums"),
+     "self.cards += cards", "pass", "a deck's regular list sums"),
     ("a deck's corrections left out", "decks.turns:deck_turns",
      "out.draw_adjustment += adjustment.draw", "pass", "the user's corrections"),
     ("the turn's draw typed in", "decks.turns:team_turns",
@@ -1014,7 +1138,8 @@ FAULTS = [
      "exception = EXCEPTIONS.get(card_id) or EXCEPTIONS.get(base_id, {})", "exception = {}",
      "an exception the maintainer ignores"),
     ("a made card's copies counted once", "decks.turns:deck_turns",
-     "listed[made.turns].extend([copy] * made.copies)", "listed[made.turns].append(copy)",
+     "listed[made.turns].extend([copy] * made.copies * times)",
+     "listed[made.turns].extend([copy] * times)",
      "a deck whose card makes two cards into hand"),
     ("a growing deck not flagged", "decks.created:_place",
      "grows=every_time and not gone", "grows=False",
@@ -1022,7 +1147,7 @@ FAULTS = [
     ("one of several not noted", "decks.created:_place",
      "if creation.pick or creation.pool:", "if False:", "one of two cards made"),
     ("an exception's practical cost ignored", "decks.created:_place",
-     'if "cost" in exception:', "if False:", "an exception's practical cost"),
+     'if "cost" in exception:', "if False:", "Dirge Bullet's at its exception's 0"),
     ("hidden and idle made cards counted", "decks.turns:deck_turns",
      "if made.hidden or made.idle or made.turns not in listed:",
      "if made.turns not in listed:", "is counted in a list"),
@@ -1063,11 +1188,11 @@ FAULTS = [
      'return (deck.ap_pool if deck.ap_pool is not None else cap), card.card, held["pays"]',
      'return cap, card.card, held["pays"]', "the user's own pool figure"),
     ("the pool saving nothing", "decks.turns:DeckTurns.pool_saving",
-     "return min(self.pool, sum(card.cost.value for card in self.regular_cards",
-     "return 0 * min(self.pool, sum(card.cost.value for card in self.regular_cards",
+     "return min(self.pool, sum(card.per_turn()[1] for card in self.regular_cards",
+     "return 0 * min(self.pool, sum(card.per_turn()[1] for card in self.regular_cards",
      "the pool, capped by the client's status"),
     ("the pool unused in setup", "decks.turns:plan_setup",
-     "paid = min(pool, card.cost.value) if card.pool_paid else 0", "paid = 0",
+     "paid = min(pool, card.per_turn()[1]) if card.pool_paid else 0", "paid = 0",
      "with Rita's pool switched on"),
     ("the pool never switched on in setup", "decks.turns:plan_setup",
      "gained_pool += sum(card.pool_switch for card in now)", "pass",
@@ -1162,4 +1287,61 @@ FAULTS = [
      "for made in created_cards(DeckCard(skill.card), skill, catalogue,",
      "for made in [] and created_cards(DeckCard(skill.card), skill, catalogue,",
      "the Ego skill's cards"),
+    ("Attunement not read", "decks.turns:fires",
+     "if len(controls) == 1 and _attunement(controls[0]):", "if False:",
+     "Attunement's condition"),
+    ("an Attunement on the unit read as this card's", "decks.turns:_Reader.walk",
+     "if timing == DRAWN and holder != SELF:", "if False:",
+     "an Attunement put on other cards or the unit"),
+    ("a card drawn for its Attunement read as played", "decks.turns:played",
+     "unplayed = any(f.value or f.unknown for f in drawn.values()) and not any(",
+     "unplayed = False and not any(", "drawn for its Attunement alone"),
+    ("a card drawn for its Attunement left in setup", "decks.turns:played",
+     "if unplayed:\n        turns = REGULAR", "if unplayed:\n        turns = SETUP",
+     "drawn for its Attunement alone"),
+    ("a card's plays a turn ignored", "decks.turns:Played.per_turn",
+     "plays = 0 if self.unplayed else self.plays", "plays = 0 if self.unplayed else 1",
+     "a card played 3 times a turn"),
+    ("a card's draws a turn ignored", "decks.turns:Played.per_turn",
+     "cards = self.drawn if self.needs_draw else 0", "cards = 1 if self.needs_draw else 0",
+     "drawn for its Attunement alone"),
+    ("an Attunement's draw ignored", "decks.turns:Played.per_turn",
+     "self.draw.value * plays + self.drawn_draw.value * self.drawn",
+     "self.draw.value * plays", "drawn for its Attunement alone"),
+    ("the user's plays a turn not read", "decks.turns:played",
+     'plays=int(held.overrides.get("plays", 1))', "plays=1",
+     "a card played 3 times a turn"),
+    ("the user's draws a turn not read", "decks.turns:played",
+     'drawn=int(held.overrides.get("drawn", 1))', "drawn=1",
+     "drawn for its Attunement alone"),
+    ("a maker's plays not multiplying what it makes", "decks.turns:deck_turns",
+     "times = plays if made.every_time else 1", "times = 1",
+     "a card played twice a turn, making 2 cards"),
+    ("a maker's plays multiplying what it makes once", "decks.turns:deck_turns",
+     "times = plays if made.every_time else 1", "times = plays",
+     "an Upgrade played twice a turn"),
+    ("a maker's plays not passed on", "decks.turns:deck_turns",
+     "place(made, played_card.plays)", "place(made)",
+     "a card played twice a turn, making 2 cards"),
+    ("the exceptions table ignored for a deck card", "decks.turns:played",
+     "exception = EXCEPTIONS.get(card_id) or EXCEPTIONS.get(held.card, {})",
+     "exception = {}", "Mealtime, upgraded, costs"),
+    ("an exception not held for a deck card's upgrade", "decks.turns:played",
+     "exception = EXCEPTIONS.get(card_id) or EXCEPTIONS.get(held.card, {})",
+     "exception = EXCEPTIONS.get(card_id, {})", "Mealtime, upgraded, costs"),
+    ("follow-ups not read", "decks.turns:_Reader.walk",
+     "for follow_condition, follow in chained(effect):",
+     "for follow_condition, follow in ():", "a discard's follow-ups"),
+    ("a follow-up the battle decides read as met", "decks.turns:_Reader.walk",
+     "mode_now = BATTLE", "pass", "a discard's follow-ups"),
+    ("follow-ups' cards not made", "decks.created:creations",
+     "for condition, follow in chained(effect):", "for condition, follow in ():",
+     "a discard's follow-ups"),
+    ("a follow-up met by its own effect read as the battle's", "decks.turns:by_this_effect",
+     "return bool(controls) and all(", "return False and all(",
+     "a card played once, whose discard's follow-up"),
+    ("met follow-ups gated with their siblings", "decks.created:creations",
+     "walk([follow for _condition, follow in met], via_lasting, fired, here, words)",
+     "walk([follow for _condition, follow in met], via_lasting, True, BATTLE, words)",
+     "a card played once, whose discard's follow-up"),
 ]

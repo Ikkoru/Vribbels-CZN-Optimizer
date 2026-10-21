@@ -120,6 +120,19 @@ def _upgrade_with_versions(data):
     return dict(data, versions=dict(data["versions"], **{base: {"1": base}}))
 
 
+def _follow_gone(data):
+    from decks.catalogue import chained
+    follows = {child for effect in data["effects"].values()
+               for _condition, child in chained(effect)}
+    return dict(data, effects={key: effect for key, effect in data["effects"].items()
+                               if key not in follows})
+
+
+def _every_card_able(data):
+    return dict(data, cards={key: dict(card, epiphany=True)
+                             for key, card in data["cards"].items()})
+
+
 def _progress_statuses_gone(data):
     named = {status for rows in data["manifestation"].values() for held in rows
              for status in held["statuses"]}
@@ -159,6 +172,8 @@ MISREADS = [
     ("an upgraded card with Signature Epiphanies", _upgrade_with_versions,
      "both an upgrade and Signature Epiphanies"),
     ("the progress statuses gone", _progress_statuses_gone, "are in no status table"),
+    ("a follow-up effect gone", _follow_gone, "follow-up effects"),
+    ("every card read as able to take an Epiphany", _every_card_able, "every card or none"),
 ]
 
 
@@ -404,4 +419,15 @@ FAULTS = [
      "statuses Potential nodes and Ego Manifestation put on"),
     ("the gone statuses' check passes", "decks.catalogue:Catalogue._progress_problems",
      "if gone:", "if False:", "the progress statuses gone"),
+    ("follow-up effects not kept", "decks.catalogue:_keep_reachable",
+     "todo_effects.update(child for _condition, child in chained(effects[key]))", "pass",
+     "follow-up effects"),
+    ("the follow-up check passes", "decks.catalogue:Catalogue.problems",
+     "if follows:", "if False:", "a follow-up effect gone"),
+    ("the Epiphany flag unread", "decks.catalogue:_card",
+     '"epiphany": row.get("battle_r_spark_enable_flag") == "YES",', '"epiphany": True,',
+     "every card or none"),
+    ("the Epiphany flag check passes", "decks.catalogue:Catalogue.problems",
+     "if not able or able == len(self.cards):", "if False:",
+     "every card read as able to take an Epiphany"),
 ]

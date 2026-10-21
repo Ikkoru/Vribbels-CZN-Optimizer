@@ -1,7 +1,9 @@
 """Cards whose play differs from what their data says, kept by the
 maintainer (plan D45, D50).
 
-{card id: what to count instead, and why}. The keys a card can carry:
+{card id: what to count instead, and why}. An entry holds for the
+card's Potential and Ego Manifestation upgrades too. The keys a card
+can carry:
 
     "ignore"   it adds nothing to any sum and needs no draw
     "hidden"   left out of the sums by default; a deck can show it
@@ -30,4 +32,7 @@ EXCEPTIONS = {
     # maintainer's play.
     "c_30075_srt4_mut": {"hidden": True,
                          "why": "both uses usually happen before a shuffle"},
+    # Mealtime (Narja): 6 AP, 1 less each time Voracity drops, and played
+    # for 0 as a rule. Its Ego Manifestation version takes this too.
+    "c_1052_uni4": {"cost": 0, "why": "played for 0 as a rule: Voracity drops cut its 6"},
 }

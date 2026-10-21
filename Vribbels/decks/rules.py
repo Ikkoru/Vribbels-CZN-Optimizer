@@ -249,6 +249,9 @@ def warnings(deck, catalogue, owned=None):
             if rule is None:
                 warn("unknown", f"{name}'s Neutral Epiphany {held.neutral} is "
                                 f"not in the game client's tables.", index)
+            elif not card.get("epiphany", True):
+                warn("neutral", f"{name} takes no Epiphany, so not Neutral "
+                                f"Epiphany {held.neutral}.", index)
             else:
                 misfit = _misfits(rule, card, klass,
                                   card["replace_cost"] or [card["cost"]])
@@ -261,6 +264,9 @@ def warnings(deck, catalogue, owned=None):
             if rule is None:
                 warn("unknown", f"{name}'s Divine Epiphany {held.divine} is "
                                 f"not in the game client's tables.", index)
+            elif not card.get("epiphany", True):
+                warn("divine", f"{name} takes no Epiphany, so not Divine "
+                               f"Epiphany {held.divine}.", index)
             else:
                 misfit = _misfits(rule, version, klass, [version["cost"]])
                 if misfit:

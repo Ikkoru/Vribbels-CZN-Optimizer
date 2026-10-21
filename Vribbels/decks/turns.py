@@ -16,7 +16,8 @@ with its amount where the data gives one, for the user to give a number
 
 from dataclasses import dataclass, field, replace
 
-from .catalogue import BATTLE_STATUS, OVERWRITE, _list
+from .catalogue import BATTLE_STATUS, OVERWRITE, _list, chained
+from .exceptions import EXCEPTIONS
 from .model import DeckCard
 
 DRAW = "SKILL_EFF_CARD_DRAW"
@@ -85,8 +86,12 @@ CARD, SELF, OTHERS, UNIT = "card", "self", "others", "unit"
 # When an effect fires, as the path to it decides: on play (or while a
 # status holds, or at the next turn's start once played, which comes to
 # the same a turn late); at the start of every turn while a status lasts
-# the battle; at the start of battle only; or when the battle decides.
+# the battle; at the start of battle only; each time the card holding it
+# is drawn (Attunement); or when the battle decides.
 PLAY, EACH_TURN, AT_START, BATTLE = "play", "each turn", "start", "battle"
+DRAWN = "drawn"
+# Attunement's condition: a card holding this status is drawn.
+ATTUNED = "card_with_this_cs"
 LASTING = ("TERM_BATTLE", "TERM_PASSIVE", "TERM_PASSIVE_WHOLE")
 # The battle timings a turn's start falls on, and the battle's own start.
 TURN_START = ("TIMING_DRAW_AFTER", "TIMING_DRAW_BEFORE", "TIMING_TURN_BEGIN")
@@ -163,6 +168,27 @@ class Played:
     # An Ego skill, the partner's or the Combatant's: used once, in
     # setup turn 1, for Ego Points rather than AP (plan D2, D40).
     ego: bool = False
+    # What its Attunement gives each time it is drawn, apart from its
+    # play; and whether it is never played, drawn for its Attunement
+    # alone (Forbidden: Eternal Hunger), so its cost is never paid.
+    drawn_draw: Figure = field(default_factory=Figure)
+    drawn_ap: Figure = field(default_factory=Figure)
+    unplayed: bool = False
+    # How many times a turn it is played and drawn: the user's figures
+    # for a deck that replays it (Retrieve) or redraws it (discarded and
+    # drawn again).
+    plays: int = 1
+    drawn: int = 1
+
+    def per_turn(self):
+        """(cards drawn, cost, draw, AP gain) a turn: its play's figures
+        times its plays, its Attunement's times its draws. Each draw
+        takes one of the turn's draws, unless it is made into hand."""
+        plays = 0 if self.unplayed else self.plays
+        cards = self.drawn if self.needs_draw else 0
+        return (cards, self.cost.value * plays,
+                self.draw.value * plays + self.drawn_draw.value * self.drawn,
+                self.ap.value * plays + self.drawn_ap.value * self.drawn)
 
 
 def _keyword(talents, family):
@@ -250,10 +276,12 @@ def fires(condition_id, catalogue):
     checked at the turn's start or starting over then); BATTLE for any
     other condition, which the battle decides. A stack control's battle
     timing is when it is checked, a reset control's when it starts
-    over."""
+    over. DRAWN is Attunement's: "When this card is Drawn"."""
     controls = catalogue.conditions.get(condition_id)
     if not controls:
         return BATTLE
+    if len(controls) == 1 and _attunement(controls[0]):
+        return DRAWN
     first_turn = turn_start = False
     for control in controls:
         if control["cards"] or control["units"]:
@@ -281,6 +309,30 @@ def fires(condition_id, catalogue):
     return EACH_TURN if turn_start else BATTLE
 
 
+def by_this_effect(condition_id, catalogue):
+    """Whether a follow-up's condition asks only that the effect it
+    follows did its work: a card discarded or drawn "through this
+    effect", which the effect itself sees to."""
+    controls = catalogue.conditions.get(condition_id)
+    return bool(controls) and all(
+        control["type"] == "stack" and control["cards"] and not control["units"]
+        and not control["timings"]
+        and all("by_this_card_eff" in _list(part.get("condition_card_opt"))
+                and part.get("card_opt_negate_flag") != "YES" for part in control["cards"])
+        for control in controls)
+
+
+def _attunement(control):
+    """Whether a condition row asks only that a card holding the status
+    be drawn: Attunement, which fires each time its card is drawn."""
+    parts = control["cards"]
+    return (control["type"] == "stack" and not control["units"] and not control["timings"]
+            and len(parts) == 1 and parts[0].get("condition_card") == "CONDITION_CARD_DRAW"
+            and ATTUNED in _list(parts[0].get("condition_card_opt"))
+            and parts[0].get("card_opt_negate_flag") != "YES"
+            and _number(parts[0].get("condition_card_value"), 1) <= 1)
+
+
 # The battle's conditions said in words, by the unit part they test.
 UNIT_WORDS = {"CONDITION_CHAR_EGO_BREAK": "on Ravage",
               "CONDITION_CHAR_KILL": "when an enemy is defeated"}
@@ -305,7 +357,8 @@ class _Reader:
         self.catalogue = catalogue
         self.cost = cost
         self.upgrades = upgrades or {}
-        self.figures = {(mode, which): Figure() for mode in (PLAY, EACH_TURN, AT_START)
+        self.figures = {(mode, which): Figure()
+                        for mode in (PLAY, EACH_TURN, AT_START, DRAWN)
                         for which in ("draw", "ap")}
         self.notes = []
         self.seen = set()
@@ -333,6 +386,8 @@ class _Reader:
             condition = effect.get("eff_link_condition_id")
             if effect.get("operation") not in STEADY:
                 timing = fires(condition, self.catalogue) if condition else BATTLE
+                if timing == DRAWN and holder != SELF:
+                    timing = BATTLE         # another card's draw, not its own
                 if timing == BATTLE or here not in (PLAY, timing):
                     here = BATTLE
                     here_why = here_why or _trigger_words(condition, effect_id,
@@ -352,6 +407,15 @@ class _Reader:
                 self.walk(_list(status.get("link_skill_eff_id")), held,
                           n * count * _uses(effect, status), here, here_why,
                           lasting or status.get("term_type_1") in LASTING)
+            # Its follow-ups are its own card's, on their own condition:
+            # met where it asks only that this effect did its work.
+            for follow_condition, follow in chained(effect):
+                mode_now, why_now = here, here_why
+                if follow_condition and not by_this_effect(follow_condition, self.catalogue) \
+                        and not available(follow_condition, self.catalogue):
+                    mode_now = BATTLE
+                    why_now = why_now or _trigger_words(follow_condition, follow, self.catalogue)
+                self.walk([follow], holder, count, mode_now, why_now, lasting)
 
     def sink(self, which, mode, lasting, plain_value):
         """The figure an effect adds to, and whether plainly. A
@@ -514,7 +578,21 @@ def played(held, catalogue, upgrades=None):
         printed, cost.value = cost.value, 0
         reader.notes.append(f"Quietus: procced by a discard, for no AP "
                             f"(it prints {printed})")
-    if UNUSABLE in talents and EPHEMERAL in talents:
+    exception = EXCEPTIONS.get(card_id) or EXCEPTIONS.get(held.card, {})
+    if "cost" in exception:
+        cost.value, cost.unknown = exception["cost"], []
+        reader.notes.append(exception.get("why") or f"costs {exception['cost']} in practice")
+    # Attunement fires each time the card is drawn. A card whose effects
+    # are all held, none working on play, is drawn for it and never
+    # played: it stays in the deck, to be drawn every turn.
+    drawn = {key: reader.figures[(DRAWN, key)] for key in ("draw", "ap")}
+    unplayed = any(f.value or f.unknown for f in drawn.values()) and not any(
+        catalogue.effects.get(effect, {}).get("operation") == "OPERATION_ACTIVE"
+        for effect in effects)
+    if unplayed:
+        turns = REGULAR
+        reader.notes.append("never played: drawn for its Attunement, each time it is drawn")
+    elif UNUSABLE in talents and EPHEMERAL in talents:
         turns = NEITHER
     elif card["category"] == UPGRADE or _keyword(talents, EXHAUST) \
             or _keyword(talents, REMOVE):
@@ -552,7 +630,9 @@ def played(held, catalogue, upgrades=None):
                   printed_cost=printed, opener=OPENER in talents,
                   notes=reader.notes, turn_draw=lasting["draw"],
                   turn_ap=lasting["ap"], start_draw=start["draw"],
-                  start_ap=start["ap"])
+                  start_ap=start["ap"], drawn_draw=drawn["draw"], drawn_ap=drawn["ap"],
+                  unplayed=unplayed, plays=int(held.overrides.get("plays", 1)),
+                  drawn=int(held.overrides.get("drawn", 1)))
 
 
 # -------------------- Equipment, Buffs, the Mutation, progress --------------------
@@ -678,12 +758,14 @@ class Sums:
     unknown: bool = False
 
     def add(self, played):
-        self.cards += 1 if played.needs_draw else 0
-        self.cost += played.cost.value
-        self.draw += played.draw.value
-        self.ap += played.ap.value
+        cards, cost, draw, ap = played.per_turn()
+        self.cards += cards
+        self.cost += cost
+        self.draw += draw
+        self.ap += ap
         self.unknown = self.unknown or bool(
-            played.cost.unknown or played.draw.unknown or played.ap.unknown)
+            played.cost.unknown or played.draw.unknown or played.ap.unknown
+            or played.drawn_draw.unknown or played.drawn_ap.unknown)
 
     @property
     def net_draw(self):
@@ -736,7 +818,7 @@ class DeckTurns:
     def pool_saving(self):
         """The AP the pool pays a regular turn: what its cards cost, up
         to the pool."""
-        return min(self.pool, sum(card.cost.value for card in self.regular_cards
+        return min(self.pool, sum(card.per_turn()[1] for card in self.regular_cards
                                   if card.pool_paid))
 
     @property
@@ -813,13 +895,16 @@ def deck_turns(deck, catalogue, owned=None, partner_ego=False, combatant_ego=Fal
     out.upgrades = upgrades_of(deck.combatant, out.state, catalogue)
     listed = {REGULAR: out.regular_cards, SETUP: out.setup_cards}
 
-    def place(made):
+    def place(made, plays=1):
+        """`made` in its list, once per copy a turn; `plays` is how many
+        times a turn its maker plays, for a card made every time."""
         out.created.append(made)
         if made.hidden or made.idle or made.turns not in listed:
             return
         copy = replace(made.played, needs_draw=made.needs_draw,
                        notes=made.played.notes + made.notes)
-        listed[made.turns].extend([copy] * made.copies)
+        times = plays if made.every_time else 1
+        listed[made.turns].extend([copy] * made.copies * times)
 
     for held in deck.present():
         played_card = played(held, catalogue, out.upgrades)
@@ -830,7 +915,7 @@ def deck_turns(deck, catalogue, owned=None, partner_ego=False, combatant_ego=Fal
         if played_card.turns in listed:
             listed[played_card.turns].append(played_card)
         for made in created_cards(held, played_card, catalogue, upgrades=out.upgrades):
-            place(made)
+            place(made, played_card.plays)
     out.ego = ego_skills(deck, out.state, catalogue, out.upgrades, partner_ego, combatant_ego)
     for skill in out.ego:
         out.setup_cards.append(skill)
@@ -902,12 +987,12 @@ def plan_setup(setup, regular, draw=5, energy=3, openers=(), bonus_draw=0,
     Ego skill in `setup` is used in turn 1 as well, for no AP and no
     card in hand (plan D2, D40). A `SetupPlan`."""
     def nets(card):
-        return (card.draw.value - (1 if card.needs_draw else 0),
-                card.ap.value - card.cost.value)
+        cards, cost, draw, ap = card.per_turn()
+        return draw - cards, ap - cost
 
     def play(card, hand, ap, pool):
         """The hand, AP and pool left once `card` is played."""
-        paid = min(pool, card.cost.value) if card.pool_paid else 0
+        paid = min(pool, card.per_turn()[1]) if card.pool_paid else 0
         d, a = nets(card)
         return hand + d, ap + a + paid, pool - paid
 

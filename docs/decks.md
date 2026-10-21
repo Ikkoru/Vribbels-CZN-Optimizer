@@ -16,10 +16,10 @@ Read with `game_client.Client` (`docs/client_data.md`), each table named as `--t
 
 | What | Tables | The catalogue's key |
 | --- | --- | --- |
-| Cards | every `card(<group>)@card`, and season 5's `memory_grade_define@card` | `cards`, by id: its group, name, text, kind (`sort`), category, rarity, cost, keywords (`talent`), classes, `r_spark_replace_cost`, Epiphany tags (`r_spark_tag_default`), effects, child cards |
+| Cards | every `card(<group>)@card`, and season 5's `memory_grade_define@card` | `cards`, by id: its group, name, text, kind (`sort`), category, rarity, cost, keywords (`talent`), classes, `r_spark_replace_cost`, Epiphany tags (`r_spark_tag_default`), whether it takes an Epiphany (`battle_r_spark_enable_flag`), effects, child cards |
 | A card's versions | every `card(<group>)@card_r_spark` | `versions`, the five Signature Epiphanies (`rsp1`–`rsp5_<card>`); `upgrades`, a Potential node's (`pot_`) and Ego Manifestation's (`lbk_`). A version with no name of its own in the text goes by its base card's |
-| Effects and statuses | every `@skill_eff` and `@cs` | `effects`, `statuses`: only those a card, an Epiphany, a Persona effect, a piece of Equipment, a Buff, a Mutation, a Potential node or an Ego Manifestation level reaches, through `link_cs_id`, `link_skill_eff_id` and `show_link_cs_id` |
-| Conditions | every `condition(<group>)` set's `@condition`, `@condition_control`, `@cond_card`, `@cond_unit` and `@cond_timing` | `conditions`: for each condition an effect names (`eff_link_condition_id`), its control rows in order, `<key>_<n>`. A `stack` row tests its card, unit and timing parts; a `reset` row says at which battle timing the count starts over |
+| Effects and statuses | every `@skill_eff` and `@cs` | `effects`, `statuses`: only those a card, an Epiphany, a Persona effect, a piece of Equipment, a Buff, a Mutation, a Potential node or an Ego Manifestation level reaches, through `link_cs_id`, `link_skill_eff_id`, `show_link_cs_id` and an effect's follow-ups (`during_eff_<n>_link_skill_eff_id`) |
+| Conditions | every `condition(<group>)` set's `@condition`, `@condition_control`, `@cond_card`, `@cond_unit` and `@cond_timing` | `conditions`: for each condition an effect names (`eff_link_condition_id`, a follow-up's `during_eff_<n>_link_condition_id`), its control rows in order, `<key>_<n>`. A `stack` row tests its card, unit and timing parts; a `reset` row says at which battle timing the count starts over |
 | Neutral and Divine Epiphanies | `r_spark@r_spark` | `epiphanies`: a Divine one names its god (`god_type`), a Neutral one none, and each holds the conditions below |
 | Persona effects | `eidolon_card_define@eidolon_card_slot_info`, `@eidolon_card_reward`, `@eidolon_card_illust_comb` | `persona`: a Persona card's slots, each Lux and Umbra effect, and the names that follow two effects |
 | Equipment and its Buffs | `relic@relic`, `relic(disaster)@relic`; `relic_reinforce@relic_reinforce` | `equipment`, each star level's effect; `buffs`, of kind `ARENA`, `LUX` or `UMBRA` |
@@ -34,12 +34,15 @@ Read with `game_client.Client` (`docs/client_data.md`), each table named as `--t
 
 `kinds` holds every Potential node type and Ego Manifestation type the client uses, for `Catalogue.problems` to hold to the ones the program has judged (`catalogue.KNOWN_NODE_TYPES`, `KNOWN_BREAK_TYPES`). Of the node types, only a card upgrade and a status reach a deck's figures: the rest change stats, Epiphany odds and Stress. An Ego Manifestation level upgrades cards (`BREAK_TYPE_CARD_R_SPARK`), puts a battle status on (`BREAK_TYPE_BATTLE_CS_ADD`), replaces the battle statuses of the levels below it (`_OVERWRITE`), or raises Potential nodes' levels, which changes stats only.
 
-**A Combatant's cards are `c_<res_id>_<kind>`**: `srt1`–`srt3` the Basic cards, `srt4` the preset Signature card, `uni1`–`uni4` the other Signature cards, `<card>_rsp1`–`_rsp5` a card's Signature Epiphany versions, `<card>_pot` a card a Potential node upgrades (a Basic card, or Renoa's Dirge Bullet), `<card>_lbk` one an Ego Manifestation level upgrades (`uni4` at level 1, the Ego skill at 3 or 4), `eps` the Ego skill, `cre<n>` the cards it creates in battle. No upgraded card has Signature Epiphanies: `uni4` has none, nor do the Basic cards. A deck starts from the eight `srt` and `uni` cards. A card's kind (`sort`) is `SORT_START` or `SORT_UNIQUE` for those, `SORT_NEUTRAL`, `SORT_ETC` (an Event Neutral card), `SORT_MONSTER_UNIQUE`, `SORT_TABOO` (Forbidden), `SORT_EIDOLON` (Persona), `SORT_DESIRE` or `SORT_MEMORY`; its category `CARD_ATK`, `CARD_SKILL` or `CARD_POWER`, the game's Upgrade.
+**A Combatant's cards are `c_<res_id>_<kind>`**: `srt1`–`srt3` the Basic cards, `srt4` the preset Signature card, `uni1`–`uni4` the other Signature cards, `<card>_rsp1`–`_rsp5` a card's Signature Epiphany versions, `<card>_pot` a card a Potential node upgrades (a Basic card, or Renoa's Dirge Bullet), `<card>_lbk` one an Ego Manifestation level upgrades (`uni4` at level 1, the Ego skill at 3 or 4), `eps` the Ego skill, `cre<n>` the cards it creates in battle. No upgraded card has Signature Epiphanies: `uni4` has none, nor do the Basic cards. A deck starts from the eight `srt` and `uni` cards.
+
+**Which cards take a Neutral or Divine Epiphany** is each card's own `battle_r_spark_enable_flag` (`epiphany` in the catalogue): yes for the Signature cards but `uni4`, the Mythic one, and for Neutral, Event Neutral and Monster cards, most seasons' Neutral cards among them; no for the Basic cards, Forbidden, Persona, Desire and Memory cards, and the cards made in battle. A Signature Epiphany version's own row says no: its base card's flag is the one that holds. A card's kind (`sort`) is `SORT_START` or `SORT_UNIQUE` for those, `SORT_NEUTRAL`, `SORT_ETC` (an Event Neutral card), `SORT_MONSTER_UNIQUE`, `SORT_TABOO` (Forbidden), `SORT_EIDOLON` (Persona), `SORT_DESIRE` or `SORT_MEMORY`; its category `CARD_ATK`, `CARD_SKILL` or `CARD_POWER`, the game's Upgrade.
 
 **The read checks itself** (`Catalogue.problems`). A patch that renames or repurposes a column breaks one of these shapes rather than misreading quietly:
 
 - every released Combatant has its eight cards and a known class;
-- every effect a card names is read;
+- every effect a card names is read, and every follow-up a read effect names;
+- the Epiphany flag reads yes on some cards and no on others;
 - every Signature Epiphany turns its card into one the tables hold;
 - the battle constants are whole numbers;
 - Neutral and Divine Epiphanies both exist;
@@ -104,7 +107,8 @@ Read with `game_client.Client` (`docs/client_data.md`), each table named as `--t
 - **`unknown`**: a Combatant, card, Signature Epiphany, Neutral or Divine Epiphany, Persona effect, Equipment, Buff, hammer blessing, Mutation or partner the client's tables lack.
 - **`cap`**: a deck weighing more than `rules.CAP`.
 - **`class`**: a card whose classes (`ownable_link_base_class_define_id`) lack the Combatant's. Only Neutral, Persona and Desire cards may carry classes; a card with none, as every other kind is, any Combatant may hold.
-- **`neutral`** and **`divine`**: an Epiphany whose conditions the card fails: class, category, cost range (−1 for no bound), keywords (`target_card_include_talent` needs any one of its list, `_exclude_talent` none), and tags (`r_spark_tag` and `r_spark_exclude_tag` against the card's `r_spark_tag_default`, the same way).
+- **`neutral`** and **`divine`**: an Epiphany on a card that takes none (*The client's tables*), or one whose conditions the card fails: class, category, cost range (−1 for no bound), keywords (`target_card_include_talent` needs any one of its list, `_exclude_talent` none), and tags (`r_spark_tag` and `r_spark_exclude_tag` against the card's `r_spark_tag_default`, the same way).
+  - **The tags decide, not the effects.** Every Neutral Epiphany that draws excludes a card tagged `draw`, and every one that gives AP a card tagged `ap`. Of the Divine ones, a plain draw excludes `draw`, Caligo's Fatal draw and Neutral-card draw do not, and none that gives AP excludes `ap`. A card's tags do not always follow its effects: some cards that draw carry no `draw` tag, and so can take a Draw Epiphany.
   - **The cost is the card's printed cost**: no cost change counts, neither another Epiphany's nor one made in battle.
   - **A Neutral Epiphany reads `r_spark_replace_cost` in its place** where the card sets one: Olga's two 1-AP Attack cards count as 0-cost for it. A Divine Epiphany never does.
   - **A Divine Epiphany is held to the card's Signature Epiphany version**; a Neutral one to the base card, since a card holds one or a Signature Epiphany, not both.
@@ -138,6 +142,10 @@ The readings set aside, each failing decks the game accepted:
 - nothing on the way fires by chance (`run_pct` under 100);
 - its value is a plain figure (`VALUE_COMMON`), not a count the battle makes, such as one per card discarded.
 
+**An effect's follow-ups** (`during_eff_<n>_link_skill_eff_id`, read by `catalogue.chained`) are its card's own, each on its own condition (`during_eff_<n>_link_condition_id`). One asking only that the effect did its work, a card discarded or drawn "through this effect" (`turns.by_this_effect`), is met; any other is held as above. Adagio (Create)'s discard is followed so by the Adagio it makes.
+
+**Attunement** ("When this card is Drawn") is a trigger on a status the card holds, whose condition is a card holding that status being drawn (`card_with_this_cs`). It fires each time the card is drawn (`turns.DRAWN`), and its figures are apart from the play's (`Played.drawn_draw`, `drawn_ap`); on another card or on a unit it is the battle's. **A card drawn for its Attunement alone**, none of its effects working on play, is never played (`Played.unplayed`): Forbidden: Eternal Hunger stays in the deck, a regular card whose cost is never paid.
+
 **A trigger whose condition is only a time** fires at the start of every turn or at the start of battle. A condition's `stack` rows are checked at their battle timing, and its `reset` rows start over at theirs. So a condition with nothing to test fires at the start of every turn when it is checked or starts over then, before or after the draw. It fires at the start of battle when it is checked at the battle's start (`TIMING_BATTLE_START`) or tests for turn 1 (`TIMING_TURN` 1). What it gives counts:
 
 - **at the next turn's start, once per play**, through a status that does not last the battle: "At the start of the next turn, Draw 2" draws 2 a play, a turn late;
@@ -163,6 +171,11 @@ The readings set aside, each failing decks the game accepted:
 **Which turns a card counts in** (plan 3.2): setup for an Upgrade (`CARD_POWER`), any Exhaust keyword and Remove; neither for a card both Unusable and Ephemeral; regular for the rest. An Opener card is marked (`Played.opener`), since its cost also comes out of the setup turn (plan D18).
 
 **The user's own figures** stand over what is read: a `DeckCard`'s `overrides` give a cost, draw or AP gain for a figure the battle decides, and move a card between the lists (plan D12, 3.2). A card moved to setup is played once, so its lasting status gives each turn after, as an Upgrade's does.
+
+- **Plays a turn** (`plays`, 1 by default): a card other cards play again, such as an Anchor Shot that four Pointers give Retrieve, played five times.
+- **Times drawn a turn** (`drawn`, 1 by default): a card discarded and drawn again, such as a Hunger deck's Forbidden: Eternal Hunger.
+
+`Played.per_turn` gives a turn's cards drawn, cost, draw and AP: the play's figures times its plays, the Attunement's times its draws, each draw taking one of the turn's draws. What it makes every time is made once per play.
 
 **A Combatant's progress** (plan D8) is a `model.CombatantState`: its Potential nodes, its Ego Manifestation level and its partner. A deck sets its own (`Deck.potential`, `manifestation`, `partner`); where it sets none, it plays with the owned Combatant's captured state, which the caller passes as `owned` (`CombatantState.of` reads one off a `CharacterInfo`), and an unowned Combatant has none.
 
@@ -192,10 +205,10 @@ An Opener card procs at the start of battle for its AP, without a card in hand, 
 
 ### Created cards
 
-`created.created_cards` finds what a card makes in battle: a `SKILL_EFF_CARD_GET` effect, on the card or on a status it puts on, and what it makes: its cards (`target_card_set_opt_multiple_link`), how many (`eff_value`), and where (`eff_card_place`). Each made card is placed by three questions (plan D14):
+`created.created_cards` finds what a card makes in battle: a `SKILL_EFF_CARD_GET` effect, on the card, on a status it puts on, or among an effect's follow-ups, and what it makes: its cards (`target_card_set_opt_multiple_link`), how many (`eff_value`), and where (`eff_card_place`). Each made card is placed by three questions (plan D14):
 
 - **Does it leave after use?** It does when it is an Upgrade, has an Exhaust or Remove keyword, or has a status keeping it in the Graveyard on Shuffle (`SKILL_EFF_CARD_NOT_SHUFFLE`; plan D51). The keywords its maker gives it count: the effects right after a creation, aimed at the card just made (`CARD_SET_BEFORE_EFF_TARGET`), add keywords (`SKILL_EFF_CARD_TALENT_ADD`) and cut its cost.
-- **Is it made once or every time?** Once when its maker leaves after its play (a setup card) and makes it on play; every time when the maker stays, or it is made on a trigger or by a status lasting the battle.
+- **Is it made once or every time?** Once when its maker leaves after its play (a setup card) and makes it on play; every time when the maker stays, or it is made on a trigger, by a follow-up whose condition the battle decides, or by a status lasting the battle.
 - **Does it go to hand?** Then it needs no draw (plan D15).
 
 | Made card | once, to hand | once, to the deck | every time |
@@ -207,7 +220,7 @@ An Opener card procs at the start of battle for its AP, without a card in hand, 
 
 A list counts a made card once per copy a creation makes, one turn's worth for a maker that makes it every time. **One of several made**, chosen or at random, takes the first, with a note (plan D44). **A made card that changes no sum** is set apart (`idle`; plan D43): made into hand, free, gone by the turn's end, with no draw, AP or creation of its own. A made card's own creations count too, a step deep.
 
-**The maintainer's exceptions** (`exceptions.EXCEPTIONS`, plan D45, D50) stand over the data where play differs: a card ignored outright (Homing Arrow), one hidden by default (Homing Laser L), a practical cost (Hew (Flash) at 0), or a card that cycles back though its keywords say it leaves (Dirge Bullet). A user can still set any card per deck.
+**The maintainer's exceptions** (`exceptions.EXCEPTIONS`, plan D45, D50) stand over the data where play differs: a card ignored outright (Homing Arrow), one hidden by default (Homing Laser L), a practical cost (Hew (Flash) at 0), or a card that cycles back though its keywords say it leaves (Dirge Bullet). A practical cost holds for a deck's own card too (Mealtime at 0, by `turns.played`), and every entry for the card's upgrades. A user can still set any card per deck.
 
 ### Held to the maintainer's figures
 
@@ -229,4 +242,5 @@ The maintainer's deck spreadsheet prices the cards of each of its teams, by hand
   - each cell of the created-card table, and what moves a made card between cells, on a maker built for it, and the cards statuses held for the battle make;
   - a Combatant's progress, the deck's own and the owned Combatant's: the upgrades, what nodes and Ego Manifestation levels give, an overwrite;
   - the Ego skills behind the team's options, in setup turn 1, and what the Combatant's makes;
+  - Attunement on the card itself, on others and on the unit, a card's plays and draws a turn, and an effect's follow-ups, on a card played every turn and on one played once;
   - the cards whose figures the Deck Calcs tab gives read the same off the installed client.

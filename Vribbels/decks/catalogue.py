@@ -24,7 +24,7 @@ import re
 import tempfile
 from pathlib import Path
 
-CATALOGUE_FORMAT = 3
+CATALOGUE_FORMAT = 4
 CACHE_FILE = "deck_catalogue.json.gz"
 
 # The tables, as `game_client.Client.table` names them. Sortie's own
@@ -165,6 +165,10 @@ def _card(row, group, texts):
         "classes": _list(row.get("ownable_link_base_class_define_id")),
         "replace_cost": [_number(v, 0) for v in _list(row.get("r_spark_replace_cost"))],
         "tags": _list(row.get("r_spark_tag_default")),
+        # Whether a Neutral or Divine Epiphany can land on it: Signature
+        # cards but the Mythic one (`uni4`), Neutral, Monster and Event
+        # cards; never a Basic, Forbidden, Persona, Desire or Memory card.
+        "epiphany": row.get("battle_r_spark_enable_flag") == "YES",
         "effects": _list(row.get("link_skill_eff_id")),
         "children": _list(row.get("child_link_card_id")),
         "reward_tags": _list(row.get("reward_tag")),
@@ -385,6 +389,8 @@ def _conditions(client, names, effects):
         controls.setdefault(key.rsplit("_", 1)[0], []).append(row)
     wanted = {held for effect in effects.values()
               for held in _list(effect.get("eff_link_condition_id"))}
+    wanted |= {condition for effect in effects.values()
+               for condition, _child in chained(effect) if condition}
     out = {}
     for condition_id in sorted(wanted):
         condition = rows["condition"].get(condition_id)
@@ -468,6 +474,23 @@ def _manifestation(client):
 # The columns that link an effect or a status onward.
 EFFECT_LINKS = ("link_cs_id",)
 STATUS_LINKS = ("link_skill_eff_id", "show_link_cs_id")
+# An effect's follow-ups, run as it works, each on a condition about what
+# it did: "If a card was Discarded, create 1 Adagio" is a discard's
+# `during_eff_0_link_skill_eff_id`, on `during_eff_0_link_condition_id`.
+DURING = re.compile(r"^during_eff_(\d+)_link_skill_eff_id$")
+
+
+def chained(effect):
+    """[(condition id or "", effect id)], in their order: the effects
+    `effect` runs as it works."""
+    slots = sorted((int(found.group(1)), key) for key in effect
+                   for found in [DURING.match(key)] if found)
+    out = []
+    for slot, key in slots:
+        condition = effect.get(f"during_eff_{slot}_link_condition_id")
+        for child in _list(effect[key]):
+            out.append(("" if condition in EMPTY or condition is None else condition, child))
+    return out
 
 
 def _keep_reachable(data):
@@ -506,6 +529,7 @@ def _keep_reachable(data):
             kept_effects.add(key)
             for column in EFFECT_LINKS:
                 todo_statuses.update(_list(effects[key].get(column)))
+            todo_effects.update(child for _condition, child in chained(effects[key]))
         while todo_statuses:
             key = todo_statuses.pop()
             if key in kept_statuses or key not in statuses:
@@ -672,6 +696,16 @@ class Catalogue:
         if not self.released:
             out.append("the in-game deck builder's catalogue (archive_card) "
                        "offers no card.")
+        follows = sorted({follow for effect in effects.values()
+                          for _condition, follow in chained(effect) if follow not in effects})
+        if follows:
+            out.append(f"{len(follows)} follow-up effects (during_eff_*) the read effects name "
+                       f"are in no skill_eff table, such as {follows[:3]}: what they do is "
+                       f"lost.")
+        able = sum(1 for card in self.cards.values() if card.get("epiphany"))
+        if not able or able == len(self.cards):
+            out.append(f"{able} cards of {len(self.cards)} read as able to take an "
+                       f"Epiphany (battle_r_spark_enable_flag): every card or none.")
         divine = sum(1 for held in self.epiphanies.values() if held.get("god"))
         if not divine or divine == len(self.epiphanies):
             out.append(f"the Epiphany table reads as {divine} Divine "
