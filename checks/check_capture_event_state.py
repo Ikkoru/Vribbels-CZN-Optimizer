@@ -427,6 +427,15 @@ def run():
         "chaos_assault_entity": {"schedule_id": "assault_1_s7",
                                  "highest_clear_level": 5,
                                  "total_clear_count": 40},
+        # `trauma_code/get_list`'s: a code's state, in a list, and its
+        # event's records, empty in every capture so far -- so their
+        # shape here is a stand-in, kept as sent like any other.
+        "trauma_code_entities": [{"res_id": "trc_30048", "unlock_state": 1,
+                                  "event_achieve_state": 1,
+                                  "story_state": 1}],
+        "mission_trauma_code_event_entities": {"trc_30134": {
+            "trauma_code_06_02": {"res_id": "trauma_code_06_02",
+                                  "complete_time": 1792600000}}},
     }
     addon.websocket_message(_Flow([dict(kept, res="ok")]))
     # Watching an episode answers with its one row, singular, keyed by
@@ -458,7 +467,7 @@ def run():
     for field, shape in (("attendance_entities", list),
                          ("event_mission_reward_entities", list),
                          ("issued_limit_entities", dict),
-                         *((field, dict) for field in kept)):
+                         *((field, type(rows)) for field, rows in kept.items())):
         rows = saved.get(field)
         if not isinstance(rows, shape) or not rows:
             failures.append(
@@ -466,3 +475,15 @@ def run():
                 f"{shape.__name__} with rows in it. A field the addon "
                 f"never writes is invisible to everything downstream.")
     return failures
+
+
+# What this check must catch, for `checks/faults.py`.
+FAULTS = [
+    ("a Trauma Code's tables not kept", "capture.manager:ADDON_TEMPLATE",
+     '"chaos_assault_entity", "trauma_code_entities",',
+     '"chaos_assault_entity",', "trauma_code_entities is None"),
+    ("a login table sent as a list dropped", "capture.manager:ADDON_TEMPLATE",
+     "if isinstance(data.get(key), (dict, list)) and data[key]:",
+     "if isinstance(data.get(key), dict) and data[key]:",
+     "trauma_code_entities is None"),
+]

@@ -233,6 +233,39 @@ def _totals(gc):
             {"id": "event_daily_99", "key": "daily_check_99"}],
         gc.CHECK_IN_DAYS: [{"id": "daily_check_16_%d" % n}
                            for n in range(1, 15)],
+        # A countdown's days, a payment event's tiers and a Trauma
+        # Code's rewards, each numbered under its define's key: a row
+        # of another key, or not numbered, is none of them.
+        gc.COUNTDOWN_DEFINES: [
+            {"id": "countdown_attendance_1st",
+             "link_countdown_attendance_day_key": "countdown_1st"}],
+        gc.COUNTDOWN_DAYS: [{"id": "countdown_1st_%02d" % n}
+                            for n in range(1, 16)]
+        + [{"id": "countdown_1st_dday"}, {"id": "countdown_10th_01"}],
+        gc.PAYMENT_DEFINES: [
+            {"id": "payment_define_01", "link_item_id": "3930006",
+             "link_event_schedule_id": "payment_event_01",
+             "link_event_payment_reward_key": "payment_reward_01"}],
+        gc.PAYMENT_TIERS: [
+            {"id": "payment_reward_01_%02d" % n, "point": str(points)}
+            for n, points in ((2, 1000), (1, 300), (3, 2000))]
+        + [{"id": "payment_reward_01_x", "point": "5"}],
+        gc.TRAUMA_CODE_TABLE: [
+            {"id": "evn_trc_30134_1",
+             "link_trauma_code_schedule_id": "schedule_trc_30134",
+             "link_trauma_code_achievement_key": "trauma_code_06",
+             "style_link_item_id": "9300337"}],
+        gc.TRAUMA_ACHIEVEMENTS: [{"id": "trauma_code_06_%02d" % n}
+                                 for n in range(1, 7)]
+        + [{"id": "trauma_code_05_01"}],
+        gc.TRIAL_TABLE: [
+            {"id": "event_combatant_trial_18_1",
+             "slot_1_link_event_combatant_trial_slot_id":
+                 "combatant_trial_1040",
+             "slot_2_link_event_combatant_trial_slot_id":
+                 "combatant_trial_1056",
+             "slot_3_link_event_combatant_trial_slot_id": "none",
+             "slot_1_link_gacha_list_id": "gacha_pickup_combatant_30134"}],
     }, {})
     tasks = gc.daily_tasks(_FakeClient({gc.DAILY_TASK_TABLE: [
         {"id": "daily_achieve_001", "count": "1", "point_count": "20"},
@@ -250,16 +283,39 @@ def _totals(gc):
             "event_bartender_01": [24, 1, 0],
             "event_schedule_love_4": [21, 0, 1],
             "event_shared_01": [9, 0, 0],
-            "event_daily_16": [14, 0, 0]}
+            "event_daily_16": [14, 0, 0],
+            "countdown_attendance_1st": [15, 0, 0],
+            "payment_event_01": [3, 0, 0],
+            "schedule_trc_30134": [6, 1, 0]}
     if got != want:
         return [
             f"the client's event totals read {got}, not {want}. Missions "
             f"count by their event, a step track by the steps on its one "
             f"mission, a define row's special reward is a final reward "
-            f"unless it names none, a check-in counts its days, a live "
-            f"row beats a retired one under the same schedule, and an "
-            f"event with nothing to count is left out."]
-    return []
+            f"unless it names none, a check-in or a countdown counts its "
+            f"days, a payment event its tiers, a Trauma Code its rewards "
+            f"and its sticker as the final one, a live row beats a "
+            f"retired one under the same schedule, and an event with "
+            f"nothing to count is left out."]
+    out = []
+    events = gc.payment_events(client)
+    tiers = [["payment_reward_01_01", 300], ["payment_reward_01_02", 1000],
+             ["payment_reward_01_03", 2000]]
+    if events != {"payment_event_01": {"define": "payment_define_01",
+                                       "item": 3930006, "tiers": tiers}}:
+        out.append(
+            f"the payment events read {events}. Each is filed by its "
+            f"schedule, names its define -- the wire files the claims "
+            f"under that -- and its token, and lists its tiers in their "
+            f"own order with the tokens each takes.")
+    slots = gc.trial_slots(client)
+    if slots != {"event_combatant_trial_18_1": ["combatant_trial_1040",
+                                                "combatant_trial_1056"]}:
+        out.append(
+            f"the trials' slots read {slots}. A trial is every slot "
+            f"column naming one, in order; `none` is no slot, and a "
+            f"slot's banner column is not a slot.")
+    return out
 
 
 def _accessors(gc):
@@ -801,6 +857,18 @@ FAULTS = [
     ("a kind looked for one number off only", "game_client:family_name",
      "        if shared:\n", "        if True:\n",
      "names 'event_combatant_trial_18_1'"),
+    ("a countdown's days not counted", "game_client:event_totals",
+     'held = _numbered(countdown, row.get("link_countdown_attendance_day_key"))',
+     "held = []", "countdown counts its"),
+    ("a Trauma Code's sticker no final reward", "game_client:event_totals",
+     'int(row.get("style_link_item_id") not in NO_LINK)', "0",
+     "its sticker as the final one"),
+    ("a trial's `none` taken for a slot", "game_client:trial_slots",
+     "and row[column] not in NO_LINK", "", "`none` is no slot"),
+    ("tiers in the table's order", "game_client:payment_events",
+     "for tier in sorted(held, key=lambda t: int(",
+     "for tier in sorted(held, key=lambda t: -int(",
+     "in their own order"),
     ("the Checklist's item names built once", "ui.tabs.checklist_tab:item_name",
      "if built_at != game_client.generation():", "if built_at is None:",
      "not 'Landed Late'"),

@@ -1,7 +1,8 @@
 """The game client's own tables and English text, read from its install.
 
 What changes every patch and the server never sends: each event's
-English name and how many rewards it holds, every item's name, how
+English name and how many rewards it holds, every trial's slots and
+every payment event's tiers, every item's name, how
 many Excursion types each combatant has, what each daily task counts
 to and pays toward the day's Activity, each Memory Fragment set's
 effect, the words of each combatant's own Potential nodes, every
@@ -75,7 +76,7 @@ GAMERES = Path("bin") / "appdata" / "cznlive" / "gameres"
 # reader that changes what it reads raises this: every install then
 # reads its client again once, rather than at the next patch.
 CACHE_FILE = "game_client.json"
-CACHE_FORMAT = 13
+CACHE_FORMAT = 14
 
 # The manifest layout this reads. A different version is a different
 # layout until shown otherwise.
@@ -148,6 +149,9 @@ TRIAL_LEAD = "slot_1_link_event_combatant_trial_slot_id"
 TRIAL_SLOT = re.compile(r"combatant_trial_(\d+)")
 COMBATANT_NAME = "char_base@name@%s"
 TRIAL_NAME = "%s - %s"           # the trial's name, then the combatant
+# Every slot a trial offers, `slot_<n>_...`: a trial is as many rewards
+# as it has slots, two for the ★4s beside a banner and one for its ★5.
+TRIAL_SLOT_COLUMN = re.compile(r"slot_\d+_link_event_combatant_trial_slot_id")
 
 # Where a combatant's Excursion types are listed: one row each, and
 # the row's `group` is `normal_visit_<res_id>`.
@@ -169,6 +173,19 @@ NO_REWARD = ("-1", "", "none")
 # A check-in's days: a row per day, `<the define's key>_<day>`.
 CHECK_IN_DEFINES = "event_daily_check@event_daily_check_define"
 CHECK_IN_DAYS = "event_daily_check@event_daily_check"
+# A countdown check-in's days, the same way: `<its day key>_<day>`.
+COUNTDOWN_DEFINES = "countdown_attendance@countdown_attendance_define"
+COUNTDOWN_DAYS = "countdown_attendance@countdown_attendance_day"
+# A payment event, the Nightmare Carnival's Exchange: tiers of a token
+# earned by spending money, a row per tier, `<the define's reward
+# key>_<n>`, each with the tokens it takes (`point`). The define names
+# the token (`link_item_id`) and the schedule.
+PAYMENT_DEFINES = "event_payment_define@event_payment_define"
+PAYMENT_TIERS = "event_payment_reward@event_payment_reward"
+# A Trauma Code's event rewards: an achievement per reward, `<the
+# code's achievement key>_<n>`, and its sticker (`style_link_item_id`)
+# once every one is claimed. Its row is `TRAUMA_CODE_TABLE`'s.
+TRAUMA_ACHIEVEMENTS = "trauma_code_achievement@trauma_code_achievement"
 # The columns of `event@event` that carry a schedule's id. Its own `id`
 # is the event's number, never a schedule, and kept out so a family
 # worked out over these keys holds instalments and nothing else.
@@ -605,10 +622,8 @@ def _special_events(client, texts):
     contents = client.rows(SPECIAL_CONTENT_TABLE)
     out = {}
     for define in client.rows(SPECIAL_DEFINE_TABLE):
-        prefix = (define.get("link_special_event_content_key") or "") + "_"
-        parts = [row for row in contents
-                 if (row.get("id") or "").startswith(prefix)
-                 and row["id"][len(prefix):].isdigit()]
+        parts = _numbered(contents,
+                          define.get("link_special_event_content_key"))
         whole = next((menus[row.get("link_top_menu_id")] for row in parts
                       if menus.get(row.get("link_top_menu_id"))), "")
         if not whole:
@@ -702,6 +717,70 @@ def event_totals(client):
     for row in client.rows(CHECK_IN_DEFINES):
         if days.get(row.get("key")):
             out.setdefault(row.get("id"), [days[row["key"]], 0, 0])
+    countdown = client.rows(COUNTDOWN_DAYS)
+    for row in client.rows(COUNTDOWN_DEFINES):
+        held = _numbered(countdown, row.get("link_countdown_attendance_day_key"))
+        if held:
+            out.setdefault(row.get("id"), [len(held), 0, 0])
+    for schedule, event in payment_events(client).items():
+        out.setdefault(schedule, [len(event["tiers"]), 0, 0])
+    rewards = client.rows(TRAUMA_ACHIEVEMENTS)
+    for row in client.rows(TRAUMA_CODE_TABLE):
+        held = _numbered(rewards, row.get("link_trauma_code_achievement_key"))
+        if held and row.get("link_trauma_code_schedule_id") not in NO_LINK:
+            out.setdefault(row["link_trauma_code_schedule_id"], [
+                len(held), int(row.get("style_link_item_id") not in NO_LINK),
+                0])
+    return out
+
+
+def _numbered(rows, key):
+    """The rows of `rows` numbered under `key`, `<key>_<n>`: a define's
+    days, tiers or rewards. None for a key that is none."""
+    if key in NO_LINK or key is None:
+        return []
+    prefix = key + "_"
+    return [row for row in rows
+            if (row.get("id") or "").startswith(prefix)
+            and row["id"][len(prefix):].isdigit()]
+
+
+def payment_events(client):
+    """{schedule id: {"define": its define's id, "item": its token's
+    res_id, "tiers": [[tier id, tokens it takes], ...]}} for every
+    payment event, tiers in order.
+
+    The wire files the claims under the define's id and names each by
+    its tier id; whether one can be claimed now is the tokens held
+    against the cheapest unclaimed tier's."""
+    tiers = client.rows(PAYMENT_TIERS)
+    out = {}
+    for row in client.rows(PAYMENT_DEFINES):
+        schedule = row.get("link_event_schedule_id")
+        held = _numbered(tiers, row.get("link_event_payment_reward_key"))
+        item = _figure(row.get("link_item_id"))
+        if (schedule in NO_LINK or not held or not isinstance(item, int)
+                or not row.get("id")):
+            continue
+        out[schedule] = {
+            "define": row["id"],
+            "item": item,
+            "tiers": [[tier["id"], _figure(tier.get("point")) or 0]
+                      for tier in sorted(held, key=lambda t: int(
+                          t["id"].rsplit("_", 1)[1]))]}
+    return out
+
+
+def trial_slots(client):
+    """{trial id: [slot ids]}: every slot a Combatant Trial offers, in
+    its order. The wire names a slot only when it is claimed."""
+    out = {}
+    for row in client.rows(TRIAL_TABLE):
+        slots = [row[column] for column in row
+                 if TRIAL_SLOT_COLUMN.fullmatch(column)
+                 and row[column] not in NO_LINK]
+        if row.get("id") and slots:
+            out[row["id"]] = slots
     return out
 
 
@@ -1180,6 +1259,8 @@ def read_facts(install):
         "build": client.archive.build,
         "event_names": event_names(client),
         "event_totals": event_totals(client),
+        "trial_slots": trial_slots(client),
+        "payment_events": payment_events(client),
         "story_chapters": story_chapters(client),
         "item_names": {str(res_id): name for res_id, name
                        in item_names(client).items()},
@@ -1365,6 +1446,41 @@ def known_event_totals():
         if (isinstance(value, (list, tuple)) and len(value) == 3
                 and all(isinstance(n, int) and n >= 0 for n in value)):
             out[key] = tuple(value)
+    return out
+
+
+def known_trial_slots():
+    """{trial id: (slot ids)}: the shipped table, with what this
+    machine's client says over it. See `trial_slots`."""
+    from game_data import from_client
+    out = {key: tuple(value) for key, value
+           in getattr(from_client, "TRIAL_SLOTS", {}).items()}
+    for key, value in ((_facts or {}).get("trial_slots") or {}).items():
+        if (isinstance(value, (list, tuple)) and value
+                and all(isinstance(s, str) for s in value)):
+            out[key] = tuple(value)
+    return out
+
+
+def known_payment_events():
+    """{schedule id: (define id, token res_id, ((tier id, tokens),
+    ...))}: the shipped table, with what this machine's client says
+    over it. See `payment_events`."""
+    from game_data import from_client
+    out = {}
+    for source in (getattr(from_client, "PAYMENT_EVENTS", {}),
+                   (_facts or {}).get("payment_events") or {}):
+        for key, event in source.items():
+            if not isinstance(event, dict):
+                continue
+            tiers = event.get("tiers")
+            if (isinstance(event.get("define"), str)
+                    and isinstance(event.get("item"), int) and tiers
+                    and all(isinstance(t, (list, tuple)) and len(t) == 2
+                            and isinstance(t[0], str)
+                            and isinstance(t[1], int) for t in tiers)):
+                out[key] = (event["define"], event["item"],
+                            tuple(tuple(t) for t in tiers))
     return out
 
 

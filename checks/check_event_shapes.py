@@ -14,11 +14,18 @@ Every one of these misreads as a plausible number rather than an error:
 * a **final reward** is invisible until claimed, so the row has to know
   the event pays one to say it is waiting;
 * a **step track** is one accumulating mission row that is never itself
-  claimed, and read as a mission it is `0/1+?` for the event's whole run.
+  claimed, and read as a mission it is `0/1+?` for the event's whole run;
+* a **trial split** into its ★4s and its ★5 is two rewards and one, and
+  padded to three a banner a finished trial stays red;
+* a **countdown check-in** and a **payment event** keep their claims in
+  tables no mission reader looks at, and read nothing without their own;
+* a row with **nothing read** but its deadline has no way to be done
+  unless it is asked.
 
 `docs/events.md` has the evidence for each. No Tk, no snapshot and no
 game client needed: the client's totals are given in the shape
-`game_client.known_event_totals` returns.
+`game_client.known_event_totals` returns, and its other facts through
+`game_client.use`.
 """
 
 from types import SimpleNamespace
@@ -500,6 +507,134 @@ def _family_corroborates(ct):
     return out
 
 
+def _split_trials(ct):
+    """A trial is as many rewards as the client gives it slots: two
+    ★4s and a ★5 apart read 2/2 and 1/1, not against three a banner."""
+    import game_client as gc
+    out = []
+    live = {"start_time": NOW - DAY, "end_time": NOW + 20 * DAY}
+    raw = {"combat_trial_entities": [
+        {"event_combatant_trial_slot_id": slot, "complete_time": NOW - 60}
+        for slot in ("combatant_trial_1040", "combatant_trial_1056",
+                     "combatant_trial_30134")]}
+    try:
+        gc.use({"trial_slots": {
+            "event_combatant_trial_18_1": ["combatant_trial_1040",
+                                           "combatant_trial_1056"],
+            "event_combatant_trial_18_2": ["combatant_trial_30134"]}})
+        for name, want in (("event_combatant_trial_18_1", "2/2"),
+                           ("event_combatant_trial_18_2", "1/1")):
+            got = ct._event_trials(raw, name, live, NOW)
+            if got != [(want, ct.DONE)]:
+                out.append(
+                    f"{name}, every slot claimed, read {got!r}, not "
+                    f"{want} done. A trial is as many rewards as the "
+                    f"client lists slots for it (`game_client.trial_"
+                    f"slots`); padding it to three a banner leaves a "
+                    f"finished trial red.")
+    finally:
+        gc.use(None)
+    return out
+
+
+def _countdown(ct):
+    """A countdown check-in reads days claimed against its days, the
+    client's or one a day of its window, green once all are claimed."""
+    out = []
+    live = {"start_time": NOW - 14 * DAY, "end_time": NOW + DAY}
+
+    def read(reached, claimed, known):
+        raw = _onto(ct, {
+            "event_schedules": {"LOBBY_COUNTDOWN": {
+                "countdown_attendance_1st": live}},
+            "issued_limit_entities": {
+                "1st_countdown": {"usable_time": live["start_time"],
+                                  "expire_time": live["end_time"],
+                                  "vs1": str(list(range(reached))),
+                                  "vs2": str(list(range(claimed)))},
+                "other_limit": {"usable_time": 1, "expire_time": 2,
+                                "vs1": "[0]", "vs2": "[]"}}}, known)
+        return ct._event_countdown(raw, "countdown_attendance_1st", live, NOW)
+
+    client = {"countdown_attendance_1st": (15, 0, 0)}
+    for reached, claimed, known, want in (
+            (15, 15, client, ("15/15", ct.DONE)),
+            (15, 14, client, ("14/15", ct.TODO)),
+            (14, 14, client, ("14/15", ct.CYCLE_DONE)),
+            (15, 15, None, (ct.EXPECTED_VALUE + "15/15", ct.DONE))):
+        got = read(reached, claimed, known)
+        if got != [want]:
+            out.append(
+                f"a countdown with {reached} days reached and {claimed} "
+                f"claimed read {got!r}, not {want!r}"
+                f"{'' if known else ' without the client'}. Its record "
+                f"is the issued-limit row on its own window, its days "
+                f"the client's else its window's, worked out.")
+    return out
+
+
+def _payment_events(ct):
+    """A payment event's tiers claimed against the client's tiers: red
+    with enough tokens for one unclaimed, orange with too few, green
+    with every tier claimed."""
+    import game_client as gc
+    out = []
+    tiers = [["payment_reward_01_%02d" % n, points]
+             for n, points in enumerate((300, 1000, 2000), start=1)]
+
+    def read(tokens, filed, latest=None):
+        raw = {"inventory": {"items": [{"res_id": 3930006,
+                                        "amount": tokens}]},
+               ct.PAYMENT_CLAIMS_FIELD: {"payment_event_01": {
+                   tier: {"reward_id": tier, "complete_time": NOW}
+                   for tier in filed}}}
+        if latest:
+            raw[ct.PAYMENT_CLAIM_FIELD] = {"define_id": "payment_event_01",
+                                           "reward_id": latest,
+                                           "complete_time": NOW}
+        return ct._event_missions(raw, "payment_event_01", {}, NOW)
+
+    try:
+        gc.use({"payment_events": {"payment_event_01": {
+            "define": "payment_event_01", "item": 3930006, "tiers": tiers}}})
+        first = tiers[0][0]
+        for tokens, filed, latest, want, why in (
+                (600, [first], None, ("1/3", ct.CYCLE_DONE),
+                 "too few tokens for the next tier is nothing to do yet"),
+                (1200, [first], None, ("1/3", ct.TODO),
+                 "enough tokens for an unclaimed tier is a reward waiting"),
+                (600, [], first, ("1/3", ct.CYCLE_DONE),
+                 "a claim made in the session counts before the next "
+                 "login files it"),
+                (2400, [t for t, _p in tiers], None, ("3/3", ct.DONE),
+                 "every tier claimed is finished")):
+            got = read(tokens, filed, latest)
+            if got != [want]:
+                out.append(f"the Exchange at {tokens} tokens with "
+                           f"{filed or latest} claimed read {got!r}, not "
+                           f"{want!r}: {why}.")
+    finally:
+        gc.use(None)
+    return out
+
+
+def _unread_rows_asked(ct):
+    """A row with nothing read but its deadline is asked `Finished?`."""
+    out = []
+    raw = _onto(ct, _raw())
+    deadline = ("2d", ct.LATER)
+    asked = _asked(ct, raw, "event_collab_coupon", [deadline])
+    if asked != ct.NOTHING_READ + (False,):
+        out.append(
+            f"a row reading its deadline alone was asked {asked!r}, not "
+            f"{ct.NOTHING_READ + (False,)!r}. With nothing read it has "
+            f"no other way to be done, so it is asked.")
+    if _asked(ct, raw, "event_collab_coupon", [("1/7", ct.TODO), deadline]):
+        out.append("a row with rewards left to claim was asked whether it "
+                   "is finished.")
+    return out
+
+
 def run():
     add_source_to_path()
     from ui.tabs import checklist_tab as ct
@@ -507,6 +642,31 @@ def run():
     failures = []
     for probe in (_node_lists, _earlier_instalments, _client_totals,
                   _one_instalment_votes_once, _final_rewards, _step_tracks,
-                  _numbering, _family_corroborates):
+                  _numbering, _family_corroborates, _split_trials,
+                  _countdown, _payment_events, _unread_rows_asked):
         failures.extend(probe(ct))
     return failures
+
+
+# What this check must catch, for `checks/faults.py`.
+FAULTS = [
+    ("a trial padded to three a banner", "ui.tabs.checklist_tab:_event_trials",
+     "most = len(slots) if slots else _trial_count(raw, window)",
+     "most = _trial_count(raw, window)", "not 2/2 done"),
+    ("the countdown unread", "ui.tabs.checklist_tab:_event_countdown",
+     "    if not isinstance(window, dict):\n        return []",
+     "    return []", "not ('15/15'"),
+    ("the session's claim ignored", "ui.tabs.checklist_tab:_payment_progress",
+     "claimed.add(latest.get(\"reward_id\"))", "pass",
+     "counts before the next login"),
+    ("tokens never enough", "ui.tabs.checklist_tab:_payment_progress",
+     "held >= tokens for tier", "held > 10 ** 9 + tokens for tier",
+     "a reward waiting"),
+    ("a row with no reading not asked", "ui.tabs.checklist_tab:"
+     "ChecklistTab._mark_finished", "else NOTHING_READ)", "else None)",
+     "was asked None"),
+    ("a deadline taken for a reading", "ui.tabs.checklist_tab:"
+     "ChecklistTab._mark_finished",
+     "read = [s for s in segments if s[1] not in DEADLINE_STATES]",
+     "read = segments", "was asked None"),
+]

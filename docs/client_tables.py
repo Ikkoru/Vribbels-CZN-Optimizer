@@ -5,6 +5,7 @@
     python docs/client_tables.py --table NAME        one table, as TSV
     python docs/client_tables.py --text REGEX        English text by id or words
     python docs/client_tables.py --grep REGEX        every table row holding it
+    python docs/client_tables.py --season SEASON     what a season pays
     python docs/client_tables.py --ship              rewrite the shipped names
     python docs/client_tables.py --audit             game_data against the client
     python docs/client_tables.py --archive           keep this build's whole data
@@ -22,6 +23,13 @@ finds. What each table holds, and what was checked against it, is
 it: a new event's schedule, a season's currency, an item a shop sells.
 It prints each row with a cell matching REGEX, as its table, its first
 column and every matching `column=value`.
+
+`--season disaster_s05` prints what a Galactic Disaster season pays in
+its own currency, term by term as `SEASON_ESTIMATE` in
+`Vribbels/ui/tabs/checklist_tab.py` adds them up: the weekly rewards a
+week, everything else once. A season's tables fill in by part, so it is
+re-run after each patch; `docs/client_data.md`, *Where each fact is*,
+says which table is which term.
 
 `--ship` rewrites `Vribbels/game_data/from_client.py`, what a player
 whose client the program cannot read sees instead: run it after a
@@ -50,6 +58,7 @@ program runs at launch. Python 3.14, for `compression.zstd`.
 """
 
 import argparse
+import collections
 import re
 import sys
 from pathlib import Path
@@ -101,6 +110,19 @@ def shipped_source(client):
               "EVENT_TOTALS = {"]
     lines += [f"    {ascii(key)}: ({rewards}, {final}, {steps}),"
               for key, (rewards, final, steps) in sorted(totals.items())]
+    lines += ["}", "",
+              "# {trial id: (slot ids)}. See game_client.trial_slots.",
+              "TRIAL_SLOTS = {"]
+    lines += [f"    {ascii(key)}: {ascii(tuple(slots))},"
+              for key, slots in sorted(game_client.trial_slots(client).items())]
+    lines += ["}", "",
+              "# {schedule id: {'define': define id, 'item': token res_id, "
+              "'tiers': [[tier id, tokens], ...]}}.",
+              "# See game_client.payment_events.",
+              "PAYMENT_EVENTS = {"]
+    lines += [f"    {ascii(key)}: {ascii(event)},"
+              for key, event in sorted(
+                  game_client.payment_events(client).items())]
     lines += ["}", "",
               "# {schedule id: (episode ids)}. See "
               "game_client.story_chapters.",
@@ -235,6 +257,85 @@ def _rows(items, per=10):
     to be reviewed."""
     return ["        " + ", ".join(items[i:i + per]) + ","
             for i in range(0, len(items), per)]
+
+
+# A season's achievement categories, in `SEASON_ESTIMATE`'s words. The
+# `score` rows reset weekly; the rest pay once.
+SEASON_TERMS = {"score": "Chaos weekly progress, a week",
+                "penalty": "Annihilation Rewards",
+                "disaster_battle": "Battle Report",
+                "disaster_collection": "Mission Records",
+                "disaster_ingame": "Chaos Investigation"}
+# A reward column and the count beside it: `reward_1_link_item_id` with
+# `item_1_count` in the Galactic Disaster tables, `reward_0_count` in
+# the story map's.
+REWARD_COLUMN = re.compile(r"(.*?)(\d+)_link_item_id")
+
+
+def _pays(row, item):
+    """What one reward row pays in `item`, a res_id as the tables write
+    it."""
+    total = 0
+    for column, value in row.items():
+        match = REWARD_COLUMN.fullmatch(column)
+        if not match or value != item:
+            continue
+        prefix, n = match.groups()
+        for count in (f"{prefix}{n}_count", f"item_{n}_count"):
+            if count in row:
+                total += game_client._figure(row[count]) or 0
+                break
+    return total
+
+
+def season_payouts(client, season):
+    """(the season's currency, [(term, what it pays, a note)]) for one
+    Galactic Disaster season, the terms `SEASON_ESTIMATE` adds up.
+    Raises KeyError for a season the client does not hold."""
+    seasons = {row["id"]: row
+               for row in client.rows("disaster_season@disaster_season")}
+    item = seasons[season]["material_link_item_id"]
+    currencies = {row.get("material_link_item_id") for row in seasons.values()}
+    out = []
+    achievements = client.rows("disaster_achievement(%s)@disaster_achievement"
+                               % season.rsplit("_", 1)[1])
+    by_term = collections.Counter()
+    for row in achievements:
+        by_term[row.get("main_category")] += _pays(row, item)
+    for category, words in SEASON_TERMS.items():
+        out.append((f"{words} ({category})", by_term.pop(category, 0), ""))
+    out += [(f"other achievements ({category})", paid, "")
+            for category, paid in sorted(by_term.items()) if paid]
+    clears = [row for row in client.rows(
+        "disaster_chaos_reward@disaster_chaos_reward")
+        if row.get("id", "").startswith(season + "_")]
+    out.append(("Seasonal Chaos first clears",
+                sum(_pays(row, item) for row in clears),
+                f"{len(clears)} difficulties"))
+    for table, words in (("story_map_reward@story_map_reward",
+                          "Story nodes"),
+                         ("story_map_collect_star_reward@"
+                          "story_map_collect_star_reward",
+                          "Story star tiers")):
+        paying = [paid for paid in map(lambda r: _pays(r, item),
+                                       client.rows(table)) if paid]
+        out.append((words, sum(paying), f"{len(paying)} rows"))
+    records = [row for row in client.rows(
+        "disaster_rank_record_reward@disaster_rank_record_reward")
+        if row.get("id", "").startswith(season + "_")]
+    out.append(("Great Rift records", sum(_pays(r, item) for r in records),
+                f"{len(records)} records"))
+    tiers = client.rows("disaster_rank_score_reward@disaster_rank_score_reward")
+    named = {r.get(c) for r in tiers for c in r
+             if REWARD_COLUMN.fullmatch(c) and r.get(c) in currencies}
+    out.append(("Great Rift weekly tiers, a week",
+                sum(_pays(r, i) for r in tiers for i in named),
+                f"{len(tiers)} tiers, in {', '.join(sorted(named))}: the "
+                f"table is every season's"))
+    out.append(("(the week's top score, in points)",
+                game_client._figure(seasons[season].get("max_clear_score"))
+                or 0, "not a payout"))
+    return item, out
 
 
 # Each rescue pool of `gacha_history`'s, by the banner type the client
@@ -1005,6 +1106,7 @@ def main(argv=None):
     parser.add_argument("--table", metavar="NAME")
     parser.add_argument("--text", metavar="REGEX")
     parser.add_argument("--grep", metavar="REGEX")
+    parser.add_argument("--season", metavar="SEASON")
     parser.add_argument("--ship", action="store_true")
     parser.add_argument("--audit", action="store_true")
     parser.add_argument("--rows", type=int)
@@ -1090,6 +1192,12 @@ def main(argv=None):
         for name in unread:
             print(f"did not read: {name}", file=sys.stderr)
         print(f"{stubs} stub files with no rows skipped", file=sys.stderr)
+    elif args.season:
+        item, terms = season_payouts(client, args.season)
+        name = client.text().get(f"item@name@{item}", "?")
+        print(f"{args.season} pays in {item} ({name}), build {archive.build}:")
+        for words, paid, note in terms:
+            print(f"  {words:42} {paid:>8,}  {note}")
     elif args.audit:
         found = audit(client)
         print("\n".join(found) if found else

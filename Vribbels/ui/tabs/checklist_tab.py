@@ -77,7 +77,9 @@ the geometry managers over every widget on the page, and forty labels
 is forty of them.
 """
 
+import collections
 import functools
+import json
 import math
 import time
 from datetime import datetime, timezone
@@ -269,9 +271,16 @@ SEASON_EARNED_LABEL = "You have earned this Season:"
 # `mission_accumulate` and the rest -- carries an id, a score and a
 # claim time, and no reward; the season's currency appears nowhere
 # else on the wire but in payouts already made and in the shop's own
-# prices. These are counted off the game's screens by hand. The game
-# client lists every reward; `docs/client_data.md`, *What it was held
-# against*, says where its figures and these disagree.
+# prices. **The game client lists every reward**, and
+# `python docs/client_tables.py --season <season>` prints each term
+# below off it. The client lists a part's story and achievements with
+# the patch that opens the part, so a season's entry is re-read after
+# each of its patches.
+#
+# **The weekly Chaos progress is counted at the week's top score**,
+# 8,000, as the maintainer counts it, where the client's five score
+# tiers pay 1,000 each (`docs/client_data.md`, *What it was held
+# against*).
 #
 # **Keyed by SEASON, so a table left behind says nothing rather than
 # something wrong.** A season this does not name gets no estimate,
@@ -294,12 +303,29 @@ SEASON_ESTIMATE = {
         "fixed": (
             9 * 8000,                               # Chaos weekly progress
             (4 + 4) * 4000,                         # Great Rift weekly
-            10 * 500,                               # Great Rift records
+            (10 + 10) * 500,                        # Great Rift records, both halves
             12 * 100 + 200 + 300 + 400 + 30 * 200,  # Mission Records
             9 * 100 + 52 * 200 + 2 * 2000,          # Chaos Investigation
             4 * 500 + 4 * 1000 + 2 * 2000,          # Battle Report
             4 * 3 * (200 + 6 * 100 + 3 * 50),       # Annihilation Reward
             11 * 1000,                              # Seasonal Chaos first clear
+            (30 + 18) * 300,                        # Story nodes and star tiers
+        ),
+    },
+    # Off the build-126 client, which holds the first part's story and
+    # achievements alone; re-read with each of the season's patches.
+    "disaster_s05": {
+        "days": 63,
+        "fixed": (
+            9 * 8000,                               # Chaos weekly progress
+            (4 + 4) * 4000,                         # Great Rift weekly: season 4's
+            (10 + 10) * 500,                        # Great Rift records: season 4's
+            9800,                                   # Mission Records
+            17900,                                  # Chaos Investigation
+            9300,                                   # Battle Report
+            11550,                                  # Annihilation Reward
+            11 * 1000,                              # Seasonal Chaos first clear
+            3 * (10 + 6) * 300,                     # Story, chapter 1's times three
         ),
     },
 }
@@ -481,6 +507,10 @@ BLINK_COLOURS = ("red_last", CLAMP_ALERT)
 WARN_BLINK = "warn_blink"
 WARN_BLINK_COLOURS = ("orange", "#b36200")
 BLINKING = {SOON: BLINK_COLOURS, WARN_BLINK: WARN_BLINK_COLOURS}
+# The states a deadline's own segment takes and no reading does: an
+# event row all of whose segments take one has nothing read but when it
+# ends. See `_mark_finished`.
+DEADLINE_STATES = frozenset({SOON, WARN, LATER, SOON_SETTLED})
 BLINK_MS = 1200
 STILL_HEADINGS = frozenset({"Daily"})
 
@@ -844,16 +874,37 @@ def _season_rotations(raw, season):
     rotation table to read. The FIRST is the season's preseason and
     each one after it opens a shop page; that is what dates the pages
     and what dates the next season's opening. See `shop_pages_open`.
+
+    **The rotations not begun yet are projected**, the wire listing one
+    only once it has: the next opens as the last listed one closes, as
+    long after its end as that one opened after the one before it --
+    the maintenance -- and each after it one rotation later, while it
+    opens inside the season. A season of Sortie-length parts so has
+    every page dated from the first.
     """
     if not isinstance(season, dict) or not season.get("start_time"):
         return None
-    return sorted(
-        window["start_time"]
-        for window in (schedules.groups(raw).get(
+    windows = sorted(
+        (window for window in (schedules.groups(raw).get(
             shop_stock.ACCOUNT_SEASON_GROUP) or {}).values()
-        if isinstance(window, dict)
-        and season["start_time"] <= window.get("start_time", 0)
-        < season.get("end_time", 0))
+         if isinstance(window, dict) and _is_count(window.get("start_time"))
+         and season["start_time"] <= window["start_time"]
+         < season.get("end_time", 0)),
+        key=lambda window: window["start_time"])
+    starts = [window["start_time"] for window in windows]
+    last = windows[-1] if windows else None
+    ends = season.get("end_time")
+    if last is None or not _is_count(last.get("end_time")) \
+            or not _is_count(ends):
+        return starts
+    before = windows[-2].get("end_time") if len(windows) > 1 else None
+    gap = max(0, last["start_time"] - before) if _is_count(before) else 0
+    step = last["end_time"] - last["start_time"] + gap
+    upcoming = last["end_time"] + gap
+    while step > 0 and upcoming < ends:
+        starts.append(upcoming)
+        upcoming += step
+    return starts
 
 
 def _preseason_end(raw, season):
@@ -937,7 +988,8 @@ def shop_pages_open(shop, period, raw, now):
     inside the season: the first of them is the preseason -- a Galactic
     Disaster season's schedule opens three weeks before its content
     does, with no shop and no currency in between -- and each one after
-    it opens the next page.
+    it opens the next page, the ones not begun yet projected from the
+    live one (`_season_rotations`).
 
     The Sortie reading was checked against the purchase record, which
     stamps every buy: this account's first purchase on each page lands
@@ -1032,17 +1084,25 @@ def _merged_order(pages):
 def shop_currency(shop, period, raw):
     """The res_id one shop sells for, or None where it has no one.
 
-    **A shop sells for ONE currency** -- the same `price_link_item_id`
-    on every product of a screen, checked across all seven the tab
-    lists. Two ways to get None, and both are readings rather than
-    failures: the seasonal supplies are free and carry no price item,
-    and a shop reading as more than one has nothing a single holding
-    could be compared against.
+    **The currency most of its products are priced in**, which is the
+    one its screen shows at the top: the game client's
+    `currency_1_link_item_id` for every shop the tab lists. A shop of
+    one currency is the plain case; the Prism Module shop also sells a
+    Lumina Lens for Prism Lens, a product of its own, and that one is
+    left out of the heading's bill (`_add_shop_totals`).
+
+    None where nothing is priced -- the seasonal supplies are free --
+    or where two currencies price as many products each, leaving no
+    one holding to compare against.
     """
-    money = {define.get("price_link_item_id")
-             for _pid, define in shop_products(shop, period, raw)}
-    one = money.pop() if len(money) == 1 else None
-    return one if _is_count(one) else None
+    money = collections.Counter(
+        define.get("price_link_item_id")
+        for _pid, define in shop_products(shop, period, raw)
+        if _is_count(define.get("price_link_item_id")))
+    ranked = money.most_common(2)
+    if not ranked or (len(ranked) > 1 and ranked[0][1] == ranked[1][1]):
+        return None
+    return ranked[0][0]
 
 
 def shop_period(period, raw, now, group=shop_stock.ACCOUNT_SEASON_GROUP):
@@ -1424,6 +1484,58 @@ def _event_attendance(raw, name, window, now):
              TODO if waiting else CYCLE_DONE)]
 
 
+def _event_countdown(raw, name, window, now):
+    """[(words, state)] for a countdown check-in's days claimed.
+
+    **Its days claim themselves at login**, so the row is a tally that
+    goes green rather than work to do: days claimed against the
+    countdown's days, the client's (`EVENT_CLIENT_FIELD`), else one a
+    day of its window, marked as worked out. Red with a day reached and
+    not claimed, ORANGE with today's claimed and days still to come,
+    green once every day is claimed -- which comes before the window
+    closes, the last day's reward being the countdown's end.
+
+    The record is the `ISSUED_LIMITS_FIELD` row on the countdown's own
+    window; none such, no reading.
+    """
+    if not isinstance(window, dict):
+        return []
+    span = (window.get("start_time"), window.get("end_time"))
+    rows = (raw or {}).get(ISSUED_LIMITS_FIELD)
+    record = next((row for row in (rows.values() if isinstance(rows, dict)
+                                   else ())
+                   if isinstance(row, dict) and _is_count(span[0])
+                   and (row.get("usable_time"), row.get("expire_time"))
+                   == span), None)
+    claimed = _day_offsets(record.get(COUNTDOWN_CLAIMED)) if record else None
+    if claimed is None:
+        return []
+    reached = _day_offsets(record.get(COUNTDOWN_REACHED)) or claimed
+    total = _client_total(raw, name)
+    if total is not None:
+        days, mark = total[0], ""
+    elif _is_count(span[1]) and span[1] > span[0]:
+        days, mark = int(round((span[1] - span[0]) / 86400.0)), EXPECTED_VALUE
+    else:
+        return []
+    taken = len(claimed)
+    return [("%s%d/%d" % (mark, taken, days),
+             DONE if taken >= days else
+             TODO if len(reached) > taken else CYCLE_DONE)]
+
+
+def _day_offsets(value):
+    """A countdown record's day list -- a JSON list of day offsets, as
+    the wire writes it -- as a set, or None where it is not one."""
+    try:
+        days = json.loads(value) if isinstance(value, str) else value
+    except ValueError:
+        return None
+    if not isinstance(days, list) or not all(_is_count(d) for d in days):
+        return None
+    return set(days)
+
+
 def _overclock_cap(rows, name):
     """How many doubled runs one Overclock event's day holds.
 
@@ -1624,17 +1736,23 @@ def _event_trials(raw, name, window, now):
     inside this event's own window -- and an older window cannot be
     reconstructed at all, the stamps that were in it having moved on.
 
-    **The slot list is preferred where a capture has seen a claim**
-    (`TRIAL_SLOTS_FIELD`), since it names the three exactly. Without
-    one the count is derived -- see `_trial_claims` -- which needs no
-    history and is right except during the week two events overlap.
+    **The game client's slot list comes first** (`game_client.trial_
+    slots`): it names every slot, so it is the total as well -- three
+    where one trial holds a banner's ★5 and its two ★4s, two and one
+    where they are split. Then the slots a capture has seen claimed
+    (`TRIAL_SLOTS_FIELD`), a floor under the banners' count. Without
+    either the count is derived -- see `_trial_claims` -- which needs
+    no history and is right except during the week two events overlap.
     """
     if not isinstance(window, dict) or not _is_count(window.get("start_time")):
         return []
-    most = _trial_count(raw, window)
     raw = raw or {}
-    pairs = raw.get(TRIAL_SLOTS_KNOWN, raw.get(TRIAL_SLOTS_FIELD))
-    slots = pairs.get(name) if isinstance(pairs, dict) else None
+    slots = game_client.known_trial_slots().get(name)
+    most = len(slots) if slots else _trial_count(raw, window)
+    if not slots:
+        pairs = raw.get(TRIAL_SLOTS_KNOWN, raw.get(TRIAL_SLOTS_FIELD))
+        slots = pairs.get(name) if isinstance(pairs, dict) else None
+        most = max(most, len(slots or ()))
     if slots:
         began, ends = window["start_time"], window.get("end_time")
         stamps = {row.get("event_combatant_trial_slot_id"):
@@ -1644,7 +1762,6 @@ def _event_trials(raw, name, window, now):
         claimed = sum(1 for slot in slots
                       if _is_count(stamps.get(slot))
                       and began <= stamps[slot] <= ends)
-        most = max(most, len(slots))
     else:
         claimed = min(_trial_claims(raw, name, window, now), most)
     return [("%d/%d" % (claimed, most), _done(claimed >= most))]
@@ -1723,9 +1840,50 @@ def _final_reward(raw, name):
 
 
 def _event_missions(raw, name, _window, _now):
-    """[(words, state)] for an event scored by its own missions, or by
-    its story chapter's episodes where it is one (`_story_progress`)."""
-    return _story_progress(raw, name) or _event_progress(raw, name)
+    """[(words, state)] for an event scored by its own missions, by its
+    story chapter's episodes where it is one (`_story_progress`), or by
+    its tiers where it is a payment event (`_payment_progress`)."""
+    return (_payment_progress(raw, name) or _story_progress(raw, name)
+            or _event_progress(raw, name))
+
+
+def _payment_progress(raw, name):
+    """[(words, state)] for a payment event, or [] for any other or
+    where the snapshot holds no record of its claims.
+
+    **Tiers claimed against the client's tiers**
+    (`game_client.known_payment_events`), the Nightmare Carnival
+    Exchange's seven. A tier unlocks at a number of tokens, which are
+    earned only by buying, so the row is red while the tokens held
+    reach a tier still unclaimed, and otherwise ORANGE: nothing to do
+    until more is bought, which is a finished day's answer too. Green
+    with every tier claimed.
+
+    The login files the claims under the define's id
+    (`PAYMENT_CLAIMS_FIELD`), and a claim in the session answers alone
+    (`PAYMENT_CLAIM_FIELD`), so both are read.
+    """
+    event = game_client.known_payment_events().get(name)
+    records = (raw or {}).get(PAYMENT_CLAIMS_FIELD)
+    if event is None or not isinstance(records, dict):
+        return []
+    define, item, tiers = event
+    filed = records.get(define)
+    claimed = {tier for tier, record in (filed.items() if isinstance(
+        filed, dict) else ()) if isinstance(record, dict)
+        and record.get("complete_time")}
+    latest = (raw or {}).get(PAYMENT_CLAIM_FIELD)
+    if (isinstance(latest, dict) and latest.get("define_id") == define
+            and latest.get("complete_time")):
+        claimed.add(latest.get("reward_id"))
+    taken = sum(1 for tier, _tokens in tiers if tier in claimed)
+    words = "%d/%d" % (taken, len(tiers))
+    if taken >= len(tiers):
+        return [(words, DONE)]
+    held = item_amounts.held(raw).get(item)
+    ready = _is_count(held) and any(
+        held >= tokens for tier, tokens in tiers if tier not in claimed)
+    return [(words, TODO if ready else CYCLE_DONE)]
 
 
 def _story_progress(raw, name):
@@ -1781,6 +1939,7 @@ EVENT_CATEGORIES = {
     # gone, so a finished day is not a finished event.
     "EVENT_OVERCLOCK": frozenset({GENERIC, FORCED_DAILY}),
     "EVENT_DAILY_CHECK": frozenset({TALLIED}),
+    "LOBBY_COUNTDOWN": frozenset({TALLIED}),
     "EVENT_COMBATANT_TRIAL": frozenset({TALLIED, GENERIC}),
     "EVENT_SCHEDULE": frozenset({OPEN_ENDED}),
     "EVENT_NODELIST_PAGE": frozenset({OPEN_ENDED}),
@@ -1850,6 +2009,7 @@ EVENT_READERS = {
     "EVENT_DAILY_CHECK": _event_attendance,
     "EVENT_OVERCLOCK": _event_overclock,
     "EVENT_COMBATANT_TRIAL": _event_trials,
+    "LOBBY_COUNTDOWN": _event_countdown,
 }
 
 
@@ -2349,9 +2509,9 @@ def item_name(res_id):
 # game has used to the default window.
 EVENTS_HEADING = "Events"
 # `LOBBY_COUNTDOWN` is a login event of its own group, the Nightmare
-# Carnival's countdown check-in: its deadline only. Its days claim
-# themselves at login, so there is nothing to do but know when it ends
-# (docs/events.md, *Members so far*).
+# Carnival's countdown check-in. Its days claim themselves at login, so
+# its row is a tally that goes green on the last (`_event_countdown`,
+# docs/events.md, *Members so far*).
 EVENT_GROUPS = ("EVENT_SCHEDULE", "EVENT_COMBATANT_TRIAL",
                 "EVENT_NODELIST_PAGE", "EVENT_DAILY_CHECK",
                 "EVENT_RHYTHM_GAME", "EVENT_ARENA", "EVENT_OVERCLOCK",
@@ -2531,6 +2691,20 @@ ATTENDANCE_SHOWN = "current_days"
 ATTENDANCE_TAKEN = "received_days"
 ATTENDANCE_OVER = "completed"
 
+# A payment event's claims: the login's, `{define id: {tier id:
+# record}}`, and a claim's own reply, one record naming its define and
+# tier. See `_payment_progress`.
+PAYMENT_CLAIMS_FIELD = "event_payment_reward_entities"
+PAYMENT_CLAIM_FIELD = "event_payment_reward_entity"
+
+# A countdown check-in's record: an `issued_limit_entities` row whose
+# `usable_time` and `expire_time` are the countdown's own window, with
+# the days reached (`vs1`) and the days claimed (`vs2`) as JSON lists of
+# day offsets. See `_event_countdown`.
+ISSUED_LIMITS_FIELD = "issued_limit_entities"
+COUNTDOWN_REACHED = "vs1"
+COUNTDOWN_CLAIMED = "vs2"
+
 # The lowest ceiling a login event's row is drawn with where the client
 # does not hold the event. **Nothing on the wire states how many
 # rewards one holds** -- not the schedule, not the row, not even the
@@ -2562,17 +2736,17 @@ OVERCLOCK_USES = 2
 # events, an interrupted final day does not.
 OVERCLOCK_SHAPE_SIGHTINGS = 2
 
-# A Combatant Trial event offers three trials, and what matters is the
-# REWARD: a slot's `complete_time` is when its reward was last claimed,
-# rewritten each time the trial comes round again.
+# A Combatant Trial event offers a trial per slot, and what matters is
+# the REWARD: a slot's `complete_time` is when its reward was last
+# claimed, rewritten each time the trial comes round again.
 #
-# **Which slots an event offers is not on the wire.** Two trial events
+# **Which slots an event offers is not on the wire**, but the game
+# client lists them (`game_client.known_trial_slots`). Two trial events
 # run at once and their windows overlap, so a claim cannot be assigned
-# to one by its date. The pairing is learned from the claim itself --
-# `reward_combatant_trial` names both ids -- and the capture keeps it
-# under `combatant_trial_slots`. Until a slot has been claimed once
-# with a capture running, the row shows its deadline alone -- unless the
-# program ships the pairing (`shared_facts.py`).
+# to one by its date. Where the client does not answer, the pairing is
+# learned from the claim itself -- `reward_combatant_trial` names both
+# ids -- and the capture keeps it under `combatant_trial_slots`, beside
+# the pairings the program ships (`shared_facts.py`).
 TRIAL_SLOTS_FIELD = "combatant_trial_slots"
 TRIAL_FIELD = "combat_trial_entities"
 # Where `refresh_checklist` leaves the capture's pairings with the
@@ -2586,10 +2760,10 @@ def _shipped(context):
     """The program's own game facts, or None -- see shared_facts.py."""
     return getattr(context, "shared_facts", None)
 
-# Three trials PER COMBATANT BANNER running: the event offers the
-# banner combatants, so a second banner doubles the trials. Counted off
-# the live pickup banners rather than stated, which is what keeps it
-# right when a second one opens.
+# Where the client lists no slots: three trials PER COMBATANT BANNER
+# running, the event offering the banner combatants, so a second banner
+# doubles the trials. Counted off the live pickup banners rather than
+# stated, which is what keeps it right when a second one opens.
 TRIAL_PER_BANNER = 3
 BANNER_GROUP = "GACHA"
 BANNER_PREFIX = "gacha_pickup_combatant_"
@@ -2721,6 +2895,9 @@ FINISHED_LABEL = "Finished?"
 # refresh every day and its window says when it ends, so a full day is
 # never in doubt.
 NOT_ASKED_GROUPS = ("EVENT_OVERCLOCK",)
+# The pair an answer is kept against on a row with no reading at all,
+# which never moves: ticked, it stands until the event ends.
+NOTHING_READ = (0, 0)
 
 COUNTDOWN_STOP_PREFIX = "endsat:"
 COUNTDOWN_FIXED, COUNTDOWN_EVENTS = "fixed", "events"
@@ -4029,8 +4206,14 @@ class ChecklistTab(BaseTab):
             # asks, its claimed count being the unproven half.
             certain = (name in client and not client[name][2] and segments
                        and segments[0][1] is FINAL_WAITING)
+            # **A row with no reading is asked too**, an event nothing
+            # here reads -- the collab coupon, a Trauma Code -- having
+            # only its deadline to show, and no other way to be done.
+            # Ticked, the deadline greens (`DEADLINE_STATES`).
+            read = [s for s in segments if s[1] not in DEADLINE_STATES]
             pair = (None if name in not_asked or certain
-                    else unsure_ceiling(segments))
+                    else unsure_ceiling(segments) if read
+                    else NOTHING_READ)
             if pair is None:
                 # The row exists and is not at an unproven ceiling, so
                 # an answer about it is about a reading that is gone.
@@ -4042,7 +4225,7 @@ class ChecklistTab(BaseTab):
             if not ticked and manager is not None and name in manager.finished:
                 manager.call_finished(name, 0, 0, done=False)
             out[key] = pair + (ticked,)
-            if ticked:
+            if ticked and segments:
                 readings[key] = ((segments[0][0], DONE),) + tuple(segments[1:])
         if isinstance(raw, dict):
             raw[EVENT_FINISHED_FIELD] = frozenset(
@@ -5054,7 +5237,8 @@ def _add_shop_totals(out, raw, amounts, tracked, now):
     one glance says whether a shop can be finished this period.
 
     A shop with no single currency to its name has no total -- see
-    `shop_currency`, which is where that is decided.
+    `shop_currency`, which is where that is decided -- and a product
+    priced in another currency than the shop's is not billed in it.
 
     **Only the TICKED products are billed.** The row answers "can I
     clear what I care about", and an untracked product is one the user
@@ -5069,9 +5253,14 @@ def _add_shop_totals(out, raw, amounts, tracked, now):
         for shop in shops if period else ():
             if shop_shut_for_now(shop, period, raw, now):
                 continue
+            currency = shop_currency(shop, period, raw)
+            if currency is None:
+                continue
             bill, unknown = 0, False
             for product_id, define in shop_products(shop, period, raw):
                 if tracked is not None and not tracked(product_id):
+                    continue
+                if define.get("price_link_item_id") != currency:
                     continue
                 left, _cap = shop_stock.remaining(
                     product_id, define, raw, now)
@@ -5080,9 +5269,6 @@ def _add_shop_totals(out, raw, amounts, tracked, now):
                     unknown = True
                     continue
                 bill += left * price
-            currency = shop_currency(shop, period, raw)
-            if currency is None:
-                continue
             held = amounts.get(currency)
             held = held if _is_count(held) else 0
             out[SHOP_TOTAL_PREFIX + shop_head_key(shop, period)] = _one(

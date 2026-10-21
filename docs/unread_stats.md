@@ -246,6 +246,7 @@ What the Checklist needs from an event is in `docs/events.md`. The mini-games' o
 | `event_operation_entities` | yes | per operation stage: `clear_chaos_difficulty` and the buff options taken, each with its `point` |
 | `marble_achievement_entities`, `marble_mission_entities` | yes, by name | the Disaster Marble's reward ladder (claimable-reward rows) and its missions' scores, per season |
 | `story_event_entities` | yes, by name | per story event, every episode's `state` (2 once watched) and `complete_time` |
+| `trauma_code_entities`, `trauma_code_event_entities`, `mission_trauma_code_event_entities`, `story_trauma_code_event_entities` | yes, by name, from `trauma_code/get_list` | per Trauma Code its `unlock_state`, `story_state` and `event_achieve_state` (a list); 1 on three codes of five, which in `event_mission_reward_entities` means an event's final reward taken, unconfirmed here. The other three empty in every capture so far, a code's event records once one is played |
 
 ## Combatants between logins
 

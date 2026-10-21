@@ -1153,6 +1153,35 @@ def run():
         failures.append(
             f"a monthly row with `month_start` reads {got!r}, not 0/{cap}.")
 
+    # **A shop's currency is the one most of its products are priced
+    # in**, and a product priced in another is left out of its bill.
+    # The Prism Module shop sells a Lumina Lens for Prism Lens beside its
+    # own products, and read as having no single currency its heading
+    # lost its total.
+    prism = ("shop_exchange_product", "shop_card_factor")
+    raw = _snapshot(amounts=((2000024, 500), (2000023, 40)))
+    raw["shop_res_data"] = {"shop_exchange_product": {
+        pid: {"product_link_item_id": item, "product_count": 1,
+              "limit_count": 10, "limit_type": "LIMIT_MONTH", "sort": n,
+              "link_shop_sub_category_id": "shop_card_factor",
+              "price_link_item_id": money, "price_count": price}
+        for n, (pid, item, money, price) in enumerate((
+            ("card_factor_1", 2000023, 2000024, 10),
+            ("card_factor_3", 5210001, 2000024, 60),
+            ("card_factor_5", 2000054, 2000023, 3)))}}
+    raw["shop_list"] = {"town_shop_goods_099": {"count": 1,
+                                                "reset_time": int(now)}}
+    raw["month_start"] = int(now - DAY)
+    heading = SHOP_TOTAL_PREFIX + shop_head_key(prism, "monthly")
+    got = _readings(raw, now).get(heading)
+    if not got or got[0][0] != "500/700":
+        failures.append(
+            f"a shop of two products priced in 2000024 and one in 2000023 "
+            f"heads {got!r}, not 500/700: held of the currency most of "
+            f"its products are priced in, against what clearing those "
+            f"costs (`shop_currency`). The Lumina Lens priced in Prism "
+            f"Lens is not billed in the shop's own currency.")
+
     # --- the seasonal shelf: its own season, and its merged rows ------
     # **A Galactic Disaster season spans four Sortie seasons**, so an
     # `account` boundary taken from the Sortie one reads every
@@ -1373,6 +1402,28 @@ def run():
                 f"{sorted(want)} -- {why}. The first rotation inside a "
                 f"season is its preseason and each one after opens a "
                 f"page.")
+
+    # **The wire lists a rotation only once it has begun**, so the pages
+    # after the live one are dated by projecting it: the next opens as
+    # it closes, each after it one rotation later. Without, an undated
+    # page reads as open from the season's first day.
+    def begun_only():
+        raw = three_pages()
+        for later in ("r2", "r3"):
+            raw["event_schedules"]["ASSAULT_SCHEDULE"].pop(later)
+        return raw
+
+    for moment, want in ((now, {"shop_disaster_1"}),
+                         (opens + 25 * DAY,
+                          {"shop_disaster_1", "shop_disaster_2"})):
+        got = shop_pages_open(shelf, "account", begun_only(), moment)
+        if got != want:
+            failures.append(
+                f"with the rotations to come not listed yet, "
+                f"{int((moment - opens) / DAY)} days in the open pages "
+                f"read {sorted(got or ())}, not {sorted(want)}. The ones "
+                f"after the live rotation are projected from it "
+                f"(`_season_rotations`).")
 
     # **A row whose whole remainder is on a shut page is ORANGE.** Red
     # says there is something to buy; on such a row there is not, and
@@ -2470,3 +2521,20 @@ def run():
             f"both module rows would read 0 forever.")
 
     return failures
+
+
+# What this check must catch, for `checks/faults.py`.
+FAULTS = [
+    ("a shop of two currencies given none",
+     "ui.tabs.checklist_tab:shop_currency",
+     "if not ranked or (len(ranked) > 1 and ranked[0][1] == ranked[1][1]):",
+     "if not ranked or len(ranked) > 1:", "not 500/700"),
+    ("another currency's product billed",
+     "ui.tabs.checklist_tab:_add_shop_totals",
+     'if define.get("price_link_item_id") != currency:', "if False:",
+     "not 500/700"),
+    ("the rotations to come not projected",
+     "ui.tabs.checklist_tab:_season_rotations",
+     "while step > 0 and upcoming < ends:", "while False:",
+     "projected from it"),
+]

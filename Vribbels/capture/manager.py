@@ -1510,14 +1510,18 @@ class Addon:
         # **Login tables with no reader yet whose names do not say
         # `event_`**, kept whole for the sweep's reason. A story event's
         # episodes, the Disaster Marble's reward ladder and missions,
-        # the Full-Scale Offensive's rank, the Sortie's standing: each
-        # rides the login burst and next to nothing else. Named here
-        # rather than swept, since nothing about their names marks
-        # them. `docs/unread_stats.md` has what each holds.
+        # the Full-Scale Offensive's rank, the Sortie's standing, a
+        # Trauma Code's state and its event's records: each rides the
+        # login burst and next to nothing else. Named here rather than
+        # swept, since nothing about their names marks them.
+        # `docs/unread_stats.md` has what each holds.
         for key in ("story_event_entities", "marble_achievement_entities",
                     "marble_mission_entities", "remnants_entity",
-                    "chaos_assault_entity"):
-            if isinstance(data.get(key), dict) and data[key]:
+                    "chaos_assault_entity", "trauma_code_entities",
+                    "trauma_code_event_entities",
+                    "mission_trauma_code_event_entities",
+                    "story_trauma_code_event_entities"):
+            if isinstance(data.get(key), (dict, list)) and data[key]:
                 self.login_tables[key] = data[key]
                 self._save_pending = True
         # Watching an episode answers with its ONE row, keyed by the

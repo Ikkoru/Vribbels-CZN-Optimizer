@@ -11,6 +11,8 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 ### Added
 
 - Checklist: a story event with nothing to claim, such as Escape from Judgment, shows its Progress the way the game does, as a percentage of its episodes cleared.
+- Checklist: the Nightmare Carnival's countdown and Exchange show their rewards claimed. The Exchange is red while you hold the tokens for a tier still unclaimed.
+- Checklist: an event the program cannot read has a `Finished?` box.
 
 ### Changed
 
@@ -19,6 +21,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Gacha History: a Seasonal rerun's pulls count with the release banners' even before the program has read any banner's rates.
 - Memory Fragments: Potential's average and middle 80% weigh each new substat by how often the game draws it.
 - Checklist: the Seasonal Shop is the Galactic Disaster Shop, the game's name for it.
+- Checklist: the Galactic Disaster Shop's whole-season estimate covers season 5, and counts both halves' Great Rift records and the story's rewards.
 - Settings you never changed take each release's new defaults at launch, without Restore Defaults: Gear Score presets, Combatant presets, Combatant settings and the settings file. Ones you changed keep yours.
   - A launch that changes any backs your files up first, then says what it changed, with Undo.
   - Setup & Settings: Update unchanged settings to new defaults automatically turns it off.
@@ -31,6 +34,9 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Checklist:
   - The Nightmare Carnival's events and this season's Virtual Tactical Simulations show their names, not their ids.
   - On the first launch after a patch, the shops name the items the patch added.
+  - A Virtual Tactical Simulation counts its own trials: the ★4 and ★5 ones run apart read 2/2 and 1/1, not out of 3.
+  - The Prism Module shop's total shows again with the Lumina Lens on sale.
+  - Galactic Disaster Shop: the pages not open yet are dated, so a row with everything on sale bought reads orange, not red.
 
 ## [2.5.1] - Capture Fixes
 
