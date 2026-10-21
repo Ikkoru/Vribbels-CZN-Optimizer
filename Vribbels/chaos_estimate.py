@@ -90,6 +90,7 @@ CHAOS_NAMES = {
     60000: ("Burning Life", "disaster_s02"),                 # chaos_07
     70000: ("Theater of Illusions", "disaster_s03"),         # chaos_08
     80000: ("The Kaleidoscope Hatchery", "disaster_s04"),    # chaos_09
+    100000: ("Celestial Bulwark", "disaster_s05"),           # chaos_10
     110000003: ("The Blue Pot", None),                       # chaos_01
     115000001: ("Twin Star's Shadow", None),                 # chaos_02
     120000002: ("City of Mist", None),                       # chaos_03

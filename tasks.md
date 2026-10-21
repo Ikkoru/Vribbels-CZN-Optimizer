@@ -33,12 +33,17 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
 - **I37 — Anika's and Arabella's level curves.** The client puts both Strikers on another class's level-61/62 gains: Anika on Vanguard grade 4's (`c_lv_vanguard_sr`), Arabella on Ranger grade 5's (`c_lv_ranger_ssr`), `level_curve` in `characters.py`. No reading has either past level 60: the 2026-10-12 capture's one Anika battle, a Chaos run, states her at 60, and Arabella is in none of its battles. With capture on, a plain battle with either at level 61 or 62; `check_base_stats_on_wire` then holds the server's base to the curve.
 
+- **I38 — Card Skin Packs in the Gacha History?** The 10-21 patch sells random Card Skin Packs in the Shop's Lumina Theater for a Lumina Lens each (Probabilities: `page.onstove.com/chaoszeronightmare/en/view/14594282` and `14594285`): SUPER RARE 1.3%, RARE 13% and COMMON 85.7%, a duplicate paid in Remnants. The wire's schedule group is `CARD_SKIN_PACKAGE`, one schedule a pack (`card_skin_pack_s001_1`, `_2`), and the Lens is the Exchange Shop's `card_skin_ticket`. Needs:
+  - the maintainer's call on whether the Gacha History tracks them, and what it shows of them: the pages state no pity;
+  - with capture on, one pack bought, for what the purchase answers and whether a pull record follows.
+
 - **I35 — After the 2026-09-30 patch.** What the patch's plan left open. The rest is in `past_plans/patch_2026_09_30.md`.
 
-  1. **10-21: season 5's part 1.**
-     - From its notice: `SUPPLY_ROUNDS["disaster_s05"]` in `checklist_tab.py`, and `SEASON_ESTIMATE["disaster_s05"]`, hand-counted off the screens (`past_plans/seasonal_shop.md`).
-     - From its first run: the new Chaos's stage id in `chaos_estimate.CHAOS_NAMES`, and the season currency's id in `docs/chaos_runs.py` `CURRENCY`. The client puts `chaos_10` in the season (`disaster_chaos_list`), but build 88 holds no stage id (90000 if the pattern holds), name or currency for it yet; a client read after the next patch may. Read the currency's name with its id: the item worklist's `Type` and `Note` on 3000009 describe Memory of Light, which the client puts at 3000006.
-     - Then refresh `chaos_estimate.SHIPPED` from `python docs/chaos_runs.py`. Read its by-spot lines: the season's maps hold fewer ordinary battles (its docstring).
+  1. **10-21: season 5's part 1.** Its Chaos, Celestial Bulwark, is stage 100000, and Relic of a Frozen Civilization (3920032) is its currency: both in, off the build-126 client.
+     - **`SUPPLY_ROUNDS["disaster_s05"]` in `checklist_tab.py`.** The 10-21 notice dates only the 1st Supply Store, where season 4's dated all three, and the shop sends all three pages already, so pages 2 and 3 read as open (a page with no date does). A partial entry changes nothing. Needs their dates: the in-game Supply Store's page tabs, if they show when they open, or the 11-11 notice.
+     - **`SEASON_ESTIMATE["disaster_s05"]`.** The client lists every reward a season pays in its currency (`docs/client_data.md`, *Where each fact is*), and season 4's hand count matches it but in three places (*What it was held against*): the weekly Chaos progress, the Great Rift records and the story. Needs the maintainer's ruling on those three, then the entry, from the client rather than screens.
+     - From its first run: refresh `chaos_estimate.SHIPPED` from `python docs/chaos_runs.py`. Read its by-spot lines: the season's maps hold fewer ordinary battles (its docstring). The 10-21 capture holds no run.
+     - With the same run, which id pays Memory of Light, the Environment Variables' currency: the client names 3000006 so, while season 5's Chaos lists 3000010, named Tactical Manual Processor like 3000009, among its drops. The item worklist's `Type` and `Note` on 3000009 then go to the right row.
   2. **To confirm on the next capture:** a level-up, a Potential node and a gift move the Combatants tab live.
 
 - **I31 — The Chaos estimate's loose end.** Built as the maintainer specified:

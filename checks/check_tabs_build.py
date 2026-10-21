@@ -2399,7 +2399,7 @@ def _checklist_short_names_keep_their_tip(tab):
     from ui.tabs import checklist_tab as mod
     out = []
     for res_id, short in mod.SHORT_NAMES.items():
-        full = mod.ITEM_NAMES.get(res_id)
+        full = mod.item_name(res_id)
         if not full:
             out.append(
                 f"SHORT_NAMES shortens item {res_id}, which `item_names` "

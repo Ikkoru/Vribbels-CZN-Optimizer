@@ -28,6 +28,9 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 - Partners below level 30 show their right level, and the stats that go with it. Combatants' levels read up to 62.
 - Tiphera's fifth Potential node raises DEF% and her sixth Crit Rate, not the other way round.
+- Checklist:
+  - The Nightmare Carnival's events and this season's Virtual Tactical Simulations show their names, not their ids.
+  - On the first launch after a patch, the shops name the items the patch added.
 
 ## [2.5.1] - Capture Fixes
 

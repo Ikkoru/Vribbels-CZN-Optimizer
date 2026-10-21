@@ -84,8 +84,11 @@ def _joins(gc):
         "t_trauma": "Successor's Guiding Light",
         "t_return": "Visit the Festival", "t_carnival": "Nightmare Carnival",
         "t_wide": "Wide" + chr(0x1F600) + " name",
+        "t_page": "Nightmare Carnival", "t_attend": "Attendance Check",
+        "t_exchange": "Exchange", "t_parade": "Parade",
         gc.COMBATANT_NAME % "30117": "Olga",
         gc.COMBATANT_NAME % "1052": "Narja",
+        gc.COMBATANT_NAME % "1040": "Beryl",
     }
     tables = {
         gc.EVENT_TABLE: [
@@ -112,7 +115,32 @@ def _joins(gc):
             {"id": "event_combatant_trial_14",
              gc.TRIAL_LEAD: "combatant_trial_1052_1"},
             {"id": "event_combatant_trial_17",
-             gc.TRIAL_LEAD: "combatant_trial_30117"}],
+             gc.TRIAL_LEAD: "combatant_trial_30117"},
+            # Numbered twice, as the 10-21 patch's are: no table names a
+            # `_18_` kin, so the name comes from the trials a number up.
+            {"id": "event_combatant_trial_18_1",
+             gc.TRIAL_LEAD: "combatant_trial_1040"}],
+        # The Nightmare Carnival: a whole named by its page, and the
+        # events inside it by the whole and their own titles. A part
+        # with no schedule names nothing, and a part of no define is
+        # nobody's.
+        gc.SPECIAL_DEFINE_TABLE: [
+            {"id": "sp_event_1", "link_special_event_content_key": "sp_event_1",
+             "link_event_schedule_id": "event_schedule_1st_year_1"}],
+        gc.SPECIAL_CONTENT_TABLE: [
+            {"id": "sp_event_1_1", "link_top_menu_id": "page_carnival",
+             "title": "t_attend", "multiple_link": "event_daily_1st_anni",
+             "link_event_schedule_id": "none"},
+            {"id": "sp_event_1_2", "link_top_menu_id": "page_carnival",
+             "title": "t_exchange", "multiple_link": "payment_event_01",
+             "link_event_schedule_id": "none"},
+            {"id": "sp_event_1_3", "link_top_menu_id": "page_carnival",
+             "title": "t_parade", "multiple_link": "none",
+             "link_event_schedule_id": "none"},
+            {"id": "sp_event_10_1", "link_top_menu_id": "page_carnival",
+             "title": "t_attend", "multiple_link": "event_of_no_define",
+             "link_event_schedule_id": "none"}],
+        gc.TOP_MENU_TABLE: [{"id": "page_carnival", "scene_name": "t_page"}],
         gc.VISIT_TABLE: (
             [{"group": "normal_visit_1003"}] * 7
             + [{"group": "normal_visit_30117"}] * 11
@@ -129,7 +157,11 @@ def _joins(gc):
         "countdown_attendance_1st": "Nightmare Carnival",
         "event_combatant_trial_14": "Virtual Tactical Simulation - Narja",
         "event_combatant_trial_17": "Virtual Tactical Simulation - Olga",
+        "event_combatant_trial_18_1": "Virtual Tactical Simulation - Beryl",
         "event_wide": "Wide name",
+        "event_schedule_1st_year_1": "Nightmare Carnival",
+        "event_daily_1st_anni": "Nightmare Carnival - Attendance Check",
+        "payment_event_01": "Nightmare Carnival - Exchange",
     }
     for key, name in want.items():
         if names.get(key) != name:
@@ -138,12 +170,13 @@ def _joins(gc):
                 f"{name!r}. Each kind of event reaches its name its own "
                 f"way (`game_client.event_names`), and a miss reads as the "
                 f"bare id on the Checklist.")
-    for key in ("event_untexted", "none"):
+    for key in ("event_untexted", "none", "event_of_no_define"):
         if key in names:
             out.append(
                 f"the client reader named {key!r} ({names[key]!r}). A row "
-                f"with no English text, or the table's `none`, names "
-                f"nothing; named, it reads as some other event's name.")
+                f"with no English text, the table's `none`, or a special "
+                f"event's part no define owns, names nothing; named, it "
+                f"reads as some other event's name.")
     visits = gc.excursion_types(client)
     if visits != {1003: 7, 30117: 11}:
         out.append(
@@ -346,6 +379,29 @@ def _item_precedence(gc):
             f"{from_client.ITEM_NAMES[shipped_id]!r}: a player whose client "
             f"cannot be read sees its id in the Capture Log.")
     return out
+
+
+def _late_read(gc):
+    """The Checklist's item names follow a client read that lands after
+    they were first asked for, as the first launch after a patch has
+    it: the read runs on a worker and the tab is built before it ends.
+    Returns complaints."""
+    from ui.tabs import checklist_tab
+    try:
+        gc.use(None)
+        checklist_tab.item_name(0)
+        gc.use({"item_names": {"999999903": "Landed Late"}})
+        named = checklist_tab.item_name(999999903)
+    finally:
+        gc.use(None)
+    if named != "Landed Late":
+        return [
+            f"an item a client read named after the Checklist first asked "
+            f"for a name reads {named!r} there, not 'Landed Late'. On the "
+            f"first launch after a patch the read lands late, and every "
+            f"item the patch added -- the new season's shop -- shows its "
+            f"id until the next launch (`checklist_tab.item_name`)."]
+    return []
 
 
 def _manifest(folder, build, version=None):
@@ -697,6 +753,7 @@ def run():
     failures.extend(_joins(gc))
     failures.extend(_totals(gc))
     failures.extend(_accessors(gc))
+    failures.extend(_late_read(gc))
     failures.extend(_cache(gc))
     failures.extend(_shipped(gc))
 
@@ -738,6 +795,17 @@ FAULTS = [
      "return None\n"
      "        held = json.loads((Path(settings_dir) / CACHE_FILE).read_text(",
      "was not the fallback"),
+    ("special events not read", "game_client:event_names",
+     "_special_events(client, texts).items()", "{}.items()",
+     "names 'event_daily_1st_anni'"),
+    ("a kind looked for one number off only", "game_client:family_name",
+     "        if shared:\n", "        if True:\n",
+     "names 'event_combatant_trial_18_1'"),
+    ("the Checklist's item names built once", "ui.tabs.checklist_tab:item_name",
+     "if built_at != game_client.generation():", "if built_at is None:",
+     "not 'Landed Late'"),
+    ("a client read not moving the generation", "game_client:use",
+     "_generation += 1", "_generation += 0", "not 'Landed Late'"),
 ]
 
 

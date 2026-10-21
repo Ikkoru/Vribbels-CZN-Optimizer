@@ -4,6 +4,7 @@
     python docs/client_tables.py --list REGEX        archived paths
     python docs/client_tables.py --table NAME        one table, as TSV
     python docs/client_tables.py --text REGEX        English text by id or words
+    python docs/client_tables.py --grep REGEX        every table row holding it
     python docs/client_tables.py --ship              rewrite the shipped names
     python docs/client_tables.py --audit             game_data against the client
     python docs/client_tables.py --archive           keep this build's whole data
@@ -16,6 +17,11 @@ TSV there instead of printing it, `--rows N` prints only the first N,
 and `--client DIR` names an install other than the one the program
 finds. What each table holds, and what was checked against it, is
 `docs/client_data.md`.
+
+`--grep` answers where an id lives when nothing says which table holds
+it: a new event's schedule, a season's currency, an item a shop sells.
+It prints each row with a cell matching REGEX, as its table, its first
+column and every matching `column=value`.
 
 `--ship` rewrites `Vribbels/game_data/from_client.py`, what a player
 whose client the program cannot read sees instead: run it after a
@@ -998,6 +1004,7 @@ def main(argv=None):
     parser.add_argument("--list", metavar="REGEX")
     parser.add_argument("--table", metavar="NAME")
     parser.add_argument("--text", metavar="REGEX")
+    parser.add_argument("--grep", metavar="REGEX")
     parser.add_argument("--ship", action="store_true")
     parser.add_argument("--audit", action="store_true")
     parser.add_argument("--rows", type=int)
@@ -1059,6 +1066,30 @@ def main(argv=None):
         for key, value in client.text().items():
             if pattern.search(key) or pattern.search(value):
                 print(f"{key}\t{value}")
+    elif args.grep:
+        pattern = re.compile(args.grep, re.I)
+        stubs, unread = 0, []
+        for name in sorted(archive.files):
+            if not (name.startswith("db/") and name.endswith(".db")):
+                continue
+            try:
+                columns, rows = client.table(name[3:-3])
+            except Exception as exc:                     # noqa: BLE001
+                # A file without an `@` is a stub with no rows to it, as
+                # `client_archive` finds; a table that fails is news.
+                if "@" in name:
+                    unread.append(f"{name[3:-3]} ({exc!r})")
+                else:
+                    stubs += 1
+                continue
+            for row in rows:
+                hits = [f"{c}={row[c]}" for c in columns
+                        if pattern.search(row[c])]
+                if hits:
+                    print("\t".join([name[3:-3], row[columns[0]], *hits]))
+        for name in unread:
+            print(f"did not read: {name}", file=sys.stderr)
+        print(f"{stubs} stub files with no rows skipped", file=sys.stderr)
     elif args.audit:
         found = audit(client)
         print("\n".join(found) if found else

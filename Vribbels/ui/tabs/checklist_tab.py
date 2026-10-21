@@ -269,8 +269,9 @@ SEASON_EARNED_LABEL = "You have earned this Season:"
 # `mission_accumulate` and the rest -- carries an id, a score and a
 # claim time, and no reward; the season's currency appears nowhere
 # else on the wire but in payouts already made and in the shop's own
-# prices. There is no definitions table to read, so these are counted
-# off the game's screens by hand.
+# prices. These are counted off the game's screens by hand. The game
+# client lists every reward; `docs/client_data.md`, *What it was held
+# against*, says where its figures and these disagree.
 #
 # **Keyed by SEASON, so a table left behind says nothing rather than
 # something wrong.** A season this does not name gets no estimate,
@@ -2312,15 +2313,32 @@ def product_tip(define):
 def _product_words(define, name):
     """A product's label built on `name`, or on the item's own."""
     res_id = define.get("product_link_item_id")
-    name = name or ITEM_NAMES.get(res_id) or str(res_id)
+    name = name or item_name(res_id) or str(res_id)
     count = define.get("product_count")
     return name if count in (1, None) else "%s x%s" % (name, count)
 
 
-# Every id the build can name, built once. A shaped row's name is
-# SPELLED OUT there -- reading `row[0]` off a table gives the group
-# (`Combatant`, `Passion`), not a name.
-ITEM_NAMES = item_names()
+# Every id the build can name, as (the client facts' generation it was
+# built at, the table). A shaped row's name is SPELLED OUT there --
+# reading `row[0]` off a table gives the group (`Combatant`, `Passion`),
+# not a name.
+_item_names = (None, {})
+
+
+def item_name(res_id):
+    """An item's name, or None where nothing names it.
+
+    **The table is built again whenever the client's facts change**
+    (`game_client.generation`), not once at import: on the first launch
+    after a patch the client is read on a worker, and lands after this
+    module has loaded. A table built at import kept every item the
+    patch added under its id -- the new season's shop among them.
+    """
+    global _item_names
+    built_at, names = _item_names
+    if built_at != game_client.generation():
+        _item_names = built_at, names = game_client.generation(), item_names()
+    return names.get(res_id)
 
 
 # What the Other column's trailing block of live events is headed, and
@@ -4096,7 +4114,7 @@ class ChecklistTab(BaseTab):
                 money = shop_currency(shop, period, raw)
                 if money is None:
                     continue
-                name = ITEM_NAMES.get(money) or str(money)
+                name = item_name(money) or str(money)
                 if shop[0] == SEASONAL_SHOP_CATEGORY:
                     # **The seasonal shop has no rate to give, and
                     # nothing to record.** Its currency is wiped at the

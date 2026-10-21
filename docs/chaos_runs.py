@@ -182,7 +182,8 @@ OUT = ROOT / "docs" / "chaos_runs.tsv"
 
 # The season currencies seen so far. Only a run no standings named a
 # season for is placed by this; see the module docstring.
-CURRENCY = {3920001: "s01", 3920002: "s02", 3920006: "s03", 3920031: "s04"}
+CURRENCY = {3920001: "s01", 3920002: "s02", 3920006: "s03", 3920031: "s04",
+            3920032: "s05"}
 
 # What this script fills in. Anything after them in an existing file
 # is the maintainer's and is carried over by `date`.

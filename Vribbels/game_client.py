@@ -71,9 +71,11 @@ UNINSTALL_KEY = (r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"
 GAMERES = Path("bin") / "appdata" / "cznlive" / "gameres"
 
 # What the cache is called in the settings folder, and the shape of
-# what it holds. A cache of another format is read as no cache.
+# what it holds. A cache of another format is read as no cache, so a
+# reader that changes what it reads raises this: every install then
+# reads its client again once, rather than at the next patch.
 CACHE_FILE = "game_client.json"
-CACHE_FORMAT = 12
+CACHE_FORMAT = 13
 
 # The manifest layout this reads. A different version is a different
 # layout until shown otherwise.
@@ -118,9 +120,25 @@ EVENT_NAME_TABLES = (
 )
 TRAUMA_CODE_TABLE = "event_trauma_code@event_trauma_code"
 
+# A special event, such as the 1st anniversary's Nightmare Carnival: a
+# define row naming the whole's schedule, and a content row for each
+# event inside it, `<the define's content key>_<n>`, naming that
+# event's schedule and its title. The whole is named by the title of
+# the top-menu page its contents open (`link_top_menu_id`), and each
+# event inside it as `<the whole> - <its title>`: a title alone --
+# Attendance Check, Exchange -- says nothing of which event it is.
+SPECIAL_DEFINE_TABLE = "special_event@special_event_define"
+SPECIAL_CONTENT_TABLE = "special_event@special_event_content"
+SPECIAL_LINKS = ("multiple_link", "link_event_schedule_id")
+TOP_MENU_TABLE = "top_menu@top_menu"
+SPECIAL_PART_NAME = "%s - %s"    # the whole's name, then the part's
+NO_LINK = ("", "none", "-1")
+
 # A schedule numbered among others of its kind -- `event_combatant_
 # trial_15` among the trials -- that no table names, named after its
-# kind where every named member shares one name.
+# kind where every named member shares one name. A number at a time,
+# nearest first: `event_combatant_trial_18_1` has no named `_18_`
+# kin, and is a trial.
 FAMILY_NUMBER = re.compile(r"_\d+$")
 
 # Every Combatant Trial is called the same, and two run at once: each
@@ -563,6 +581,8 @@ def event_names(client):
     for name, key, title in EVENT_NAME_TABLES:
         for row in client.rows(name):
             put(row.get(key), row.get(title))
+    for key, name in _special_events(client, texts).items():
+        names.setdefault(key, name)
     trials = {}
     for row in client.rows(TRIAL_TABLE):
         trial = row.get("id") or ""
@@ -576,15 +596,54 @@ def event_names(client):
     return names
 
 
+def _special_events(client, texts):
+    """{schedule id: name} for every special event and the events inside
+    it (`SPECIAL_DEFINE_TABLE`). A special event whose page has no
+    title names nothing, its parts included."""
+    menus = {row.get("id"): clean(texts.get(row.get("scene_name")))
+             for row in client.rows(TOP_MENU_TABLE)}
+    contents = client.rows(SPECIAL_CONTENT_TABLE)
+    out = {}
+    for define in client.rows(SPECIAL_DEFINE_TABLE):
+        prefix = (define.get("link_special_event_content_key") or "") + "_"
+        parts = [row for row in contents
+                 if (row.get("id") or "").startswith(prefix)
+                 and row["id"][len(prefix):].isdigit()]
+        whole = next((menus[row.get("link_top_menu_id")] for row in parts
+                      if menus.get(row.get("link_top_menu_id"))), "")
+        if not whole:
+            continue
+        if define.get("link_event_schedule_id") not in NO_LINK:
+            out[define["link_event_schedule_id"]] = whole
+        for row in parts:
+            title = clean(texts.get(row.get("title")))
+            for column in SPECIAL_LINKS:
+                if title and row.get(column) not in NO_LINK:
+                    out.setdefault(row[column],
+                                   SPECIAL_PART_NAME % (whole, title))
+    return out
+
+
 def family_name(schedule_id, names):
     """The name every named schedule of `schedule_id`'s kind shares, or
-    None. `event_combatant_trial_15` is a trial whatever its number."""
-    stem = FAMILY_NUMBER.sub("", schedule_id)
-    if stem == schedule_id:
-        return None
-    shared = {name for key, name in names.items()
-              if FAMILY_NUMBER.sub("", key) == stem and key != stem}
-    return shared.pop() if len(shared) == 1 else None
+    None. `event_combatant_trial_15` is a trial whatever its number.
+
+    The kind is the id with a number taken off, and its members every
+    id that adds numbers back: `event_combatant_trial_18_1` is first
+    of `event_combatant_trial_18`, which no table names, and then of
+    `event_combatant_trial`, the trials. The first kind with a named
+    member answers."""
+    stem = schedule_id
+    while True:
+        shorter = FAMILY_NUMBER.sub("", stem)
+        if shorter == stem:
+            return None
+        stem = shorter
+        member = re.compile(re.escape(stem) + r"(?:_\d+)+")
+        shared = {name for key, name in names.items()
+                  if member.fullmatch(key)}
+        if shared:
+            return shared.pop() if len(shared) == 1 else None
 
 
 def excursion_types(client):
@@ -1255,6 +1314,8 @@ _facts = None
 # `known_item_rarities`, worked out once per `use`: `item_art` asks it
 # for every tile it draws.
 _rarities = None
+# How many times `use` has run: see `generation`.
+_generation = 0
 
 
 def use(facts):
@@ -1263,11 +1324,20 @@ def use(facts):
     Affinity and slot options over the hand tables
     (`game_data.client_overlay`). None goes back to the shipped tables
     alone."""
-    global _facts, _rarities
+    global _facts, _rarities, _generation
     _facts = facts if isinstance(facts, dict) else None
     _rarities = None
+    _generation += 1
     from game_data import client_overlay
     client_overlay.apply(_facts)
+
+
+def generation():
+    """How many times `use` has replaced the facts. Whatever keeps a
+    table worked out from them builds it again once this moves: on the
+    first launch after a patch the client is read on a worker, and the
+    read lands after the tabs that show it were built."""
+    return _generation
 
 
 def event_name(schedule_id):
