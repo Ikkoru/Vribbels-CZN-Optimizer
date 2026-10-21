@@ -39,6 +39,19 @@ NO_CARDS = "CARD_SET_NONE"
 HAND = "CARD_PLACE_HAND"
 # The piles a draw takes from.
 DRAW_PILES = ("CARD_PLACE_DECK", "CARD_PLACE_DECK_TOP", "CARD_PLACE_DECK_BOTTOM")
+# A card taken to hand, or played, from the Draw or the Discard pile is
+# as good as drawn (the maintainer). One that may come from the Used
+# pile, where played cards wait for the turn's end, is mostly the same
+# card played again: it counts 0, a figure the user can set.
+DRAWN_FROM = DRAW_PILES + ("CARD_PLACE_DECK_DISCARD", "CARD_PLACE_DISCARD")
+# The words in a place that name a pile; any other place is the hand's,
+# or a monster's. And the places a card taken counts 0 from, as the
+# user reads them.
+PILE_WORDS = ("DECK", "DISCARD", "USED", "EXHAUST")
+PLACE_NAMES = {"CARD_PLACE_DECK_DISCARD_USED": "any pile but the Exhaust pile",
+               "CARD_PLACE_DISCARD_USED": "the Graveyard",
+               "CARD_PLACE_EXHAUST": "the Exhaust pile",
+               "CARD_PLACE_DECK_HAND_DISCARD": "the Draw or Discard pile or the hand"}
 # Costs the client stores that are no AP figure: an X card's, which
 # spends the AP left, and a card's that is never played from hand.
 X_COST, NO_COST = -1, -2
@@ -365,6 +378,18 @@ class _Reader:
             figure, plain = self.sink(which, mode, lasting, plain_value)
             figure.add(figure_amount, plain, f"{words} {reason}".rstrip())
 
+        def taken(words):
+            """A card taken from a pile: a draw where it comes from the
+            Draw or the Discard pile, 0 for the user to set where it may
+            come from elsewhere, nothing where no pile is named."""
+            place = effect.get("target_card_set_list_card_place", "CARD_PLACE_NONE")
+            if place in DRAWN_FROM:
+                add("draw", amount, f"{_say(amount)}draw: {words}")
+            elif any(pile in place for pile in PILE_WORDS):
+                figure, _plain = self.sink("draw", mode, lasting, False)
+                figure.add(amount, False, f"{_say(amount)}draw if counted: {words} from "
+                                          f"{PLACE_NAMES.get(place, place)}")
+
         if kind == CHOICE:
             options = _list(effect.get("eff_opt_multiple_link"))
             option = (self.catalogue.card(self.upgrades.get(options[0], options[0]))
@@ -387,17 +412,12 @@ class _Reader:
             if on_this:
                 # Comes to hand by itself, needing no draw (plan D69).
                 add("draw", 1, "1 draw: it moves to hand")
-            elif effect.get("target_card_set_list_card_place") in DRAW_PILES:
-                add("draw", amount, f"{_say(amount)}draw from the draw pile")
+            else:
+                taken("moved to hand")
         elif kind == FREE_PLAY and not on_this:
             # Which card it plays, and so its cost saved, is the
-            # battle's; one from the draw pile is a card drawn.
-            place = effect.get("target_card_set_list_card_place", "CARD_PLACE_NONE")
-            if place in DRAW_PILES:
-                add("draw", amount, f"{_say(amount)}draw: played for free from the draw pile")
-            elif "DECK" in place:
-                self.draw.unknown.append((amount, f"{_say(amount)}draw if played for "
-                                          f"free from the draw pile rather than another"))
+            # battle's; one taken from the Draw pile is a card drawn.
+            taken("played for free")
             self.ap.unknown.append((None, "AP: the cost of each card it plays for free"))
         elif kind in (FREE_PLAY, AGAIN):
             self.notes.append("it plays itself again, in some battles: its figures "

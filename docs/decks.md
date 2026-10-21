@@ -145,13 +145,19 @@ The readings set aside, each failing decks the game accepted:
 
 **Anything else shows as ?** and counts as 0 (plan D12). The figure keeps the part with its amount where the data gives one, so the user sees what to type.
 
-- **A draw** is a `SKILL_EFF_CARD_DRAW`, or a card moved from the draw pile to hand: "Check 3 cards, select and draw one". A card that moves itself to hand needs no draw, so it counts as 1 drawn (plan D69).
+- **A draw** is a `SKILL_EFF_CARD_DRAW`, or a card moved to hand from the Draw or the Discard pile (*The piles*, below): "Check 3 cards, select and draw one". A Move that may take from the Used pile counts 0, and shows `?` with its figure for the user to set. A card that moves itself to hand needs no draw, so it counts as 1 drawn (plan D69).
 - **AP gained** is a `SKILL_EFF_ENERGY_CHANGE`, or another card's cost cut (plan D68): on each card a status sits on, or on every card a unit's status covers.
 - **The cost** is the version's printed cost, with the Epiphanies' and the Persona effects' changes. An X card's (−1) and one with none (−2) are the battle's. So is a cost the battle lowers: a cut the card's own status makes, Ignition and Lead (plan D19).
 - **A Quietus card costs 0** (plan D67): a deck procs it by discarding it. Quietus is the keyword, or an effect of the card's own (`SKILL_EFF_CARD_TESTAMENT`): the Persona effect "When this card is Discarded, proc this card" is one. `Played.printed_cost` keeps its own.
-- **A free play** (`SKILL_EFF_CARD_USE`, plan D49) of a card from the draw pile is a card drawn; from among several piles, one the battle may grant. What it saves, the cost of the card it plays, is always `?` AP: which card that is, the battle decides. A card that plays itself again counts once, with a note.
+- **A free play** (`SKILL_EFF_CARD_USE`, plan D49) of a card from the Draw or the Discard pile is a card drawn, as a Move is; from a pile the Used pile or the hand is among, a draw the user may set. What it saves, the cost of the card it plays, is always `?` AP: which card that is, the battle decides. A card that plays itself again counts once, with a note.
 - **A status that lasts a number of uses** takes them from the effect that puts it on ("the next 2 times"), and its figures count once per use.
 - **A choice** takes its first option, and a note says so (plan D44).
+
+**The piles**, as the maintainer describes them. The **Draw pile** (the client's `CARD_PLACE_DECK`); the **Graveyard**, of two parts, the **Discard pile** (`CARD_PLACE_DISCARD`) and the **Used pile**, where played cards go and which is shuffled into the Discard pile at the end of the turn; and the **Exhaust pile** (`CARD_PLACE_EXHAUST`), which only Sereniel's Ego skill takes from ("Move all Homing Laser L in Exhaust Pile to hand"). A place naming several piles takes from any of them: `CARD_PLACE_DECK_DISCARD`, the Draw or the Discard pile; `CARD_PLACE_DISCARD_USED`, the Graveyard; `CARD_PLACE_DECK_DISCARD_USED`, any but the Exhaust pile.
+
+- **A Draw** takes the top card of the Draw pile; when the Draw pile is empty, the Discard pile is shuffled into it first.
+- **A Move** takes the card from where it says, with none of that. A Move that names no pile takes from any but the Exhaust pile, which the client writes `CARD_PLACE_DECK_DISCARD_USED`. A Move from the Draw pile counts as a draw for whatever cares about drawing.
+- **For the turn's draw**, a card moved from the Draw or the Discard pile is all but drawn (`turns.DRAWN_FROM`). One that may come from the Used pile counts 0: such a Move mostly plays the same card again, used, moved back and used once more. So does one from the Exhaust pile, whose cards were played already.
 
 **Which turns a card counts in** (plan 3.2): setup for an Upgrade (`CARD_POWER`), any Exhaust keyword and Remove; neither for a card both Unusable and Ephemeral; regular for the rest. An Opener card is marked (`Played.opener`), since its cost also comes out of the setup turn (plan D18).
 
