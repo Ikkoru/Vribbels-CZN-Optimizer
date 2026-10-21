@@ -26,7 +26,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Checklist: the Galactic Disaster Shop's whole-season estimate covers season 5. It counts both halves' Great Rift records and the story's rewards, and the weekly Chaos progress at what its score tiers pay, 5,000 a week.
 - Checklist: every row's maximum comes from the game client, so a patch that raises a cap, a pass's level or an Overclock's runs needs no program update. The Galactic Disaster Shop's pages open on the game's own dates.
 - Checklist: Excursions count down from your own daily Communication Passes, 3 plus one for each of the two town research nodes that add one, rather than a fixed 5.
-- Item, Chaos and Zero System names come from the game client first, so an id a patch gives to another item shows the new item's name. The program's own names cover what the client does not name.
+- Item, Chaos, Zero System and Memory Fragment set names come from the game client first, so an id a patch gives to another item shows the new item's name, and a renamed set shows its new name. The program's own names cover what the client does not name.
 - Settings you never changed take each release's new defaults at launch, without Restore Defaults: Gear Score presets, Combatant presets, Combatant settings and the settings file. Ones you changed keep yours.
   - A launch that changes any backs your files up first, then says what it changed, with Undo.
   - Setup & Settings: Update unchanged settings to new defaults automatically turns it off.
@@ -36,6 +36,9 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 - Partners below level 30 show their right level, and the stats that go with it. Combatants' levels read up to 62.
 - Tiphera's fifth Potential node raises DEF% and her sixth Crit Rate, not the other way round.
+- Items show the name the game shows. Every season's Memory of Light, the Memory Fragment set packages and several other packages showed another item's name, and two stickers each other's.
+- Combatants: a combatant wearing no Memory Fragments shows its stats on the Character card, not dashes.
+- A Memory Fragment set released after the program, such as Veiled Radiance, is listed in the Memory Fragments tab's Sets filter, so its fragments are no longer hidden while any set is unticked. The Character card shows it by name, not as Flex.
 - Checklist:
   - The Nightmare Carnival's events and this season's Virtual Tactical Simulations show their names, not their ids.
   - On the first launch after a patch, the shops name the items the patch added.

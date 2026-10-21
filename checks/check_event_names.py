@@ -58,6 +58,10 @@ class _FakeClient:
     def __init__(self, tables, texts):
         self.tables = tables
         self.texts = texts
+        # The archive's file list, as the readers walking every table of
+        # a kind see it: each table as `db/<name>.db`.
+        self.archive = type("Archive", (), {"files": [
+            "db/%s.db" % name for name in tables]})()
 
     def rows(self, name):
         return self.tables.get(name, [])
@@ -194,6 +198,29 @@ def _joins(gc):
             f"`item@name@<res_id>` with text names an item, markup taken "
             f"out; anything else lands a description or a blank where the "
             f"Capture Log shows an item.")
+    # **The game names an item by its row's `name` column**, which can
+    # point at another id's text: every season's Memory of Light holds
+    # 3000006's, and the text under its own id is one no screen shows.
+    items = gc.item_names(_FakeClient({
+        "item_material@item": [
+            {"id": "3000010", "name": "item@name@3000006"},
+            {"id": "3000011", "name": "item@name@3000011"},
+            {"id": "3000012", "name": "item@name@missing"}]}, {
+        "item@name@3000006": "Memory of Light",
+        "item@name@3000010": "Tactical Manual Processor",
+        "item@name@3000011": "Own Name",
+        "item@name@3000012": "Its Own Id's",
+        "item@name@3000099": "No Row"}))
+    for rid, want, why in (
+            (3000010, "Memory of Light", "its row's name column names it"),
+            (3000011, "Own Name", "a row naming its own id's text"),
+            (3000012, "Its Own Id's", "a row whose key has no text falls "
+                                      "back on its own id's"),
+            (3000099, "No Row", "an id no row holds keeps its own id's "
+                                "text")):
+        if items.get(rid) != want:
+            out.append(f"item {rid} reads {items.get(rid)!r}, not {want!r}: "
+                       f"{why} (`game_client.item_names`).")
     return out
 
 
@@ -897,6 +924,11 @@ FAULTS = [
      "                and NAMING.search(name):",
      "if str(res_id).isdigit() and isinstance(name, str):",
      "a placeholder is no name"),
+    ("an item named by its own id's text", "game_client:item_names",
+     "                if isinstance(rid, int) and NAMING.search(name):\n"
+     "                    out[rid] = name",
+     "                if False:\n                    out[rid] = name",
+     "its row's name column names it"),
     ("the program's tables not under the client's",
      "game_data.constants:item_names",
      "names = hand_item_names()", "names = {}",

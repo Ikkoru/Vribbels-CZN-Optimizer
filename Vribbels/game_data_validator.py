@@ -575,8 +575,12 @@ def _check_partners(problems: list[str]) -> None:
 
 
 def _check_sets(problems: list[str]) -> None:
-    from game_data import (SETS, SET_STAT_NAME_MAP, SET_CARD_MULT_STATS,
+    from game_data import (SET_STAT_NAME_MAP, SET_CARD_MULT_STATS,
                            ATTRIBUTE_COLORS)
+    # The table as typed: the client's names laid over it are no typo of
+    # the maintainer's (`game_data.client_overlay`).
+    from game_data.client_overlay import hand
+    SETS = hand("SETS")
 
     rep = _Reporter("sets.py", _line_map("sets.py", "SETS"))
     attributes = tuple(ATTRIBUTE_COLORS)

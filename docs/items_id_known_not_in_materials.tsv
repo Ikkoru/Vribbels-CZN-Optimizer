@@ -23,7 +23,7 @@ res_id	where	amount	Name	Type	Note	Explanation
 2000048	currencies	0	Command Delegation Module	Time-Limited Command Delegation Module - 1 Day	Daily free Chaos Delegation	
 3000005	items	45451	Chaos Orb	Zero System Currency	Worthless	
 3000008	items	600	Tactical Data	Sortie Currency		
-3000009	items	0	Tactical Manual Processor	Zero System Currency - Seasonal	Season 4's; reset when a Galactic Disaster ends. Season 3's was 3000007
+3000009	items	0	Memory of Light	Zero System Currency - Seasonal	Season 4's Environment Variables currency (client disaster_season.season_circle_material_link_item_id); reset when a Galactic Disaster ends. Season 3's was 3000007, season 5's is 3000010. Every one is named by item@name@3000006; the text under 3000009's own id, Tactical Manual Processor, is one the game no longer shows
 3200001	items	3765	Particles of Memory	Crafting Material for Memory Fragments		
 3200002	items	59	Core of Memory	Crafting Material for Memory Fragments		
 3210001	items	9238	Traces of Memory	Crafting Material for Memory Fragments		

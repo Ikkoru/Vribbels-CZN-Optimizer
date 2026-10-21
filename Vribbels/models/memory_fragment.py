@@ -143,11 +143,10 @@ from game_data import (
     STATS,
     EQUIPMENT_SLOTS,
     RARITY,
-    SETS,
     UPGRADES_PER_RARITY,
     get_character_name,
 )
-from game_data.sets import set_name as set_name_of
+from game_data.sets import set_name as set_name_of, set_pieces
 # Direct module-path imports to avoid relying on game_data/__init__.py
 # re-exporting them.
 from game_data.constants import MAX_LEVEL, MAX_LEVEL_PER_RARITY, SUBSTAT_DRAW
@@ -907,9 +906,4 @@ class MemoryFragment:
         return stats
 
     def get_set_pieces(self) -> int:
-        set_info = SETS.get(self.set_id)
-        if set_info:
-            return set_info.get("pieces", 2)
-        import game_client
-        effect = game_client.known_set_effects().get(self.set_id)
-        return effect[1] if effect else 2
+        return set_pieces(self.set_id) or 2

@@ -34,10 +34,15 @@ The wording
 and the game's text is the fallback: a set without one, or one the
 program has no entry for, shows the game client's words
 (`game_client.known_set_effects`) until it gets one. `set_bonus` is
-the one accessor, and `set_name` the same for the name of a set the
-program has no entry for. `checks/check_set_wordings.py` holds every wording's
+the one accessor. `checks/check_set_wordings.py` holds every wording's
 figures to the game's, notes each set still on the game's words, and
 says whether a patch moved only a set's figures or reworded it.
+
+**A set's name is the other way round: the game client's first.**
+`game_data.client_overlay` lays it over the `name` typed here, which
+names a set only where the client does not, and `set_name` names a set
+the program has no entry for. `docs/client_tables.py --audit` and
+`check_set_wordings` hold the typed names to the client's.
 
 Stat-name vocabulary
 ====================
@@ -98,14 +103,16 @@ SETS = {
 }
 
 def set_name(set_id) -> str:
-    """A set's name: the program's, else the game client's, else its
-    number -- which says what to look for to identify it."""
+    """A set's name: the game client's, which `client_overlay` lays over
+    the program's own entry, else that entry's, else its number -- which
+    says what to look for to identify it."""
     own = (SETS.get(set_id) or {}).get("name")
     if own:
         return own
     import game_client
     effect = game_client.known_set_effects().get(set_id)
-    return effect[0] if effect else str(set_id)
+    named = effect[0] if effect else ""
+    return named if game_client.NAMING.search(named) else str(set_id)
 
 
 def set_named(name):
@@ -118,6 +125,26 @@ def set_named(name):
         if set_id not in SETS and effect[0] == name:
             return set_id
     return int(name) if str(name).isdigit() else None
+
+
+def set_pieces(set_id):
+    """How many pieces complete a set: the program's entry's, else the
+    game client's, else None."""
+    own = (SETS.get(set_id) or {}).get("pieces")
+    if own:
+        return own
+    import game_client
+    effect = game_client.known_set_effects().get(set_id)
+    return effect[1] if effect and isinstance(effect[1], int) else None
+
+
+def named_sets():
+    """Every set id `set_name` names: the program's entries, and the
+    client's sets it has none for, a placeholder not naming one."""
+    import game_client
+    return set(SETS) | {set_id for set_id, effect
+                        in game_client.known_set_effects().items()
+                        if game_client.NAMING.search(effect[0])}
 
 
 def set_bonus(set_id) -> str:

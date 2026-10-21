@@ -541,7 +541,7 @@ RECORDED_NAMES = {
     2000048: "Command Delegation Module",
     3000005: "Chaos Orb",
     3000008: "Tactical Data",
-    3000009: "Tactical Manual Processor",
+    3000009: "Memory of Light",
     3200001: "Particles of Memory",
     3200002: "Core of Memory",
     3210001: "Traces of Memory",

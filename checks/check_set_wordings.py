@@ -41,31 +41,43 @@ def _comparisons_report(tool):
     """Each comparison speaks up about a fault put into a copy of the
     data: a wording's figure, a plain set's value, a reworded effect and
     one whose figures alone moved. Returns complaints."""
-    from game_data import SETS
+    import game_client
+    from game_data import SETS, client_overlay, from_client
     out = []
     effects = {6: ("A Set", 4, "+35% Critical Damage of 1-cost cards", "",
                    None),
                9: ("B Set", 2, "+12% Attack", "S_ATK_INC_RATE_OUT", 12)}
-    saved = {k: SETS.get(k) for k in effects}
+    typed = {6: {"name": "A Set", "pieces": 4,
+                 "bonus": "+30% Crit DMG to 1-cost Cards"},
+             9: {"name": "B Set", "pieces": 2, "stat": "ATK%", "value": 10}}
+    found = " ".join(tool.set_problems(effects, typed))
+    if "states [1 30]" not in found:
+        out.append("a wording stating 30 where the game states 35 "
+                   "goes unreported. See `set_problems` in "
+                   "docs/client_tables.py.")
+    if "ATK% 10 here, ATK% 12" not in found:
+        out.append("a plain set's value unlike the client's goes "
+                   "unreported.")
+    renamed = {**effects, 9: ("Renamed Set",) + effects[9][1:]}
+    if "named 'Renamed Set' in the client" not in " ".join(
+            tool.set_problems(renamed, typed)):
+        out.append("a set the client names otherwise than sets.py goes "
+                   "unreported.")
+    # **The client's names are laid over `SETS`**, so the audit holds the
+    # client to the names as TYPED: against the live table it would
+    # compare the client's name with itself.
+    set_id = next(iter(SETS))
+    theirs = ("Client Spelling",) + tuple(from_client.SET_EFFECTS[set_id][1:])
     try:
-        SETS[6] = {"name": "A Set", "pieces": 4,
-                   "bonus": "+30% Crit DMG to 1-cost Cards"}
-        SETS[9] = {"name": "B Set", "pieces": 2, "stat": "ATK%",
-                   "value": 10}
-        found = " ".join(tool.set_problems(effects))
-        if "states [1 30]" not in found:
-            out.append("a wording stating 30 where the game states 35 "
-                       "goes unreported. See `set_problems` in "
-                       "docs/client_tables.py.")
-        if "ATK% 10 here, ATK% 12" not in found:
-            out.append("a plain set's value unlike the client's goes "
-                       "unreported.")
+        client_overlay.apply({"set_effects": {str(set_id): list(theirs)}})
+        if "named 'Client Spelling' in the client" not in " ".join(
+                tool.set_problems({set_id: theirs})):
+            out.append("with the client's set names laid over SETS, a set "
+                       "the client names otherwise than sets.py goes "
+                       "unreported: the audit holds the client to the names "
+                       "as typed (`set_problems`, `client_overlay.hand`).")
     finally:
-        for key, entry in saved.items():
-            if entry is None:
-                SETS.pop(key, None)
-            else:
-                SETS[key] = entry
+        client_overlay.apply(game_client._facts)
     moved = {**effects, 6: ("A Set", 4, "+40% Critical Damage of 1-cost "
                             "cards", "", None)}
     reworded = {**effects, 6: ("A Set", 4, "+35% Critical Damage of Attack "
@@ -132,7 +144,8 @@ def run():
             note(f"set {set_id} {entry.get('name')} has no wording of its "
                  f"own, so the game's shows: {shipped[set_id][2]!r}")
     for line in tool.unlisted_sets(shipped):
-        note(f"{line}, so it shows by number, in the game's words")
+        note(f"{line}, so it shows in the game's name and words, and the "
+             f"optimizer cannot weigh it")
 
     install = game_client.find_install()
     if install is None:
@@ -154,3 +167,18 @@ def run():
              f"still to write")
     failures += tool.node_51_problems(client)
     return failures
+
+
+def _audit_reads_the_live_table():
+    """The hand tables read as the live ones, the client's facts laid
+    over: the audit then compares the client with itself."""
+    from game_data import client_overlay
+    client_overlay.hand = lambda name: client_overlay._TABLES[name]
+
+
+# What this check must catch, for `checks/faults.py`.
+FAULTS = [
+    ("the audit holding the client to the names laid over",
+     _audit_reads_the_live_table, None, None,
+     "with the client's set names laid over SETS"),
+]

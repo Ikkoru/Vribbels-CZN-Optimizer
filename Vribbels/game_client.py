@@ -76,7 +76,7 @@ GAMERES = Path("bin") / "appdata" / "cznlive" / "gameres"
 # reader that changes what it reads raises this: every install then
 # reads its client again once, rather than at the next patch.
 CACHE_FILE = "game_client.json"
-CACHE_FORMAT = 16
+CACHE_FORMAT = 17
 
 # The manifest layout this reads. A different version is a different
 # layout until shown otherwise.
@@ -163,8 +163,9 @@ COMBATANT_INFO_ROW = re.compile(r"(\d+)_info")
 VISIT_TABLE = "town_visit@town_normal_visit"
 VISIT_GROUP = re.compile(r"normal_visit_(\d+)")
 
-# An item's English name: the text `item@name@<res_id>`, one for every
-# item the game has, whichever item table holds its row.
+# The text key most items' names sit under, `item@name@<res_id>`: what
+# names an id no item row names (`item_names`, which reads each row's
+# own `name` column first).
 ITEM_NAME = re.compile(r"item@name@(\d+)")
 # What a name holds that a placeholder does not: a letter or a digit.
 # The client can name an unreleased item `???`, which is no name to put
@@ -1108,13 +1109,33 @@ def item_rarities(client):
 
 def item_names(client):
     """{item res_id: English name} for every item the client names, a
-    placeholder (`NAMING`) not being a name."""
+    placeholder (`NAMING`) not being a name.
+
+    **An item's name is the text its row's `name` column holds**, in
+    whichever `item_*@item` table carries the row -- not the text
+    `item@name@<its id>`. Most rows hold that very key, but some point
+    elsewhere, and the text under their own id is then one the game no
+    longer shows: every season's Memory of Light (3000007, 3000009,
+    3000010) holds `item@name@3000006`, the text under 3000010 reading
+    `Tactical Manual Processor`; a package can hold a kit's; two
+    stickers hold each other's. A text no row uses names its id last,
+    for an id a payload carries that no item table holds -- the ids a
+    patch later gives to items of its own carry such leftovers until
+    then."""
+    texts = client.text()
     out = {}
-    for key, text in client.text().items():
+    for key, text in texts.items():
         match = ITEM_NAME.fullmatch(key)
         name = clean(text) if match else ""
         if NAMING.search(name):
             out[int(match.group(1))] = name
+    for path in client.archive.files:
+        if path.startswith("db/item_") and path.endswith("@item.db"):
+            for row in client.rows(path[3:-3]):
+                rid = _figure(row.get("id"))
+                name = clean(texts.get(row.get("name")) or "")
+                if isinstance(rid, int) and NAMING.search(name):
+                    out[rid] = name
     return out
 
 

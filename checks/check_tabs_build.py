@@ -598,6 +598,109 @@ def _node_lines_carry_the_games_words(tab):
     return out
 
 
+def _an_unequipped_combatant_shows_its_stats(tab):
+    """A combatant wearing no Memory Fragments shows its stats on the
+    Character card, not a dash for each: its base at its level, its
+    partner's, its nodes' and its Affinity's are its stats all the same,
+    and the build formula gives them with no fragment in it. A freshly
+    pulled combatant is the usual case.
+
+    Notes rather than fails where the snapshot holds no such combatant.
+
+    Returns a list of complaints.
+    """
+    from ui.tabs import heroes_tab as ht
+    tab.refresh_heroes()
+    names = [h["name"] for h in tab.hero_data_list]
+    bare = [n for n in names if n in tab.optimizer.character_info
+            and not tab.optimizer.characters.get(n)]
+    if not bare:
+        note("no combatant without Memory Fragments in the snapshot, so "
+             "the card's stats without them were not checked")
+        return []
+    tab.select_hero_row(names.index(bare[0]))
+    card = tab.hero_char_text.get("1.0", "end-1c").split("\n")
+    out = []
+    for stat in ("ATK", "DEF", "HP", "CRate"):
+        label = ht.HERO_STAT_DISPLAY[stat] + "\t"
+        line = next((l for l in card if label in l), "")
+        value = line.split(label, 1)[1].split("\t", 1)[0] if label in line \
+            else None
+        if not value or value == "-":
+            out.append(f"{bare[0]}, wearing no Memory Fragments, shows "
+                       f"{stat} as {value!r} on the Character card: the "
+                       f"stats without fragments are its stats all the "
+                       f"same. See `show_hero_details`.")
+    return out
+
+
+def _a_set_only_the_client_names_shows_by_it(tab):
+    """On the Character card, a set the program has no entry for counts
+    by the game client's pieces and shows by the client's name, as a
+    set the program models does: the card says what is worn, so four
+    pieces of a set new in a patch are not `4 Flex`.
+
+    Notes rather than fails where no shipped client set lacks an entry.
+
+    Returns a list of complaints.
+    """
+    from types import SimpleNamespace
+    from game_data import SETS
+    from game_data.sets import named_sets, set_name, set_pieces
+    lone = sorted(sid for sid in named_sets() if sid not in SETS)
+    if not lone:
+        note("every set the client names has an entry in sets.py, so a set "
+             "only the client names was not looked for on the card")
+        return []
+    sid, two = lone[0], next(s for s in sorted(SETS)
+                             if SETS[s]["pieces"] == 2)
+    probe = "__client_only_set_probe__"
+    tab.optimizer.characters[probe] = (
+        [SimpleNamespace(set_id=sid)] * set_pieces(sid)
+        + [SimpleNamespace(set_id=two)] * 2)
+    try:
+        lines = [line.strip() for line
+                 in tab._format_sets_text(probe).split("\n") if line.strip()]
+    finally:
+        del tab.optimizer.characters[probe]
+    want = sorted([set_name(sid), set_name(two)])
+    if lines != want:
+        return [f"a combatant wearing {set_pieces(sid)} pieces of set {sid}, "
+                f"which only the client names, and 2 of {set_name(two)} "
+                f"shows the Sets {lines} on the Character card, not {want}. "
+                f"See `HeroesTab._format_sets_text`."]
+    return []
+
+
+def _a_set_only_the_client_names_is_listed(tab):
+    """The Memory Fragments tab's Sets filter lists a set the program has
+    no entry for by the game client's name, as it does every other: a
+    fragment of one carries that name, and with any set unticked a name
+    the filter does not list hides its every fragment.
+
+    Notes rather than fails where no shipped client set lacks an entry.
+
+    Returns a list of complaints.
+    """
+    from game_data import SETS
+    from game_data.sets import named_sets, set_name
+    lone = sorted(sid for sid in named_sets() if sid not in SETS)
+    if not lone:
+        note("every set the client names has an entry in sets.py, so the "
+             "Sets filter's listing of one only the client names was not "
+             "looked for")
+        return []
+    tab.populate_set_filters()
+    missing = [set_name(sid) for sid in lone
+               if set_name(sid) not in tab.inv_set_vars]
+    if missing:
+        return [f"{', '.join(missing)}, named only by the client, is not in "
+                f"the Memory Fragments tab's Sets filter: with any set "
+                f"unticked, every fragment of it is hidden. See "
+                f"`InventoryTab.populate_set_filters`."]
+    return []
+
+
 def _capture_log_find_marks_all(tab):
     """Ctrl+F's box marks every place its text appears, whatever the
     case, a line written while it is open as well; sits over the log's
@@ -6056,6 +6159,10 @@ def run():
                 _hero_columns_line_up(built["HeroesTab"]))
             failures.extend(
                 _node_lines_carry_the_games_words(built["HeroesTab"]))
+            failures.extend(
+                _an_unequipped_combatant_shows_its_stats(built["HeroesTab"]))
+            failures.extend(
+                _a_set_only_the_client_names_shows_by_it(built["HeroesTab"]))
         failures.extend(_popup_sample_drives_its_own_width(root))
         if "MaterialsTab" in built:
             failures.extend(
@@ -6121,6 +6228,8 @@ def run():
             failures.extend(
                 _set_filters_redraw_replaces_nothing(built["InventoryTab"]))
             failures.extend(
+                _a_set_only_the_client_names_is_listed(built["InventoryTab"]))
+            failures.extend(
                 _inventory_catches_up_when_shown(built["InventoryTab"]))
             failures.extend(
                 _potential_columns_take_the_middle_80(built["InventoryTab"]))
@@ -6181,6 +6290,19 @@ FAULTS = [
     ("the switch's lines centred", RESTORE,
      "text=FOLLOW_TEXT, justify=tk.LEFT,", "text=FOLLOW_TEXT,",
      "not flush left"),
+    ("an unequipped combatant's stats left out",
+     "ui.tabs.heroes_tab:HeroesTab.show_hero_details",
+     "if char_info is not None:\n            stats =",
+     "if gear:\n            stats =", "wearing no Memory Fragments"),
+    ("a set only the client names taken for flex",
+     "ui.tabs.heroes_tab:HeroesTab._format_sets_text",
+     "pieces = set_pieces(sid)",
+     "pieces = (__import__('game_data').SETS.get(sid) or {}).get('pieces')",
+     "which only the client names"),
+    ("a set only the client names left off the Sets filter",
+     "ui.tabs.inventory_tab:InventoryTab.populate_set_filters",
+     "for sid in named_sets()}", "for sid in __import__('game_data').SETS}",
+     "named only by the client"),
     ("a price apart drawn after two spaces",
      "ui.tabs.checklist_tab:_insert_value",
      "or str(tag).startswith(MIDDLE_STOP_PREFIX) for tag in line)",

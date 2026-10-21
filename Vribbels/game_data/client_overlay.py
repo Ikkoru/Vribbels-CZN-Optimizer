@@ -1,19 +1,20 @@
 """The game client's facts, laid over the hand tables.
 
 What the client states of a combatant or a partner wins over what
-`characters.py` and `partners.py` type by hand, and its exp to each
-level, each Affinity level and the main stats each Memory Fragment
-slot carries over `constants.py`'s tables; the hand tables are the
-fallback, for whatever the client does not hold. The order, the first
-that knows a fact winning (`docs/client_data.md`):
+`characters.py` and `partners.py` type by hand, its exp to each level,
+each Affinity level and the main stats each Memory Fragment slot
+carries over `constants.py`'s tables, and its name for each Memory
+Fragment set over `sets.py`'s; the hand tables are the fallback, for
+whatever the client does not hold. The order, the first that knows a
+fact winning (`docs/client_data.md`):
 
 1. this machine's client read (`game_client.use`): the read of this
    build, its cache, or the last cache of an earlier build;
 2. the shipped extract, `from_client.py`, as of the build the program
-   shipped with: its exp, Affinity and Memory Fragment tables. It holds
-   no combatants or partners -- `docs/client_tables.py --ship` writes
-   the ones the hand tables lack into them (`client_sync`), so for
-   those the hand tables are the shipped copy;
+   shipped with: its exp, Affinity and Memory Fragment tables and its
+   set names. It holds no combatants or partners -- `docs/client_tables.py
+   --ship` writes the ones the hand tables lack into them
+   (`client_sync`), so for those the hand tables are the shipped copy;
 3. the hand tables as typed.
 
 The server's own readings still go over all three where they exist
@@ -32,7 +33,11 @@ nothing laid over is never touched.
 client holds no value for -- a partner's conditional effects
 (`stats_conditional`), its `passive_desc` template and `values`, and the
 maintainer's markers. A plain stat line of a partner's passive is the
-client's (`game_client._passive_stats`).
+client's (`game_client._passive_stats`). Of a set, only the name is the
+client's: its `bonus` is the maintainer's own wording, and its pieces,
+`type`, `stat` and `value` are the model the optimizer weighs it by
+(`docs/client_tables.py --audit` holds the pieces, and a plain stat's
+figure, to the client's).
 
 **A unit only the client knows** gets an entry built from the client
 alone, marked `from_client`, so it shows by name with its stats instead
@@ -51,6 +56,7 @@ from .constants import (AFFINITY_TO_NEXT, CHARACTER_EXP_TABLE,
                         FRIENDSHIP_BONUSES, PARTNER_EXP_TABLE,
                         SLOT_MAIN_STATS, SLOT_ORDER, STATS, SUBSTAT_DRAW)
 from .partners import DEFAULT_PARTNER, PARTNERS, PARTNER_CLASS_STATS
+from .sets import SETS
 
 _TABLES = {"CHARACTERS": CHARACTERS, "PARTNERS": PARTNERS,
            "PARTNER_CLASS_STATS": PARTNER_CLASS_STATS,
@@ -60,7 +66,8 @@ _TABLES = {"CHARACTERS": CHARACTERS, "PARTNERS": PARTNERS,
            "FRIENDSHIP_BONUSES": FRIENDSHIP_BONUSES,
            "SLOT_MAIN_STATS": SLOT_MAIN_STATS,
            "SUBSTAT_DRAW": SUBSTAT_DRAW,
-           "STATS": STATS}
+           "STATS": STATS,
+           "SETS": SETS}
 # The hand tables as typed, before anything is laid over them: what the
 # validator checks and the audit holds the client against.
 _HAND = copy.deepcopy(_TABLES)
@@ -332,6 +339,22 @@ def _fragments(held):
             _set("STATS", stat, None, tuple(info[:3]) + bounds)
 
 
+def _sets(effects):
+    """Each set's name as the client gives it (`game_client.set_effects`),
+    over the name of the program's entry for it. A set the program has
+    no entry for gets none here: `sets.set_name` names it from the
+    client directly, and without a model the optimizer cannot weigh it.
+    A placeholder (`game_client.NAMING`) is no name."""
+    from game_client import NAMING
+    for key, effect in (effects or {}).items():
+        set_id = int(key) if str(key).isdigit() else None
+        name = effect[0] if isinstance(effect, (list, tuple)) and effect \
+            else None
+        if isinstance(SETS.get(set_id), dict) and isinstance(name, str) \
+                and NAMING.search(name):
+            _set("SETS", set_id, "name", name)
+
+
 def _rebuild_by_name():
     CHARACTERS_BY_NAME.clear()
     CHARACTERS_BY_NAME.update({data["name"]: data
@@ -351,11 +374,13 @@ def apply(facts=None):
                     "exp_tables": getattr(from_client, "EXP_TABLES", {}),
                     "affinity": getattr(from_client, "AFFINITY", {}),
                     "fragment_stats": getattr(from_client, "FRAGMENT_STATS",
-                                              {})},
+                                              {}),
+                    "set_effects": getattr(from_client, "SET_EFFECTS", {})},
                    facts or {}):
         _combatants(source.get("combatants") or {})
         _partners(source.get("partners") or {})
         _exp(source.get("exp_tables"))
         _affinity(source.get("affinity"))
         _fragments(source.get("fragment_stats"))
+        _sets(source.get("set_effects"))
     _rebuild_by_name()

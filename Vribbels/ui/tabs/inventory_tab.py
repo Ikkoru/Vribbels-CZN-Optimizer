@@ -42,7 +42,9 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import font as tkfont
 from game_data import EQUIPMENT_SLOTS, RARITY_COLORS, SETS, set_bonus
-from game_data.sets import set_named
+from game_data.sets import named_sets, set_named, set_pieces
+# Aliased: `set_name` is what the set filter's loops call each name.
+from game_data.sets import set_name as set_name_of
 from game_data.characters import ATTRIBUTE_COLORS
 # User-facing stat-name overrides (e.g. "Flat ATK" -> "ATK Flat",
 # "CDmg" -> "CDMG%"). Applied when rendering the tree's Main / Sub
@@ -70,13 +72,6 @@ from ui.scaling import px, px_after, px_spans
 # the FILTERS do, and this says who reads them.
 INV_USE_LOG_FILTERS_KEY = "inventory_use_upgrade_log_filters"
 
-
-# Display label -> canonical stat name (as stored in main_stat.name).
-# The canonical names match the first element of STATS tuples and the values
-# in SLOT_MAIN_STATS, so slot-driven filter logic can use them directly.
-# SETS is keyed by set id; the filter panel only ever holds the display
-# name, so it needs the reverse lookup.
-SETS_BY_NAME = {v["name"]: v for v in SETS.values()}
 
 # The narrowest the Sets panel's contents may be, borders included, at
 # 100%; it takes `px` like any stated distance. A floor, not a width:
@@ -682,10 +677,11 @@ class InventoryTab(BaseTab):
         Shows ALL game sets (even those the current snapshot owns none of),
         ordered like the Optimizer tab -- 4-piece sets first, then 2-piece,
         alphabetical within each. Each label shows the number of that set
-        currently owned in brackets, e.g. "Storm Caller (3)". Unknown
-        numeric set IDs present in the data but absent from SETS are
-        appended after the known sets so they remain filterable. Laid out
-        in 5 columns.
+        currently owned in brackets, e.g. "Storm Caller (3)". A set the
+        program has no entry for is listed by the game client's name
+        (`sets.named_sets`); one nothing names, present in the data, is
+        appended by its number after the rest, so it remains filterable.
+        Laid out in 5 columns.
 
         Preserves selection state across reloads -- if a set was unchecked
         before a live update, it stays unchecked. New sets default to checked.
@@ -697,17 +693,17 @@ class InventoryTab(BaseTab):
         for f in self.optimizer.fragments:
             owned_counts[f.set_name] = owned_counts.get(f.set_name, 0) + 1
 
-        # Known sets from game data, ordered 4pc-first then 2pc, alpha within.
-        ordered = sorted(
-            SETS.values(),
-            key=lambda s: (-s["pieces"], s["name"].lower()),
-        )
-        set_names = [s["name"] for s in ordered]
+        # Every set a name is known for, each by the name its fragments
+        # carry (`set_name`), ordered 4pc-first then 2pc, alpha within.
+        name_pieces = {set_name_of(sid): set_pieces(sid)
+                       for sid in named_sets()}
+        set_names = sorted(name_pieces,
+                           key=lambda n: (-(name_pieces[n] or 0), n.lower()))
 
-        # Append unknown numeric set IDs seen in the data but not in SETS.
-        known_names = {s["name"] for s in SETS.values()}
+        # Append unknown numeric set IDs seen in the data but named by
+        # nothing.
         unknown_numeric = sorted(
-            (n for n in owned_counts if n not in known_names and n.isdigit()),
+            (n for n in owned_counts if n not in name_pieces and n.isdigit()),
             key=int,
         )
         set_names.extend(unknown_numeric)
@@ -750,7 +746,6 @@ class InventoryTab(BaseTab):
         # The 2-piece (and unknown) sets start on a fresh row below the
         # 4-piece sets, separated by a small gap.
         ncols = 5
-        name_pieces = {s["name"]: s["pieces"] for s in SETS.values()}
         # set_names is already ordered 4pc -> 2pc -> unknown, so a stable
         # split preserves the alphabetical ordering within each group.
         four_names = [n for n in set_names if name_pieces.get(n) == 4]
@@ -798,7 +793,8 @@ class InventoryTab(BaseTab):
             # option that colours its text. Giving the indicator a third
             # colour means splitting it into a text-less Checkbutton plus
             # a Label, the way the Optimizer's Set Configuration rows do.
-            elements = (SETS_BY_NAME.get(set_name) or {}).get("elements") or []
+            sid = set_named(set_name)
+            elements = (SETS.get(sid) or {}).get("elements") or []
             left = ATTRIBUTE_COLORS.get(
                 elements[0] if elements else None, self.colors["fg"])
             right = ATTRIBUTE_COLORS.get(
@@ -845,7 +841,6 @@ class InventoryTab(BaseTab):
             # child, so binding the grid would flicker. A set the program
             # has no entry for goes by the game client's name and words
             # (`sets.set_name`). Guarded: an empty tooltip is a bare box.
-            sid = set_named(set_name)
             tip = set_bonus(sid) if sid is not None else ""
             if tip:
                 # The set NAME carries it, not the count beside it: the
@@ -875,13 +870,16 @@ class InventoryTab(BaseTab):
         self.inv_set_frame_inner.update_idletasks()
         short = (px(SETS_PANEL_MIN_W)
                  - self.inv_set_frame_inner.winfo_reqwidth())
+        last = (ncols - 1) * 2 + 1
         if short > 0:
-            last = (ncols - 1) * 2 + 1
             self.inv_set_frame_inner.grid_columnconfigure(
                 last, minsize=col_count_widths[ncols - 1] + short)
-            # Read by checks/check_ui_scales: this minsize is a floor
-            # less a measured width, and grows by no fixed ratio.
-            self.inv_set_frame_inner.measured_columns = {last}
+        # Read by checks/check_ui_scales: this minsize can be a floor less
+        # a measured width, which grows by no fixed ratio. Marked whether
+        # or not the floor binds HERE, because the text grows by less
+        # than the floor does: it can bind at 200% and not at 100%, and
+        # the check's two builds have to be the same tree.
+        self.inv_set_frame_inner.measured_columns = {last}
 
         # Also rebuild unknown main-stat checkboxes for the data we just loaded.
         self.populate_unknown_main_stats()

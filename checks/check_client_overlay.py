@@ -1,14 +1,15 @@
 """The game client's facts, laid over the hand tables.
 
 `game_data.client_overlay` writes the client's facts into `CHARACTERS`,
-`PARTNERS` and `PARTNER_CLASS_STATS` in place, and swaps the contents
-of the exp, Affinity and slot tables in `constants`. Five ways that
-goes wrong with nothing to show for it:
+`PARTNERS`, `PARTNER_CLASS_STATS` and the sets' names in `SETS` in
+place, and swaps the contents of the exp, Affinity and slot tables in
+`constants`. Five ways that goes wrong with nothing to show for it:
 
 1. **A fact lands on the wrong field, or a stale one stays.** Every
    later reader sees it as the table's own value. Held on synthetic
    facts: a changed figure, a combatant and a partner only the client
-   knows, and a second `apply` that drops them again.
+   knows, a set's name and a placeholder for one, and a second `apply`
+   that drops them again.
 2. **An overlay undoes someone else's change.** The tables are shared;
    `apply` may put back only what an overlay laid down.
 3. **A unit only the client knows breaks a reader**: a passive drawn
@@ -289,6 +290,63 @@ def _tables(overlay):
             from_client.AFFINITY = shipped
     finally:
         reset()
+    return out
+
+
+def _set_names():
+    """Complaints from synthetic set names laid over. A set's name is
+    the client's over `sets.py`'s, which names a set only where the
+    client does not; a placeholder names nothing, so the next name down
+    shows; the client's spelling leads back to its set; and putting the
+    read away puts the typed name back."""
+    import game_client
+    from game_data import SETS
+    from game_data.sets import set_name, set_named
+    out = []
+    held = game_client._facts
+    first, second = sorted(SETS)[:2]
+    before = {sid: SETS[sid]["name"] for sid in (first, second)}
+    probe, lone, blank = 999990, 999991, 999992
+    words = "+1% Attack"
+    try:
+        SETS[probe] = {"name": "Typed Only", "pieces": 2,
+                       "type": "unconditional", "stat": "ATK%", "value": 1}
+        game_client.use({"set_effects": {
+            str(first): ["Client Spelling", SETS[first]["pieces"], words,
+                         "", None],
+            str(second): ["???", SETS[second]["pieces"], words, "", None],
+            str(lone): ["Client Only", 4, words, "", None],
+            str(blank): ["???", 4, words, "", None]}})
+        for what, got, wanted in (
+                ("a set the client names", set_name(first),
+                 "Client Spelling"),
+                ("the same set read off SETS", SETS[first]["name"],
+                 "Client Spelling"),
+                ("a set the client names with a placeholder",
+                 set_name(second), before[second]),
+                ("a set only sets.py names", set_name(probe), "Typed Only"),
+                ("a set only the client names", set_name(lone),
+                 "Client Only"),
+                ("a set only the client names, with a placeholder",
+                 set_name(blank), str(blank))):
+            if got != wanted:
+                out.append(f"with the client's set names laid over, {what} "
+                           f"reads {got!r}, not {wanted!r}: a set's name is "
+                           f"the client's, sets.py's naming one only where "
+                           f"the client does not, and a placeholder names "
+                           f"nothing (`client_overlay._sets`, "
+                           f"`sets.set_name`).")
+        if set_named("Client Spelling") != first:
+            out.append("the client's spelling of a set does not lead back to "
+                       "it (`sets.set_named`): the Memory Fragments tab's "
+                       "Sets filter finds a set's tooltip and colours by the "
+                       "name it shows.")
+    finally:
+        SETS.pop(probe, None)
+        game_client.use(held)
+    if {sid: SETS[sid]["name"] for sid in before} != before:
+        out.append("putting the client's read away left its set names in "
+                   "SETS rather than putting the typed ones back.")
     return out
 
 
@@ -630,6 +688,7 @@ def run():
     from game_data import characters, partners
     failures = _synthetic(client_overlay, characters, partners)
     failures += _tables(client_overlay)
+    failures += _set_names()
     failures += _readers()
     failures += _installed(characters, partners)
     return failures
@@ -719,6 +778,22 @@ FAULTS = [
     ("a class's flat stats not laid", f"{OVERLAY}:_partners",
      '_set("PARTNER_CLASS_STATS", pair, None, seen[0])', "pass",
      "a class's level-60 flat stats"),
+    ("the program's set names over the client's", f"{OVERLAY}:apply",
+     '        _sets(source.get("set_effects"))', "        pass",
+     "a set the client names reads"),
+    ("a placeholder laid as a set's name", f"{OVERLAY}:_sets",
+     "and NAMING.search(name):", "and name:",
+     "a set the client names with a placeholder"),
+    ("the program's set name read past the client's",
+     "game_data.sets:set_name",
+     'own = (SETS.get(set_id) or {}).get("name")',
+     'from game_data.client_overlay import hand\n'
+     '    own = (hand("SETS").get(set_id) or {}).get("name")',
+     "a set the client names reads"),
+    ("a client-only set named by its placeholder", "game_data.sets:set_name",
+     "return named if game_client.NAMING.search(named) else str(set_id)",
+     "return named or str(set_id)",
+     "a set only the client names, with a placeholder"),
     ("a new object for a replaced table", f"{OVERLAY}:_replace",
      "_fill(table, contents)",
      "table = type(table)(contents)\n    _TABLES[name] = table\n"

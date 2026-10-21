@@ -927,16 +927,20 @@ SET_STATS = {"S_ATK_INC_RATE_OUT": "ATK%", "S_DEF_INC_RATE_OUT": "DEF%",
 LIMIT_PHRASES = (("cannot stack", "max 1"),)
 
 
-def set_problems(effects):
+def set_problems(effects, typed=None):
     """Lines saying where `game_data/sets.py` and `effects`, the
     client's sets as `game_client.set_effects` gives them, disagree: a
     name, a piece count, a plain stat or its figure, the figures in the
     maintainer's own wording against the game's, and a set the client
     lacks (`unlisted_sets` names the ones `sets.py` lacks). The wording
-    itself is the maintainer's, and not compared."""
-    from game_data import SETS
+    itself is the maintainer's, and not compared.
+
+    `typed` is the table held to `effects`: by default `sets.py` as
+    typed, not `SETS` with the client's names laid over it, which would
+    agree with any name."""
+    from game_data.client_overlay import hand
     out = []
-    for set_id, ours in sorted(SETS.items()):
+    for set_id, ours in sorted((typed or hand("SETS")).items()):
         who = f"set {set_id} {ours.get('name')}"
         theirs = effects.get(set_id)
         if theirs is None:
@@ -969,7 +973,8 @@ def set_problems(effects):
 
 def unlisted_sets(effects):
     """Lines naming each of the client's sets `game_data/sets.py` lacks.
-    The program shows it by number, in the game's words."""
+    The program shows it in the game's name and words, and the optimizer
+    cannot weigh it."""
     from game_data import SETS
     return [f"set {set_id} {effects[set_id][0]}: in the client, not in "
             f"game_data/sets.py" for set_id in sorted(set(effects) - set(SETS))]

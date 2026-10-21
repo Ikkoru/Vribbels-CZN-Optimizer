@@ -80,7 +80,7 @@ from ui.utils.combobox_nav import bind_combobox_nav
 from ui.utils.type_ahead import attach, find
 from game_data.characters import CHARACTERS
 from game_data import (
-    EQUIPMENT_SLOTS, SETS, set_bonus, STATS, RARITY_COLORS, RARITY_BG_COLORS,
+    EQUIPMENT_SLOTS, set_bonus, STATS, RARITY_COLORS, RARITY_BG_COLORS,
     RARITY_STARTING_SUBSTATS, ATTRIBUTE_COLORS,
     get_character_by_name, get_partner, get_partner_stats,
     get_partner_passive_info, get_potential_stat, get_potential_stat_bonus,
@@ -88,6 +88,8 @@ from game_data import (
 )
 from game_data.constants import DISPLAY_NAMES, FRIENDSHIP_BONUSES
 from game_data.potential_7 import node_words
+from game_data.sets import named_sets, set_pieces
+from game_data.sets import set_name as set_name_of
 from models import Stat
 from models.memory_fragment import compute_gs_bounds, normalize_gs
 from ui.scaling import px, px_after, px_spans, text_px
@@ -369,8 +371,8 @@ def char_card_plain_lines():
              f"{CHAR_SUBLIST_INDENT}{len(EQUIPMENT_SLOTS)} Flex"}
     lines.update(_bonus_line(atk, def_, hp)
                  for _level, atk, def_, hp in FRIENDSHIP_BONUSES)
-    lines.update(CHAR_SUBLIST_INDENT + s["name"] for s in SETS.values()
-                 if isinstance(s, dict) and s.get("name"))
+    lines.update(CHAR_SUBLIST_INDENT + set_name_of(set_id)
+                 for set_id in named_sets())
     return lines
 
 
@@ -1637,7 +1639,9 @@ class HeroesTab(BaseTab):
         on its own stops.
 
         stat_values maps stat key -> already-formatted string; missing
-        keys render as "-", which is what an ungeared character shows.
+        keys render as "-", which is what a combatant the snapshot does
+        not hold shows. One wearing no fragments shows its stats without
+        them (`show_hero_details`).
 
         Each line opens on the indent every block under a heading has.
         The stops are measured from the Text's edge, not from the
@@ -1740,7 +1744,10 @@ class HeroesTab(BaseTab):
         """The Sets line for a character: the ACTIVE set names (those whose
         equipped count meets their piece requirement), WITHOUT piece
         counts, plus an "N Flex" token for leftover slots, comma-separated.
-        Mirrors the Optimizer Results "Sets" logic.
+        Mirrors the Optimizer Results "Sets" logic, but for a set the
+        program has no entry for: the card says what is worn, so that set
+        counts by the game client's pieces and shows by its name, where
+        the optimizer, with no model to weigh it by, takes it for flex.
 
         Shared by show_hero_details and the fixed-size computation so both
         measure the same string.
@@ -1754,13 +1761,12 @@ class HeroesTab(BaseTab):
         active_names = []
         flex = 0
         for sid, cnt in set_counts.items():
-            sinfo = SETS.get(sid)
-            if sinfo is None:
+            pieces = set_pieces(sid)
+            if pieces is None:
                 flex += cnt
                 continue
-            pieces = sinfo.get("pieces", 2)
             if cnt >= pieces:
-                active_names.append(sinfo["name"])
+                active_names.append(set_name_of(sid))
                 flex += cnt - pieces
             else:
                 flex += cnt
@@ -1930,7 +1936,11 @@ class HeroesTab(BaseTab):
                         if piece else 0.0)
             self._render_gear_cell(cell, slot_num, piece, gear, piece_gs)
 
-        if gear:
+        # A combatant wearing nothing still has its stats -- its base at
+        # its level, its partner's, its nodes' and its Affinity's -- and
+        # the same formula gives them with no fragment in it. Only one
+        # the snapshot does not hold has none to show.
+        if char_info is not None:
             stats = self.optimizer.calculate_build_stats(gear, hero_name)
 
             # Element% = matching-element DMG% main(s) for this character's
@@ -2269,9 +2279,8 @@ class HeroesTab(BaseTab):
         # signal for whether the bonus is actually running.
         # One line however the wording breaks: the game's own words, for
         # a set with none of the maintainer's, can carry line breaks.
-        set_info = SETS.get(piece.set_id)
         bonus_text = " ".join(set_bonus(piece.set_id).split())
-        required = set_info.get("pieces", 999) if set_info else 999
+        required = set_pieces(piece.set_id) or 999
         equipped_in_set = sum(1 for p in gear if p.set_id == piece.set_id)
         set_tag = "set_live" if equipped_in_set >= required else "set_dim"
         cell.insert(

@@ -4813,17 +4813,14 @@ class CaptureManager:
                 self.log_callback("Warning: zstd dictionary not found", "warning")
 
             # Build lookup dicts for live monitoring log messages
-            from game_data import CHARACTERS, SETS
+            from game_data import CHARACTERS
             from game_data.constants import EQUIPMENT_SLOTS
             from game_data.partners import PARTNERS
+            from game_data.sets import named_sets, set_name
 
             # Every item this build can name, for the log line a reward
             # writes. Partial by nature -- the tables name what has been
             # identified -- and an id neither carries logs as itself.
-            #
-            # The stones' name is BUILT from their row rather than
-            # listed: the table holds the Element and the tier and the
-            # game spells the pair this way round. The promotion and
             from game_data.constants import item_names as build_item_names
             # Every id this build can name, shaped rows spelled out --
             # `game_data.constants.item_names` owns that, and the
@@ -4832,12 +4829,9 @@ class CaptureManager:
             item_names = build_item_names()
 
             char_names = {rid: c["name"] for rid, c in CHARACTERS.items() if c is not None}
-            # The client's sets under the program's, as `set_name` has
-            # them, so a set newer than the tables logs by name.
-            import game_client
-            set_names = {sid: e[0] for sid, e
-                         in game_client.known_set_effects().items()}
-            set_names.update({sid: s["name"] for sid, s in SETS.items()})
+            # Every set by the name `set_name` gives it, the client's
+            # first, so a set newer than the tables logs by name too.
+            set_names = {sid: set_name(sid) for sid in named_sets()}
             slot_names = {k: v.split(" ", 1)[1] if " " in v else v for k, v in EQUIPMENT_SLOTS.items()}
 
             # Every res_id this build can name. Units awaiting an id sit

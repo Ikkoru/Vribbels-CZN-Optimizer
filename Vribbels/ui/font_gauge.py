@@ -41,7 +41,7 @@ import tkinter as tk
 from tkinter import font as tkfont
 from tkinter import ttk
 
-from game_data.sets import SETS
+from game_data.sets import named_sets, set_bonus, set_name, set_pieces
 from ui import scaling
 from ui.tabs.heroes_tab import GEAR_SET_ROWS
 
@@ -151,10 +151,12 @@ def _bottoms(app):
 # -------------------------------------------------------------- width
 
 def _longest_set(widget):
-    """The set line wrapped furthest: the set with the widest text."""
+    """The set line wrapped furthest: the set with the widest text, as
+    a gear cell writes it -- a set the program has no entry for in the
+    game client's name and words."""
     face = tkfont.Font(root=widget, font=("Segoe UI", 9))
-    texts = [f"{s['name']} ({s['pieces']}) {s.get('bonus', '')}"
-             for s in SETS.values()]
+    texts = [f"{set_name(sid)} ({set_pieces(sid)}) "
+             f"{' '.join(set_bonus(sid).split())}" for sid in named_sets()]
     return max(texts, key=face.measure)
 
 
