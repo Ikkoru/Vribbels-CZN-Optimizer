@@ -1179,7 +1179,8 @@ def _run():
                                                 "reset_time": int(now)}}
     raw["month_start"] = int(now - DAY)
     heading = SHOP_TOTAL_PREFIX + shop_head_key(prism, "monthly")
-    got = _readings(raw, now).get(heading)
+    readings = _readings(raw, now)
+    got = readings.get(heading)
     if not got or got[0][0] != "500/700":
         failures.append(
             f"a shop of two products priced in 2000024 and one in 2000023 "
@@ -1187,6 +1188,29 @@ def _run():
             f"its products are priced in, against what clearing those "
             f"costs (`shop_currency`). The Lumina Lens priced in Prism "
             f"Lens is not billed in the shop's own currency.")
+    # **And that row says its price instead**, first, in the middle
+    # column and the shop heading's colour; the rows priced in the
+    # shop's own say nothing of theirs.
+    import ui.tabs.checklist_tab as ct_
+    colour = ct_._label_tag(shop_head_key(prism, "monthly"),
+                            "Shop - Exchange Shop - Prism Module")
+    for pid, want in (("card_factor_5", [("3 Prism Lens", colour[0]),
+                                         ("10/10", TODO)]),
+                      ("card_factor_1", [("10/10", TODO)])):
+        got = readings.get(ct_.SHOP_KEY_PREFIX + pid)
+        if got != want:
+            failures.append(
+                f"the Prism Module shop's {pid} reads {got!r}, not "
+                f"{want!r}: a product priced in another currency than its "
+                f"shop's says its price before its count, in the shop's "
+                f"colour (`shop_prices_apart`), and one in the shop's own "
+                f"says only its count.")
+    if ct_.shop_prices_apart(prism, "monthly", raw) != {
+            ct_.SHOP_KEY_PREFIX + "card_factor_5": "3 Prism Lens"}:
+        failures.append(
+            f"the Prism Module shop's rows priced apart read "
+            f"{ct_.shop_prices_apart(prism, 'monthly', raw)}, not the "
+            f"Lumina Lens alone at 3 Prism Lens.")
 
     # --- the seasonal shelf: its own season, and its merged rows ------
     # **A Galactic Disaster season spans four Sortie seasons**, so an
@@ -2487,6 +2511,43 @@ def _run():
             failures.append(
                 f"the module rows leave {stop - words}px between label and "
                 f"values ({why}), short of `24h!` and a gap either side.")
+    # A shop row priced apart: the same, at a stop of its shop's own,
+    # its checkbox reaching `overhead` further than its words.
+    head = ct.SHOP_HEAD_PREFIX + "shop_exchange_product/shop_card_factor/monthly"
+    lens = ct.SHOP_KEY_PREFIX + "card_factor_5"
+    held = dict(ct.SHOP_PRICE_APART)
+    try:
+        ct.SHOP_PRICE_APART.clear()
+        ct.SHOP_PRICE_APART[lens] = "3 Prism Lens"
+        for others, why in ((((ct.SHOP_KEY_PREFIX + "long",
+                               "Great Growth Stone of Instinct"),),
+                             "beside a longer label"),
+                            ((), "with no longer label beside it")):
+            monthly = ((head, "Shop - Prism Module", None),) + tuple(
+                (key, label, "10/10") for key, label in
+                ((lens, "Lumina Lens"),) + others)
+            stop, _width, tags = ct._column_geometry(_Font(), "Monthly",
+                                                     monthly, 10, reserve=())
+            words, wide = 7 * len("Lumina Lens") + 10, 7 * len("3 Prism Lens")
+            want = (round((words + stop + wide) / 2), "right", stop)
+            if tags.get(ct.MIDDLE_STOP_PREFIX + head) != want:
+                failures.append(
+                    f"the Lumina Lens row's middle stop is "
+                    f"{tags.get(ct.MIDDLE_STOP_PREFIX + head)!r}, not "
+                    f"{want!r} ({why}): right-aligned, centred between its "
+                    f"checkbox and the value stop, as the module rows'.")
+            if stop - words < wide + 2 * ct.px(ct.LABEL_TO_VALUE):
+                failures.append(
+                    f"the Lumina Lens row leaves {stop - words}px between "
+                    f"its checkbox and the values ({why}), short of its "
+                    f"price and a gap either side.")
+        tags = ct._row_tags(lens, head, (), None, head)
+        if tags != ("boxheadrow", ct.MIDDLE_STOP_PREFIX + head):
+            failures.append(f"the Lumina Lens row takes the tags {tags!r}, "
+                            f"not its pitch and its shop's middle stops.")
+    finally:
+        ct.SHOP_PRICE_APART.clear()
+        ct.SHOP_PRICE_APART.update(held)
     for seconds, want in ((9 * DAY + HOUR, "9d left"), (DAY, "1d left"),
                           (23 * HOUR + 59, "23h left"), (44 * 60, "44m left"),
                           (30, "1m left"), (0, "Over")):
@@ -2543,4 +2604,20 @@ FAULTS = [
      "ui.tabs.checklist_tab:_season_rotations",
      "while step > 0 and upcoming < ends:", "while False:",
      "projected from it"),
+    ("a price apart not said", "ui.tabs.checklist_tab:_readings",
+     "price = [priced] if priced else []", "price = []",
+     "says its price before its count"),
+    ("a price in the shop's own currency said",
+     "ui.tabs.checklist_tab:shop_prices_apart", "money != currency", "True",
+     "says only its count"),
+    ("the price apart off centre", "ui.tabs.checklist_tab:_column_geometry",
+     "round((words + base + wide) / 2)", "round((words + base) / 2)",
+     "centred between its checkbox"),
+    ("no room for the price apart", "ui.tabs.checklist_tab:_column_geometry",
+     "+ (middle if key in MIDDLE_ROWS else 0) + beside.get(key, 0)",
+     "+ (middle if key in MIDDLE_ROWS else 0)", "short of its price"),
+    ("the price apart at the value stop", "ui.tabs.checklist_tab:_row_tags",
+     "if priced:\n            return (pitch, MIDDLE_STOP_PREFIX + priced)",
+     "if False:\n            return (pitch, MIDDLE_STOP_PREFIX + priced)",
+     "its shop's middle stops"),
 ]

@@ -13,6 +13,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Checklist: a story event with nothing to claim, such as Escape from Judgment, shows its Progress the way the game does, as a percentage of its episodes cleared.
 - Checklist: the Nightmare Carnival's countdown and Exchange show their rewards claimed. The Exchange is red while you hold the tokens for a tier still unclaimed.
 - Checklist: an event the program cannot read has a `Finished?` box.
+- Checklist: a shop product priced in another currency than its shop's shows its price beside its count, in the shop's colour: the Prism Module shop's Lumina Lens, at 3 Prism Lens.
 - Rossweisse, when you lack her or she wears no partner, is optimized with Sig, her release partner. She, Sig, Blanche and Capri also show where the game client cannot be read.
 
 ### Changed

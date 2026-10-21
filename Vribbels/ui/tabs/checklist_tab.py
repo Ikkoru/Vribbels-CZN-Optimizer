@@ -1117,7 +1117,8 @@ def shop_currency(shop, period, raw):
     `currency_1_link_item_id` for every shop the tab lists. A shop of
     one currency is the plain case; the Prism Module shop also sells a
     Lumina Lens for Prism Lens, a product of its own, and that one is
-    left out of the heading's bill (`_add_shop_totals`).
+    left out of the heading's bill (`_add_shop_totals`), its row saying
+    its price instead (`shop_prices_apart`).
 
     None where nothing is priced -- the seasonal supplies are free --
     or where two currencies price as many products each, leaving no
@@ -1131,6 +1132,23 @@ def shop_currency(shop, period, raw):
     if not ranked or (len(ranked) > 1 and ranked[0][1] == ranked[1][1]):
         return None
     return ranked[0][0]
+
+
+def shop_prices_apart(shop, period, raw):
+    """{row key: `<price> <currency>`} for each of one shop's rows priced
+    in another currency than the shop's own (`shop_currency`): what the
+    row's middle column says (`PRICE_APART_WORDS`). Empty for a shop of
+    one currency, and for one with no currency to set them apart from."""
+    currency = shop_currency(shop, period, raw)
+    out = {}
+    for key, group in shop_display_rows(shop, period, raw) \
+            if currency is not None else ():
+        define = group[0][1]
+        money = define.get("price_link_item_id")
+        price = define.get("price_count")
+        if _is_count(money) and money != currency and _is_count(price):
+            out[key] = PRICE_APART_WORDS % (price, item_name(money) or money)
+    return out
 
 
 def shop_period(period, raw, now, group=shop_stock.ACCOUNT_SEASON_GROUP):
@@ -2961,6 +2979,21 @@ MIDDLE_ROWS = frozenset({"modules_soon", "modules_week"})
 MIDDLE_WIDEST = "24h!"
 MIDDLE_STOP_TAG = "middlestop"
 
+# **A shop product priced in another currency than its shop's says its
+# price in such a column too**: `3 Prism Lens` beside the Prism Module
+# shop's Lumina Lens, which the heading's total does not bill
+# (`shop_currency`). In the shop heading's own colour, the price being
+# the shop's (`SHOP_LABEL_COLOURS`), and at a stop of the shop's own --
+# a tag per heading -- its widest price centred between its rows'
+# labels and the values the same way. See `shop_prices_apart`.
+PRICE_APART_WORDS = "%d %s"
+MIDDLE_STOP_PREFIX = "middlestop:"
+
+# Row key -> its price's words, for each product row priced apart from
+# its shop. Filled as the rows are built and read when they are laid
+# out, as `SHOP_TOTAL_RESERVE` is.
+SHOP_PRICE_APART = {}
+
 
 def countdown_group(key):
     """Which column of deadlines a row's countdown belongs in, or None.
@@ -3044,6 +3077,12 @@ def columns_for(raw, tracked=None, now=None, definitions=None):
             rows.append((head, shop_stock.SHOPS[shop],
                          WIDEST_COUNTDOWN if head in COUNTDOWNS else None))
             products = shop_rows(shop, period, raw)
+            apart = shop_prices_apart(shop, period, raw)
+            for key, _label, _widest in products:
+                if key in apart:
+                    SHOP_PRICE_APART[key] = apart[key]
+                else:
+                    SHOP_PRICE_APART.pop(key, None)
             if tracked is not None:
                 # Stable within each half: the shop's own order is kept
                 # on both sides of the split, so ticking one product
@@ -3593,15 +3632,21 @@ def _column_geometry(font, title, rows, overhead, reserve=None):
     # spacing: label ↔ its element -- run, run ↔
     gap = px(TEXT_INSET + LABEL_TO_VALUE)
     # A row of `MIDDLE_ROWS` needs its label, a label's gap and the
-    # widest middle segment before its block's values can start.
+    # widest middle segment before its block's values can start; a shop
+    # row priced apart, its price (`SHOP_PRICE_APART`).
     # spacing: label ↔ its element -- run, run ↔
     middle = px(LABEL_TO_VALUE) + font.measure(MIDDLE_WIDEST)
+    priced = {key: SHOP_PRICE_APART[key] for key, _l, _w in measure
+              if key in SHOP_PRICE_APART}
+    # spacing: label ↔ its element -- checkbox, run ↔
+    beside = {key: px(LABEL_TO_VALUE) + font.measure(words)
+              for key, words in priced.items()}
     stops, widest = {}, {}
     for block, members in groups.items():
         stops[block] = gap + max(
             font.measure(_label_lines(key, label)[-1])
             + (overhead if _is_shop(key) else 0)
-            + (middle if key in MIDDLE_ROWS else 0)
+            + (middle if key in MIDDLE_ROWS else 0) + beside.get(key, 0)
             for label, _w, key in members)
         widest[block] = max([font.measure(w) for _l, w, _k in members if w]
                             or [0])
@@ -3620,6 +3665,18 @@ def _column_geometry(font, title, rows, overhead, reserve=None):
         tags[MIDDLE_STOP_TAG] = (
             round((words + base + font.measure(MIDDLE_WIDEST)) / 2),
             "right", base)
+    # And a shop's rows priced apart, at a stop of the shop's own: its
+    # widest price centred between those rows' checkboxes and the value
+    # stop they share.
+    heads = _value_blocks(rows)
+    for head in sorted({heads[key] for key, _l, _w in rows if key in priced}):
+        members = [(key, label) for key, label, _w in rows
+                   if key in priced and heads[key] == head]
+        words = max(font.measure(label) + overhead for _k, label in members)
+        wide = max(font.measure(priced[key]) for key, _l in members)
+        base = stops.get(blocks.get(members[0][0]), default)
+        tags[MIDDLE_STOP_PREFIX + head] = (
+            round((words + base + wide) / 2), "right", base)
     content = max(stops[block] + widest[block] for block in stops)
     # **A shop heading's line is outside those columns**, hanging off
     # its own words: its total, then its reserve, then anything else
@@ -4594,7 +4651,9 @@ class ChecklistTab(BaseTab):
             if index:
                 text.insert(tk.END, LINE_SEP, line)
             if _is_shop(key):
-                head = segments[0][1] if segments else UNKNOWN
+                # The count's state, last: a row priced apart opens with
+                # its price, in the shop's colour.
+                head = segments[-1][1] if segments else UNKNOWN
                 # **`window_create` takes no tags**, and a line reads
                 # its own `spacing1` and its tab stops off its FIRST
                 # character -- which for one of these rows is the
@@ -4646,15 +4705,20 @@ class ChecklistTab(BaseTab):
         up block by block (`SPLIT_COLUMNS`).
         """
         blocks = _value_blocks(rows) if title in SPLIT_COLUMNS else {}
+        # Each row's shop heading, whatever the column: what a row priced
+        # apart takes its middle stop from (`SHOP_PRICE_APART`).
+        heads = _value_blocks(rows)
         above = None
         out = []
         for key, label, _widest in rows:
-            out.append(self._line(key, label, readings, above,
-                                  blocks.get(key)))
+            out.append(self._line(
+                key, label, readings, above, blocks.get(key),
+                heads.get(key) if key in SHOP_PRICE_APART else None))
             above = key
         return tuple(out)
 
-    def _line(self, key, label, readings, above=None, block=None):
+    def _line(self, key, label, readings, above=None, block=None,
+              priced=None):
         """One row's drawn form: its words, its readings, its tags.
 
         Everything that decides what the line LOOKS like, and nothing
@@ -4665,7 +4729,8 @@ class ChecklistTab(BaseTab):
 
         `above` is the key of the row OVER this one, or None at the top
         of the column, and it is what says whether this row pays the
-        pad that sets a block apart -- see `_row_tags`.
+        pad that sets a block apart -- see `_row_tags`. `priced` is the
+        shop heading of a product row priced apart from its shop.
 
         The fourth field is a shop heading's own total, which sits at a
         stop of its own rather than in the column of readings.
@@ -4682,7 +4747,7 @@ class ChecklistTab(BaseTab):
         # WIDGET rather than a reading: a value patch cannot repaint
         # it, so it belongs in what says whether the line is the same.
         return ((key, label, tracked, segments, self._finishable.get(key)),
-                _row_tags(key, above, self._finishable, block),
+                _row_tags(key, above, self._finishable, block, priced),
                 _label_tag(key, label), total[0] if total else None)
 
     def _checkbox(self, title, parent, key, label, state):
@@ -5046,9 +5111,11 @@ def _insert_value(text, key, line, total, segments, at=tk.END):
     # the group starts at one x however long the readings beside them
     # are -- and a row with no reading at all still lands there.
     aligned = any(str(tag).startswith(COUNTDOWN_STOP_PREFIX) for tag in line)
-    # A row of `MIDDLE_ROWS` reaches each segment through a tab: its
-    # middle column's right-aligned stop, then the value stop.
-    middle = MIDDLE_STOP_TAG in line
+    # A row of `MIDDLE_ROWS`, and a shop row priced apart, reaches each
+    # segment through a tab: its middle column's right-aligned stop,
+    # then the value stop.
+    middle = any(tag == MIDDLE_STOP_TAG
+                 or str(tag).startswith(MIDDLE_STOP_PREFIX) for tag in line)
     for index, (words, state) in enumerate(segments):
         if middle:
             gap = COLUMN_SEP
@@ -5354,7 +5421,10 @@ def _readings(raw, now=None, tracked=None):
 
     _add_countdowns(out, raw, now)
 
-    for key, group, shut in _shop_rows(raw, now):
+    for key, group, shut, priced in _shop_rows(raw, now):
+        # A row priced apart from its shop says its price first, in its
+        # middle column, whatever its count reads.
+        price = [priced] if priced else []
         # A merged row counts down from the sum of its shelves, and one
         # shelf the snapshot cannot read leaves the whole row unread:
         # a partial sum drawn as a total would say a row is nearly
@@ -5369,14 +5439,14 @@ def _readings(raw, now=None, tracked=None):
             continue
         limit = sum(caps)
         if any(stock is None for stock, _limit in counts):
-            out[key] = _one("%s/%d" % (NO_DATA, limit), UNKNOWN)
+            out[key] = price + _one("%s/%d" % (NO_DATA, limit), UNKNOWN)
             continue
         stock = sum(stock for stock, _limit in counts)
         # **What is left and what is not yet on sale can be the same
         # number**, and then there is nothing to buy however red the
         # row looks. See `LOCKED_PAGES`.
         state = LOCKED_PAGES if shut and stock == shut else _done(stock == 0)
-        out[key] = _one("%d/%d" % (stock, limit), state)
+        out[key] = price + _one("%d/%d" % (stock, limit), state)
 
     _add_shop_totals(out, raw, amounts, tracked, now)
     return out
@@ -5899,7 +5969,8 @@ def _row_tracked(tracked, key):
 
 
 def _shop_rows(raw, now):
-    """[(key, ((product id, definition), ...), shut)] per shop sub-row.
+    """[(key, ((product id, definition), ...), shut, priced)] per shop
+    sub-row.
 
     Off the COLUMNS rather than off the definitions whole, because a
     merged row's key is only knowable from the shop and period that
@@ -5909,6 +5980,10 @@ def _shop_rows(raw, now):
     `shut` is how much of the row's cap sits on a page that has not
     opened: nought for every shop but the seasonal one, and nought
     there too once its last page is up. See `shop_pages_open`.
+
+    `priced` is the segment a row priced apart from its shop opens
+    with -- its price, in the shop heading's colour -- or None
+    (`shop_prices_apart`).
     """
     out = []
     for title, _fixed, shops, _events in COLUMNS:
@@ -5917,12 +5992,16 @@ def _shop_rows(raw, now):
             if shop_shut_for_now(shop, period, raw, now):
                 continue
             opened = shop_pages_open(shop, period, raw, now)
+            apart = shop_prices_apart(shop, period, raw)
+            colour = (_label_tag(shop_head_key(shop, period),
+                                 shop_stock.SHOPS[shop]) or (None,))[0]
             for key, group in shop_display_rows(shop, period, raw):
                 shut = 0 if opened is None else sum(
                     define.get("limit_count") or 0
                     for _pid, define in group
                     if define.get("link_shop_sub_category_id") not in opened)
-                out.append((key, group, shut))
+                out.append((key, group, shut,
+                            (apart[key], colour) if key in apart else None))
     return out
 
 
@@ -5980,7 +6059,7 @@ def _crosses_a_block(above, key):
     return _heads_a_block(key) or (_is_shop(above) and not _is_shop(key))
 
 
-def _row_tags(key, above, boxed=(), block=None):
+def _row_tags(key, above, boxed=(), block=None, priced=None):
     """The line tags one row takes, beyond its own colours.
 
     **Exactly one pitch tag per line.** Tk resolves two tags setting
@@ -5998,9 +6077,11 @@ def _row_tags(key, above, boxed=(), block=None):
 
     A shop heading also carries the tab stop its own total sits at --
     see `SHOP_STOP_PREFIX` -- and a shop product in a column of
-    `SPLIT_COLUMNS` its shop's (`block`, the heading's key). Those tags
-    hold no pitch, and the pitch tag stays first: callers read `[0]`
-    for it.
+    `SPLIT_COLUMNS` its shop's (`block`, the heading's key). A product
+    priced apart from its shop carries its shop's middle stops instead
+    (`priced`, the heading's key), the value stop among them. Those
+    tags hold no pitch, and the pitch tag stays first: callers read
+    `[0]` for it.
     """
     if _is_shop(key):
         # The first product of a shop sits under WORDS rather than
@@ -6008,6 +6089,8 @@ def _row_tags(key, above, boxed=(), block=None):
         # under. See `CHECKBOX_UNDER_HEAD`.
         pitch = ("boxheadrow" if str(above or "").startswith(SHOP_HEAD_PREFIX)
                  else "boxrow")
+        if priced:
+            return (pitch, MIDDLE_STOP_PREFIX + priced)
         if block and str(block).startswith(SHOP_HEAD_PREFIX):
             return (pitch, VALUE_STOP_PREFIX + block)
         return (pitch,)

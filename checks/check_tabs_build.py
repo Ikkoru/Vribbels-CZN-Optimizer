@@ -4220,6 +4220,56 @@ def _checklist_module_rows_take_the_middle(tab):
     return out
 
 
+def _checklist_prices_apart_take_the_middle(tab):
+    """A shop row priced apart draws checkbox, price, count, each through
+    a tab, the price in the shop heading's colour.
+
+    The Prism Module shop's Lumina Lens costs Prism Lens, not the shop's
+    Prism Film: its price sits in a middle column of the shop's own
+    (`SHOP_PRICE_APART`), the count at the value stop. Written with
+    spaces, the count would land wherever the price's words end; drawn
+    in the row's red or green, the price would read as a verdict.
+
+    Returns a list of complaints.
+    """
+    import tkinter as tk
+    from ui.tabs import checklist_tab as mod
+    out, seen = [], 0
+    for title, (text, rows) in tab.column_texts.items():
+        lines = mod._value_lines(tuple(((key, label),) for key, label, _w
+                                       in rows))
+        heads = mod._value_blocks(rows)
+        for at, (key, _label, _widest) in enumerate(rows):
+            words = mod.SHOP_PRICE_APART.get(key)
+            if not words:
+                continue
+            seen += 1
+            line = lines[at]
+            drawn = text.get("%d.0" % line, "%d.end" % line)
+            parts = drawn.split(mod.COLUMN_SEP)
+            tags = text.tag_names("%d.0" % line)
+            price = text.search(words, "%d.0" % line, "%d.end" % line)
+            colour = mod._label_tag(heads[key], dict(
+                (k, l) for k, l, _w in rows)[heads[key]])
+            if (len(parts) != 3 or parts[1] != words
+                    or mod.MIDDLE_STOP_PREFIX + heads[key] not in tags):
+                out.append(
+                    f"the {title!r} row {key!r} draws {drawn!r} with tags "
+                    f"{tags!r}: its price and its count each reach their "
+                    f"column through a tab, at its shop's middle stops.")
+            elif not price or not set(colour) <= set(text.tag_names(price)):
+                out.append(
+                    f"the {title!r} row {key!r} draws its price in "
+                    f"{text.tag_names(price) if price else ()!r}, not its "
+                    f"shop heading's {colour!r}.")
+    if not seen:
+        # A shop may sell nothing apart from its own currency, so none
+        # drawn is no fault -- only coverage this run did not have.
+        note("no shop row priced apart from its shop was drawn, so the "
+             "middle column's drawing was not checked")
+    return out
+
+
 def _checklist_reserve_follows_readings(tab):
     """An event reading a digit wider moves the Events' deadlines.
 
@@ -6034,6 +6084,9 @@ def run():
             failures.extend(
                 _checklist_module_rows_take_the_middle(built["ChecklistTab"]))
             failures.extend(
+                _checklist_prices_apart_take_the_middle(
+                    built["ChecklistTab"]))
+            failures.extend(
                 _checklist_block_is_tall_enough(built["ChecklistTab"]))
             failures.extend(
                 _a_shut_seasonal_shop_keeps_its_width(built["ChecklistTab"]))
@@ -6128,4 +6181,13 @@ FAULTS = [
     ("the switch's lines centred", RESTORE,
      "text=FOLLOW_TEXT, justify=tk.LEFT,", "text=FOLLOW_TEXT,",
      "not flush left"),
+    ("a price apart drawn after two spaces",
+     "ui.tabs.checklist_tab:_insert_value",
+     "or str(tag).startswith(MIDDLE_STOP_PREFIX) for tag in line)",
+     "or False for tag in line)", "each reach their column through a tab"),
+    ("a price apart in no colour of its shop's",
+     "ui.tabs.checklist_tab:_shop_rows",
+     "(apart[key], colour) if key in apart else None",
+     "(apart[key], None) if key in apart else None",
+     "not its shop heading's"),
 ]
