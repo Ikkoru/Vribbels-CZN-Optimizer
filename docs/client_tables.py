@@ -6,6 +6,7 @@
     python docs/client_tables.py --text REGEX        English text by id or words
     python docs/client_tables.py --grep REGEX        every table row holding it
     python docs/client_tables.py --season SEASON     what a season pays
+    python docs/client_tables.py --renames [BUILD]   item names a patch moved
     python docs/client_tables.py --ship              the shipped copy, level
     python docs/client_tables.py --audit             game_data against the client
     python docs/client_tables.py --archive           keep this build's whole data
@@ -23,6 +24,12 @@ finds. What each table holds, and what was checked against it, is
 it: a new event's schedule, a season's currency, an item a shop sells.
 It prints each row with a cell matching REGEX, as its table, its first
 column and every matching `column=value`.
+
+`--renames 88` prints every item the client names otherwise than an
+archived build did -- a patch can give an id another item, a
+placeholder's `???` its real name among them -- with the program's own
+name for each, and how many ids the newer build added and dropped. With
+no build, the newest archived one older than the client.
 
 `--season disaster_s05` prints what a Galactic Disaster season pays in
 its own currency, term by term as `SEASON_ESTIMATE` in
@@ -278,6 +285,32 @@ def ship(client):
                     f"{getattr(from_client, 'BUILD', '?')} -> "
                     f"{client.archive.build}")
     return said
+
+
+def renames(before, after):
+    """Lines naming each item `after`'s client names otherwise than
+    `before`'s, with the program's own name for it, then how many ids
+    `after` added and dropped. Placeholders count as names here: a
+    `???` taking its real name is the commonest move."""
+    from game_data.constants import hand_item_names
+
+    def named(client):
+        out = {}
+        for key, text in client.text().items():
+            match = game_client.ITEM_NAME.fullmatch(key)
+            name = game_client.clean(text) if match else ""
+            if name:
+                out[int(match.group(1))] = name
+        return out
+
+    old, new, own = named(before), named(after), hand_item_names()
+    lines = [f"item {rid}: {old[rid]!r} at build {before.archive.build}, "
+             f"{new[rid]!r} at {after.archive.build}; the program's own: "
+             f"{own.get(rid, 'none')!r}"
+             for rid in sorted(set(old) & set(new)) if old[rid] != new[rid]]
+    lines.append(f"{len(set(new) - set(old))} ids new at build "
+                 f"{after.archive.build}, {len(set(old) - set(new))} gone")
+    return lines
 
 
 def _rows(items, per=10):
@@ -1193,6 +1226,8 @@ def main(argv=None):
     parser.add_argument("--text", metavar="REGEX")
     parser.add_argument("--grep", metavar="REGEX")
     parser.add_argument("--season", metavar="SEASON")
+    parser.add_argument("--renames", nargs="?", const="previous",
+                        metavar="BUILD")
     parser.add_argument("--ship", action="store_true")
     parser.add_argument("--audit", action="store_true")
     parser.add_argument("--rows", type=int)
@@ -1278,6 +1313,15 @@ def main(argv=None):
         for name in unread:
             print(f"did not read: {name}", file=sys.stderr)
         print(f"{stubs} stub files with no rows skipped", file=sys.stderr)
+    elif args.renames:
+        held = [b for b in client_archive.builds(folder) if b < archive.build]
+        if args.renames != "previous":
+            held = [int(args.renames)]
+        if not held:
+            print(f"no archived build older than {archive.build}")
+            return 1
+        print("\n".join(renames(client_archive.open_build(folder, held[-1]),
+                                client)))
     elif args.season:
         item, terms = season_payouts(client, args.season)
         name = client.text().get(f"item@name@{item}", "?")
