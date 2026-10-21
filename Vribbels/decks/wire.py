@@ -16,6 +16,13 @@ from .model import Deck, DeckCard, Equipment, desire_of
 # A Signature Epiphany's id on the wire: `rsp<N>_<card>`.
 SIGNATURE_PREFIX = "rsp"
 SNAPSHOT_PREFIX = "memory_fragments_"
+# **A card the game put back when the deck was saved is in it**, whatever
+# else it carries. A run that ends over its cap (`max_define_point`) is
+# saved with cards put back and others taken out, each saying why in its
+# `apply_log` (`pt_overflow`): a removed card it restores keeps the
+# `remove_by_count` it had in the run, and read by that alone it is a
+# preset card deleted, charged for and missing from the deck.
+RESTORED = "restore_reason"
 
 
 def _signature(card_data):
@@ -51,7 +58,8 @@ def deck_card(card_data):
         neutral=(card_data.get("r_spark_res_id") or None) if public else None,
         divine=card_data.get("r_spark_god") or None,
         copy=bool(card_data.get("copy_by_count")),
-        removed=bool(card_data.get("remove_by_count")),
+        removed=bool(card_data.get("remove_by_count"))
+        and not (card_data.get("apply_log") or {}).get(RESTORED),
         persona=tuple(card_data.get("eidolon_reward_ids") or ()),
         desire=_desire(card_id, card_data),
         added_talents=tuple(int(t) for t in card_data.get("add_talents") or ()),

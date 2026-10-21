@@ -60,12 +60,13 @@ Read with `game_client.Client` (`docs/client_data.md`), each table named as `--t
 
 - **`user_id` is the account's own id**, on every Save Data. It is never read.
 - `char_res_id` the Combatant, `name` the player's, `chaos_res_id`, `createAt`, `corruption_res_id` the Mutation.
-- `define_point` the weight the game recorded when the deck was made, and `max_define_point` the run's cap, both in tens.
+- `define_point` the weight the game recorded when the deck was made, and `max_define_point` the run's cap, both in tens: 14 on a season 5 Chaos Save Data, which also carries `is_dtmode: true`, a flag no reader uses yet.
 - `card_datas`, the cards, each by its **base** id (`res_id`), whatever was done to it:
   - `r_spark_res_id` with `r_spark_category`: `CATEGORY_UNIQUE` a Signature Epiphany, `rsp<N>_<card>`; `CATEGORY_PUBLIC` a Neutral one, an `r_spark@r_spark` id. A card holds one or the other;
   - `r_spark_god`, a Divine Epiphany;
   - `copy_by_count`, a duplicate;
   - `remove_by_count`, listed yet out of the deck, and absent from the removal record: the card a Conversion (the game's "Convert") replaced is one, flagged `is_erased_transform_card`. `is_transform_card` flags the card a Conversion made, and `transform_card_id` is a number that is no card's id;
+  - `apply_log`, what the game did to the card as the deck was saved. **A run that ends over its cap is saved under it**: removed cards put back, each saying `restore_reason: pt_overflow` and still carrying the run's `remove_by_count`, which is then no removal (`wire.RESTORED`); added ones taken out, into the removal record, with `erase_reason: pt_overflow`; and a Divine Epiphany taken off a card, `god_r_spark_erased` naming it. A Tiphera Save Data of season 5's Chaos, over its 140-point cap, was saved so: its two Basic cards put back, a Neutral card and an Epiphany taken out;
   - `add_talents`, keywords the run added, by numbers the client's tables never use (`model.WIRE_TALENTS`): the Duplicated keyword every copy carries, and season 4's four Desire keywords;
   - `desire_talent_counts`, a Desire card's points per Desire keyword, adding up to its level. **A level-1 card records none**: it holds its own keyword's one, which `wire` fills in (`model.desire_of` reads the keyword and the level off the id, `card_ds04_des_<keyword><card><level>`);
   - `eidolon_reward_ids`, a Persona's effects, one per slot;

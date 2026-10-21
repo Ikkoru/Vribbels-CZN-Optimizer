@@ -365,6 +365,17 @@ def _wire_report():
                            "r_spark_category": "CATEGORY_PUBLIC"})
     if (card.version, card.neutral) != (0, "c04011"):
         out.append(f"a Neutral Epiphany reads as {card}.")
+    # A run over its cap is saved under it: a removed card put back
+    # keeps the run's `remove_by_count`, and is in the deck all the same.
+    back = wire.deck_card({"res_id": _own("srt1"), "remove_by_count": True,
+                           "apply_log": {"restore_reason": "pt_overflow"}})
+    gone = wire.deck_card({"res_id": _own("srt2"), "remove_by_count": True})
+    if back.removed or not gone.removed:
+        out.append(f"a Basic card the game put back over the cap reads "
+                   f"removed={back.removed}, and one the run removed "
+                   f"removed={gone.removed}: a card put back is in the deck "
+                   f"(`wire.RESTORED`), and read as removed it is charged as "
+                   f"a preset card deleted.")
     if wire.deck_card({"res_id": "card_ds04_des_20011"}).desire != {49: 1}:
         out.append("a level-1 Desire card the run never raised records no "
                    "points, and does not read as holding its own keyword's "
@@ -542,6 +553,9 @@ FAULTS = [
     ("the class unchecked", "decks.rules:warnings",
      'if klass and card["classes"] and klass not in card["classes"]:',
      "if False:", "a card the class may not hold"),
+    ("a card put back read as removed", "decks.wire:deck_card",
+     'and not (card_data.get("apply_log") or {}).get(RESTORED),', ",",
+     "a card put back is in the deck"),
     ("a level-1 Desire card's point left out", "decks.wire:_desire",
      "if not points and held and held[1] == 1:", "if False:",
      "level-1 Desire card"),
