@@ -67,6 +67,10 @@ class DeckCard:
     converted: bool = False
     converted_away: bool = False
     conversion: int | None = None
+    # The user's own figures, over what `turns` reads: "cost", "draw",
+    # "ap" (a number, for a figure the battle decides; plan D12) and
+    # "turns" ("setup", "regular" or "neither"; plan 3.2).
+    overrides: dict = field(default_factory=dict)
 
     @property
     def own(self):
@@ -94,11 +98,22 @@ class Equipment:
 
 
 @dataclass
+class Adjustment:
+    """The user's own correction to a deck's draw and AP a turn, for
+    what the cards cannot show (plan D22)."""
+
+    draw: int = 0
+    ap: int = 0
+    note: str = ""
+
+
+@dataclass
 class Deck:
     """One Combatant's deck."""
 
     combatant: int
     cards: list = field(default_factory=list)
+    adjustments: list = field(default_factory=list)
     # The cards deleted, by id, as the Save Data lists them: the record
     # the five-removal rule counts.
     removed: list = field(default_factory=list)

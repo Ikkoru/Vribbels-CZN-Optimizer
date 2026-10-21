@@ -157,6 +157,15 @@ def _amount(effect):
     return -amount if effect.get("eff_value_math_sign") in SUBTRACT else amount
 
 
+def _say(amount):
+    """An amount leading a sentence, or nothing where the data gives none."""
+    return "" if amount is None else f"{amount} "
+
+
+def _by(amount):
+    return "" if amount is None else f"by {amount} "
+
+
 def _holder(effect):
     """Who holds the statuses `effect` puts on, and on how many cards."""
     if effect.get("target_card_set") == THIS_CARD:
@@ -237,28 +246,30 @@ class _Reader:
         elif holder == OTHERS and kind in COST_CHANGE and on_this:
             # Another card's cost cut is AP gained (plan D68).
             gain = -amount if amount is not None else None
-            self.ap.add(gain, plain, f"{gain} AP: other cards' cost cut {reason}".rstrip())
+            self.ap.add(gain, plain, f"{_say(gain)}AP: other cards' cost cut "
+                        f"{reason}".rstrip())
         elif holder == OTHERS:
             return                  # what another card does when it plays
         elif kind == DRAW:
-            self.draw.add(amount, plain, f"{amount} draw {reason}".rstrip())
+            self.draw.add(amount, plain, f"{_say(amount)}draw {reason}".rstrip())
         elif kind == ENERGY:
-            self.ap.add(amount, plain, f"{amount} AP {reason}".rstrip())
+            self.ap.add(amount, plain, f"{_say(amount)}AP {reason}".rstrip())
         elif kind == MOVE and effect.get("eff_card_place") == HAND:
             if on_this:
                 # Comes to hand by itself, needing no draw (plan D69).
                 self.draw.add(1, plain, f"1 draw: it moves to hand {reason}".rstrip())
             elif effect.get("target_card_set_list_card_place") in DRAW_PILES:
-                self.draw.add(amount, plain, f"{amount} draw from the draw pile "
+                self.draw.add(amount, plain, f"{_say(amount)}draw from the draw pile "
                               f"{reason}".rstrip())
         elif kind in COST_CHANGE and holder == SELF and on_this:
-            self.cost.unknown.append((each, f"its cost changes by {each} in "
+            self.cost.unknown.append((each, f"its cost changes {_by(each)}in "
                                       f"battle {reason}".rstrip()))
         elif kind in COST_CHANGE and not on_this:
             # Cards the effect names, or every card a unit holds: their
             # cost cut is AP gained (plan D68).
             gain = -amount if amount is not None else None
-            self.ap.add(gain, plain, f"{gain} AP: other cards' cost cut {reason}".rstrip())
+            self.ap.add(gain, plain, f"{_say(gain)}AP: other cards' cost cut "
+                        f"{reason}".rstrip())
 
 
 def played(held, catalogue):
@@ -312,8 +323,210 @@ def played(held, catalogue):
         turns = SETUP
     else:
         turns = REGULAR
+    # The user's own figures stand over the read ones, "?" parts and all.
+    for key, figure in (("cost", cost), ("draw", reader.draw), ("ap", reader.ap)):
+        if key in held.overrides:
+            figure.value, figure.unknown = int(held.overrides[key]), []
+    turns = held.overrides.get("turns", turns)
     return Played(card=card_id, name=base["name"] or held.card, cost=cost,
                   draw=reader.draw, ap=reader.ap,
                   talents=tuple(dict.fromkeys(talents)), turns=turns,
                   printed_cost=printed, opener=OPENER in talents,
                   notes=reader.notes)
+
+
+# -------------------- a deck's turn and the team's --------------------
+
+@dataclass
+class Sums:
+    """A list of cards' totals for a turn: how many need drawing, and
+    their cost, draw and AP gain. A figure's "?" parts count as 0."""
+
+    cards: int = 0
+    cost: int = 0
+    draw: int = 0
+    ap: int = 0
+    # Whether some figure in the list is the battle's (shows as "+?").
+    unknown: bool = False
+
+    def add(self, played):
+        self.cards += 1
+        self.cost += played.cost.value
+        self.draw += played.draw.value
+        self.ap += played.ap.value
+        self.unknown = self.unknown or bool(
+            played.cost.unknown or played.draw.unknown or played.ap.unknown)
+
+    @property
+    def net_draw(self):
+        """What the list adds to a turn's draw: its draws less the cards
+        that need drawing."""
+        return self.draw - self.cards
+
+    @property
+    def net_ap(self):
+        return self.ap - self.cost
+
+
+@dataclass
+class DeckTurns:
+    """One deck's cards as they play, and its lists' totals."""
+
+    deck: object
+    # (DeckCard, Played) for every card in the deck the client knows.
+    played: list = field(default_factory=list)
+    regular: Sums = field(default_factory=Sums)
+    setup: Sums = field(default_factory=Sums)
+    # The user's corrections a turn (plan D22), summed.
+    draw_adjustment: int = 0
+    ap_adjustment: int = 0
+    # Cards the catalogue lacks, left out of every sum.
+    unknown_cards: list = field(default_factory=list)
+
+    @property
+    def net_draw(self):
+        """What the deck adds to the team's draw a regular turn (plan
+        D71): the team's surplus is the turn's draw plus every deck's."""
+        return self.regular.net_draw + self.draw_adjustment
+
+    @property
+    def net_ap(self):
+        return self.regular.net_ap + self.ap_adjustment
+
+
+def deck_turns(deck, catalogue):
+    """`deck` as it plays, a `DeckTurns`."""
+    out = DeckTurns(deck=deck)
+    for held in deck.present():
+        played_card = played(held, catalogue)
+        if played_card is None:
+            out.unknown_cards.append(held.card)
+            continue
+        out.played.append((held, played_card))
+        if played_card.turns == REGULAR:
+            out.regular.add(played_card)
+        elif played_card.turns == SETUP:
+            out.setup.add(played_card)
+    for adjustment in deck.adjustments:
+        out.draw_adjustment += adjustment.draw
+        out.ap_adjustment += adjustment.ap
+    return out
+
+
+@dataclass
+class SetupTurn:
+    """One turn of setup: what it plays and what it leaves over."""
+
+    setup: list = field(default_factory=list)
+    # The regular cards it plays besides, for what they gain.
+    regular: list = field(default_factory=list)
+    draw_left: int = 0
+    ap_left: int = 0
+
+
+@dataclass
+class SetupPlan:
+    """How the setup cards get played (plan D72)."""
+
+    turns: list = field(default_factory=list)
+    # Setup cards no turn can afford.
+    stuck: list = field(default_factory=list)
+
+
+# More trade cards than this and the plan tries the best gainers only:
+# every combination of the rest would double the search per card.
+MAX_TRADES = 12
+
+
+def plan_setup(setup, regular, draw=5, energy=3, openers=(), bonus_draw=0,
+               bonus_ap=0):
+    """Play the setup cards turn after turn, assuming the draw is
+    perfect (plan D72): each turn starts with `draw` cards in hand and
+    `energy` AP, plus the decks' own corrections (`bonus_draw`,
+    `bonus_ap`); every regular card that gains without costing is
+    played; of those that trade one for the other, the mix that lets
+    the most setup cards be played is chosen, ties going to what leaves
+    the most over; then the setup cards that fit, those giving the most
+    first. `setup` and `regular` are `Played`s; `openers` are the
+    regular Opener cards, which proc at the start of battle for AP, as
+    an Opener setup card does (plan D18). A `SetupPlan`."""
+    def nets(card):
+        return card.draw.value - 1, card.ap.value - card.cost.value
+
+    free = [card for card in regular
+            if min(nets(card)) >= 0 and max(nets(card)) > 0]
+    trades = [card for card in regular if max(nets(card)) > 0 > min(nets(card))]
+    trades = sorted(trades, key=lambda c: -max(nets(c)))[:MAX_TRADES]
+    at_start = [card for card in setup if card.opener]
+    waiting = sorted((card for card in setup if not card.opener),
+                     key=lambda c: -sum(nets(c)))
+    plan = SetupPlan()
+    first = True
+    while waiting or (first and at_start):
+        hand, ap = draw + bonus_draw, energy + bonus_ap
+        if first:
+            # Proc at the start of battle: AP spent, no card drawn.
+            for card in list(at_start) + list(openers):
+                ap += card.ap.value - card.cost.value
+                hand += card.draw.value
+        for card in free:
+            d, a = nets(card)
+            hand, ap = hand + d, ap + a
+        best = None
+        for mask in range(1 << len(trades)):
+            chosen = [card for i, card in enumerate(trades) if mask >> i & 1]
+            h, a = hand, ap
+            for card in chosen:
+                d, e = nets(card)
+                h, a = h + d, a + e
+            if h < 0 or a < 0:
+                continue
+            played_setup = []
+            for card in waiting:
+                d, e = nets(card)
+                if h + d >= 0 and a + e >= 0:
+                    played_setup.append(card)
+                    h, a = h + d, a + e
+            score = (len(played_setup), h + a)
+            if best is None or score > best[0]:
+                best = (score, chosen, played_setup, h, a)
+        if best is None or (waiting and not best[2] and not (first and at_start)):
+            plan.stuck = waiting
+            break
+        _score, chosen, played_setup, h, a = best
+        plan.turns.append(SetupTurn(setup=(at_start if first else []) + played_setup,
+                                    regular=free + chosen, draw_left=h, ap_left=a))
+        waiting = [card for card in waiting if card not in played_setup]
+        first = False
+    return plan
+
+
+@dataclass
+class TeamTurns:
+    """The team's turn: its decks', the surpluses and the setup plan."""
+
+    decks: list = field(default_factory=list)
+    draw_surplus: int = 0
+    ap_surplus: int = 0
+    # Whether some figure in the regular turns is the battle's.
+    unknown: bool = False
+    setup: SetupPlan = field(default_factory=SetupPlan)
+
+
+def team_turns(team, catalogue):
+    """`team` as it plays, a `TeamTurns`: a regular turn's draw and AP
+    surplus (plan 3.1), the turn's own draw and AP plus each deck's
+    nets, and how its setup cards get played."""
+    draw = catalogue.constants.get("draw", 5)
+    energy = catalogue.constants.get("energy", 3)
+    out = TeamTurns(decks=[deck_turns(deck, catalogue) for deck in team.decks])
+    out.draw_surplus = draw + sum(d.net_draw for d in out.decks)
+    out.ap_surplus = energy + sum(d.net_ap for d in out.decks)
+    out.unknown = any(d.regular.unknown for d in out.decks)
+    regular = [p for d in out.decks for _h, p in d.played if p.turns == REGULAR]
+    setup = [p for d in out.decks for _h, p in d.played if p.turns == SETUP]
+    out.setup = plan_setup(setup, regular, draw, energy,
+                           openers=[p for p in regular if p.opener],
+                           bonus_draw=sum(d.draw_adjustment for d in out.decks),
+                           bonus_ap=sum(d.ap_adjustment for d in out.decks))
+    return out

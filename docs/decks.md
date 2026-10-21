@@ -134,6 +134,21 @@ The readings set aside, each failing decks the game accepted:
 
 **Which turns a card counts in** (plan 3.2): setup for an Upgrade (`CARD_POWER`), any Exhaust keyword and Remove; neither for a card both Unusable and Ephemeral; regular for the rest. An Opener card is marked (`Played.opener`), since its cost also comes out of the setup turn (plan D18).
 
+**The user's own figures** stand over what is read: a `DeckCard`'s `overrides` give a cost, draw or AP gain for a figure the battle decides, and move a card between the lists (plan D12, 3.2).
+
+**A deck's turn** (`turns.deck_turns`) sums its regular and its setup cards apart, each card needing one draw. Its nets are what it adds to the team's regular turn: its draws less its cards, its AP gain less its cost, and the user's own corrections a turn, each with a note (`model.Adjustment`; plan D22, D71).
+
+**The team's regular turn** (`turns.team_turns`) has a surplus of the turn's own draw and AP plus every deck's nets (plan 3.1). The turn's figures are the client's battle constants (`catalogue.CONSTANTS`). A "?" figure counts as 0 in the sums, and the sum says some part is the battle's.
+
+**The setup turns** (`turns.plan_setup`, plan D72) assume a perfect draw. Each turn starts with the turn's cards in hand and its AP:
+
+1. every regular card that gains without costing is played: a 0-AP draw, a free AP gain;
+2. among the regular cards that trade one for the other, such as a 1-AP card that draws 2, the mix that lets the most setup cards be played is chosen, ties going to what leaves the most over;
+3. the setup cards that fit are played, those that give the most first;
+4. the rest wait for the next turn, which starts afresh.
+
+An Opener card procs at the start of battle for its AP, without a card in hand. A setup card no turn can afford is reported (`SetupPlan.stuck`). Each turn keeps what it played and what it left over: turn 1's and turn 2's surplus (plan D20).
+
 **Held to the maintainer's figures.** The maintainer's deck spreadsheet prices the cards of each of its teams, by hand, on its Deck Calcs tab. The cards the program reads exactly as the sheet does are the check's fixture (`DECK_CALCS` in `checks/check_deck_turns.py`); the rest go to the maintainer for review.
 
 ## Checks
@@ -144,5 +159,7 @@ The readings set aside, each failing decks the game accepted:
   - on a catalogue of the check's own, with a figure per row, each charge comes off its row, and each rule warns about the deck built to break it and nothing else;
   - the wire import fills, drops and orders what it should.
 - `checks/check_deck_turns.py`:
-  - on a catalogue of the check's own, each reading rule above holds for the card built to exercise it;
+  - on a catalogue of the check's own, each reading rule above holds for the card built to exercise it, and the user's figures stand over it;
+  - a deck's lists and nets, and the team's surplus off the catalogue's own turn figures;
+  - the setup plan on cards built for each of its steps;
   - the cards whose figures the Deck Calcs tab gives read the same off the installed client.

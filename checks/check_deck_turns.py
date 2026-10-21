@@ -249,6 +249,103 @@ def _rules_report():
                    "go back to it.")
     if str(turns.played(DeckCard("c_9_battle"), catalogue).draw) != "?":
         out.append("a draw the battle decides does not show as ?.")
+    mine = turns.played(DeckCard("c_9_battle", overrides={"draw": 2}), catalogue)
+    if (mine.draw.value, mine.draw.unknown) != (2, []):
+        out.append("the user's own figure for a draw the battle decides is not "
+                   "what the card counts (plan D12). See `played` in decks/turns.py.")
+    moved = turns.played(DeckCard("c_9_plain", overrides={"turns": "setup"}), catalogue)
+    if moved.turns != "setup":
+        out.append("the user's move of a card to the setup list is lost (plan 3.2).")
+    return out
+
+
+def _totals_report():
+    """A deck's lists and nets, and the team's surplus off the turn's
+    own draw and AP, which the catalogue holds."""
+    from decks import turns
+    from decks.model import Adjustment, Deck, DeckCard, Team
+    catalogue = _catalogue()
+    # A turn that is not the game's 5 and 3, so a figure typed in where
+    # the catalogue's belongs shows.
+    catalogue.constants = {"draw": 6, "energy": 4}
+    deck = Deck(combatant=9, cards=[DeckCard("c_9_plain"), DeckCard("c_9_plain"),
+                                    DeckCard("c_9_base"), DeckCard("c_9_upgrade"),
+                                    DeckCard("c_9_gone", removed=True)])
+    held = turns.deck_turns(deck, catalogue)
+    out = []
+    regular = (held.regular.cards, held.regular.cost, held.regular.draw, held.regular.ap)
+    if regular != (3, 4, 2, 2):
+        out.append(f"a deck's regular list sums to cards, cost, draw, AP gain {regular}, "
+                   f"not (3, 4, 2, 2). See `deck_turns` in decks/turns.py.")
+    if (held.setup.cards, held.setup.cost) != (1, 1):
+        out.append(f"a deck's setup list holds {held.setup.cards} cards costing "
+                   f"{held.setup.cost}, not one costing 1.")
+    if (held.net_draw, held.net_ap) != (-1, -2):
+        out.append(f"a deck's nets are draw {held.net_draw}, AP {held.net_ap}, not -1 "
+                   f"and -2: its draw less its cards, its AP gain less its cost (plan D71).")
+    deck.adjustments = [Adjustment(draw=1, ap=3, note="Equipment")]
+    held = turns.deck_turns(deck, catalogue)
+    if (held.net_draw, held.net_ap) != (0, 1):
+        out.append("the user's corrections to a deck's draw and AP are not in its "
+                   "nets (plan D22).")
+    team = turns.team_turns(Team(decks=[deck, Deck(combatant=9, cards=[
+        DeckCard("c_9_base")])]), catalogue)
+    want = (6 + 0 - 1, 4 + 1 - 2)
+    if (team.draw_surplus, team.ap_surplus) != want:
+        out.append(f"the team's surplus is draw {team.draw_surplus}, AP "
+                   f"{team.ap_surplus}, not {want}: the catalogue's own turn draw "
+                   f"and AP plus every deck's nets (plan 3.1, D71). See `team_turns` "
+                   f"in decks/turns.py.")
+    return out
+
+
+def _card_like(name, cost=0, draw=0, ap=0, opener=False):
+    from decks import turns
+    return turns.Played(card=name, name=name, cost=turns.Figure(cost),
+                        draw=turns.Figure(draw), ap=turns.Figure(ap), talents=(),
+                        turns="setup", opener=opener)
+
+
+def _setup_cases():
+    up = _card_like
+    trade = up("trade: 1 AP for 2 more cards", cost=1, draw=3)
+    return [
+        ("setup that fits in turn 1, the cheaper card first",
+         [up("u2", 2), up("u1", 1)], [], [], [["u1", "u2"]], (3, 0), []),
+        ("setup a free AP gain pays for",
+         [up("u2a", 2), up("u2b", 2)], [up("source", 0, 1, 2)], [],
+         [["u2a", "u2b"]], (3, 1), []),
+        ("six setup cards a trade card makes room for",
+         [up(f"z{i}") for i in range(6)], [trade], [],
+         [[f"z{i}" for i in range(6)]], (1, 2), []),
+        ("setup over two turns", [up("u3a", 3), up("u3b", 3)], [], [],
+         [["u3a"], ["u3b"]], (4, 0), []),
+        ("a setup card no turn can afford", [up("u9", 9)], [], [], [], None, ["u9"]),
+        ("an Opener setup card", [up("op", 1, opener=True), up("u2", 2)], [], [],
+         [["op", "u2"]], (4, 0), []),
+        ("trade cards played for what they leave over",
+         [up("u1", 1)], [trade, up("ap", 0, 0, 2)], [],
+         [["u1"]], (5, 3), []),
+    ]
+
+
+def _setup_report():
+    """The setup plan (plan D72), on cards built for each step."""
+    from decks import turns
+    out = []
+    for what, setup, regular, openers, played, left, stuck in _setup_cases():
+        plan = turns.plan_setup(setup, regular, draw=5, energy=3, openers=openers)
+        got = [[card.name for card in turn.setup] for turn in plan.turns]
+        if got != played:
+            out.append(f"{what}: the setup turns play {got}, not {played}. See "
+                       f"`plan_setup` in decks/turns.py and plan.md D72.")
+        if left is not None and plan.turns and \
+                (plan.turns[0].draw_left, plan.turns[0].ap_left) != left:
+            out.append(f"{what}: turn 1 leaves draw {plan.turns[0].draw_left}, AP "
+                       f"{plan.turns[0].ap_left}, not {left[0]} and {left[1]}.")
+        if [card.name for card in plan.stuck] != stuck:
+            out.append(f"{what}: the cards no turn can afford are "
+                       f"{[card.name for card in plan.stuck]}, not {stuck}.")
     return out
 
 
@@ -280,7 +377,7 @@ def _deck_calcs_report():
 
 def run():
     add_source_to_path()
-    return _rules_report() + _deck_calcs_report()
+    return _rules_report() + _totals_report() + _setup_report() + _deck_calcs_report()
 
 
 FAULTS = [
@@ -324,4 +421,30 @@ FAULTS = [
      "a Divine Epiphany's cost cut"),
     ("a Persona effect ignored", "decks.turns:played",
      'effects += effect["effects"]', "pass", "a Persona effect's cost and AP"),
+    ("the user's figure ignored", "decks.turns:played",
+     "if key in held.overrides:", "if False:", "the user's own figure"),
+    ("a card left out of its list's count", "decks.turns:Sums.add",
+     "self.cards += 1", "pass", "a deck's regular list sums"),
+    ("a deck's corrections left out", "decks.turns:deck_turns",
+     "out.draw_adjustment += adjustment.draw", "pass", "the user's corrections"),
+    ("the turn's draw typed in", "decks.turns:team_turns",
+     'draw = catalogue.constants.get("draw", 5)', "draw = 5",
+     "the catalogue's own turn draw"),
+    ("free gains not played in setup", "decks.turns:plan_setup",
+     "if min(nets(card)) >= 0 and max(nets(card)) > 0]", "if False]",
+     "a free AP gain pays for"),
+    ("trade cards not tried", "decks.turns:plan_setup",
+     "for mask in range(1 << len(trades)):", "for mask in range(1):",
+     "a trade card makes room for"),
+    ("an Opener setup card waiting for a hand", "decks.turns:plan_setup",
+     "at_start = [card for card in setup if card.opener]", "at_start = []",
+     "an Opener setup card"),
+    ("an unaffordable setup card not reported", "decks.turns:plan_setup",
+     "plan.stuck = waiting", "plan.stuck = []", "no turn can afford"),
+    ("leftovers not the tie-break", "decks.turns:plan_setup",
+     "score = (len(played_setup), h + a)", "score = (len(played_setup), 0)",
+     "trade cards played for what they leave over"),
+    ("setup cards not the cheapest first", "decks.turns:plan_setup",
+     "key=lambda c: -sum(nets(c)))", "key=lambda c: sum(nets(c)))",
+     "the cheaper card first"),
 ]
