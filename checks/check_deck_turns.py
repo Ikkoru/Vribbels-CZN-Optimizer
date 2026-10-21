@@ -18,6 +18,7 @@ NAME = "per-card cost, draw and AP gain"
 # tab gives for a card and the program reads off it as printed.
 DECK_CALCS = [
     ("c_1003_uni3", 0, 0, 1, 0), ("c_1003_uni3", 1, 0, 2, 0),
+    ("c_1003_uni4_lbk", 0, 0, 1, 0),
     ("c_1005_srt4", 4, 0, 0, 0), ("c_1008_uni3", 0, 1, 1, 0),
     ("c_1012_srt4", 3, 3, 0, 0), ("c_1012_uni1", 0, 1, 0, 0),
     ("c_1012_uni4", 0, 2, 0, 0), ("c_1024_uni4", 0, 1, 0, 0),
@@ -133,6 +134,23 @@ def _catalogue():
         "not_shuffle": _effect("SKILL_EFF_CARD_NOT_SHUFFLE", operation="OPERATION_PASSIVE"),
         "make_arrow": _make("[c_30113_cre1]", place="CARD_PLACE_DECK"),
         "make_flash": _make("[c_30047_srt4_rsp3_mut]"),
+        # When effects fire: at the next turn's start, each turn, at the
+        # start of battle, by chance.
+        "next_turn_put": _effect(STATUS, 2, target_card_set="CARD_SET_NONE",
+                                 link_cs_id="[st_next_turn]"),
+        "turn_draw": _effect(DRAW, operation="OPERATION_TRIGGER",
+                             eff_link_condition_id="cd_turn"),
+        "each_turn_put": _effect(STATUS, target_card_set="CARD_SET_NONE",
+                                 link_cs_id="[st_each_turn]"),
+        "turn_ap": _effect(ENERGY, operation="OPERATION_TRIGGER", sign="MATHSIGN_ADD",
+                           eff_link_condition_id="cd_turn"),
+        "start_draw": _effect(DRAW, operation="OPERATION_TRIGGER",
+                              eff_link_condition_id="cd_start"),
+        "start_ap": _effect(ENERGY, operation="OPERATION_TRIGGER", sign="MATHSIGN_ADD",
+                            eff_link_condition_id="cd_start"),
+        "battle_draw": _effect(DRAW, operation="OPERATION_TRIGGER",
+                               eff_link_condition_id="cd_battle"),
+        "chance": _effect(DRAW, run_pct="30"),
     }
     statuses = {
         "st_self": {"link_skill_eff_id": "[self_move]", "term_type_1": "TERM_BATTLE"},
@@ -143,6 +161,12 @@ def _catalogue():
         "st_lasting": {"link_skill_eff_id": "[lasting_ap]", "term_type_1": "TERM_BATTLE"},
         "st_lasting_make": {"link_skill_eff_id": "[lasting_make]", "term_type_1": "TERM_BATTLE"},
         "st_grave": {"link_skill_eff_id": "[not_shuffle]", "term_type_1": "TERM_BATTLE"},
+        "st_next_turn": {"link_skill_eff_id": "[turn_draw]", "term_type_1": "TERM_EFF_WHOLE"},
+        "st_each_turn": {"link_skill_eff_id": "[turn_ap]", "term_type_1": "TERM_BATTLE"},
+        "st_eq_turn": {"link_skill_eff_id": "[turn_ap]", "term_type_1": "TERM_BATTLE"},
+        "st_eq_start": {"link_skill_eff_id": "[start_draw,start_ap]",
+                        "term_type_1": "TERM_BATTLE"},
+        "st_eq_battle": {"link_skill_eff_id": "[battle_draw]", "term_type_1": "TERM_BATTLE"},
     }
     conditions = {
         "cd_pile": _condition({"condition_card": "CONDITION_CARD_AMOUNT",
@@ -153,6 +177,17 @@ def _catalogue():
                                  "condition_card_card_place": "CARD_PLACE_NONE",
                                  "condition_card_value_ineq": "INEQUALITY_GE",
                                  "condition_card_value": "1"}),
+        # A turn's start: nothing to test, starting over after the draw.
+        "cd_turn": [{"type": "reset", "and_or": "AND", "cards": [], "units": [],
+                     "timings": [], "battle_timing": ["TIMING_DRAW_AFTER"]}],
+        # The start of battle: turn 1, after the draw.
+        "cd_start": [{"type": "stack", "and_or": "AND", "cards": [], "units": [],
+                      "timings": [{"condition_timing": "TIMING_TURN",
+                                   "condition_timing_value": "1",
+                                   "condition_timing_value_ineq": "INEQUALITY_EQ"}],
+                      "battle_timing": []},
+                     {"type": "reset", "and_or": "AND", "cards": [], "units": [],
+                      "timings": [], "battle_timing": ["TIMING_DRAW_AFTER"]}],
     }
     cards = {
         "c_9_plain": _card(effects=["draw1", "ap1"]),
@@ -201,6 +236,10 @@ def _catalogue():
         "c_9_lasting_maker": _card(category="CARD_POWER", effects=["lasting_make_put"]),
         "c_9_arrow_maker": _card(effects=["make_arrow"]),
         "c_9_flash_maker": _card(effects=["make_flash"]),
+        "c_9_next_turn": _card(cost=0, effects=["next_turn_put"]),
+        "c_9_upgrade_each_turn": _card(category="CARD_POWER", effects=["each_turn_put"]),
+        "c_9_regular_each_turn": _card(effects=["each_turn_put"]),
+        "c_9_chance": _card(effects=["chance"]),
     }
     return Catalogue({
         "cards": cards, "effects": effects, "statuses": statuses,
@@ -218,6 +257,15 @@ def _catalogue():
                                              "add_talents": ["TALENT_RETAIN"],
                                              "add_cost": 1,
                                              "add_cost_sign": "MATHSIGN_ADD"}}},
+        "equipment": {
+            "eq_9_turn": {"name": "Each Turn", "stars": {"1": {"statuses": ["st_eq_turn"]}}},
+            # Its second star is the one that gives at the start of battle.
+            "eq_9_start": {"name": "Start", "stars": {"1": {"statuses": []},
+                                                      "2": {"statuses": ["st_eq_start"]}}},
+            "eq_9_battle": {"name": "Battle", "stars": {"1": {"statuses": ["st_eq_battle"]}}},
+        },
+        "buffs": {"rr_9": {"type": "LUX", "statuses": ["st_eq_turn"]}},
+        "mutations": {"mut_9": {"name": "Mutation", "statuses": ["st_eq_start"]}},
     })
 
 
@@ -259,6 +307,13 @@ CASES = [
      (1, 0, 0), "regular", ""),
     ("a Persona effect's cost and AP", "c_9_base", {"persona": ("p_dearer",)}, (3, 0, 1),
      (3, 0, 1), "regular", ""),
+    ("a draw at the next turn's start, on a two-use status", "c_9_next_turn", {},
+     (0, 2, 0), (0, 2, 0), "regular", ""),
+    ("an Upgrade's AP each turn, apart from its play", "c_9_upgrade_each_turn", {},
+     (1, 0, 0), (1, 0, 0), "setup", ""),
+    ("a regular card's lasting AP each turn, which every play adds again",
+     "c_9_regular_each_turn", {}, (1, 0, 0), (1, 0, 1), "regular", ""),
+    ("a draw by chance", "c_9_chance", {}, (1, 0, 0), (1, 1, 0), "regular", ""),
 ]
 
 
@@ -305,6 +360,46 @@ def _rules_report():
     moved = turns.played(DeckCard("c_9_plain", overrides={"turns": "setup"}), catalogue)
     if moved.turns != "setup":
         out.append("the user's move of a card to the setup list is lost (plan 3.2).")
+    upgrade = turns.played(DeckCard("c_9_upgrade_each_turn"), catalogue)
+    if (upgrade.turn_draw.value, upgrade.turn_ap.value) != (0, 1):
+        out.append(f"an Upgrade's lasting AP each turn reads as draw "
+                   f"{upgrade.turn_draw.value}, AP {upgrade.turn_ap.value} a turn, not "
+                   f"0 and 1 (plan D42). See `fires` and `_Reader.sink` in decks/turns.py.")
+    regular = turns.played(DeckCard("c_9_regular_each_turn"), catalogue)
+    if regular.turn_ap.value:
+        out.append("a regular card's lasting effect counts as a steady AP gain each "
+                   "turn, though every play puts it on again.")
+    return out
+
+
+def _bonuses_report():
+    """What Equipment at its star level, a Buff and the Mutation give,
+    each turn and at the start of battle, into the deck's nets."""
+    from decks import turns
+    from decks.model import Deck, Equipment
+    catalogue = _catalogue()
+    deck = Deck(combatant=9, equipment=[
+        Equipment("eq_9_turn", buffs=("rr_9",)), Equipment("eq_9_start", stars=2),
+        Equipment("eq_9_battle")], mutation="mut_9")
+    found = {b.source: (b.turn_draw, b.turn_ap, b.start_draw, b.start_ap, bool(b.unknown))
+             for b in turns.bonuses(deck, catalogue)}
+    want = {"eq_9_turn": (0, 1, 0, 0, False), "rr_9": (0, 1, 0, 0, False),
+            "eq_9_start": (0, 0, 1, 1, False), "eq_9_battle": (0, 0, 0, 0, True),
+            "mut_9": (0, 0, 1, 1, False)}
+    out = []
+    if found != want:
+        out.append(f"the deck's Equipment, Buff and Mutation give "
+                   f"{found}, not {want}: (draw, AP each turn, draw, AP at the start "
+                   f"of battle, some part the battle's). See `bonuses` in "
+                   f"decks/turns.py and plan.md D21.")
+    first_star = turns.bonuses(Deck(combatant=9, equipment=[Equipment("eq_9_start")]),
+                               catalogue)
+    if first_star:
+        out.append("an Equipment piece gives what another star level of it does.")
+    held = turns.deck_turns(deck, catalogue)
+    if held.turn_ap != 2:
+        out.append(f"the deck's Equipment and Buff give {held.turn_ap} AP a turn in its "
+                   f"nets, not 2.")
     return out
 
 
@@ -425,11 +520,11 @@ def _created_report():
     return out
 
 
-def _card_like(name, cost=0, draw=0, ap=0, opener=False):
+def _card_like(name, cost=0, draw=0, ap=0, opener=False, turn_ap=0):
     from decks import turns
     return turns.Played(card=name, name=name, cost=turns.Figure(cost),
                         draw=turns.Figure(draw), ap=turns.Figure(ap), talents=(),
-                        turns="setup", opener=opener)
+                        turns="setup", opener=opener, turn_ap=turns.Figure(turn_ap))
 
 
 def _setup_cases():
@@ -452,6 +547,13 @@ def _setup_cases():
         ("trade cards played for what they leave over",
          [up("u1", 1)], [trade, up("ap", 0, 0, 2)], [],
          [["u1"]], (5, 3), []),
+        ("an Upgrade's lasting AP paying for the next turn's setup",
+         [up("lasting", 1, turn_ap=1), up("u4", 4)], [], [],
+         [["lasting"], ["u4"]], (4, 2), []),
+        ("a start-of-battle bonus in turn 1", [up("u4", 4)], [], [],
+         [["u4"]], (4, 0), [], {"start_ap": 1}),
+        ("a bonus every turn", [up("u4a", 4), up("u4b", 4)], [], [],
+         [["u4a"], ["u4b"]], (4, 0), [], {"bonus_ap": 1}),
     ]
 
 
@@ -459,8 +561,9 @@ def _setup_report():
     """The setup plan (plan D72), on cards built for each step."""
     from decks import turns
     out = []
-    for what, setup, regular, openers, played, left, stuck in _setup_cases():
-        plan = turns.plan_setup(setup, regular, draw=5, energy=3, openers=openers)
+    for what, setup, regular, openers, played, left, stuck, *extra in _setup_cases():
+        plan = turns.plan_setup(setup, regular, draw=5, energy=3, openers=openers,
+                                **(extra[0] if extra else {}))
         got = [[card.name for card in turn.setup] for turn in plan.turns]
         if got != played:
             out.append(f"{what}: the setup turns play {got}, not {played}. See "
@@ -503,8 +606,8 @@ def _deck_calcs_report():
 
 def run():
     add_source_to_path()
-    return (_rules_report() + _totals_report() + _setup_report() + _created_report()
-            + _deck_calcs_report())
+    return (_rules_report() + _totals_report() + _bonuses_report() + _setup_report()
+            + _created_report() + _deck_calcs_report())
 
 
 FAULTS = [
@@ -528,7 +631,7 @@ FAULTS = [
      'elif effect.get("target_card_set_list_card_place") in DRAW_PILES:', "elif False:",
      "a card taken from the draw pile to hand"),
     ("a card that moves itself to hand not a draw", "decks.turns:_Reader.read",
-     'self.draw.add(1, plain, f"1 draw: it moves to hand {reason}".rstrip())', "pass",
+     'add("draw", 1, "1 draw: it moves to hand")', "pass",
      "a card that moves itself to hand"),
     ("other cards' cost cut not counted per card", "decks.turns:_holder",
      'return OTHERS, max(1, _number(effect.get("eff_card_target_count"), 1))',
@@ -540,7 +643,8 @@ FAULTS = [
      'if (status.get("term_type_1") or "").startswith(USES_TERMS):', "if False:",
      "a triggered draw on a two-use status"),
     ("a choice's option not read", "decks.turns:_Reader.read",
-     'self.walk(option["effects"], holder, count, steady, why)', "pass", "a choice"),
+     'self.walk(option["effects"], holder, count, mode, why, lasting)', "pass",
+     "a choice"),
     ("an Epiphany's added effects ignored", "decks.turns:played",
      'effects += epiphany["effects"]', "pass", "a Neutral Epiphany's draw"),
     ("a Divine Epiphany's cost cut ignored", "decks.turns:_cost_change",
@@ -608,4 +712,32 @@ FAULTS = [
     ("hidden and idle made cards counted", "decks.turns:deck_turns",
      "if made.hidden or made.idle or made.turns not in listed:",
      "if made.turns not in listed:", "is counted in a list"),
+    ("the start of battle read as every turn", "decks.turns:fires",
+     "first_turn = True", "pass", "the deck's Equipment, Buff and Mutation give"),
+    ("each turn's start read as the battle's", "decks.turns:fires",
+     "return EACH_TURN if turn_reset else BATTLE", "return BATTLE",
+     "a draw at the next turn's start"),
+    ("a lasting status not tracked", "decks.turns:_Reader.walk",
+     'lasting or status.get("term_type_1") in LASTING)', "lasting)",
+     "an Upgrade's lasting AP each turn reads as"),
+    ("a regular card's lasting gain counted steady", "decks.turns:played",
+     "if turns != SETUP and (lasting[key].value or lasting[key].unknown):", "if False:",
+     "a regular card's lasting effect counts"),
+    ("a chance read as plain", "decks.turns:_Reader.walk",
+     'if _number(effect.get("run_pct"), 100) < 100:', "if False:", "a draw by chance"),
+    ("the bonuses left out of a deck", "decks.turns:deck_turns",
+     "out.bonuses = bonuses(deck, catalogue)", "out.bonuses = []",
+     "Equipment and Buff give 0 AP a turn"),
+    ("an Equipment piece's star level ignored", "decks.turns:bonuses",
+     'star = held["stars"].get(str(piece.stars)) or held["stars"].get("1", {})',
+     'star = held["stars"].get("1", {})', "the deck's Equipment, Buff and Mutation give"),
+    ("the start bonus left out of turn 1", "decks.turns:plan_setup",
+     "hand, ap = hand + start_draw, ap + start_ap", "pass",
+     "a start-of-battle bonus in turn 1"),
+    ("an Upgrade's gains left out of later turns", "decks.turns:plan_setup",
+     "gained_ap += sum(card.turn_ap.value for card in now)", "pass",
+     "an Upgrade's lasting AP paying"),
+    ("the turn bonus left out of setup", "decks.turns:plan_setup",
+     "hand, ap = draw + bonus_draw + gained_draw, energy + bonus_ap + gained_ap",
+     "hand, ap = draw + gained_draw, energy + gained_ap", "a bonus every turn"),
 ]

@@ -121,9 +121,16 @@ The readings set aside, each failing decks the game accepted:
 
 **A card's effects are walked as the client chains them.** An effect can put a status on the card itself, on other cards or on a unit, and a status holds effects of its own; what an effect does depends on who holds it. A figure is plain only where nothing on the way to it waits for the battle:
 
-- every effect on the way works on play (`OPERATION_ACTIVE`) or while its status is held (`OPERATION_PASSIVE`), not on a trigger;
-- every condition on the way only asks for a matching card in the draw pile, or the draw and discard piles (`turns.available`): "Draw 1 Attack Card of this unit";
+- every effect on the way works on play (`OPERATION_ACTIVE`), while its status is held (`OPERATION_PASSIVE`), or on a trigger whose condition is only a time (`turns.fires`);
+- every other condition on the way only asks for a matching card in the draw pile, or the draw and discard piles (`turns.available`): "Draw 1 Attack Card of this unit";
+- nothing on the way fires by chance (`run_pct` under 100);
 - its value is a plain figure (`VALUE_COMMON`), not a count the battle makes, such as one per card discarded.
+
+**A trigger whose condition is only a time** fires at the start of every turn (a condition with nothing to test, starting over at the turn's start, after the draw), or at the start of battle (`TIMING_TURN` 1). What it gives counts:
+
+- **at the next turn's start, once per play**, through a status that does not last the battle: "At the start of the next turn, Draw 2" draws 2 a play, a turn late;
+- **each regular turn**, through a status lasting the battle that a setup card puts on once (`Played.turn_draw`, `turn_ap`; plan D42), from the turn after its play. A regular card would put such a status on again with each play, so for it the figure is the battle's;
+- **in turn 1 only**, at the start of battle (`Played.start_draw`, `start_ap`), for a card that procs then (an Opener); for any other card the battle's.
 
 **Anything else shows as ?** and counts as 0 (plan D12). The figure keeps the part with its amount where the data gives one, so the user sees what to type.
 
@@ -138,11 +145,13 @@ The readings set aside, each failing decks the game accepted:
 
 **The user's own figures** stand over what is read: a `DeckCard`'s `overrides` give a cost, draw or AP gain for a figure the battle decides, and move a card between the lists (plan D12, 3.2).
 
-**A deck's turn** (`turns.deck_turns`) sums its regular and its setup cards apart, with the cards they make (*Created cards*); each card needs one draw, but one made into hand. Its nets are what it adds to the team's regular turn: its draws less its cards, its AP gain less its cost, and the user's own corrections a turn, each with a note (`model.Adjustment`; plan D22, D71).
+**A deck's turn** (`turns.deck_turns`) sums its regular and its setup cards apart, with the cards they make (*Created cards*); each card needs one draw, but one made into hand. Its nets are what it adds to the team's regular turn (plan D71): its draws less its cards, its AP gain less its cost, and what it gets each turn besides (`DeckTurns.turn_draw`, `turn_ap`): its setup cards' lasting effects, its bonuses, and the user's own corrections, each with a note (`model.Adjustment`; plan D22).
+
+**Bonuses** (`turns.bonuses`, plan D21) are what a deck's Equipment, at its star level, its Buffs and hammer blessings, and its Mutation give, read through the same walk as a card's lasting statuses: plainly each turn, plainly at the start of battle, or as the battle decides, which the user can type in as a correction. A hammer blessing adds another piece's effect, read at that piece's first star.
 
 **The team's regular turn** (`turns.team_turns`) has a surplus of the turn's own draw and AP plus every deck's nets (plan 3.1). The turn's figures are the client's battle constants (`catalogue.CONSTANTS`). A "?" figure counts as 0 in the sums, and the sum says some part is the battle's.
 
-**The setup turns** (`turns.plan_setup`, plan D72) assume a perfect draw. Each turn starts with the turn's cards in hand and its AP:
+**The setup turns** (`turns.plan_setup`, plan D72) assume a perfect draw. Each turn starts with the turn's cards in hand and its AP, the bonuses and corrections each turn, the start-of-battle bonuses in turn 1, and the lasting effects of the setup cards played in earlier turns:
 
 1. every regular card that gains without costing is played: a 0-AP draw, a free AP gain;
 2. among the regular cards that trade one for the other, such as a 1-AP card that draws 2, the mix that lets the most setup cards be played is chosen, ties going to what leaves the most over;
@@ -182,6 +191,7 @@ The maintainer's deck spreadsheet prices the cards of each of its teams, by hand
 - `checks/check_deck_turns.py`:
   - on a catalogue of the check's own, each reading rule above holds for the card built to exercise it, and the user's figures stand over it;
   - a deck's lists and nets, and the team's surplus off the catalogue's own turn figures;
+  - each timing of a trigger, and what Equipment at its star level, a Buff and a Mutation give;
   - the setup plan on cards built for each of its steps;
   - each cell of the created-card table, and what moves a made card between cells, on a maker built for it;
   - the cards whose figures the Deck Calcs tab gives read the same off the installed client.

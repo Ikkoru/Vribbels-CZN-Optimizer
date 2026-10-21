@@ -62,6 +62,15 @@ PILES = ("CARD_PLACE_DECK", "CARD_PLACE_DECK_DISCARD")
 # on other cards, or a status on a unit.
 CARD, SELF, OTHERS, UNIT = "card", "self", "others", "unit"
 
+# When an effect fires, as the path to it decides: on play (or while a
+# status holds, or at the next turn's start once played, which comes to
+# the same a turn late); at the start of every turn while a status lasts
+# the battle; at the start of battle only; or when the battle decides.
+PLAY, EACH_TURN, AT_START, BATTLE = "play", "each turn", "start", "battle"
+LASTING = ("TERM_BATTLE", "TERM_PASSIVE", "TERM_PASSIVE_WHOLE")
+# The battle timings a turn's start falls on.
+TURN_START = ("TIMING_DRAW_AFTER", "TIMING_DRAW_BEFORE", "TIMING_TURN_BEGIN")
+
 
 @dataclass
 class Figure:
@@ -111,6 +120,14 @@ class Played:
     # It must be drawn to be played; a card made into hand need not be
     # (plan D15).
     needs_draw: bool = True
+    # What a status it puts on gives at the start of every turn while
+    # the status lasts the battle: an Upgrade's lasting effect, counted
+    # in every regular turn once it is played (plan D42).
+    turn_draw: Figure = field(default_factory=Figure)
+    turn_ap: Figure = field(default_factory=Figure)
+    # What it gives at the start of battle only.
+    start_draw: Figure = field(default_factory=Figure)
+    start_ap: Figure = field(default_factory=Figure)
 
 
 def _keyword(talents, family):
@@ -191,44 +208,99 @@ def _uses(effect, status):
     return 1
 
 
+def fires(condition_id, catalogue):
+    """When a trigger whose condition is only a time fires: AT_START for
+    the start of battle (turn 1), EACH_TURN for the start of every turn
+    (a condition with nothing to test, that starts over at the turn's
+    start); BATTLE for any other condition, which the battle decides."""
+    controls = catalogue.conditions.get(condition_id)
+    if not controls:
+        return BATTLE
+    first_turn = turn_reset = False
+    for control in controls:
+        if control["cards"] or control["units"]:
+            return BATTLE
+        for part in control["timings"]:
+            if (part.get("condition_timing") == "TIMING_TURN"
+                    and part.get("condition_timing_value_ineq") == "INEQUALITY_EQ"
+                    and _number(part.get("condition_timing_value")) == 1):
+                first_turn = True
+            else:
+                return BATTLE
+        if control["type"] == "reset":
+            if not set(control["battle_timing"]) <= set(TURN_START):
+                return BATTLE
+            turn_reset = True
+    if first_turn:
+        return AT_START
+    return EACH_TURN if turn_reset else BATTLE
+
+
 class _Reader:
-    """Walks one card's effects into its figures."""
+    """Walks effects into figures: a card's, or what an Equipment piece,
+    a Buff or a Mutation holds."""
 
     def __init__(self, catalogue, cost):
         self.catalogue = catalogue
         self.cost = cost
-        self.draw = Figure()
-        self.ap = Figure()
+        self.figures = {(mode, which): Figure() for mode in (PLAY, EACH_TURN, AT_START)
+                        for which in ("draw", "ap")}
         self.notes = []
         self.seen = set()
 
-    def walk(self, effect_ids, holder=CARD, count=1, steady=True, why=""):
+    @property
+    def draw(self):
+        return self.figures[(PLAY, "draw")]
+
+    @property
+    def ap(self):
+        return self.figures[(PLAY, "ap")]
+
+    def walk(self, effect_ids, holder=CARD, count=1, mode=PLAY, why="", lasting=False):
         """Read `effect_ids`, held by `holder` (on `count` cards where
-        it is OTHERS); `steady` is False once a trigger, or a condition
-        the battle decides, lies on the way, and `why` names the first."""
+        it is OTHERS). `mode` is when they fire, as the way to them
+        decides; `why` names what made it the battle's; `lasting` is
+        whether a status lasting the battle lies on the way."""
         for effect_id in effect_ids:
             key = (effect_id, holder)
             effect = self.catalogue.effects.get(effect_id)
             if effect is None or key in self.seen:
                 continue
             self.seen.add(key)
-            here_steady, here_why = steady, why
-            if effect.get("operation") not in STEADY:
-                here_steady = False
-                here_why = here_why or f"when triggered ({effect_id})"
+            here, here_why = mode, why
             condition = effect.get("eff_link_condition_id")
-            if condition and not available(condition, self.catalogue):
-                here_steady = False
+            if effect.get("operation") not in STEADY:
+                timing = fires(condition, self.catalogue) if condition else BATTLE
+                if timing == BATTLE or here not in (PLAY, timing):
+                    here = BATTLE
+                    here_why = here_why or f"when triggered ({effect_id})"
+                else:
+                    here = timing
+            elif condition and not available(condition, self.catalogue):
+                here = BATTLE
                 here_why = here_why or f"if {condition}"
-            self.read(effect, effect_id, holder, count, here_steady, here_why)
+            if _number(effect.get("run_pct"), 100) < 100:
+                here = BATTLE
+                here_why = here_why or f"by chance, {effect.get('run_pct')}%"
+            self.read(effect, effect_id, holder, count, here, here_why, lasting)
             for status_id in _list(effect.get("link_cs_id")):
                 status = self.catalogue.statuses.get(status_id, {})
                 held, n = _holder(effect)
                 self.walk(_list(status.get("link_skill_eff_id")), held,
-                          n * count * _uses(effect, status), here_steady,
-                          here_why or "")
+                          n * count * _uses(effect, status), here, here_why,
+                          lasting or status.get("term_type_1") in LASTING)
 
-    def read(self, effect, effect_id, holder, count, steady, why):
+    def sink(self, which, mode, lasting, plain_value):
+        """The figure an effect adds to, and whether plainly. A
+        start-of-turn trigger on a status that does not last the battle
+        fires once, at the next turn's start: per play, a turn late."""
+        if mode == BATTLE or not plain_value:
+            return self.figures[(PLAY, which)], False
+        if mode == EACH_TURN and not lasting:
+            mode = PLAY
+        return self.figures[(mode, which)], True
+
+    def read(self, effect, effect_id, holder, count, mode, why, lasting):
         """What one effect adds to the figures. `count` multiplies what
         it gives: the uses its status lasts, and for a status on other
         cards, how many cards hold it."""
@@ -236,34 +308,36 @@ class _Reader:
         plain_value = effect.get("eff_value_type_1", PLAIN) == PLAIN
         each = _amount(effect) if plain_value else None
         amount = each * count if plain_value else None
-        plain = steady and plain_value
         reason = why or (f"by {effect.get('eff_value_type_1')}" if not plain_value else "")
         on_this = effect.get("target_card_set") == THIS_CARD
+
+        def add(which, figure_amount, words):
+            figure, plain = self.sink(which, mode, lasting, plain_value)
+            figure.add(figure_amount, plain, f"{words} {reason}".rstrip())
+
         if kind == CHOICE:
             options = _list(effect.get("eff_opt_multiple_link"))
             option = self.catalogue.card(options[0]) if options else None
             if option is not None:
                 self.notes.append(f"a choice: its first option, "
                                   f"{option['name'] or options[0]}, assumed")
-                self.walk(option["effects"], holder, count, steady, why)
+                self.walk(option["effects"], holder, count, mode, why, lasting)
         elif holder == OTHERS and kind in COST_CHANGE and on_this:
             # Another card's cost cut is AP gained (plan D68).
             gain = -amount if amount is not None else None
-            self.ap.add(gain, plain, f"{_say(gain)}AP: other cards' cost cut "
-                        f"{reason}".rstrip())
+            add("ap", gain, f"{_say(gain)}AP: other cards' cost cut")
         elif holder == OTHERS:
             return                  # what another card does when it plays
         elif kind == DRAW:
-            self.draw.add(amount, plain, f"{_say(amount)}draw {reason}".rstrip())
+            add("draw", amount, f"{_say(amount)}draw")
         elif kind == ENERGY:
-            self.ap.add(amount, plain, f"{_say(amount)}AP {reason}".rstrip())
+            add("ap", amount, f"{_say(amount)}AP")
         elif kind == MOVE and effect.get("eff_card_place") == HAND:
             if on_this:
                 # Comes to hand by itself, needing no draw (plan D69).
-                self.draw.add(1, plain, f"1 draw: it moves to hand {reason}".rstrip())
+                add("draw", 1, "1 draw: it moves to hand")
             elif effect.get("target_card_set_list_card_place") in DRAW_PILES:
-                self.draw.add(amount, plain, f"{_say(amount)}draw from the draw pile "
-                              f"{reason}".rstrip())
+                add("draw", amount, f"{_say(amount)}draw from the draw pile")
         elif kind in COST_CHANGE and holder == SELF and on_this:
             self.cost.unknown.append((each, f"its cost changes {_by(each)}in "
                                       f"battle {reason}".rstrip()))
@@ -271,8 +345,7 @@ class _Reader:
             # Cards the effect names, or every card a unit holds: their
             # cost cut is AP gained (plan D68).
             gain = -amount if amount is not None else None
-            self.ap.add(gain, plain, f"{_say(gain)}AP: other cards' cost cut "
-                        f"{reason}".rstrip())
+            add("ap", gain, f"{_say(gain)}AP: other cards' cost cut")
 
 
 def played(held, catalogue):
@@ -326,6 +399,24 @@ def played(held, catalogue):
         turns = SETUP
     else:
         turns = REGULAR
+    lasting = {key: reader.figures[(EACH_TURN, key)] for key in ("draw", "ap")}
+    start = {key: reader.figures[(AT_START, key)] for key in ("draw", "ap")}
+    main = {"draw": reader.draw, "ap": reader.ap}
+    for key in ("draw", "ap"):
+        if turns != SETUP and (lasting[key].value or lasting[key].unknown):
+            # A card played every turn puts its lasting status on again
+            # with each play, so what that gives grows with the battle.
+            main[key].unknown.append((lasting[key].value, f"{lasting[key].value} "
+                                      f"{key} each turn from a lasting status, "
+                                      f"which every play puts on again"))
+            main[key].unknown.extend(lasting[key].unknown)
+            lasting[key] = Figure()
+        if OPENER not in talents and (start[key].value or start[key].unknown):
+            # Only a card that procs at the start of battle has its status
+            # on when the battle starts.
+            main[key].unknown.append((start[key].value, f"{start[key].value} {key} "
+                                      f"at the start of battle"))
+            start[key] = Figure()
     # The user's own figures stand over the read ones, "?" parts and all.
     for key, figure in (("cost", cost), ("draw", reader.draw), ("ap", reader.ap)):
         if key in held.overrides:
@@ -335,7 +426,75 @@ def played(held, catalogue):
                   draw=reader.draw, ap=reader.ap,
                   talents=tuple(dict.fromkeys(talents)), turns=turns,
                   printed_cost=printed, opener=OPENER in talents,
-                  notes=reader.notes)
+                  notes=reader.notes, turn_draw=lasting["draw"],
+                  turn_ap=lasting["ap"], start_draw=start["draw"],
+                  start_ap=start["ap"])
+
+
+# -------------------- Equipment, Buffs, blessings, the Mutation --------------------
+
+@dataclass
+class Bonus:
+    """What an Equipment piece, a Buff, a hammer blessing or the Mutation
+    gives a deck's turns (plan D21): plainly each turn and at the start
+    of battle, and the parts the battle decides, as (amount, why), for
+    the user to give a figure."""
+
+    source: str
+    name: str
+    turn_draw: int = 0
+    turn_ap: int = 0
+    start_draw: int = 0
+    start_ap: int = 0
+    unknown: list = field(default_factory=list)
+
+
+def bonuses(deck, catalogue):
+    """What `deck`'s Equipment (at its star level), Buffs, hammer
+    blessings and Mutation give, a `Bonus` for each that gives anything.
+    A blessing adds another piece's effect, read at its first star."""
+    sources = []
+    for piece in deck.equipment:
+        held = catalogue.equipment.get(piece.relic)
+        if held is not None:
+            star = held["stars"].get(str(piece.stars)) or held["stars"].get("1", {})
+            sources.append((piece.relic, held["name"], star.get("statuses", ())))
+        for buff_id in piece.buffs:
+            buff = catalogue.buffs.get(buff_id)
+            if buff is not None:
+                sources.append((buff_id, f"{buff['type'].title()} Buff", buff["statuses"]))
+        for blessing in piece.blessings:
+            blessed = catalogue.equipment.get(blessing)
+            if blessed is not None:
+                sources.append((blessing, f"{blessed['name']} (blessing)",
+                                blessed["stars"].get("1", {}).get("statuses", ())))
+    mutation = catalogue.mutations.get(deck.mutation) if deck.mutation else None
+    if mutation is not None:
+        sources.append((deck.mutation, mutation["name"], mutation["statuses"]))
+    out = []
+    for source, name, statuses in sources:
+        reader = _Reader(catalogue, Figure())
+        reader.walk([effect for status in statuses for effect in
+                     _list(catalogue.statuses.get(status, {}).get("link_skill_eff_id"))],
+                    holder=UNIT, lasting=True)
+        bonus = Bonus(source=source, name=name,
+                      turn_draw=reader.figures[(EACH_TURN, "draw")].value,
+                      turn_ap=reader.figures[(EACH_TURN, "ap")].value,
+                      start_draw=reader.figures[(AT_START, "draw")].value,
+                      start_ap=reader.figures[(AT_START, "ap")].value)
+        for key in ("draw", "ap"):
+            figure = reader.figures[(PLAY, key)]
+            bonus.unknown += figure.unknown
+            if figure.value:
+                # Always on, with no card played: how often it gives is
+                # the battle's to say.
+                bonus.unknown.append((figure.value, f"{figure.value} {key} while it holds"))
+            bonus.unknown += reader.figures[(EACH_TURN, key)].unknown
+            bonus.unknown += reader.figures[(AT_START, key)].unknown
+        if (bonus.turn_draw or bonus.turn_ap or bonus.start_draw or bonus.start_ap
+                or bonus.unknown):
+            out.append(bonus)
+    return out
 
 
 # -------------------- a deck's turn and the team's --------------------
@@ -390,18 +549,34 @@ class DeckTurns:
     # The user's corrections a turn (plan D22), summed.
     draw_adjustment: int = 0
     ap_adjustment: int = 0
+    # What its Equipment, their Buffs and blessings, and its Mutation
+    # give (plan D21), each a `Bonus`.
+    bonuses: list = field(default_factory=list)
     # Cards the catalogue lacks, left out of every sum.
     unknown_cards: list = field(default_factory=list)
+
+    @property
+    def turn_draw(self):
+        """What the deck's lasting effects give each regular turn: its
+        Upgrades' once played (plan D42), its Equipment's and the rest's
+        (plan D21), and the user's corrections (plan D22)."""
+        return (sum(card.turn_draw.value for card in self.setup_cards)
+                + sum(bonus.turn_draw for bonus in self.bonuses) + self.draw_adjustment)
+
+    @property
+    def turn_ap(self):
+        return (sum(card.turn_ap.value for card in self.setup_cards)
+                + sum(bonus.turn_ap for bonus in self.bonuses) + self.ap_adjustment)
 
     @property
     def net_draw(self):
         """What the deck adds to the team's draw a regular turn (plan
         D71): the team's surplus is the turn's draw plus every deck's."""
-        return self.regular.net_draw + self.draw_adjustment
+        return self.regular.net_draw + self.turn_draw
 
     @property
     def net_ap(self):
-        return self.regular.net_ap + self.ap_adjustment
+        return self.regular.net_ap + self.turn_ap
 
 
 def deck_turns(deck, catalogue):
@@ -433,6 +608,7 @@ def deck_turns(deck, catalogue):
     for adjustment in deck.adjustments:
         out.draw_adjustment += adjustment.draw
         out.ap_adjustment += adjustment.ap
+    out.bonuses = bonuses(deck, catalogue)
     return out
 
 
@@ -462,17 +638,20 @@ MAX_TRADES = 12
 
 
 def plan_setup(setup, regular, draw=5, energy=3, openers=(), bonus_draw=0,
-               bonus_ap=0):
+               bonus_ap=0, start_draw=0, start_ap=0):
     """Play the setup cards turn after turn, assuming the draw is
     perfect (plan D72): each turn starts with `draw` cards in hand and
-    `energy` AP, plus the decks' own corrections (`bonus_draw`,
-    `bonus_ap`); every regular card that gains without costing is
+    `energy` AP, plus what the decks get each turn (`bonus_draw`,
+    `bonus_ap`: their Equipment's and the user's corrections), and in
+    turn 1 what they get at the start of battle (`start_draw`,
+    `start_ap`). Every regular card that gains without costing is
     played; of those that trade one for the other, the mix that lets
     the most setup cards be played is chosen, ties going to what leaves
     the most over; then the setup cards that fit, those giving the most
-    first. `setup` and `regular` are `Played`s; `openers` are the
-    regular Opener cards, which proc at the start of battle for AP, as
-    an Opener setup card does (plan D18). A `SetupPlan`."""
+    first. An Upgrade's lasting effect gives from the turn after its
+    play (plan D42). `setup` and `regular` are `Played`s; `openers` are
+    the regular Opener cards, which proc at the start of battle for AP,
+    as an Opener setup card does (plan D18). A `SetupPlan`."""
     def nets(card):
         return (card.draw.value - (1 if card.needs_draw else 0),
                 card.ap.value - card.cost.value)
@@ -486,13 +665,16 @@ def plan_setup(setup, regular, draw=5, energy=3, openers=(), bonus_draw=0,
                      key=lambda c: -sum(nets(c)))
     plan = SetupPlan()
     first = True
+    # What the setup cards played so far give each turn after.
+    gained_draw = gained_ap = 0
     while waiting or (first and at_start):
-        hand, ap = draw + bonus_draw, energy + bonus_ap
+        hand, ap = draw + bonus_draw + gained_draw, energy + bonus_ap + gained_ap
         if first:
+            hand, ap = hand + start_draw, ap + start_ap
             # Proc at the start of battle: AP spent, no card drawn.
             for card in list(at_start) + list(openers):
-                ap += card.ap.value - card.cost.value
-                hand += card.draw.value
+                ap += card.ap.value - card.cost.value + card.start_ap.value
+                hand += card.draw.value + card.start_draw.value
         for card in free:
             d, a = nets(card)
             hand, ap = hand + d, ap + a
@@ -518,8 +700,11 @@ def plan_setup(setup, regular, draw=5, energy=3, openers=(), bonus_draw=0,
             plan.stuck = waiting
             break
         _score, chosen, played_setup, h, a = best
-        plan.turns.append(SetupTurn(setup=(at_start if first else []) + played_setup,
-                                    regular=free + chosen, draw_left=h, ap_left=a))
+        now = (at_start if first else []) + played_setup
+        plan.turns.append(SetupTurn(setup=now, regular=free + chosen,
+                                    draw_left=h, ap_left=a))
+        gained_draw += sum(card.turn_draw.value for card in now)
+        gained_ap += sum(card.turn_ap.value for card in now)
         waiting = [card for card in waiting if card not in played_setup]
         first = False
     return plan
@@ -549,8 +734,11 @@ def team_turns(team, catalogue):
     out.unknown = any(d.regular.unknown for d in out.decks)
     regular = [p for d in out.decks for p in d.regular_cards]
     setup = [p for d in out.decks for p in d.setup_cards]
-    out.setup = plan_setup(setup, regular, draw, energy,
-                           openers=[p for p in regular if p.opener],
-                           bonus_draw=sum(d.draw_adjustment for d in out.decks),
-                           bonus_ap=sum(d.ap_adjustment for d in out.decks))
+    every = [b for d in out.decks for b in d.bonuses]
+    out.setup = plan_setup(
+        setup, regular, draw, energy, openers=[p for p in regular if p.opener],
+        bonus_draw=sum(d.draw_adjustment for d in out.decks) + sum(b.turn_draw for b in every),
+        bonus_ap=sum(d.ap_adjustment for d in out.decks) + sum(b.turn_ap for b in every),
+        start_draw=sum(b.start_draw for b in every),
+        start_ap=sum(b.start_ap for b in every))
     return out
