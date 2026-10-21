@@ -4,7 +4,9 @@ A patch that renames or repurposes a column misreads quietly: the Deck
 Builder then prices and warns from wrong data, and nothing fails.
 `Catalogue.problems` is the read checking itself. This holds the
 installed client's read to it, shows that each of its checks speaks up
-about the misread it guards, and that nothing Sortie-only got in.
+about the misread it guards, and that nothing Sortie-only got in. It
+also holds what plan D2 assumes, that no partner's passive draws or
+gives AP: the turns read none.
 
 The cache is held too. One that served another build's catalogue, or a
 half-written file, would do so silently; a failed write must leave the
@@ -85,6 +87,46 @@ def _conditions_unread(data):
     return dict(data, conditions={})
 
 
+def _no_partners(data):
+    return dict(data, partners={})
+
+
+def _partner_card_gone(data):
+    cards = dict(data["cards"])
+    del cards[next(held["card"] for _pid, held in sorted(data["partners"].items()))]
+    return dict(data, cards=cards)
+
+
+def _no_potential(data):
+    return dict(data, potential={})
+
+
+def _pot_versions_gone(data):
+    return dict(data, upgrades={base: {kind: card for kind, card in kinds.items()
+                                       if kind != "pot"}
+                                for base, kinds in data["upgrades"].items()})
+
+
+def _no_manifestation(data):
+    return dict(data, manifestation={})
+
+
+def _node_type_unjudged(data):
+    return dict(data, kinds=dict(data["kinds"], node=data["kinds"]["node"] + ["NODE_NEW"]))
+
+
+def _upgrade_with_versions(data):
+    base = next(base for base, kinds in sorted(data["upgrades"].items()) if "lbk" in kinds)
+    return dict(data, versions=dict(data["versions"], **{base: {"1": base}}))
+
+
+def _progress_statuses_gone(data):
+    named = {status for rows in data["manifestation"].values() for held in rows
+             for status in held["statuses"]}
+    return dict(data, statuses={key: row for key, row in data["statuses"].items()
+                                if key not in named})
+
+
 # (what the misread is, the misread, a piece of what `problems` must say)
 MISREADS = [
     ("a Combatant short of a starting card", _short_a_card,
@@ -106,6 +148,17 @@ MISREADS = [
      "no Neutral one"),
     ("the condition tables unread", _conditions_unread,
      "are in no condition table"),
+    ("no partner read", _no_partners, "no partner reads"),
+    ("a partner's Ego skill card gone", _partner_card_gone,
+     "Ego skill cards are in no card table"),
+    ("no Potential node read", _no_potential, "no Potential node upgrades a card"),
+    ("the Potential upgrades' cards gone", _pot_versions_gone, "with no `pot` version"),
+    ("no Ego Manifestation read", _no_manifestation, "no Ego Manifestation level reads"),
+    ("a Potential node type nobody judged", _node_type_unjudged,
+     "types the program has not judged"),
+    ("an upgraded card with Signature Epiphanies", _upgrade_with_versions,
+     "both an upgrade and Signature Epiphanies"),
+    ("the progress statuses gone", _progress_statuses_gone, "are in no status table"),
 ]
 
 
@@ -143,6 +196,66 @@ def _sortie_report(data):
         out.append(f"Equipment from {tables} is in the deck catalogue; only "
                    f"a Chaos's Equipment enters a deck. See EQUIPMENT_TABLES "
                    f"in decks/catalogue.py.")
+    return out
+
+
+def _passive_gains(cat, statuses):
+    """(status, what) for each draw, AP gain or made card that changes a
+    sum among what `statuses` give, read as a unit's battle statuses."""
+    from decks import turns
+    from decks.catalogue import _list
+    from decks.created import status_cards
+    out = []
+    for status in statuses:
+        reader = turns._Reader(cat, turns.Figure())
+        reader.walk(_list(cat.statuses.get(status, {}).get("link_skill_eff_id")),
+                    holder=turns.UNIT, lasting=True)
+        out += [(status, f"gives {which} ({mode})")
+                for (mode, which), figure in reader.figures.items()
+                if figure.value or figure.unknown]
+        out += [(status, f"makes {made.card}")
+                for made in status_cards(status, status, [status], cat) if not made.idle]
+    return out
+
+
+def _partner_passive_report(catalogue, client, data):
+    """No partner's passive draws, gives AP or makes a card that changes
+    a sum (plan D2), so the turns read none: a patch adding one is
+    reported. The client's every status and effect is read for it, the
+    partner passives' own tables included; and the guard is shown to
+    fire on a passive that draws. Returns complaints."""
+    names = catalogue._tables(client)
+    full = dict(data, statuses=dict(data["statuses"]), effects=dict(data["effects"]))
+    passives = []
+    for name in names:
+        if catalogue.SORTIE in name:
+            continue
+        if catalogue.STATUS_TABLE.search(name):
+            for row in client.rows(name):
+                full["statuses"].setdefault(row["id"], catalogue._compact(row))
+        elif catalogue.EFFECT_TABLE.search(name):
+            for row in client.rows(name):
+                full["effects"].setdefault(row["id"], catalogue._compact(row))
+        elif name.startswith("partner_passive") and name.endswith("@partner_passive"):
+            passives += client.rows(name)
+    full["conditions"] = catalogue._conditions(client, names, full["effects"])
+    statuses = sorted({status for row in passives
+                       for status in catalogue._list(row.get("link_cs_id"))})
+    out = [f"partner passive status {status} {what}: plan D2 counts no partner's "
+           f"passive, so a deck's turns miss it. Read the partner's passive as a "
+           f"bonus (`bonuses` in decks/turns.py)."
+           for status, what in _passive_gains(catalogue.Catalogue(full), statuses)]
+    if not statuses:
+        out.append("no partner passive's status was read, so the plan D2 guard checks "
+                   "nothing. See partner_passive@partner_passive.")
+    probe = dict(full, statuses=dict(full["statuses"], st_probe={
+        "link_skill_eff_id": "[probe_draw]", "term_type_1": "TERM_BATTLE"}),
+        effects=dict(full["effects"], probe_draw={
+            "eff": "SKILL_EFF_CARD_DRAW", "eff_value": "1",
+            "operation": "OPERATION_PASSIVE", "eff_value_type_1": "VALUE_COMMON"}))
+    if not _passive_gains(catalogue.Catalogue(probe), ["st_probe"]):
+        out.append("the partner passive guard misses a status that draws, so it proves "
+                   "nothing.")
     return out
 
 
@@ -215,6 +328,7 @@ def run():
                  for problem in catalogue.Catalogue(data).problems()]
     failures += _sortie_report(data)
     failures += _misreads_report(catalogue, data)
+    failures += _partner_passive_report(catalogue, client, data)
     return failures
 
 
@@ -269,4 +383,25 @@ FAULTS = [
      "decks.catalogue:save",
      "if os.path.exists(temp):", "if False:",
      "left its temp file behind"),
+    ("a missing partner table passes", "decks.catalogue:Catalogue._progress_problems",
+     "if not self.partners:", "if False:", "no partner read"),
+    ("a lost Ego skill card passes", "decks.catalogue:Catalogue._progress_problems",
+     "if lost:", "if False:", "a partner's Ego skill card gone"),
+    ("a missing Potential tree passes", "decks.catalogue:Catalogue._progress_problems",
+     "if not upgraded:", "if False:", "no Potential node read"),
+    ("an upgrade to no card passes", "decks.catalogue:Catalogue._progress_problems",
+     "if bare:", "if False:", "the Potential upgrades' cards gone"),
+    ("a missing Ego Manifestation table passes",
+     "decks.catalogue:Catalogue._progress_problems",
+     "if not self.manifestation:", "if False:", "no Ego Manifestation read"),
+    ("an unjudged node type passes", "decks.catalogue:Catalogue._progress_problems",
+     "if new:", "if False:", "a Potential node type nobody judged"),
+    ("an upgrade beside Signature Epiphanies passes",
+     "decks.catalogue:Catalogue._progress_problems",
+     "if both:", "if False:", "an upgraded card with Signature Epiphanies"),
+    ("Ego Manifestation's statuses not kept", "decks.catalogue:_keep_reachable",
+     'for rows in data["manifestation"].values():', "for rows in ():",
+     "statuses Potential nodes and Ego Manifestation put on"),
+    ("the gone statuses' check passes", "decks.catalogue:Catalogue._progress_problems",
+     "if gone:", "if False:", "the progress statuses gone"),
 ]

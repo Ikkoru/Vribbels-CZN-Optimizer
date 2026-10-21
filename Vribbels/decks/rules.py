@@ -7,9 +7,10 @@ program's own reading, held against every captured Save Data's recorded
 weight by `checks/check_deck_rules.py` (docs/decks.md, *Deck points*).
 
 `warnings` lists the rules a deck breaks: the cap, who may hold a card
-or take an Epiphany, and the per-deck limits (docs/decks.md,
-*Deck-building rules*). They warn and never block: a deck the game
-accepted under rules since changed still loads.
+or take an Epiphany, the per-deck limits, and a partner whose passive
+needs another class (docs/decks.md, *Deck-building rules*). They warn
+and never block: a deck the game accepted under rules since changed
+still loads.
 """
 
 from collections import Counter
@@ -162,7 +163,7 @@ def own_removals(deck):
 class DeckWarning:
     """One rule a deck breaks. `rule` is "unknown", "cap", "class",
     "neutral", "divine", "persona", "desire", "one_per_deck", "copies",
-    "no_copy", "unique" or "removals"."""
+    "no_copy", "unique", "removals" or "partner"."""
 
     rule: str
     text: str
@@ -201,9 +202,10 @@ def _misfits(rule, card, klass, costs, tags=True):
     return [] if any(not misfit for misfit in tried) else tried[0]
 
 
-def warnings(deck, catalogue):
+def warnings(deck, catalogue, owned=None):
     """Every rule `deck` breaks, as `DeckWarning`s; [] for a deck the
-    game would accept."""
+    game would accept. `owned` holds the owned Combatants' captured
+    state, whose partner stands where the deck names none (plan D8)."""
     out = []
 
     def warn(rule, text, index=None):
@@ -330,4 +332,12 @@ def warnings(deck, catalogue):
     if deck.mutation and deck.mutation not in catalogue.mutations:
         warn("unknown", f"Mutation {deck.mutation} is not in the game "
                         f"client's tables.")
+    partner_id = deck.state(owned).partner
+    partner = catalogue.partner(partner_id)
+    if partner_id and partner is None:
+        warn("unknown", f"partner {partner_id} is not in the game client's "
+                        f"tables.")
+    elif partner and klass and partner["class"] and partner["class"] != klass:
+        warn("partner", f"{partner['name']}'s passive works only with a "
+                        f"{catalogue.class_name(partner['class'])} Combatant.")
     return out

@@ -1,6 +1,7 @@
 """Everything a deck is made of, as the game client holds it: cards and
 their effects and statuses, Signature, Neutral and Divine Epiphanies,
-the season mechanics' cards, Equipment and its Buffs, Mutations, the
+the season mechanics' cards, Equipment and its Buffs, Mutations,
+partners, what Potential nodes and Ego Manifestation do to a deck, the
 deck point rules and the battle's constants. `docs/decks.md` says which
 table holds what.
 
@@ -23,7 +24,7 @@ import re
 import tempfile
 from pathlib import Path
 
-CATALOGUE_FORMAT = 2
+CATALOGUE_FORMAT = 3
 CACHE_FILE = "deck_catalogue.json.gz"
 
 # The tables, as `game_client.Client.table` names them. Sortie's own
@@ -47,6 +48,32 @@ PERSONA_SLOTS = "eidolon_card_define@eidolon_card_slot_info"
 PERSONA_EFFECTS = "eidolon_card_define@eidolon_card_reward"
 PERSONA_NAMES = "eidolon_card_define@eidolon_card_illust_comb"
 ARCHIVE_TABLE = re.compile(r"^archive_card\([^)]+\)@archive_card$")
+PARTNER_TABLE = "partner_base@char_partner"
+PARTNER_UNIT_TABLE = "partner_base@char_base"
+NODE_TABLE = "potential_node@potential_node"
+NODE_EFFECT_TABLE = "potential_node@potential_node_effect"
+MANIFESTATION_TABLE = "combatant_limit_break@combatant_limit_break"
+# What a Potential node does to a deck: upgrade cards to their `pot`
+# version, or put a status on for the battle. Every type the program has
+# judged; the others change stats, Epiphany odds and Stress, which no
+# deck figure reads. A type a patch adds is reported (`problems`).
+NODE_UPGRADE = "NODE_CARD_R_SPARK"
+NODE_STATUS = "NODE_CS_ADD"
+KNOWN_NODE_TYPES = frozenset({
+    NODE_UPGRADE, NODE_STATUS, "NODE_CARD_R_SPARK_UNLOCK",
+    "NODE_FIRST_SPARK_CARD_SELECT_UNLOCK", "NODE_FIRST_SPARK_R_CARD_GET_UNLOCK",
+    "NODE_REINFORCE_CARD_NEUTRAL", "NODE_REINFORCE_CARD_START",
+    "NODE_REINFORCE_CARD_UNIQUE", "NODE_R_SPARK_GOD_ADD", "NODE_R_SPARK_PCT_ADD",
+    "NODE_STAT_ADD", "NODE_STAT_ADD_ANOTHER_STAT", "NODE_STAT_ADD_SKILL_EFF_VALUE",
+    "NODE_STRESS_GET_DECREASE_PCT"})
+# An Ego Manifestation level upgrades cards to their `lbk` version, puts
+# a battle status on, or replaces the battle statuses of the levels below
+# it; raising Potential nodes' levels changes stats only.
+UPGRADE_CARDS = "BREAK_TYPE_CARD_R_SPARK"
+BATTLE_STATUS = "BREAK_TYPE_BATTLE_CS_ADD"
+OVERWRITE = "BREAK_TYPE_BATTLE_CS_ADD_OVERWRITE"
+KNOWN_BREAK_TYPES = frozenset({UPGRADE_CARDS, BATTLE_STATUS, OVERWRITE,
+                               "BREAK_TYPE_POTENTIAL_LEVEL_UP", "none"})
 # A condition (`@condition`) names a control key, whose rows in
 # `@condition_control`, `<key>_<n>`, each test cards, units or a timing
 # (`@cond_card`, `@cond_unit`, `@cond_timing`), or say when the count
@@ -283,6 +310,24 @@ def read(client):
         }
     from game_client import class_names
     data["classes"] = class_names(client)
+    partner_units = {row["id"]: row for row in client.rows(PARTNER_UNIT_TABLE)}
+    data["partners"] = {}
+    for row in client.rows(PARTNER_TABLE):
+        unit = partner_units.get(row["id"], {})
+        data["partners"][row["id"]] = {
+            "name": clean(_text(texts, unit.get("name"))),
+            "playable": unit.get("char_use_playable") == "YES",
+            "card": row.get("link_card_id") or "",
+            # Its passive works for a Combatant of this class only.
+            "class": row.get("passive_condition_link_base_class_define_id") or "",
+        }
+    data["potential"] = _potential(client)
+    data["manifestation"] = _manifestation(client)
+    data["kinds"] = {
+        "node": sorted({row.get("node_type") or ""
+                        for row in client.rows(NODE_EFFECT_TABLE)}),
+        "manifestation": sorted({row.get("break_type") or ""
+                                 for row in client.rows(MANIFESTATION_TABLE)})}
 
     data["persona"] = {
         "slots": {row["link_card_id"]: {"count": _number(row.get("eidolon_card_slot"), 0),
@@ -372,6 +417,54 @@ def _control_order(row):
     return int(tail) if tail.isdigit() else 0
 
 
+def _potential(client):
+    """{Combatant res_id: {node: {level: {"cards", "statuses"}}}} for the
+    Potential nodes that upgrade cards or put a status on. A node is the
+    client's `node_num`, `<n>_<m>`. Where a Combatant has two trees
+    listed, the game draws the reworked one, whose rows have the higher
+    ids, so the highest id stands for each node and level."""
+    effects = {row["id"]: row for row in client.rows(NODE_EFFECT_TABLE)}
+    newest = {}
+    for row in client.rows(NODE_TABLE):
+        key = (row.get("link_char_combatant_id"), row.get("node_num"),
+               row.get("node_level"))
+        held = newest.get(key)
+        if held is None or _number(row["id"], 0) > _number(held["id"], 0):
+            newest[key] = row
+    out = {}
+    for (rid, node, level), row in sorted(newest.items()):
+        cards, statuses = [], []
+        for effect_id in _list(row.get("link_potential_node_effect_id")):
+            effect = effects.get(effect_id, {})
+            if effect.get("node_type") == NODE_UPGRADE:
+                cards += _list(effect.get("link_card_id"))
+            elif effect.get("node_type") == NODE_STATUS:
+                statuses += _list(effect.get("link_cs_id"))
+        if cards or statuses:
+            out.setdefault(rid, {}).setdefault(node, {})[level] = {
+                "cards": cards, "statuses": statuses}
+    return out
+
+
+def _manifestation(client):
+    """{Combatant res_id: [{"level", "type", "cards", "statuses"}]}, by
+    level: each Ego Manifestation level naming cards or putting a status
+    on. A named card is upgraded where the client has its `lbk` version,
+    else only named: one the level's status makes or strengthens."""
+    out = {}
+    for row in client.rows(MANIFESTATION_TABLE):
+        group = row.get("group") or ""
+        cards, statuses = _list(row.get("link_card_id")), _list(row.get("link_cs_id"))
+        if group.startswith("limit_") and (cards or statuses):
+            out.setdefault(group[len("limit_"):], []).append({
+                "level": _number(row.get("break_level"), 0),
+                "type": row.get("break_type") or "", "cards": cards,
+                "statuses": statuses})
+    for rows in out.values():
+        rows.sort(key=lambda held: held["level"])
+    return out
+
+
 # The columns that link an effect or a status onward.
 EFFECT_LINKS = ("link_cs_id",)
 STATUS_LINKS = ("link_skill_eff_id", "show_link_cs_id")
@@ -397,6 +490,13 @@ def _keep_reachable(data):
             todo_statuses.update(star["statuses"])
     for held in list(data["buffs"].values()) + list(data["mutations"].values()):
         todo_statuses.update(held["statuses"])
+    for nodes in data["potential"].values():
+        for levels in nodes.values():
+            for held in levels.values():
+                todo_statuses.update(held["statuses"])
+    for rows in data["manifestation"].values():
+        for held in rows:
+            todo_statuses.update(held["statuses"])
     kept_effects, kept_statuses = set(), set()
     while todo_effects or todo_statuses:
         while todo_effects:
@@ -493,6 +593,9 @@ class Catalogue:
         self.effects = data.get("effects", {})
         self.statuses = data.get("statuses", {})
         self.conditions = data.get("conditions", {})
+        self.partners = data.get("partners", {})
+        self.potential = data.get("potential", {})
+        self.manifestation = data.get("manifestation", {})
 
     @property
     def build(self):
@@ -508,6 +611,9 @@ class Catalogue:
 
     def combatant(self, res_id):
         return self.combatants.get(str(res_id))
+
+    def partner(self, res_id):
+        return self.partners.get(str(res_id)) if res_id else None
 
     def class_of(self, res_id):
         held = self.combatant(res_id)
@@ -583,4 +689,47 @@ class Catalogue:
         if hollow:
             out.append(f"{len(hollow)} conditions read with no condition_control "
                        f"rows, such as {hollow[:3]}: what they test is lost.")
+        out += self._progress_problems()
+        return out
+
+    def _progress_problems(self):
+        """The partners', Potential nodes' and Ego Manifestation's part of
+        `problems`."""
+        out = []
+        if not self.partners:
+            out.append("no partner reads (partner_base@char_partner).")
+        lost = sorted(pid for pid, held in self.partners.items()
+                      if held.get("card") not in self.cards)
+        if lost:
+            out.append(f"{len(lost)} partners' Ego skill cards are in no card table, "
+                       f"such as {lost[:3]}.")
+        upgraded = [card for nodes in self.potential.values() for levels in nodes.values()
+                    for held in levels.values() for card in held["cards"]]
+        if not upgraded:
+            out.append(f"no Potential node upgrades a card ({NODE_UPGRADE}): every "
+                       f"Basic card would play as it starts.")
+        bare = sorted({card for card in upgraded if "pot" not in self.upgrades.get(card, {})})
+        if bare:
+            out.append(f"Potential nodes upgrade cards with no `pot` version, such as "
+                       f"{bare[:3]}.")
+        if not self.manifestation:
+            out.append("no Ego Manifestation level reads (combatant_limit_break).")
+        named = {status for rows in self.manifestation.values() for held in rows
+                 for status in held["statuses"]}
+        named |= {status for nodes in self.potential.values() for levels in nodes.values()
+                  for held in levels.values() for status in held["statuses"]}
+        gone = sorted(named - set(self.statuses))
+        if gone:
+            out.append(f"{len(gone)} statuses Potential nodes and Ego Manifestation put on "
+                       f"are in no status table, such as {gone[:3]}.")
+        kinds = self.data.get("kinds", {})
+        for kind, known in (("node", KNOWN_NODE_TYPES), ("manifestation", KNOWN_BREAK_TYPES)):
+            new = sorted(set(kinds.get(kind, ())) - known)
+            if new:
+                out.append(f"{kind} types the program has not judged: {new}. What "
+                           f"each does to a deck: docs/decks.md, *The turn*.")
+        both = sorted(card for card in self.upgrades if card in self.versions)
+        if both:
+            out.append(f"cards with both an upgrade and Signature Epiphanies, such as "
+                       f"{both[:3]}: which of them plays is unread (decks.turns).")
         return out

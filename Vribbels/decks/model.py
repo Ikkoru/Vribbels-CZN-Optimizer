@@ -98,6 +98,25 @@ class Equipment:
 
 
 @dataclass
+class CombatantState:
+    """What a Combatant's own progress brings to its deck (plan D8): its
+    Potential nodes, {the wire's node number: level}, its Ego
+    Manifestation level, 0 to 6, and its partner's res_id."""
+
+    potential: dict = field(default_factory=dict)
+    manifestation: int = 0
+    partner: int | None = None
+
+    @classmethod
+    def of(cls, info):
+        """An owned Combatant's state as the capture holds it, off a
+        `models.character_info.CharacterInfo`."""
+        return cls(potential=dict(info.potential_nodes),
+                   manifestation=info.limit_break or 0,
+                   partner=info.partner_res_id or None)
+
+
+@dataclass
 class Adjustment:
     """The user's own correction to a deck's draw and AP a turn, for
     what the cards cannot show (plan D22)."""
@@ -117,6 +136,13 @@ class Deck:
     # The user's own figure for a Combatant's own AP pool, such as Rita's
     # Chronal Ascension (plan D47); None for the client's.
     ap_pool: int | None = None
+    # The Combatant's Potential nodes ({the wire's node number: level}),
+    # Ego Manifestation level and partner (0 for none), where the deck
+    # sets its own; None for the owned Combatant's captured state, or
+    # none for one not owned (plan D8). See `state`.
+    potential: dict | None = None
+    manifestation: int | None = None
+    partner: int | None = None
     # The cards deleted, by id, as the Save Data lists them: the record
     # the five-removal rule counts.
     removed: list = field(default_factory=list)
@@ -137,6 +163,17 @@ class Deck:
     def present(self):
         """The cards that are in it: every card but those listed as out."""
         return [card for card in self.cards if not card.removed]
+
+    def state(self, owned=None):
+        """The `CombatantState` the deck plays with: its own figures where
+        it sets them, else the captured state of its Combatant where
+        `owned` ({res_id: CombatantState}) holds it, else none."""
+        held = (owned or {}).get(self.combatant) or CombatantState()
+        return CombatantState(
+            potential=held.potential if self.potential is None else self.potential,
+            manifestation=(held.manifestation if self.manifestation is None
+                           else self.manifestation),
+            partner=held.partner if self.partner is None else self.partner)
 
 
 @dataclass

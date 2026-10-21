@@ -132,11 +132,15 @@ def _catalogue(points):
         "equipment": {"eq_a": {}, "eq_b": {}},
         "buffs": {"rr_lux_1": {"type": "LUX"}, "rr_arena_1": {"type": "ARENA"}},
         "mutations": {"mut_a": {}},
+        # A partner whose passive works with the fixture's class, and one
+        # whose passive needs another.
+        "partners": {"7": {"name": "Same", "class": CLASS, "card": "p_7"},
+                     "8": {"name": "Other", "class": OTHER_CLASS, "card": "p_8"}},
     })
 
 
 def _deck(*extra, drop=(), removed=(), equipment=(), combatant=ME,
-          mutation=None):
+          mutation=None, partner=None):
     """The fixture Combatant's eight starting cards but `drop`, then
     `extra`, each a card id or a `DeckCard`."""
     from decks.model import Deck, DeckCard
@@ -144,7 +148,7 @@ def _deck(*extra, drop=(), removed=(), equipment=(), combatant=ME,
     cards += [card if isinstance(card, DeckCard) else DeckCard(card)
               for card in extra]
     return Deck(combatant=combatant, cards=cards, removed=list(removed),
-                equipment=list(equipment), mutation=mutation)
+                equipment=list(equipment), mutation=mutation, partner=partner)
 
 
 def _weight_cases():
@@ -302,6 +306,11 @@ def _warning_cases():
          _deck(drop=["srt1", "uni1", "uni2", "uni3", "uni4"],
                removed=[_own(k) for k in ("srt1", "uni1", "uni2", "uni3",
                                           "uni4")] + ["card_ne_a"]), set()),
+        ("a partner of the Combatant's class", _deck(partner=7), set()),
+        ("a partner whose passive needs another class", _deck(partner=8),
+         {"partner"}),
+        ("an unknown partner", _deck(partner=99), {"unknown"}),
+        ("no partner, by the deck's own choice", _deck(partner=0), set()),
     ]
 
 
@@ -325,6 +334,15 @@ def _warnings_report():
     if placed != [len(OWN)]:
         out.append(f"the class warning points at card {placed}, not at the "
                    f"card that breaks it ({len(OWN)}).")
+    from decks.model import CombatantState
+    owned = {ME: CombatantState(partner=8)}
+    if {w.rule for w in rules.warnings(_deck(), catalogue, owned)} != {"partner"}:
+        out.append("an owned Combatant's captured partner, whose passive needs "
+                   "another class, raises no warning where the deck names no "
+                   "partner of its own (plan D8, D61). See `Deck.state`.")
+    if rules.warnings(_deck(partner=7), catalogue, owned):
+        out.append("the deck's own partner does not stand over the owned "
+                   "Combatant's captured one.")
     return out
 
 
@@ -541,4 +559,12 @@ FAULTS = [
     ("every deck one heavier", "decks.rules:weight",
      "    return out", "    out.total += 1\n    return out",
      "but recorded"),
+    ("a partner's class unchecked", "decks.rules:warnings",
+     'elif partner and klass and partner["class"] and partner["class"] != klass:',
+     "elif False:", "a partner whose passive needs another class"),
+    ("an unknown partner let through", "decks.rules:warnings",
+     "if partner_id and partner is None:", "if False:", "an unknown partner"),
+    ("the owned Combatant's partner ignored", "decks.rules:warnings",
+     "partner_id = deck.state(owned).partner", "partner_id = deck.partner",
+     "an owned Combatant's captured partner"),
 ]

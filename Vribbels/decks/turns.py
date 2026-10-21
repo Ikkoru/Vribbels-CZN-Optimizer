@@ -16,7 +16,8 @@ with its amount where the data gives one, for the user to give a number
 
 from dataclasses import dataclass, field, replace
 
-from .catalogue import _list
+from .catalogue import BATTLE_STATUS, OVERWRITE, _list
+from .model import DeckCard
 
 DRAW = "SKILL_EFF_CARD_DRAW"
 ENERGY = "SKILL_EFF_ENERGY_CHANGE"
@@ -74,8 +75,9 @@ CARD, SELF, OTHERS, UNIT = "card", "self", "others", "unit"
 # the battle; at the start of battle only; or when the battle decides.
 PLAY, EACH_TURN, AT_START, BATTLE = "play", "each turn", "start", "battle"
 LASTING = ("TERM_BATTLE", "TERM_PASSIVE", "TERM_PASSIVE_WHOLE")
-# The battle timings a turn's start falls on.
+# The battle timings a turn's start falls on, and the battle's own start.
 TURN_START = ("TIMING_DRAW_AFTER", "TIMING_DRAW_BEFORE", "TIMING_TURN_BEGIN")
+BATTLE_START = "TIMING_BATTLE_START"
 
 # A Combatant's own AP pool, by the card that switches it on (plan
 # D47): Rita's Chronal Ascension, which at the start of the turn her
@@ -145,6 +147,9 @@ class Played:
     # pool this card switches on, from the turn after its play.
     pool_paid: bool = False
     pool_switch: int = 0
+    # An Ego skill, the partner's or the Combatant's: used once, in
+    # setup turn 1, for Ego Points rather than AP (plan D2, D40).
+    ego: bool = False
 
 
 def _keyword(talents, family):
@@ -227,13 +232,16 @@ def _uses(effect, status):
 
 def fires(condition_id, catalogue):
     """When a trigger whose condition is only a time fires: AT_START for
-    the start of battle (turn 1), EACH_TURN for the start of every turn
-    (a condition with nothing to test, that starts over at the turn's
-    start); BATTLE for any other condition, which the battle decides."""
+    the start of battle (turn 1, or the battle's own start), EACH_TURN
+    for the start of every turn (a condition with nothing to test,
+    checked at the turn's start or starting over then); BATTLE for any
+    other condition, which the battle decides. A stack control's battle
+    timing is when it is checked, a reset control's when it starts
+    over."""
     controls = catalogue.conditions.get(condition_id)
     if not controls:
         return BATTLE
-    first_turn = turn_reset = False
+    first_turn = turn_start = False
     for control in controls:
         if control["cards"] or control["units"]:
             return BATTLE
@@ -244,13 +252,20 @@ def fires(condition_id, catalogue):
                 first_turn = True
             else:
                 return BATTLE
+        timings = set(control["battle_timing"])
         if control["type"] == "reset":
-            if not set(control["battle_timing"]) <= set(TURN_START):
+            if not timings <= set(TURN_START):
                 return BATTLE
-            turn_reset = True
+            turn_start = True
+        elif timings == {BATTLE_START}:
+            first_turn = True
+        elif timings <= set(TURN_START) | {BATTLE_START}:
+            turn_start = turn_start or bool(timings)
+        else:
+            return BATTLE
     if first_turn:
         return AT_START
-    return EACH_TURN if turn_reset else BATTLE
+    return EACH_TURN if turn_start else BATTLE
 
 
 # The battle's conditions said in words, by the unit part they test.
@@ -270,11 +285,13 @@ def _trigger_words(condition_id, effect_id, catalogue):
 
 class _Reader:
     """Walks effects into figures: a card's, or what an Equipment piece,
-    a Buff or a Mutation holds."""
+    a Buff or a Mutation holds. `upgrades` are the cards the Combatant's
+    progress upgrades (`upgrades_of`), a choice's options among them."""
 
-    def __init__(self, catalogue, cost):
+    def __init__(self, catalogue, cost, upgrades=None):
         self.catalogue = catalogue
         self.cost = cost
+        self.upgrades = upgrades or {}
         self.figures = {(mode, which): Figure() for mode in (PLAY, EACH_TURN, AT_START)
                         for which in ("draw", "ap")}
         self.notes = []
@@ -350,7 +367,8 @@ class _Reader:
 
         if kind == CHOICE:
             options = _list(effect.get("eff_opt_multiple_link"))
-            option = self.catalogue.card(options[0]) if options else None
+            option = (self.catalogue.card(self.upgrades.get(options[0], options[0]))
+                      if options else None)
             if option is not None:
                 self.notes.append(f"a choice: its first option, "
                                   f"{option['name'] or options[0]}, assumed")
@@ -394,13 +412,47 @@ class _Reader:
             add("ap", gain, f"{_say(gain)}AP: other cards' cost cut")
 
 
-def played(held, catalogue):
+def node_name(number):
+    """A Potential node as the client names it (`3_1`), off the wire's
+    number for it (31)."""
+    return f"{number // 10}_{number % 10}"
+
+
+def upgrades_of(combatant, state, catalogue):
+    """{card id: the card it plays as} for what a Combatant's progress
+    upgrades (plan D8): a Potential node's cards to their `pot` version,
+    an Ego Manifestation level's to their `lbk` one. `state` is a
+    `model.CombatantState`. A card the client gives no such version
+    is only named: one the level's status makes or strengthens."""
+    out = {}
+    nodes = catalogue.potential.get(str(combatant), {})
+    for number, level in state.potential.items():
+        for at, held in nodes.get(node_name(number), {}).items():
+            if _number(at) <= level:
+                for card in held["cards"]:
+                    upgraded = catalogue.upgrades.get(card, {}).get("pot")
+                    if upgraded:
+                        out[card] = upgraded
+    for held in catalogue.manifestation.get(str(combatant), ()):
+        if held["level"] <= state.manifestation:
+            for card in held["cards"]:
+                upgraded = catalogue.upgrades.get(card, {}).get("lbk")
+                if upgraded:
+                    out[card] = upgraded
+    return out
+
+
+def played(held, catalogue, upgrades=None):
     """`held`, a `model.DeckCard`, as it plays: a `Played`, or None for
-    a card the catalogue lacks."""
+    a card the catalogue lacks. `upgrades` are what the Combatant's
+    progress upgrades (`upgrades_of`); no upgraded card also has
+    Signature Epiphanies (`Catalogue.problems` says so if one does)."""
+    upgrades = upgrades or {}
     base = catalogue.card(held.card)
     if base is None:
         return None
     card_id = held.held_id(catalogue)
+    card_id = upgrades.get(card_id, card_id)
     card = catalogue.card(card_id) or base
     talents = list(card["talents"])
     cost = Figure()
@@ -427,7 +479,7 @@ def played(held, catalogue):
     if not cost.unknown:
         for amount, sign in changes:
             cost.value = _cost_change(cost.value, amount, sign)
-    reader = _Reader(catalogue, cost)
+    reader = _Reader(catalogue, cost, upgrades)
     reader.walk(effects)
     priced = card["cost"] not in (X_COST, NO_COST)
     for keyword, why in COST_KEYWORDS.items():
@@ -449,6 +501,9 @@ def played(held, catalogue):
         turns = SETUP
     else:
         turns = REGULAR
+    # The user's list, before the lasting effects are placed by it: a
+    # card moved to setup is played once, and its status gives each turn.
+    turns = held.overrides.get("turns", turns)
     lasting = {key: reader.figures[(EACH_TURN, key)] for key in ("draw", "ap")}
     start = {key: reader.figures[(AT_START, key)] for key in ("draw", "ap")}
     main = {"draw": reader.draw, "ap": reader.ap}
@@ -471,7 +526,6 @@ def played(held, catalogue):
     for key, figure in (("cost", cost), ("draw", reader.draw), ("ap", reader.ap)):
         if key in held.overrides:
             figure.value, figure.unknown = int(held.overrides[key]), []
-    turns = held.overrides.get("turns", turns)
     return Played(card=card_id, name=base["name"] or held.card, cost=cost,
                   draw=reader.draw, ap=reader.ap,
                   talents=tuple(dict.fromkeys(talents)), turns=turns,
@@ -481,14 +535,15 @@ def played(held, catalogue):
                   start_ap=start["ap"])
 
 
-# -------------------- Equipment, Buffs, blessings, the Mutation --------------------
+# -------------------- Equipment, Buffs, the Mutation, progress --------------------
 
 @dataclass
 class Bonus:
-    """What an Equipment piece, a Buff, a hammer blessing or the Mutation
-    gives a deck's turns (plan D21): plainly each turn and at the start
-    of battle, and the parts the battle decides, as (amount, why), for
-    the user to give a figure."""
+    """What an Equipment piece, a Buff, a hammer blessing, the Mutation,
+    a Potential node or an Ego Manifestation level gives a deck's turns
+    (plan D21, D8): plainly each turn and at the start of battle, the
+    parts the battle decides, as (amount, why), for the user to give a
+    figure, and the cards it makes (`created.CreatedCard`)."""
 
     source: str
     name: str
@@ -497,12 +552,50 @@ class Bonus:
     start_draw: int = 0
     start_ap: int = 0
     unknown: list = field(default_factory=list)
+    created: list = field(default_factory=list)
 
 
-def bonuses(deck, catalogue):
+def node_label(number):
+    """A Potential node as the program names it: 3.1 for the wire's 31,
+    7 for its 70."""
+    return str(number // 10) if number % 10 == 0 else f"{number // 10}.{number % 10}"
+
+
+def _progress_sources(combatant, state, catalogue):
+    """(source, name, statuses) for what a Combatant's Potential nodes
+    and Ego Manifestation put on for the battle (plan D8). A node gives
+    its highest level's statuses. A level that overwrites replaces the
+    battle statuses of every level below it: those it keeps, it lists
+    again (Diana's and Arabella's level 6)."""
+    out = []
+    nodes = catalogue.potential.get(str(combatant), {})
+    for number, level in sorted(state.potential.items()):
+        reached = [(_number(at), held["statuses"])
+                   for at, held in nodes.get(node_name(number), {}).items()
+                   if _number(at) <= level and held["statuses"]]
+        if reached:
+            out.append((f"potential_{number}", f"Potential {node_label(number)}",
+                        max(reached)[1]))
+    battle = []
+    for held in catalogue.manifestation.get(str(combatant), ()):
+        if held["level"] > state.manifestation or not held["statuses"]:
+            continue
+        if held["type"] == OVERWRITE:
+            battle = []
+        if held["type"] in (BATTLE_STATUS, OVERWRITE):
+            battle.append((f"manifestation_{held['level']}",
+                           f"Ego Manifestation {held['level']}", held["statuses"]))
+    return out + battle
+
+
+def bonuses(deck, catalogue, state=None, upgrades=None):
     """What `deck`'s Equipment (at its star level), Buffs, hammer
-    blessings and Mutation give, a `Bonus` for each that gives anything.
-    A blessing adds another piece's effect, read at its first star."""
+    blessings and Mutation give, and its Combatant's Potential nodes and
+    Ego Manifestation (`state`, a `model.CombatantState`): a `Bonus` for
+    each that gives or makes anything. A blessing adds another piece's
+    effect, read at its first star."""
+    # NOT at the top: `created` imports this module.
+    from .created import status_cards
     sources = []
     for piece in deck.equipment:
         held = catalogue.equipment.get(piece.relic)
@@ -521,9 +614,11 @@ def bonuses(deck, catalogue):
     mutation = catalogue.mutations.get(deck.mutation) if deck.mutation else None
     if mutation is not None:
         sources.append((deck.mutation, mutation["name"], mutation["statuses"]))
+    if state is not None:
+        sources += _progress_sources(deck.combatant, state, catalogue)
     out = []
     for source, name, statuses in sources:
-        reader = _Reader(catalogue, Figure())
+        reader = _Reader(catalogue, Figure(), upgrades)
         reader.walk([effect for status in statuses for effect in
                      _list(catalogue.statuses.get(status, {}).get("link_skill_eff_id"))],
                     holder=UNIT, lasting=True)
@@ -541,8 +636,9 @@ def bonuses(deck, catalogue):
                 bonus.unknown.append((figure.value, f"{figure.value} {key} while it holds"))
             bonus.unknown += reader.figures[(EACH_TURN, key)].unknown
             bonus.unknown += reader.figures[(AT_START, key)].unknown
+        bonus.created = status_cards(source, name, statuses, catalogue, upgrades)
         if (bonus.turn_draw or bonus.turn_ap or bonus.start_draw or bonus.start_ap
-                or bonus.unknown):
+                or bonus.unknown or bonus.created):
             out.append(bonus)
     return out
 
@@ -599,13 +695,22 @@ class DeckTurns:
     # The user's corrections a turn (plan D22), summed.
     draw_adjustment: int = 0
     ap_adjustment: int = 0
-    # What its Equipment, their Buffs and blessings, and its Mutation
-    # give (plan D21), each a `Bonus`.
+    # What its Equipment, their Buffs and blessings, its Mutation, and
+    # its Combatant's Potential nodes and Ego Manifestation give (plan
+    # D21, D8), each a `Bonus`.
     bonuses: list = field(default_factory=list)
     # Its Combatant's own AP pool a regular turn (plan D47), 0 for none.
     pool: int = 0
     # Cards the catalogue lacks, left out of every sum.
     unknown_cards: list = field(default_factory=list)
+    # The Combatant state it plays with (`model.CombatantState`, plan
+    # D8), and the cards that state upgrades, {card id: the card it
+    # plays as}.
+    state: object = None
+    upgrades: dict = field(default_factory=dict)
+    # The Ego skills the team's options count (plan D2, D40), each a
+    # `Played` in the setup list too.
+    ego: list = field(default_factory=list)
 
     @property
     def pool_saving(self):
@@ -650,28 +755,72 @@ def _pool_of(deck, played_cards, catalogue):
     return 0, None, ()
 
 
-def deck_turns(deck, catalogue):
+def ego_skills(deck, state, catalogue, upgrades=None, partner=False, combatant=False):
+    """The Ego skills the team's options count, as `Played`s: the
+    partner's (plan D2) and the Combatant's, as its Ego Manifestation
+    upgrades it (plan D40). Each is used once, in setup turn 1: it costs
+    Ego Points, not AP, and is never drawn."""
+    ids = []
+    held = catalogue.partner(state.partner) if partner else None
+    if held and held.get("card"):
+        ids.append(held["card"])
+    own = catalogue.combatant(deck.combatant) if combatant else None
+    if own and own.get("ego"):
+        ids.append(own["ego"])
+    out = []
+    for card_id in ids:
+        skill = played(DeckCard(card_id, overrides={"turns": SETUP}), catalogue, upgrades)
+        if skill is None:
+            continue
+        points = skill.cost.value
+        out.append(replace(skill, cost=Figure(), needs_draw=False, ego=True,
+                           printed_cost=points,
+                           notes=skill.notes + [f"an Ego skill, used once, in turn 1: it "
+                                                f"costs {points} Ego Points, not AP"]))
+    return out
+
+
+def deck_turns(deck, catalogue, owned=None, partner_ego=False, combatant_ego=False):
     """`deck` as it plays, a `DeckTurns`: its cards and those they make
-    in battle, each in its list."""
+    in battle, each in its list. Its Combatant's progress is the deck's
+    own where it sets it, else the owned Combatant's (`owned`, {res_id:
+    model.CombatantState}; plan D8). `partner_ego` and `combatant_ego`
+    are the team's options counting the Ego skills (plan D2, D40)."""
     # NOT at the top: `created` imports this module.
     from .created import created_cards
     out = DeckTurns(deck=deck)
+    out.state = deck.state(owned)
+    out.upgrades = upgrades_of(deck.combatant, out.state, catalogue)
+    listed = {REGULAR: out.regular_cards, SETUP: out.setup_cards}
+
+    def place(made):
+        out.created.append(made)
+        if made.hidden or made.idle or made.turns not in listed:
+            return
+        copy = replace(made.played, needs_draw=made.needs_draw,
+                       notes=made.played.notes + made.notes)
+        listed[made.turns].extend([copy] * made.copies)
+
     for held in deck.present():
-        played_card = played(held, catalogue)
+        played_card = played(held, catalogue, out.upgrades)
         if played_card is None:
             out.unknown_cards.append(held.card)
             continue
         out.played.append((held, played_card))
-        listed = {REGULAR: out.regular_cards, SETUP: out.setup_cards}
         if played_card.turns in listed:
             listed[played_card.turns].append(played_card)
-        for made in created_cards(held, played_card, catalogue):
-            out.created.append(made)
-            if made.hidden or made.idle or made.turns not in listed:
-                continue
-            copy = replace(made.played, needs_draw=made.needs_draw,
-                           notes=made.played.notes + made.notes)
-            listed[made.turns].extend([copy] * made.copies)
+        for made in created_cards(held, played_card, catalogue, upgrades=out.upgrades):
+            place(made)
+    out.ego = ego_skills(deck, out.state, catalogue, out.upgrades, partner_ego, combatant_ego)
+    for skill in out.ego:
+        out.setup_cards.append(skill)
+        for made in created_cards(DeckCard(skill.card), skill, catalogue,
+                                  upgrades=out.upgrades):
+            place(made)
+    out.bonuses = bonuses(deck, catalogue, out.state, out.upgrades)
+    for bonus in out.bonuses:
+        for made in bonus.created:
+            place(made)
     out.pool, switch, pays = _pool_of(deck, [p for _h, p in out.played], catalogue)
     if out.pool:
         out.regular_cards = [replace(card, pool_paid=card.card.startswith(pays))
@@ -686,7 +835,6 @@ def deck_turns(deck, catalogue):
     for adjustment in deck.adjustments:
         out.draw_adjustment += adjustment.draw
         out.ap_adjustment += adjustment.ap
-    out.bonuses = bonuses(deck, catalogue)
     return out
 
 
@@ -730,8 +878,9 @@ def plan_setup(setup, regular, draw=5, energy=3, openers=(), bonus_draw=0,
     play (plan D42), and so does a Combatant's own AP pool, which pays
     for its own cards first (plan D47). `setup` and `regular` are
     `Played`s; `openers` are the regular Opener cards, which proc at the
-    start of battle for AP, as an Opener setup card does (plan D18). A
-    `SetupPlan`."""
+    start of battle for AP, as an Opener setup card does (plan D18). An
+    Ego skill in `setup` is used in turn 1 as well, for no AP and no
+    card in hand (plan D2, D40). A `SetupPlan`."""
     def nets(card):
         return (card.draw.value - (1 if card.needs_draw else 0),
                 card.ap.value - card.cost.value)
@@ -746,8 +895,8 @@ def plan_setup(setup, regular, draw=5, energy=3, openers=(), bonus_draw=0,
             if min(nets(card)) >= 0 and max(nets(card)) > 0]
     trades = [card for card in regular if max(nets(card)) > 0 > min(nets(card))]
     trades = sorted(trades, key=lambda c: -max(nets(c)))[:MAX_TRADES]
-    at_start = [card for card in setup if card.opener]
-    waiting = sorted((card for card in setup if not card.opener),
+    at_start = [card for card in setup if card.opener or card.ego]
+    waiting = sorted((card for card in setup if card not in at_start),
                      key=lambda c: -sum(nets(c)))
     plan = SetupPlan()
     first = True
@@ -841,15 +990,20 @@ def _desire_notes(points):
 RAVAGE_AP = 1
 
 
-def team_turns(team, catalogue, ravages=0):
+def team_turns(team, catalogue, ravages=0, owned=None, partner_ego=False,
+               combatant_ego=False):
     """`team` as it plays, a `TeamTurns`: a regular turn's draw and AP
     surplus (plan 3.1), the turn's own draw and AP plus each deck's
     nets, and how its setup cards get played. `ravages` is the user's
     Ravages a turn (plan D48), each worth RAVAGE_AP; the On-Ravage
-    effects stay the battle's, with their figures."""
+    effects stay the battle's, with their figures. `owned` holds the
+    owned Combatants' captured progress, and `partner_ego` and
+    `combatant_ego` are the options counting the Ego skills in setup
+    turn 1 (`deck_turns`)."""
     draw = catalogue.constants.get("draw", 5)
     energy = catalogue.constants.get("energy", 3) + ravages * RAVAGE_AP
-    out = TeamTurns(decks=[deck_turns(deck, catalogue) for deck in team.decks])
+    out = TeamTurns(decks=[deck_turns(deck, catalogue, owned, partner_ego, combatant_ego)
+                           for deck in team.decks])
     out.draw_surplus = draw + sum(d.net_draw for d in out.decks)
     out.ap_surplus = energy + sum(d.net_ap for d in out.decks)
     out.unknown = any(d.regular.unknown for d in out.decks)

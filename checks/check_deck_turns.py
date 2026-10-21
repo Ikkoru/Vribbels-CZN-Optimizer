@@ -17,10 +17,12 @@ NAME = "per-card cost, draw and AP gain"
 # (card id, Signature Epiphany, cost, draw, AP gain): what the Deck Calcs
 # tab gives for a card and the program reads off it as printed.
 DECK_CALCS = [
+    ("c_1003_srt4", 0, 1, 1, 0),
     ("c_1003_uni3", 0, 0, 1, 0), ("c_1003_uni3", 1, 0, 2, 0),
     ("c_1003_uni4_lbk", 0, 0, 1, 0),
     ("c_1005_srt4", 4, 0, 0, 0), ("c_1008_uni3", 0, 1, 1, 0),
     ("c_1012_srt4", 3, 3, 0, 0), ("c_1012_uni1", 0, 1, 0, 0),
+    ("c_1012_uni2", 2, 0, 2, 2),
     ("c_1012_uni4", 0, 2, 0, 0), ("c_1024_uni4", 0, 1, 0, 0),
     ("c_1028_srt1", 0, 1, 0, 0), ("c_1033_uni1", 1, 0, 2, 0),
     ("c_1049_uni1", 5, 0, 1, 0), ("c_1049_uni2", 0, 1, 0, 0),
@@ -73,6 +75,15 @@ def _make(cards, count=1, place="CARD_PLACE_HAND", operation="OPERATION_ACTIVE",
 def _condition(card_part):
     return [{"type": "stack", "and_or": "AND", "cards": [card_part], "units": [],
              "timings": [], "battle_timing": []}]
+
+
+def _checked_at(battle_timing, first_turn=False):
+    """A condition testing nothing, checked at `battle_timing`, and in
+    turn 1 only where `first_turn`."""
+    timings = ([{"condition_timing": "TIMING_TURN", "condition_timing_value": "1",
+                 "condition_timing_value_ineq": "INEQUALITY_EQ"}] if first_turn else [])
+    return [{"type": "stack", "and_or": "AND", "cards": [], "units": [],
+             "timings": timings, "battle_timing": list(battle_timing)}]
 
 
 DRAW, ENERGY = "SKILL_EFF_CARD_DRAW", "SKILL_EFF_ENERGY_CHANGE"
@@ -156,6 +167,17 @@ def _catalogue():
                              target_card_set_list_card_place="CARD_PLACE_DECK"),
         "free_hand": _effect("SKILL_EFF_CARD_USE", target_card_set="CARD_SET_ALL",
                              target_card_set_list_card_place="CARD_PLACE_HAND"),
+        # What statuses held for the battle make and give: a card at the
+        # start of battle, one when the battle triggers it, 2 AP at each
+        # turn's start.
+        "start_make": _make("[c_9_temp]", operation="OPERATION_TRIGGER",
+                            eff_link_condition_id="cd_battle_start"),
+        "battle_make": _make("[c_9_temp]", operation="OPERATION_TRIGGER",
+                             eff_link_condition_id="cd_battle"),
+        "turn_ap2": _effect(ENERGY, 2, operation="OPERATION_TRIGGER", sign="MATHSIGN_ADD",
+                            eff_link_condition_id="cd_turn"),
+        "make_made": _make("[c_9_made]"),
+        "make_dirge": _make("[c_1041_cre1]"),
     }
     statuses = {
         "st_self": {"link_skill_eff_id": "[self_move]", "term_type_1": "TERM_BATTLE"},
@@ -174,6 +196,13 @@ def _catalogue():
         "st_eq_battle": {"link_skill_eff_id": "[battle_draw]", "term_type_1": "TERM_BATTLE"},
         # The pool's cap is not the game's 6, so a 6 typed in shows.
         "cs01_0878": {"overlay_value_max": "5", "term_type_1": "TERM_EFF_WHOLE_FINALLY"},
+        # Ego Manifestation's battle statuses: 1 AP each turn at level 2,
+        # a card made at the start of battle at 4, and at 6 2 AP each
+        # turn in place of both.
+        "st_lb2": {"link_skill_eff_id": "[turn_ap]", "term_type_1": "TERM_BATTLE"},
+        "st_lb4": {"link_skill_eff_id": "[start_make]", "term_type_1": "TERM_BATTLE"},
+        "st_lb6": {"link_skill_eff_id": "[turn_ap2]", "term_type_1": "TERM_BATTLE"},
+        "st_eq_maker": {"link_skill_eff_id": "[battle_make]", "term_type_1": "TERM_BATTLE"},
     }
     conditions = {
         "cd_pile": _condition({"condition_card": "CONDITION_CARD_AMOUNT",
@@ -195,6 +224,13 @@ def _catalogue():
                       "battle_timing": []},
                      {"type": "reset", "and_or": "AND", "cards": [], "units": [],
                       "timings": [], "battle_timing": ["TIMING_DRAW_AFTER"]}],
+        # A stack control's battle timing is when it is checked: the
+        # battle's start, a turn's start, a card's use; and a card's use
+        # in turn 1, which the battle decides as well.
+        "cd_battle_start": _checked_at(["TIMING_BATTLE_START"]),
+        "cd_turn_begin": _checked_at(["TIMING_TURN_BEGIN"]),
+        "cd_card_use": _checked_at(["TIMING_USE_CARD_FINISH"]),
+        "cd_first_turn_use": _checked_at(["TIMING_USE_CARD_FINISH"], first_turn=True),
     }
     cards = {
         "c_9_plain": _card(effects=["draw1", "ap1"]),
@@ -254,6 +290,28 @@ def _catalogue():
         # table names.
         "c_30097_srt4": _card(category="CARD_POWER", name="Chrono Archon"),
         "c_30097_srt1": _card(cost=3, category="CARD_ATK", name="Time Acceleration"),
+        # A Combatant's progress (plan D8): a Basic card a Potential node
+        # upgrades, a Signature card and the Ego skill Ego Manifestation
+        # levels upgrade, and made cards the node upgrades, one an
+        # exception names.
+        "c_9_srt1": _card(cost=2, name="Basic"),
+        "c_9_srt1_pot": _card(cost=1, effects=["draw1"], name="Basic"),
+        "c_9_uni4": _card(cost=2, name="Signature"),
+        "c_9_uni4_lbk": _card(cost=0, name="Signature"),
+        "c_9_made": _card(name="Made"),
+        "c_9_made_pot": _card(cost=0, effects=["ap1"], name="Made"),
+        "c_9_made_maker": _card(effects=["make_made"]),
+        "c_1041_cre1": _card(cost=2, talents=["TALENT_EXHAUST"], name="Dirge Bullet"),
+        "c_1041_cre1_pot": _card(cost=2, talents=["TALENT_EXHAUST"], name="Dirge Bullet"),
+        "c_9_dirge_maker": _card(effects=["make_dirge"]),
+        # The Ego skills (plan D2, D40), each costing Ego Points: the
+        # Combatant's draws 2 and makes two cards that leave after use
+        # and one that stays, its upgrade draws 1, the partner's gives 1
+        # AP.
+        "c_9_eps": _card(category="CARD_ATK", cost=5, name="Ego",
+                         effects=["draw2", "make_temp_hand", "make_stay"]),
+        "c_9_eps_lbk": _card(category="CARD_ATK", cost=4, effects=["draw1"], name="Ego"),
+        "p_7": _card(cost=3, effects=["ap1"], name="Partner Ego"),
     }
     return Catalogue({
         "cards": cards, "effects": effects, "statuses": statuses,
@@ -282,9 +340,32 @@ def _catalogue():
             "eq_9_start": {"name": "Start", "stars": {"1": {"statuses": []},
                                                       "2": {"statuses": ["st_eq_start"]}}},
             "eq_9_battle": {"name": "Battle", "stars": {"1": {"statuses": ["st_eq_battle"]}}},
+            "eq_9_maker": {"name": "Maker", "stars": {"1": {"statuses": ["st_eq_maker"]}}},
         },
         "buffs": {"rr_9": {"type": "LUX", "statuses": ["st_eq_turn"]}},
         "mutations": {"mut_9": {"name": "Mutation", "statuses": ["st_eq_start"]}},
+        "upgrades": {"c_9_srt1": {"pot": "c_9_srt1_pot"}, "c_9_made": {"pot": "c_9_made_pot"},
+                     "c_1041_cre1": {"pot": "c_1041_cre1_pot"},
+                     "c_9_uni4": {"lbk": "c_9_uni4_lbk"}, "c_9_eps": {"lbk": "c_9_eps_lbk"}},
+        "combatants": {"9": {"class": "striker", "playable": True, "name": "Fixture",
+                             "ego": "c_9_eps"}},
+        "partners": {"7": {"name": "Partner", "card": "p_7", "class": "striker"}},
+        # Potential 3.1 upgrades cards; Potential 7 gives 1 AP each turn.
+        "potential": {"9": {
+            "3_1": {"1": {"cards": ["c_9_srt1", "c_9_made", "c_1041_cre1"], "statuses": []}},
+            "7_0": {"1": {"cards": [], "statuses": ["st_eq_turn"]}}}},
+        # Level 4 names a card it makes, which has no upgrade.
+        "manifestation": {"9": [
+            {"level": 1, "type": "BREAK_TYPE_CARD_R_SPARK", "cards": ["c_9_uni4"],
+             "statuses": []},
+            {"level": 2, "type": "BREAK_TYPE_BATTLE_CS_ADD", "cards": [],
+             "statuses": ["st_lb2"]},
+            {"level": 3, "type": "BREAK_TYPE_CARD_R_SPARK", "cards": ["c_9_eps"],
+             "statuses": []},
+            {"level": 4, "type": "BREAK_TYPE_BATTLE_CS_ADD", "cards": ["c_9_temp"],
+             "statuses": ["st_lb4"]},
+            {"level": 6, "type": "BREAK_TYPE_BATTLE_CS_ADD_OVERWRITE", "cards": [],
+             "statuses": ["st_lb6"]}]},
     })
 
 
@@ -596,6 +677,134 @@ def _created_report():
     return out
 
 
+def _progress_report():
+    """What a Combatant's Potential nodes and Ego Manifestation do to its
+    deck (plan D8), from the deck's own state or the owned Combatant's,
+    and when a stack control's battle timing fires."""
+    from decks import turns
+    from decks.model import CombatantState, Deck, DeckCard, Equipment
+    catalogue = _catalogue()
+    out = []
+    cards = [DeckCard("c_9_srt1"), DeckCard("c_9_uni4")]
+    upgraded = {"c_9_srt1_pot": 1, "c_9_uni4_lbk": 0}
+    plain = {"c_9_srt1": 2, "c_9_uni4": 2}
+
+    def costs(deck, owned=None):
+        return {p.card: p.cost.value for _h, p in turns.deck_turns(deck, catalogue, owned).played}
+
+    got = costs(Deck(combatant=9, cards=cards, potential={31: 1}, manifestation=1))
+    if got != upgraded:
+        out.append(f"with Potential 3.1 and Ego Manifestation 1, the deck plays {got}, "
+                   f"not the Basic card's `pot` version at 1 and the Signature card's "
+                   f"`lbk` one at 0. See `upgrades_of` in decks/turns.py.")
+    got = costs(Deck(combatant=9, cards=cards, potential={31: 0}, manifestation=0))
+    if got != plain:
+        out.append(f"with neither the node nor the level reached, the deck plays {got}: "
+                   f"an upgrade applied that the Combatant has not reached.")
+    owned = {9: CombatantState(potential={31: 1}, manifestation=1)}
+    got = costs(Deck(combatant=9, cards=cards), owned)
+    if got != upgraded:
+        out.append(f"an owned Combatant's captured progress is not what its deck plays "
+                   f"with where the deck sets none: {got} (plan D8). See `Deck.state` in "
+                   f"decks/model.py.")
+    got = costs(Deck(combatant=9, cards=cards, potential={}, manifestation=0), owned)
+    if got != plain:
+        out.append(f"the deck's own progress does not stand over the owned Combatant's: "
+                   f"{got}.")
+    held = turns.deck_turns(Deck(combatant=9, cards=[DeckCard("c_9_made_maker"),
+                                                     DeckCard("c_9_dirge_maker")],
+                                 potential={31: 1}), catalogue)
+    made = {card.card: card.played.cost.value for card in held.created}
+    if made != {"c_9_made_pot": 0, "c_1041_cre1_pot": 0}:
+        out.append(f"cards made in battle under Potential 3.1 are {made}, not the `pot` "
+                   f"versions, Dirge Bullet's at its exception's 0: the upgrade reaches "
+                   f"made cards, and an exception its card's upgrade. See `_place` in "
+                   f"decks/created.py.")
+
+    def gives(level, nodes=None):
+        deck = Deck(combatant=9, potential=nodes or {}, manifestation=level)
+        return {b.source: (b.turn_ap, [(c.card, c.turns) for c in b.created])
+                for b in turns.bonuses(deck, catalogue, deck.state())}
+
+    got = gives(4, {70: 1})
+    want = {"potential_70": (1, []), "manifestation_2": (1, []),
+            "manifestation_4": (0, [("c_9_temp", "setup")])}
+    if got != want:
+        out.append(f"what a Combatant's progress gives at Potential 7 and Ego "
+                   f"Manifestation 4 is {got}, not {want}: (AP each turn, the cards made "
+                   f"and their list), a card made at the start of battle made once. See "
+                   f"`_progress_sources` in decks/turns.py and `status_cards` in "
+                   f"decks/created.py.")
+    got = gives(6)
+    if got != {"manifestation_6": (2, [])}:
+        out.append(f"at Ego Manifestation 6, whose battle status replaces the levels "
+                   f"below it, progress gives {got}, not 2 AP each turn alone.")
+    piece = Deck(combatant=9, equipment=[Equipment("eq_9_maker")])
+    held = turns.deck_turns(piece, catalogue)
+    made = [(c.card, c.turns, any("once a turn" in n for n in c.notes)) for c in held.created]
+    if made != [("c_9_temp", "regular", True)] or held.regular.cost != 1:
+        out.append(f"an Equipment piece's card made when the battle triggers it is {made}, "
+                   f"costing the regular turn {held.regular.cost}: it should count once a "
+                   f"turn in the regular list, as a maker that is not a card does (plan "
+                   f"D14), with a note saying so.")
+    timing = {condition: turns.fires(condition, catalogue)
+              for condition in ("cd_battle_start", "cd_turn_begin", "cd_card_use",
+                                "cd_first_turn_use")}
+    want = {"cd_battle_start": turns.AT_START, "cd_turn_begin": turns.EACH_TURN,
+            "cd_card_use": turns.BATTLE, "cd_first_turn_use": turns.BATTLE}
+    if timing != want:
+        out.append(f"a trigger checked at the battle's start, a turn's start, a card's use "
+                   f"and a card's use in turn 1 fires {timing}, not {want}. See `fires` in "
+                   f"decks/turns.py.")
+    moved = turns.played(DeckCard("c_9_regular_each_turn", overrides={"turns": "setup"}),
+                         catalogue)
+    if moved.turn_ap.value != 1:
+        out.append("a card the user moves to setup keeps its lasting AP as the battle's, "
+                   "where once played its status gives 1 AP each turn (plan D42).")
+    return out
+
+
+def _ego_report():
+    """The Ego skills behind the team's options (plan D2, D40): used once,
+    in setup turn 1, for Ego Points, and what the Combatant's makes,
+    placed as a card made once."""
+    from decks import turns
+    from decks.model import Deck, DeckCard, Team
+    catalogue = _catalogue()
+    out = []
+    team = Team(decks=[Deck(combatant=9, cards=[DeckCard("c_9_upgrade")], partner=7)])
+    off = turns.team_turns(team, catalogue)
+    if off.decks[0].ego or [c.card for c in off.setup.turns[0].setup] != ["c_9_upgrade"]:
+        out.append("an Ego skill counts with the team's options off (plan D2, D40).")
+    on = turns.team_turns(team, catalogue, partner_ego=True, combatant_ego=True)
+    held = on.decks[0]
+    skills = sorted(skill.card for skill in held.ego)
+    if skills != ["c_9_eps", "p_7"]:
+        out.append(f"the Ego skills counted are {skills}, not the Combatant's and the "
+                   f"partner's. See `ego_skills` in decks/turns.py.")
+    if any(skill.cost.value or skill.needs_draw for skill in held.ego):
+        out.append("an Ego skill costs AP or needs a draw; it costs Ego Points and is "
+                   "never drawn.")
+    made = sorted((c.card, c.turns, c.needs_draw) for c in held.created)
+    want = [("c_9_stay", "regular", True), ("c_9_temp", "setup", False)]
+    if made != want:
+        out.append(f"the Ego skill's cards are {made}, not {want}: one that leaves after "
+                   f"use in setup, needing no draw, one that stays in the regular list "
+                   f"(plan D40).")
+    first = on.setup.turns[0] if on.setup.turns else None
+    played = [c.card for c in first.setup] if first else []
+    left = (first.draw_left, first.ap_left) if first else None
+    if played != ["p_7", "c_9_eps", "c_9_temp", "c_9_temp", "c_9_upgrade"] or left != (8, 1):
+        out.append(f"setup turn 1 plays {played}, leaving {left}: both Ego skills first, "
+                   f"for no AP, their 2 draws and 1 AP paying for the rest, leaving (8, "
+                   f"1). See `plan_setup` in decks/turns.py.")
+    upgraded = turns.deck_turns(Deck(combatant=9, manifestation=3), catalogue,
+                                combatant_ego=True)
+    if [skill.card for skill in upgraded.ego] != ["c_9_eps_lbk"]:
+        out.append("at Ego Manifestation 3 the Ego skill is not its upgrade, c_9_eps_lbk.")
+    return out
+
+
 def _card_like(name, cost=0, draw=0, ap=0, opener=False, turn_ap=0):
     from decks import turns
     return turns.Played(card=name, name=name, cost=turns.Figure(cost),
@@ -683,7 +892,8 @@ def _deck_calcs_report():
 def run():
     add_source_to_path()
     return (_rules_report() + _totals_report() + _bonuses_report() + _pool_report()
-            + _setup_report() + _created_report() + _deck_calcs_report())
+            + _setup_report() + _created_report() + _progress_report() + _ego_report()
+            + _deck_calcs_report())
 
 
 FAULTS = [
@@ -702,7 +912,7 @@ FAULTS = [
      'return any(t == family or t.startswith(family + "_") for t in talents)',
      "return family in talents", "an Exhaust 2 card"),
     ("Quietus cards priced as printed", "decks.turns:played",
-     "if QUIETUS in talents and priced:", "if False:", "a Quietus card"),
+     "if quietus and priced:", "if False:", "a Quietus card"),
     ("a card from the draw pile not a draw", "decks.turns:_Reader.read",
      'elif effect.get("target_card_set_list_card_place") in DRAW_PILES:', "elif False:",
      "a card taken from the draw pile to hand"),
@@ -745,7 +955,7 @@ FAULTS = [
      "for mask in range(1 << len(trades)):", "for mask in range(1):",
      "a trade card makes room for"),
     ("an Opener setup card waiting for a hand", "decks.turns:plan_setup",
-     "at_start = [card for card in setup if card.opener]", "at_start = []",
+     "at_start = [card for card in setup if card.opener or card.ego]", "at_start = []",
      "an Opener setup card"),
     ("an unaffordable setup card not reported", "decks.turns:plan_setup",
      "plan.stuck = waiting", "plan.stuck = []", "no turn can afford"),
@@ -756,12 +966,12 @@ FAULTS = [
      "key=lambda c: -sum(nets(c)))", "key=lambda c: sum(nets(c)))",
      "the cheaper card first"),
     ("a one-time maker's cards made every time", "decks.created:creations",
-     "every_time=fires or via_lasting or not once_by_kind", "every_time=True",
+     "every_time=fired or via_lasting or not once_by_kind", "every_time=True",
      "an Upgrade's card made into hand once"),
-    ("a card made into hand needing a draw", "decks.created:created_cards",
+    ("a card made into hand needing a draw", "decks.created:_place",
      "needs_draw = not (gone and creation.to_hand)", "needs_draw = True",
      "a card made into hand, leaving after use"),
-    ("a maker's keywords ignored", "decks.created:created_cards",
+    ("a maker's keywords ignored", "decks.created:_place",
      "talents = tuple(dict.fromkeys(made.talents + creation.talents))",
      "talents = made.talents", "a card its maker gives Exhaust"),
     ("the Graveyard's keeping ignored", "decks.created:_gone",
@@ -769,29 +979,31 @@ FAULTS = [
     ("a lasting status's cards made once", "decks.created:creations",
      'lasting = status.get("term_type_1") in LASTING', "lasting = False",
      "an Upgrade's lasting status"),
-    ("a made card that changes nothing counted", "decks.created:created_cards",
+    ("a made card that changes nothing counted", "decks.created:_place",
      "idle = (creation.to_hand and made.cost.value == 0",
      "idle = (False and made.cost.value == 0", "a made card that changes nothing"),
-    ("the exceptions table ignored", "decks.created:created_cards",
-     "exception = EXCEPTIONS.get(card_id, {})", "exception = {}",
+    ("the exceptions table ignored", "decks.created:_place",
+     "exception = EXCEPTIONS.get(card_id) or EXCEPTIONS.get(base_id, {})", "exception = {}",
      "an exception the maintainer ignores"),
     ("a made card's copies counted once", "decks.turns:deck_turns",
      "listed[made.turns].extend([copy] * made.copies)", "listed[made.turns].append(copy)",
      "a deck whose card makes two cards into hand"),
-    ("a growing deck not flagged", "decks.created:created_cards",
-     "grows=creation.every_time and not gone", "grows=False",
+    ("a growing deck not flagged", "decks.created:_place",
+     "grows=every_time and not gone", "grows=False",
      "a card that stays, made on every play"),
-    ("one of several not noted", "decks.created:created_cards",
+    ("one of several not noted", "decks.created:_place",
      "if creation.pick or creation.pool:", "if False:", "one of two cards made"),
-    ("an exception's practical cost ignored", "decks.created:created_cards",
+    ("an exception's practical cost ignored", "decks.created:_place",
      'if "cost" in exception:', "if False:", "an exception's practical cost"),
     ("hidden and idle made cards counted", "decks.turns:deck_turns",
      "if made.hidden or made.idle or made.turns not in listed:",
      "if made.turns not in listed:", "is counted in a list"),
     ("the start of battle read as every turn", "decks.turns:fires",
-     "first_turn = True", "pass", "the deck's Equipment, Buff and Mutation give"),
+     '_number(part.get("condition_timing_value")) == 1):\n                first_turn = True',
+     '_number(part.get("condition_timing_value")) == 1):\n                pass',
+     "the deck's Equipment, Buff and Mutation give"),
     ("each turn's start read as the battle's", "decks.turns:fires",
-     "return EACH_TURN if turn_reset else BATTLE", "return BATTLE",
+     "return EACH_TURN if turn_start else BATTLE", "return BATTLE",
      "a draw at the next turn's start"),
     ("a lasting status not tracked", "decks.turns:_Reader.walk",
      'lasting or status.get("term_type_1") in LASTING)', "lasting)",
@@ -802,7 +1014,7 @@ FAULTS = [
     ("a chance read as plain", "decks.turns:_Reader.walk",
      'if _number(effect.get("run_pct"), 100) < 100:', "if False:", "a draw by chance"),
     ("the bonuses left out of a deck", "decks.turns:deck_turns",
-     "out.bonuses = bonuses(deck, catalogue)", "out.bonuses = []",
+     "out.bonuses = bonuses(deck, catalogue, out.state, out.upgrades)", "out.bonuses = []",
      "Equipment and Buff give 0 AP a turn"),
     ("an Equipment piece's star level ignored", "decks.turns:bonuses",
      'star = held["stars"].get(str(piece.stars)) or held["stars"].get("1", {})',
@@ -848,4 +1060,78 @@ FAULTS = [
      "the team's Desire points sum"),
     ("Inquiry's draw not noted", "decks.turns:_desire_notes",
      "if points.get(48, 0) >= INQUIRY_DRAW_AT:", "if False:", "Inquiry at 5 points"),
+    ("a Potential node's upgrade ignored", "decks.turns:upgrades_of",
+     'upgraded = catalogue.upgrades.get(card, {}).get("pot")', "upgraded = None",
+     "with Potential 3.1 and Ego Manifestation 1"),
+    ("an Ego Manifestation upgrade ignored", "decks.turns:upgrades_of",
+     'upgraded = catalogue.upgrades.get(card, {}).get("lbk")', "upgraded = None",
+     "with Potential 3.1 and Ego Manifestation 1"),
+    ("a node's level ignored", "decks.turns:upgrades_of",
+     "if _number(at) <= level:", "if True:", "an upgrade applied that the Combatant"),
+    ("an Ego Manifestation level ignored", "decks.turns:upgrades_of",
+     'if held["level"] <= state.manifestation:', "if True:",
+     "an upgrade applied that the Combatant"),
+    ("the upgrades not played", "decks.turns:played",
+     "card_id = upgrades.get(card_id, card_id)", "pass",
+     "with Potential 3.1 and Ego Manifestation 1"),
+    ("the owned Combatant's progress ignored", "decks.model:Deck.state",
+     "held = (owned or {}).get(self.combatant) or CombatantState()",
+     "held = CombatantState()", "an owned Combatant's captured progress"),
+    ("the deck's own progress ignored", "decks.model:Deck.state",
+     "potential=held.potential if self.potential is None else self.potential,",
+     "potential=held.potential,", "the deck's own progress does not stand"),
+    ("a made card not upgraded", "decks.created:_place",
+     "card_id = upgrades.get(base_id, base_id)", "card_id = base_id",
+     "cards made in battle under Potential 3.1"),
+    ("an exception not held for its card's upgrade", "decks.created:_place",
+     "exception = EXCEPTIONS.get(card_id) or EXCEPTIONS.get(base_id, {})",
+     "exception = EXCEPTIONS.get(card_id, {})", "cards made in battle under Potential 3.1"),
+    ("progress statuses not read", "decks.turns:bonuses",
+     "sources += _progress_sources(deck.combatant, state, catalogue)", "pass",
+     "at Potential 7 and Ego Manifestation 4"),
+    ("a node's statuses not read", "decks.turns:_progress_sources",
+     "if reached:", "if False:", "at Potential 7 and Ego Manifestation 4"),
+    ("an overwrite adding to the levels below", "decks.turns:_progress_sources",
+     'if held["type"] == OVERWRITE:', "if False:", "at Ego Manifestation 6"),
+    ("cards statuses make not read", "decks.turns:bonuses",
+     "bonus.created = status_cards(source, name, statuses, catalogue, upgrades)",
+     "bonus.created = []", "an Equipment piece's card made"),
+    ("cards statuses make left out of the lists", "decks.turns:deck_turns",
+     "for made in bonus.created:", "for made in ():", "an Equipment piece's card made"),
+    ("a card made at the start of battle made every turn", "decks.created:status_cards",
+     "once = creation.when in (PLAY, AT_START)", "once = False",
+     "at Potential 7 and Ego Manifestation 4"),
+    ("the battle's start read as a turn's", "decks.turns:fires",
+     "elif timings == {BATTLE_START}:", "elif False:", "a trigger checked at"),
+    ("a turn's start checked by a stack control read as the battle's",
+     "decks.turns:fires", "turn_start = turn_start or bool(timings)", "pass",
+     "a trigger checked at"),
+    ("any battle timing read as a turn's start", "decks.turns:fires",
+     "elif timings <= set(TURN_START) | {BATTLE_START}:", "elif True:",
+     "a trigger checked at"),
+    ("the user's list placed after the lasting effects", "decks.turns:played",
+     'turns = held.overrides.get("turns", turns)', "pass",
+     "a card the user moves to setup"),
+    ("the Combatant's Ego skill never counted", "decks.turns:ego_skills",
+     'ids.append(own["ego"])', "pass", "the Ego skills counted"),
+    ("the partner's Ego skill never counted", "decks.turns:ego_skills",
+     'ids.append(held["card"])', "pass", "the Ego skills counted"),
+    ("an Ego skill priced in AP", "decks.turns:ego_skills",
+     "out.append(replace(skill, cost=Figure(), needs_draw=False,",
+     "out.append(replace(skill, needs_draw=False,", "costs AP or needs a draw"),
+    ("an Ego skill drawn", "decks.turns:ego_skills",
+     "cost=Figure(), needs_draw=False,", "cost=Figure(), needs_draw=True,",
+     "costs AP or needs a draw"),
+    ("an Ego skill's cards made every turn", "decks.turns:ego_skills",
+     'skill = played(DeckCard(card_id, overrides={"turns": SETUP}), catalogue, upgrades)',
+     "skill = played(DeckCard(card_id), catalogue, upgrades)", "the Ego skill's cards"),
+    ("an Ego skill waiting for a hand", "decks.turns:plan_setup",
+     "at_start = [card for card in setup if card.opener or card.ego]",
+     "at_start = [card for card in setup if card.opener]", "setup turn 1 plays"),
+    ("an Ego skill left out of setup", "decks.turns:deck_turns",
+     "out.setup_cards.append(skill)", "pass", "setup turn 1 plays"),
+    ("an Ego skill's cards not made", "decks.turns:deck_turns",
+     "for made in created_cards(DeckCard(skill.card), skill, catalogue,",
+     "for made in [] and created_cards(DeckCard(skill.card), skill, catalogue,",
+     "the Ego skill's cards"),
 ]
