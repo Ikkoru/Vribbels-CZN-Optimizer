@@ -536,6 +536,14 @@ EMBODY_ENTRY = {
     "planet_resid": 100501,
     "dev_msg": "[boss_1]_at_1 [boss_2]_at_18 boss_list:base_00133,base_00134",
 }
+DISASTER_ENTRY = {
+    "playing_stage_info": {
+        "stage_id": 100000,
+        "ingame_content_config_id": "content_disaster_chaos",
+        "chaos_info": {"chaos_id": "chaos_10", "disaster_info": {
+            "disaster_list_id": "disaster_s05_08",
+            "disaster_season_id": "disaster_s05"}}},
+}
 ZERO_ENTRY = {
     "playing_stage_info": {
         "stage_id": 115000001, "ingame_content_config_id": "content_chaos_zero",
@@ -691,4 +699,27 @@ def _what_the_entry_says(Addon):
             f"{zero.get('delegated')!r} -- not the map's codex with its "
             f"level and options, every effect with its values, chaos_02, "
             f"no list id, and played by the Delegation Module.")
+    # A Galactic Disaster run's difficulty, from `disaster_info` (the
+    # 2026-10-21 21:47 capture's entry, cut down).
+    steps.step("disaster/enter_disaster_chaos_stage",
+               service_server_time=1790463000, **DISASTER_ENTRY)
+    steps.step("stage/clear_stage", service_server_time=1790463600,
+               stage_id=100000)
+    disaster = (addon.chaos_runs + [{}, {}, {}])[2]
+    if disaster.get("difficulty") != "disaster_s05_08":
+        failures.append(
+            f"a Galactic Disaster run records difficulty "
+            f"{disaster.get('difficulty')!r}, not 'disaster_s05_08': its "
+            f"list id is under `chaos_info.disaster_info`, and read one "
+            f"level up every row of docs/chaos_runs.tsv says `?`.")
     return failures
+
+
+# What this check must catch, for `checks/faults.py`.
+FAULTS = [
+    ("a Galactic Disaster run's difficulty read a level up",
+     "capture.manager:ADDON_TEMPLATE",
+     'or disaster.get("disaster_list_id")),',
+     'or info.get("disaster_list_id")),',
+     "a Galactic Disaster run records difficulty"),
+]

@@ -304,10 +304,13 @@ def _chaos_setup(data):
     info = info if isinstance(info, dict) else {}
     embody = info.get("embody_info")
     embody = embody if isinstance(embody, dict) else {}
+    # A Galactic Disaster's list id is one level down, beside its season.
+    disaster = info.get("disaster_info")
+    disaster = disaster if isinstance(disaster, dict) else {}
     out = {"chaos": info.get("chaos_id"),
            "content": playing.get("ingame_content_config_id"),
            "difficulty": (embody.get("embody_chaos_list_id")
-                          or info.get("disaster_list_id")),
+                          or disaster.get("disaster_list_id")),
            "planet": data.get("planet_resid"),
            "floors": playing.get("floor_info"),
            "effects": _zero_effects(data.get("zero_system_effs"))}
