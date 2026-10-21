@@ -151,6 +151,10 @@ def _catalogue():
         "battle_draw": _effect(DRAW, operation="OPERATION_TRIGGER",
                                eff_link_condition_id="cd_battle"),
         "chance": _effect(DRAW, run_pct="30"),
+        "free_deck": _effect("SKILL_EFF_CARD_USE", target_card_set="CARD_SET_ALL",
+                             target_card_set_list_card_place="CARD_PLACE_DECK"),
+        "free_hand": _effect("SKILL_EFF_CARD_USE", target_card_set="CARD_SET_ALL",
+                             target_card_set_list_card_place="CARD_PLACE_HAND"),
     }
     statuses = {
         "st_self": {"link_skill_eff_id": "[self_move]", "term_type_1": "TERM_BATTLE"},
@@ -242,6 +246,8 @@ def _catalogue():
         "c_9_upgrade_each_turn": _card(category="CARD_POWER", effects=["each_turn_put"]),
         "c_9_regular_each_turn": _card(effects=["each_turn_put"]),
         "c_9_chance": _card(effects=["chance"]),
+        "c_9_free_deck": _card(effects=["free_deck"]),
+        "c_9_free_hand": _card(effects=["free_hand"]),
         # Rita's AP pool (plan D47), under her own ids, which the pool's
         # table names.
         "c_30097_srt4": _card(category="CARD_POWER", name="Chrono Archon"),
@@ -320,6 +326,10 @@ CASES = [
     ("a regular card's lasting AP each turn, which every play adds again",
      "c_9_regular_each_turn", {}, (1, 0, 0), (1, 0, 1), "regular", ""),
     ("a draw by chance", "c_9_chance", {}, (1, 0, 0), (1, 1, 0), "regular", ""),
+    ("a card played for free from the draw pile", "c_9_free_deck", {}, (1, 1, 0),
+     (1, 1, 0), "regular", ""),
+    ("a card played for free from hand", "c_9_free_hand", {}, (1, 0, 0), (1, 0, 0),
+     "regular", ""),
 ]
 
 
@@ -375,6 +385,10 @@ def _rules_report():
     if regular.turn_ap.value:
         out.append("a regular card's lasting effect counts as a steady AP gain each "
                    "turn, though every play puts it on again.")
+    for card in ("c_9_free_deck", "c_9_free_hand"):
+        if str(turns.played(DeckCard(card), catalogue).ap) != "?":
+            out.append(f"a free play's saved cost ({card}) does not show as ? AP: which "
+                       f"card it plays is the battle's (plan D49).")
     return out
 
 
@@ -803,4 +817,9 @@ FAULTS = [
     ("Ravages ignored", "decks.turns:team_turns",
      'energy = catalogue.constants.get("energy", 3) + ravages * RAVAGE_AP',
      'energy = catalogue.constants.get("energy", 3)', "two Ravages a turn"),
+    ("a free play from the draw pile not a draw", "decks.turns:_Reader.read",
+     "if place in DRAW_PILES:", "if False:", "a card played for free from the draw pile"),
+    ("a free play's saved cost not shown", "decks.turns:_Reader.read",
+     'self.ap.unknown.append((None, "AP: the cost of each card it plays for free"))',
+     "pass", "a free play's saved cost"),
 ]

@@ -23,6 +23,11 @@ ENERGY = "SKILL_EFF_ENERGY_CHANGE"
 MOVE = "SKILL_EFF_CARD_MOVE_TO"
 COST_CHANGE = ("SKILL_EFF_CARD_COST_CHANGE", "SKILL_EFF_CARD_COST_CHANGE_PASSIVE")
 CHOICE = "SKILL_EFF_CARD_OPTION_SELECT"
+# Playing other cards for free (plan D49): what each saves is its cost,
+# and one taken from the draw pile needs no draw.
+FREE_PLAY = "SKILL_EFF_CARD_USE"
+# Playing itself again.
+AGAIN = "SKILL_EFF_CARD_USE_ADDITIONAL"
 # The operations a figure can be plain through: on play, and while a
 # status is held. A trigger waits for the battle.
 STEADY = ("OPERATION_ACTIVE", "OPERATION_PASSIVE")
@@ -365,6 +370,19 @@ class _Reader:
                 add("draw", 1, "1 draw: it moves to hand")
             elif effect.get("target_card_set_list_card_place") in DRAW_PILES:
                 add("draw", amount, f"{_say(amount)}draw from the draw pile")
+        elif kind == FREE_PLAY and not on_this:
+            # Which card it plays, and so its cost saved, is the
+            # battle's; one from the draw pile is a card drawn.
+            place = effect.get("target_card_set_list_card_place", "CARD_PLACE_NONE")
+            if place in DRAW_PILES:
+                add("draw", amount, f"{_say(amount)}draw: played for free from the draw pile")
+            elif "DECK" in place:
+                self.draw.unknown.append((amount, f"{_say(amount)}draw if played for "
+                                          f"free from the draw pile rather than another"))
+            self.ap.unknown.append((None, "AP: the cost of each card it plays for free"))
+        elif kind in (FREE_PLAY, AGAIN):
+            self.notes.append("it plays itself again, in some battles: its figures "
+                              "count once")
         elif kind in COST_CHANGE and holder == SELF and on_this:
             self.cost.unknown.append((each, f"its cost changes {_by(each)}in "
                                       f"battle {reason}".rstrip()))

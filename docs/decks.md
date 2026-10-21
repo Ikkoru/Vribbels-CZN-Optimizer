@@ -138,6 +138,7 @@ The readings set aside, each failing decks the game accepted:
 - **AP gained** is a `SKILL_EFF_ENERGY_CHANGE`, or another card's cost cut (plan D68): on each card a status sits on, or on every card a unit's status covers.
 - **The cost** is the version's printed cost, with the Epiphanies' and the Persona effects' changes. An X card's (−1) and one with none (−2) are the battle's. So is a cost the battle lowers: a cut the card's own status makes, Ignition and Lead (plan D19).
 - **A Quietus card costs 0** (plan D67): a deck procs it by discarding it. `Played.printed_cost` keeps its own.
+- **A free play** (`SKILL_EFF_CARD_USE`, plan D49) of a card from the draw pile is a card drawn; from among several piles, one the battle may grant. What it saves, the cost of the card it plays, is always `?` AP: which card that is, the battle decides. A card that plays itself again counts once, with a note.
 - **A status that lasts a number of uses** takes them from the effect that puts it on ("the next 2 times"), and its figures count once per use.
 - **A choice** takes its first option, and a note says so (plan D44).
 
