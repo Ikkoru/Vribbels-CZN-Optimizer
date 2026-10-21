@@ -262,6 +262,50 @@ def _companions():
     return []
 
 
+def _level_terms():
+    """A combatant's steps to 61 and 62 are written as the hand entries
+    state them: nothing where their own class's curve holds them, a
+    `level_curve` naming the one other pair whose curve does, else the
+    steps. Returns complaints."""
+    from game_data import client_sync
+    from game_data.characters import LEVEL_BONUS_BY_CLASS
+
+    def steps(atk, def_, hp):
+        return {level: {"atk": atk, "def": def_, "hp": hp}
+                for level in (61, 62)}
+
+    fact = {"name": "Probe", "grade": 5, "class": "Striker",
+            "attribute": "Justice"}
+    lone = [pair for pair, curve in LEVEL_BONUS_BY_CLASS.items()
+            if sum(c == curve for c in LEVEL_BONUS_BY_CLASS.values()) == 1
+            and pair != ("Striker", 5)][0]
+    shared = [pair for pair, curve in LEVEL_BONUS_BY_CLASS.items()
+              if pair[1] == 4 and LEVEL_BONUS_BY_CLASS.get(("Striker", 4)) == curve
+              and pair != ("Striker", 4)]
+    out = []
+    for gains, want, why in (
+            (LEVEL_BONUS_BY_CLASS[("Striker", 5)], {},
+             "their own class and grade's curve"),
+            (LEVEL_BONUS_BY_CLASS[lone], {"level_curve": lone},
+             "one other pair's curve"),
+            (steps(99, 1, 1), {"level_gains": steps(99, 1, 1)},
+             "steps no curve holds"),
+            (LEVEL_BONUS_BY_CLASS[("Striker", 4)] if shared else None,
+             {"level_gains": LEVEL_BONUS_BY_CLASS[("Striker", 4)]}
+             if shared else None,
+             "a curve several pairs share")):
+        if gains is None:
+            continue
+        entry = client_sync.combatant_entry(dict(fact, level_gains=gains))
+        got = {k: entry[k] for k in client_sync.LEVEL_FIELDS if k in entry}
+        if got != want:
+            out.append(f"a combatant on {why} is written with {got}, not "
+                       f"{want}: the hand entries name a curve only where "
+                       f"it is another class's, and the steps only where no "
+                       f"one curve holds them (`client_sync._level_terms`).")
+    return out
+
+
 def _notice():
     """When a launch from source ships, and what it tells the maintainer
     (`czn_optimizer_gui.ship_wanted`, `client_tool_lines`,
@@ -318,11 +362,18 @@ def run():
     add_source_to_path()
     with tempfile.TemporaryDirectory() as tmp:
         failures = _written(Path(tmp))
-    return failures + _companions() + _notice()
+    return failures + _companions() + _level_terms() + _notice()
 
 
 # What this check must catch, for `checks/faults.py`.
 FAULTS = [
+    ("a class's own curve written as steps", "game_data.client_sync:_level_terms",
+     "if not gains or LEVEL_BONUS_BY_CLASS.get((cls, grade)) == gains:",
+     "if not gains:", "their own class and grade's curve"),
+    ("another class's curve written as steps",
+     "game_data.client_sync:_level_terms",
+     'return {"level_curve": pairs[0]}', 'return {"level_gains": gains}',
+     "one other pair's curve"),
     ("an unmarked value rewritten", "game_data.client_sync:_sync_entries",
      "if not any(comments.get(line) == CLIENT for line in span):\n"
      "                continue",

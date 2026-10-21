@@ -48,7 +48,10 @@ else what `LEVEL_BONUS_BY_CLASS` keeps per class and grade, the
 client's level curves typed by hand. A combatant on another class's
 curve names that class and grade in a `level_curve` key.
 `table_stats_at_level` adds nothing for a gain neither holds, so
-missing data is a no-op.
+missing data is a no-op. An entry `--ship` writes states its steps the
+same way: nothing on its own class's curve, a `level_curve` for one
+other pair's, `level_gains` only for steps no one curve holds
+(`client_sync._level_terms`).
 
 The game client
 ===============
@@ -618,10 +621,6 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "CDmg",
-        "level_gains": {
-            61: {"atk": 8, "def": 3, "hp": 9},
-            62: {"atk": 8, "def": 3, "hp": 9},
-        },
         "from_client": True,  # client block end
     },
 }

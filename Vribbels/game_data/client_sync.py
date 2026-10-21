@@ -65,7 +65,10 @@ HERE = Path(__file__).resolve().parent
 COMBATANTS = ("characters.py", "CHARACTERS", "combatants",
               ("name", "grade", "attribute", "class", "base_atk", "base_def",
                "base_hp", "base_crit_rate", "base_crit_dmg", "node_50",
-               "node_60", "level_gains"))
+               "node_60", "level_curve", "level_gains"))
+# The two fields that state the steps to 61 and 62 (`_level_terms`),
+# last in the entry; the facts state neither under its own name.
+LEVEL_FIELDS = ("level_curve", "level_gains")
 PARTNERS = ("partners.py", "PARTNERS", "partners",
             ("name", "grade", "class", "passive_name", "passive_desc",
              "values", "stats", "ego_name", "ego_cost", "ego_desc"))
@@ -93,23 +96,41 @@ def combatant_entry(fact, whole=True):
     combatant only the client knows; else only what the client states,
     for a `# client` value to take."""
     from .characters import DEFAULT_CHARACTER
-    stated = {field: fact[field] for field in COMBATANTS[3][:-1]
+    plain = [field for field in COMBATANTS[3] if field not in LEVEL_FIELDS]
+    stated = {field: fact[field] for field in plain
               if fact.get(field) is not None}
     gains = {}
     for level, steps in (fact.get("level_gains") or {}).items():
         if isinstance(steps, dict) and str(level).isdigit():
             gains[int(level)] = {stat: steps.get(stat, 0)
                                  for stat in ("atk", "def", "hp")}
-    if gains:
-        stated["level_gains"] = dict(sorted(gains.items()))
+    levels = _level_terms(dict(sorted(gains.items())), stated.get("class"),
+                          stated.get("grade"))
+    stated.update(levels)
     if not whole:
         return stated
     entry = {field: stated.get(field, copy.deepcopy(DEFAULT_CHARACTER.get(field)))
-             for field in COMBATANTS[3][:-1]}
-    if gains:
-        entry["level_gains"] = stated["level_gains"]
+             for field in plain}
+    entry.update(levels)
     entry[FROM_CLIENT] = True
     return entry
+
+
+def _level_terms(gains, cls, grade):
+    """The steps to levels 61 and 62 as `characters.py`'s hand entries
+    state them: nothing where the combatant's own class and grade's
+    curve holds them (`LEVEL_BONUS_BY_CLASS`), a `level_curve` naming
+    the one other pair whose curve does, else the steps themselves as
+    `level_gains` -- for steps no curve holds, or several pairs share
+    and the facts cannot say whose they are."""
+    from .characters import LEVEL_BONUS_BY_CLASS
+    if not gains or LEVEL_BONUS_BY_CLASS.get((cls, grade)) == gains:
+        return {}
+    pairs = [pair for pair, curve in sorted(LEVEL_BONUS_BY_CLASS.items())
+             if curve == gains]
+    if len(pairs) == 1:
+        return {"level_curve": pairs[0]}
+    return {"level_gains": gains}
 
 
 def partner_entry(fact, whole=True):
