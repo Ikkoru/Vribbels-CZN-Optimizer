@@ -51,6 +51,7 @@ OPENER = "TALENT_OPENING"
 # "When this card is Discarded, proc this card": a deck procs it by
 # discarding it, for no AP (plan D67).
 QUIETUS = "TALENT_TESTAMENT"
+TESTAMENT = "SKILL_EFF_CARD_TESTAMENT"
 # Keywords whose cost the battle lowers (plan D19): Ignition, once a
 # card is Exhausted, and Lead, by chance at the start of the turn.
 COST_KEYWORDS = {"TALENT_IGNITE": "Ignition: 1 less once a card is Exhausted",
@@ -433,7 +434,11 @@ def played(held, catalogue):
         if keyword in talents and priced:
             cost.unknown.append((-1, why))
     printed = None
-    if QUIETUS in talents and priced:
+    # Quietus is a keyword, or an effect of the card's own, such as the
+    # Persona effect "When this card is Discarded, proc this card".
+    quietus = QUIETUS in talents or any(
+        catalogue.effects.get(effect, {}).get("eff") == TESTAMENT for effect in effects)
+    if quietus and priced:
         printed, cost.value = cost.value, 0
         reader.notes.append(f"Quietus: procced by a discard, for no AP "
                             f"(it prints {printed})")
@@ -801,6 +806,33 @@ class TeamTurns:
     # Whether some figure in the regular turns is the battle's.
     unknown: bool = False
     setup: SetupPlan = field(default_factory=SetupPlan)
+    # The team's Desire points per keyword (plan D26), by the game's
+    # name, and what the passives they unlock bring to the turn, each the
+    # battle's.
+    desire: dict = field(default_factory=dict)
+    notes: list = field(default_factory=list)
+
+
+# Season 4's Desire keywords by the wire's numbers, and the passives that
+# reach the turn (plan D26, the maintainer's account; the client gives
+# them in words only): Inquiry's draw at 5 points, and the Desire
+# Manifestation cards any keyword's 7 points start making.
+DESIRE_NAMES = {48: "Inquiry", 49: "Control", 50: "Claim", 51: "Survival"}
+INQUIRY_DRAW_AT = 5
+MANIFESTATION_AT = 7
+
+
+def _desire_notes(points):
+    notes = []
+    if points.get(48, 0) >= INQUIRY_DRAW_AT:
+        notes.append("Inquiry 5: draw 1 each time a debuff is applied, at most "
+                     "twice a turn")
+    for keyword, held in sorted(points.items()):
+        if held >= MANIFESTATION_AT:
+            notes.append(f"{DESIRE_NAMES.get(keyword, keyword)} {held}: playing a "
+                         f"Desire card raises its counter, and at 10 it makes a 0-AP "
+                         f"Exhaust Desire Manifestation card in hand")
+    return notes
 
 
 # What a Ravage gives besides firing the On-Ravage effects: "On
@@ -830,4 +862,11 @@ def team_turns(team, catalogue, ravages=0):
         bonus_ap=sum(d.ap_adjustment for d in out.decks) + sum(b.turn_ap for b in every),
         start_draw=sum(b.start_draw for b in every),
         start_ap=sum(b.start_ap for b in every))
+    points = {}
+    for d in out.decks:
+        for held, _played in d.played:
+            for keyword, held_points in held.desire.items():
+                points[keyword] = points.get(keyword, 0) + held_points
+    out.desire = {DESIRE_NAMES.get(k, k): n for k, n in sorted(points.items())}
+    out.notes = _desire_notes(points)
     return out

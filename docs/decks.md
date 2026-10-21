@@ -137,7 +137,7 @@ The readings set aside, each failing decks the game accepted:
 - **A draw** is a `SKILL_EFF_CARD_DRAW`, or a card moved from the draw pile to hand: "Check 3 cards, select and draw one". A card that moves itself to hand needs no draw, so it counts as 1 drawn (plan D69).
 - **AP gained** is a `SKILL_EFF_ENERGY_CHANGE`, or another card's cost cut (plan D68): on each card a status sits on, or on every card a unit's status covers.
 - **The cost** is the version's printed cost, with the Epiphanies' and the Persona effects' changes. An X card's (−1) and one with none (−2) are the battle's. So is a cost the battle lowers: a cut the card's own status makes, Ignition and Lead (plan D19).
-- **A Quietus card costs 0** (plan D67): a deck procs it by discarding it. `Played.printed_cost` keeps its own.
+- **A Quietus card costs 0** (plan D67): a deck procs it by discarding it. Quietus is the keyword, or an effect of the card's own (`SKILL_EFF_CARD_TESTAMENT`): the Persona effect "When this card is Discarded, proc this card" is one. `Played.printed_cost` keeps its own.
 - **A free play** (`SKILL_EFF_CARD_USE`, plan D49) of a card from the draw pile is a card drawn; from among several piles, one the battle may grant. What it saves, the cost of the card it plays, is always `?` AP: which card that is, the battle decides. A card that plays itself again counts once, with a note.
 - **A status that lasts a number of uses** takes them from the effect that puts it on ("the next 2 times"), and its figures count once per use.
 - **A choice** takes its first option, and a note says so (plan D44).
@@ -153,6 +153,8 @@ The readings set aside, each failing decks the game accepted:
 **A Combatant's own AP pool** (`turns.POOLS`, plan D47): Rita's Chronal Ascension, which her Chronicle stacks become at the start of the turn, pays for her Basic and Signature cards before the team's AP, once Chrono Archon is in the deck. Its cap is the client's (the Chronicle status's `overlay_value_max`); the user can set the deck's own (`Deck.ap_pool`). A regular turn's pool pays what her cards cost up to the cap (`DeckTurns.pool_saving`), and in the setup turns it starts the turn after Chrono Archon is played.
 
 **The team's regular turn** (`turns.team_turns`) has a surplus of the turn's own draw and AP plus every deck's nets (plan 3.1). The turn's figures are the client's battle constants (`catalogue.CONSTANTS`). A "?" figure counts as 0 in the sums, and the sum says some part is the battle's. **Ravages a turn** are the user's, 0 until set (plan D48): each adds 1 AP (`turns.RAVAGE_AP`, which the client says in words only), and the On-Ravage effects stay the battle's, shown "on Ravage" with their figures.
+
+**The team's Desire points** (`TeamTurns.desire`, plan D26) sum each Desire card's points per keyword across the three decks. What their passives bring to the turn is the battle's and shows as notes (`TeamTurns.notes`): Inquiry's draw at 5 points, and the Desire Manifestation cards a keyword's 7 points start making (`turns.INQUIRY_DRAW_AT`, `MANIFESTATION_AT`, from the maintainer's account; the client gives them in words only).
 
 **The setup turns** (`turns.plan_setup`, plan D72) assume a perfect draw. Each turn starts with the turn's cards in hand and its AP, the bonuses and corrections each turn, the start-of-battle bonuses in turn 1, and the lasting effects of the setup cards played in earlier turns:
 

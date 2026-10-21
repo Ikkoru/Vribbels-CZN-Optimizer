@@ -151,6 +151,7 @@ def _catalogue():
         "battle_draw": _effect(DRAW, operation="OPERATION_TRIGGER",
                                eff_link_condition_id="cd_battle"),
         "chance": _effect(DRAW, run_pct="30"),
+        "testament": _effect("SKILL_EFF_CARD_TESTAMENT", operation="OPERATION_PASSIVE"),
         "free_deck": _effect("SKILL_EFF_CARD_USE", target_card_set="CARD_SET_ALL",
                              target_card_set_list_card_place="CARD_PLACE_DECK"),
         "free_hand": _effect("SKILL_EFF_CARD_USE", target_card_set="CARD_SET_ALL",
@@ -248,6 +249,7 @@ def _catalogue():
         "c_9_chance": _card(effects=["chance"]),
         "c_9_free_deck": _card(effects=["free_deck"]),
         "c_9_free_hand": _card(effects=["free_hand"]),
+        "card_ds04_des_10012": _card(name="Desire"),
         # Rita's AP pool (plan D47), under her own ids, which the pool's
         # table names.
         "c_30097_srt4": _card(category="CARD_POWER", name="Chrono Archon"),
@@ -268,7 +270,12 @@ def _catalogue():
         "persona": {"effects": {"p_dearer": {"effects": ["ap1"],
                                              "add_talents": ["TALENT_RETAIN"],
                                              "add_cost": 1,
-                                             "add_cost_sign": "MATHSIGN_ADD"}}},
+                                             "add_cost_sign": "MATHSIGN_ADD"},
+                                # "When this card is Discarded, proc this
+                                # card", which also adds 1 to the cost.
+                                "p_discard": {"effects": ["testament"], "add_talents": [],
+                                              "add_cost": 1,
+                                              "add_cost_sign": "MATHSIGN_ADD"}}},
         "equipment": {
             "eq_9_turn": {"name": "Each Turn", "stars": {"1": {"statuses": ["st_eq_turn"]}}},
             # Its second star is the one that gives at the start of battle.
@@ -330,6 +337,8 @@ CASES = [
      (1, 1, 0), "regular", ""),
     ("a card played for free from hand", "c_9_free_hand", {}, (1, 0, 0), (1, 0, 0),
      "regular", ""),
+    ("a card a Persona effect makes procced by a discard", "c_9_base",
+     {"persona": ("p_discard",)}, (0, 0, 0), (0, 0, 0), "regular", "it prints 3"),
 ]
 
 
@@ -458,6 +467,15 @@ def _pool_report():
     if team.ap_surplus - plain.ap_surplus != 2:
         out.append(f"two Ravages a turn add {team.ap_surplus - plain.ap_surplus} AP to the "
                    f"surplus, not 2 (plan D48). See `team_turns`.")
+    desire = turns.team_turns(Team(decks=[
+        Deck(combatant=9, cards=[DeckCard("card_ds04_des_10012", desire={48: 2, 50: 1})]),
+        Deck(combatant=9, cards=[DeckCard("card_ds04_des_10012", desire={48: 3})])]),
+        catalogue)
+    if desire.desire != {"Inquiry": 5, "Claim": 1}:
+        out.append(f"the team's Desire points sum to {desire.desire}, not Inquiry 5 and "
+                   f"Claim 1 (plan D26). See `team_turns` in decks/turns.py.")
+    if not any(note.startswith("Inquiry 5") for note in desire.notes):
+        out.append("Inquiry at 5 points does not note its draw per debuff (plan D26).")
     return out
 
 
@@ -822,4 +840,12 @@ FAULTS = [
     ("a free play's saved cost not shown", "decks.turns:_Reader.read",
      'self.ap.unknown.append((None, "AP: the cost of each card it plays for free"))',
      "pass", "a free play's saved cost"),
+    ("a Persona's discard proc priced", "decks.turns:played",
+     'catalogue.effects.get(effect, {}).get("eff") == TESTAMENT for effect in effects)',
+     "False for effect in effects)", "procced by a discard"),
+    ("the team's Desire points not summed", "decks.turns:team_turns",
+     "points[keyword] = points.get(keyword, 0) + held_points", "pass",
+     "the team's Desire points sum"),
+    ("Inquiry's draw not noted", "decks.turns:_desire_notes",
+     "if points.get(48, 0) >= INQUIRY_DRAW_AT:", "if False:", "Inquiry at 5 points"),
 ]
