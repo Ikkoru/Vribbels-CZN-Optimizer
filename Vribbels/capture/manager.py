@@ -1329,8 +1329,9 @@ class Addon:
         if self._held_drops and nested:
             stated = self._settle_held_run(nested)
         else:
-            for envelope in nested:
-                stated |= self._apply_totals(envelope)
+            for envelope, judged in zip(nested,
+                                        self._judged_together(nested)):
+                stated |= self._apply_totals(envelope, judged=judged)
         if asked == CHAOS_CLOSES:
             self._flush_held_drops()
 
@@ -2976,7 +2977,59 @@ class Addon:
         walk(payload, depth)
         return found
 
-    def _apply_totals(self, result, spent=False, report=True):
+    def _judged_together(self, envelopes):
+        """For each of one reply's envelopes, {res_id: the total that
+        would make its figure for that holding a restatement}, for the
+        holdings another envelope of the reply names too.
+
+        **Two envelopes of one reply can each pay the same holding**,
+        and both state the same total, the two `diff`s together: a
+        Galactic Disaster clear restates the run's pay under
+        `result_reward_drop_item` and pays the difficulties' first
+        clears under `disaster_chaos_result.item_result`. Told by the
+        cache one after the other, the second finds the total the first
+        has just written and passes for a restatement, and the first
+        clears' whole payout reaches no line.
+
+        So each is told by the cache as the reply found it plus what the
+        OTHER envelopes moved: a figure is a restatement where the rest
+        account for the whole total, and new where they leave some of
+        it unexplained."""
+        diffs = []
+        for envelope in envelopes:
+            moved = {}
+            for group in ("items", "currency"):
+                for entry in (envelope.get(group) or {}).values():
+                    doc = entry.get("doc") if isinstance(entry, dict) else None
+                    diff = entry.get("diff") if isinstance(entry, dict) else None
+                    if (isinstance(doc, dict) and "res_id" in doc
+                            and isinstance(diff, (int, float))):
+                        moved[doc["res_id"]] = diff
+            diffs.append(moved)
+        out = []
+        for index, moved in enumerate(diffs):
+            others = [held for at, held in enumerate(diffs) if at != index]
+            judged = {}
+            for res_id in moved:
+                if not any(res_id in held for held in others):
+                    continue
+                was = self._held_amount(res_id)
+                if isinstance(was, (int, float)):
+                    judged[res_id] = was + sum(held.get(res_id, 0)
+                                               for held in others)
+            out.append(judged)
+        return out
+
+    def _held_amount(self, res_id):
+        """What the cache holds of one item or currency, or None."""
+        for row in (self.inventory_data or {}).get("items") or ():
+            if isinstance(row, dict) and row.get("res_id") == res_id:
+                return row.get("amount")
+        record = ((self.character_data or {}).get("currencies")
+                  or {}).get(str(res_id))
+        return record.get("amount") if isinstance(record, dict) else None
+
+    def _apply_totals(self, result, spent=False, report=True, judged=None):
         """Apply a record that states what a holding NOW IS.
 
         Shape: {"items": {res_id: entry}, "currency": {res_id: entry}},
@@ -2984,7 +3037,10 @@ class Addon:
         same shape the cache already holds -- and `diff`, how much of it
         moved. `add_result`, `item_result` and `dec_result` all use it;
         `spent` only picks the word for the log, and `report=False`
-        leaves the line to the caller.
+        leaves the line to the caller. `judged` is {res_id: the total
+        to tell a restatement by}, for the holdings another envelope of
+        the same reply also names (`_judged_together`); the rest are
+        told by the cache.
 
         **`doc.amount` is the total, not the change.** It is written in
         rather than added to, so a frame seen twice cannot double a
@@ -3025,6 +3081,7 @@ class Addon:
                     was = next((row.get("amount") for row in held
                                 if isinstance(row, dict)
                                 and row.get("res_id") == doc["res_id"]), None)
+                    was = (judged or {}).get(doc["res_id"], was)
                     self._replace_item(held, doc)
                     shift = self._shift(was, doc, entry)
                     if shift:
@@ -3040,6 +3097,7 @@ class Addon:
                     if not isinstance(doc, dict) or "res_id" not in doc:
                         continue
                     was = (held.get(str(doc["res_id"])) or {}).get("amount")
+                    was = (judged or {}).get(doc["res_id"], was)
                     held[str(doc["res_id"])] = doc
                     shift = self._shift(was, doc, entry)
                     if shift:

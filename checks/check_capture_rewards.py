@@ -524,6 +524,40 @@ def run():
             f"{before_item!r} to {_amount(addon, ITEM_ID)!r}. It is "
             f"reported, never applied.")
 
+    # **Two envelopes of one clear can pay the same holding.** A Galactic
+    # Disaster clear restates the run's pay, already applied drop by
+    # drop, under `result_reward_drop_item`, and pays the difficulties'
+    # first clears under `disaster_chaos_result.item_result`: both state
+    # the holding's one total, with a `diff` each. The first clears are
+    # the payout to announce; the restatement is not.
+    log.clear()
+    before_item = _amount(addon, ITEM_ID)
+    total = before_item + 1000
+    addon._handle_server_payload({
+        "res": "ok", "qid": 82,
+        "return_info": {
+            "state": "finish", "result": "CLEAR",
+            "result_reward_drop_item": {"items": {str(ITEM_ID): {
+                "doc": {"res_id": ITEM_ID, "amount": total}, "diff": 48}}},
+            "disaster_chaos_result": {"item_result": {"items": {
+                str(ITEM_ID): {"doc": {"res_id": ITEM_ID, "amount": total},
+                               "diff": 1000}}}},
+            "confirm_drop_item": [{"id": ITEM_ID, "amount": 48}]},
+    }, 100)
+    said = " ".join(str(line) for line in log if "Received" in str(line))
+    if _amount(addon, ITEM_ID) != total:
+        failures.append(
+            f"a clear paying first clears beside its run's restated pay left "
+            f"{ITEM_ID} at {_amount(addon, ITEM_ID)!r}, not {total}.")
+    if "+1000" not in said or "+48" in said:
+        failures.append(
+            f"a clear paying 1000 in first clears beside its run's restated "
+            f"48 wrote {said!r}: the first clears are the payout and the 48 "
+            f"is the run's pay again. Each of one reply's envelopes is told "
+            f"by what the others moved (`_judged_together`); told by the "
+            f"cache one after the other, the second passes for a "
+            f"restatement of the first.")
+
     # A town calamity pays under `calamity_reward`, in the same
     # `{currency, items}` shape as the four keys beside it.
     log.clear()
@@ -850,3 +884,13 @@ def run():
                 f"printed twice. Compare the total with the last receipt.")
 
     return failures
+
+
+# What this check must catch, for `checks/faults.py`.
+FAULTS = [
+    ("one reply's envelopes told by the cache one after the other",
+     "capture.manager:ADDON_TEMPLATE",
+     "stated |= self._apply_totals(envelope, judged=judged)",
+     "stated |= self._apply_totals(envelope)",
+     "a clear paying 1000 in first clears"),
+]
