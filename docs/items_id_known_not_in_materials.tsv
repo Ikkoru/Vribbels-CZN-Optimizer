@@ -1,52 +1,56 @@
 res_id	where	amount	Name	Type	Note	Explanation
-2000002	currencies	89	Aether	Stamina	Max 320 stored at max Ark upgrade level. 1 per 6min recovered	
+2000002	currencies	106	Aether	Stamina	Max 320 stored at max Ark upgrade level. 1 per 6min recovered	
 2000005	currencies	0	Skill Points			
-2000006	currencies	3	Ark Tour Pass		The Communication Pass's item (client currency_define town_visit_ticket), never debited: held at 3 across a day's 5 Excursions in three logs. The day's allowance is client town_visit_ticket_max (3) plus 1 for each of town research nodes 126 and 149 (VISIT_TICKET_MAX__NUM); excursions.daily_passes
-2000007	currencies	23	Clockwork of Time	In-game Dice Reroll Resource	Max 25 stored. 25 recharged daily	
+2000006	currencies	3	Ark Tour Pass		The Communication Pass's item (client currency_define town_visit_ticket), never debited: held at 3 across a day's 5 Excursions in three logs. The day's allowance is client town_visit_ticket_max (3) plus 1 for each of town research nodes 126 and 149 (VISIT_TICKET_MAX__NUM); excursions.daily_passes	
+2000007	currencies	21	Clockwork of Time	In-game Dice Reroll Resource	Max 25 stored. 25 recharged daily	
 2000008	currencies	0	The Engine of Time			
-2000011	currencies	369	Moment of the Radiant Hero	Shop Currency		
-2000012	currencies	118	Moment of the Radiant Traveler	Shop Currency		
+2000011	currencies	563	Moment of the Radiant Hero	Shop Currency		
+2000012	currencies	3538	Moment of the Radiant Traveler	Shop Currency		
 2000013	currencies	0	Prism Module			
-2000014	currencies	5	Tear of God	Stamina Recovery		
-2000016	currencies	159	Rescue Anchor	Gacha Currency		
+2000014	currencies	6	Tear of God	Stamina Recovery		
+2000016	currencies	165	Rescue Anchor	Gacha Currency		
 2000017	currencies	0	Prism of Support			
-2000018	currencies	44	Research Notes	Ark - Upgrade Currency		
-2000020	currencies	70	Zeronium	Shop Currency		
+2000018	currencies	50	Research Notes	Ark - Upgrade Currency		
+2000020	currencies	410	Zeronium	Shop Currency		
 2000021	currencies	0	Zero Access			
-2000022	currencies	3	Special Security Code	Trauma Code Unlock Item	Max 3 stored	
-2000023	currencies	67	Prism Lens	Gacha Currency - Animated Card		
-2000024	currencies	600	Prism Film	Shop Currency		
-2000031	currencies	79	Policy Point	Ark - Shop Currency		
-2000032	currencies	10800	Crystal of Discord	Shop Currency		
+2000022	currencies	2	Special Security Code	Trauma Code Unlock Item	Max 3 stored	
+2000023	currencies	5	Prism Lens	Gacha Currency - Animated Card		
+2000024	currencies	840	Prism Film	Shop Currency		
+2000031	currencies	19	Policy Point	Ark - Shop Currency		
+2000032	currencies	15150	Crystal of Discord	Shop Currency		
 2000033	currencies	3	Spectral Cube			
 2000034	currencies	0	Chaos Architect			
 2000048	currencies	0	Command Delegation Module	Time-Limited Command Delegation Module - 1 Day	Daily free Chaos Delegation	
-3000005	items	45451	Chaos Orb	Zero System Currency	Worthless	
-3000008	items	600	Tactical Data	Sortie Currency		
-3000009	items	0	Memory of Light	Zero System Currency - Seasonal	Season 4's Environment Variables currency (client disaster_season.season_circle_material_link_item_id); reset when a Galactic Disaster ends. Season 3's was 3000007, season 5's is 3000010. Every one is named by item@name@3000006; the text under 3000009's own id, Tactical Manual Processor, is one the game no longer shows
-3200001	items	3765	Particles of Memory	Crafting Material for Memory Fragments		
-3200002	items	59	Core of Memory	Crafting Material for Memory Fragments		
-3210001	items	9238	Traces of Memory	Crafting Material for Memory Fragments		
-3210002	items	25	Multidimensional Alignment Material	Crafting Material for Memory Fragments		
-3300001	items	16	Sweet Choconilla	Gift Item	Common	
-3300002	items	38	Exquisite Slice of Cake	Gift Item	Rare	
+2000054	currencies	0	Lumina Lens			
+2000055	currencies	0	Remnant of a Brilliant Moment			
+2000056	currencies	1	Remnant of a Shining Moment			
+3000005	items	46586	Chaos Orb	Zero System Currency	Worthless	
+3000008	items	27	Tactical Data	Sortie Currency		
+3000009	items	0	Memory of Light	Zero System Currency - Seasonal	Season 4's Environment Variables currency (client disaster_season.season_circle_material_link_item_id); reset when a Galactic Disaster ends. Season 3's was 3000007, season 5's is 3000010. Every one is named by item@name@3000006; the text under 3000009's own id, Tactical Manual Processor, is one the game does not show
+3000010	items	23	Memory of Light	Zero System Currency - Seasonal	Season 5's Environment Variables currency (client disaster_season.season_circle_material_link_item_id); reset when a Galactic Disaster ends. Named by item@name@3000006, like 3000009
+3200001	items	5565	Particles of Memory	Crafting Material for Memory Fragments		
+3200002	items	163	Core of Memory	Crafting Material for Memory Fragments		
+3210001	items	10704	Traces of Memory	Crafting Material for Memory Fragments		
+3210002	items	29	Multidimensional Alignment Material	Crafting Material for Memory Fragments		
+3300001	items	0	Sweet Choconilla	Gift Item	Common	
+3300002	items	0	Exquisite Slice of Cake	Gift Item	Rare	
 3300003	items	6	Wing Step A-50	Gift Item	Legendary	
 3300004	items	3	Mysterious Encyclopedia	Gift Item	Legendary	
 3300005	items	4	Perfect Spray Gun	Gift Item	Legendary	
-3300006	items	15	Locket Necklace of Memories	Gift Item	Rare	
+3300006	items	3	Locket Necklace of Memories	Gift Item	Rare	
 3300007	items	6	Excellent Merit Badge	Gift Item	Rare	
-3300008	items	30	Lucky Sachet	Gift Item	Rare	
+3300008	items	34	Lucky Sachet	Gift Item	Rare	
 3300009	items	3	Hidden Card	Gift Item	Legendary	
-3300010	items	3	Strange Decoration	Gift Item	Rare	
-3300011	items	9	Carefully Handwritten Letter	Gift Item	Legendary	
-3300012	items	5	Heartbeat Perfume	Gift Item	Common	
-3300013	items	59	Cute Rabbit Doll	Gift Item	Common	
+3300010	items	7	Strange Decoration	Gift Item	Rare	
+3300011	items	3	Carefully Handwritten Letter	Gift Item	Legendary	
+3300012	items	9	Heartbeat Perfume	Gift Item	Common	
+3300013	items	64	Cute Rabbit Doll	Gift Item	Common	
 3300014	items	4	Nightmare-Repelling Dreamcatcher	Gift Item	Legendary	
-3300015	items	4	Legendary Combat Manual	Gift Item	Legendary	
-3300016	items	20	Handmade Wooden Doll	Gift Item	Common	
+3300015	items	3	Legendary Combat Manual	Gift Item	Legendary	
+3300016	items	3	Handmade Wooden Doll	Gift Item	Common	
 3300017	items	10	Heartfelt Guitar Pick	Gift Item	Legendary	
-3300018	items	18	A Not So Boring Wait	Gift Item	Rare	
-3300019	items	28	Midsummer Night Fireworks	Gift Item	Rare	
+3300018	items	20	A Not So Boring Wait	Gift Item	Rare	
+3300019	items	32	Midsummer Night Fireworks	Gift Item	Rare	
 3300020	items	22	Limited Edition Teddy Bear	Gift Item	Rare	
 3310005	items	0	B-Grade Policy Report	Ark - Policy		
 3310006	items	0	A-Grade Policy Report	Ark - Policy		
@@ -56,19 +60,21 @@ res_id	where	amount	Name	Type	Note	Explanation
 3920004	items	0	Dice			
 3920005	items	0	Tracking Dice			
 3920006			Flawless Melody	Flawless Melody	Galactic Disaster Season 3 Event Currency	
-3920007	items	2005	Black Mass	Sortie Currency		
+3920007	items	4739	Black Mass	Sortie Currency		
 3920013	items	5	Core of the Reverse	Save Data Edit		
-3920014	items	8	Core of Annihilation	Save Data Edit		
-3920015	items	50	Colorless Core	Save Data Edit		
-3920022	items	11	Abyssal Core	Save Data Edit		
-3920023	items	4	Core of Archetype	Save Data Edit		
-3920024	items	4	Core of Potential	Save Data Edit		
+3920014	items	9	Core of Annihilation	Save Data Edit		
+3920015	items	52	Colorless Core	Save Data Edit		
+3920022	items	9	Abyssal Core	Save Data Edit		
+3920023	items	3	Core of Archetype	Save Data Edit		
+3920024	items	5	Core of Potential	Save Data Edit		
 3920029	items	3	Core of Variables	Save Data Edit		
 3920030	items	2	Core of Phase	Save Data Edit		
 3920031	items	13	Enrapturing Crystal	Seasonal Event Currency	Galactic Disaster Season 4 Event Currency	
+3920032	items	21684	Relic of a Frozen Civilization	Seasonal Event Currency	Galactic Disaster Season 5 Event Currency
 3930002			Torn Fairy Tale Book Page		Couldn't find any 10s. Possibly an event item, because it was gone from the snapshot after new patch dropped	
 3930003	items	4	Core of Resonance	Save Data Edit		
-3930004	items	13	Core of Mutation	Save Data Edit		
+3930004	items	6	Core of Mutation	Save Data Edit		
+3930006	items	600	Nightmare Token [Free]			
 4010001	items	1	Summer Event Illustration Item (1st)		Summer 2026 Hilde - Main Screen Background candidate	
 4010002	items	1	Summer Event Illustration Item (2nd)		Summer 2026 Arabella - Main Screen Background candidate	
 4010003	items	1	Summer Event Illustration Item (3rd)	Main Screen Background	Summer 2026 Olga	
@@ -78,6 +84,8 @@ res_id	where	amount	Name	Type	Note	Explanation
 4100006	items	0	Half-Anniversary Card [Partners]			
 4100007	items	0	Recruitment Contract – Partner			
 4100010	items	0	Selective Combatant Rescue Card			
+4100011	items	1	1st Nightmare Card [Combatant]			
+4100012	items	1	1st Nightmare Card [Partner]			
 5100001	items	0	Memory Code - Nia			
 5100003	items	0	Memory Code - Selena			
 5100005	items	0	Memory Code - Khalipe			
@@ -96,11 +104,12 @@ res_id	where	amount	Name	Type	Note	Explanation
 5100042	items	0	Memory Code - Owen			
 5100049	items	0	Memory Code - Haru			
 5100055	items	0	Memory Code - Rei			
-5100064	items	0	Memory Code - Yuki			
+5100064	items	1	Memory Code - Yuki			
 5100066	items	0	Memory Code - Sereniel			
 5100067	items	0	Memory Code - Narja			
 5100068	items	0	Memory Code - Nine			
 5100069	items	0	Memory Code - Tiphera			
+5100070	items	1	Memory Code - Rita			
 5100073	items	0	Memory Code - Heidemarie			
 5100074	items	0	Memory Code - Adelheid			
 5110001	items	4	Omega Code	Omega Code		
@@ -131,6 +140,7 @@ res_id	where	amount	Name	Type	Note	Explanation
 5201081	items	0	Prism Module - Hilde		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it	
 5201082	items	0	Prism Module - Arabella		Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it	
 5201083	items	0	Prism Module - Olga	Animated Card Unlock Item	Animated Card Unlock Item, one per combatant. Spent by `purchase_card_animation`, whose request carries the `char_res_id` it belongs to -- unlock one animation to name it (this one is char 30117)	
+5201084	items	0	Prism Module - Rossweisse			
 5210000			Prism Module - Nominate	Animated Card Unlock Item - 4*	Seen only in shop_res_data (card_factor_4, 200 Prism Lens, 3/month); the account has never held one, which is why no dump listed it	
 5210001	items	1	Prism Module - Masterpiece	Animated Card Unlock Item - 5*		
 9100012	items	1	Forbidden Purple			
@@ -254,6 +264,7 @@ res_id	where	amount	Name	Type	Note	Explanation
 9300289	items	1	Haven’t Bought In Yet		Galactic Medal or Sticker candidate	
 9300290	items	1	I bought in yesterday		Galactic Medal or Sticker candidate	
 9300291	items	1	Full-Scale Offensive Sticker	Sticker		
+9300298	items	1	Bulwark Breaker			
 9400008	items	2	Forbidden Catalyst Chizuru	Sticker		
 9400009	items	2	Forbidden Catalyst Sereniel		Sticker candidate	
 9400010	items	1	Seed of Karmic Fire Nine		Sticker candidate	
@@ -280,6 +291,8 @@ res_id	where	amount	Name	Type	Note	Explanation
 9400064	items	1	Shattered Light and Claw - Olga		Sticker candidate	
 9400065	items	1	Shattered Light and Claw - Anis		Sticker candidate	
 9400072	items	1	Lethal Elegance		Sticker candidate	
+9400073	items	1	Nightmare Carnival			
+9400079	items	1	Nightmare Carnival Celebration Renoa			
 9400080	items	1	Arky	Sticker	CZN x Epic Seven collab	
 9400081	items	1	Kayron	Sticker	CZN x Epic Seven collab	
 9400082	items	1	Witch of the Mere Tenebria	Sticker	CZN x Epic Seven collab	
@@ -305,7 +318,16 @@ res_id	where	amount	Name	Type	Note	Explanation
 9400102	items	1	Bubble Echo	Sticker	Bartender Event sticker reward	
 9400103	items	1	Mirror Lake	Sticker	Bartender Event sticker reward	
 9400104	items	1	CZN x Epic Seven	Background - Save Data	CZN x Epic Seven collab	
+9400106	items	1	Rossweisse's Celebration			
 9400107	items	1	Rabbit Veronica	Sticker	Golden Autumn's Invitation daily login event	
 9400108	items	1	Sereniel's Vacation	Sticker		
+9400110	items	1	Shrug (Cassius)			
+9400111	items	1	Sob (Adelheid)			
+9400113	items	1	Surprise (Veronica)			
 9700001	items	1	The Last of Summer in a Glass	Jukebox Disc		
 9700002	items	1	Waves Underneath the Stars	Jukebox Disc		
+9800001	items	1	Rock Star Instinct			
+9800003	items	1	Model Student's Excitement			
+9800004	items	1	Magician's Diversion			
+9800110	items	1	A Mercenary's Day Off			
+9900007	items	1	Exciting Summer Vacation			

@@ -68,6 +68,10 @@ SHIPPED = {
         "marks": {"k5": (60, 1.43), "e": (90, 0.36), "b1": (0, 0.36),
                   "b1+k5": (60, 0.07)},
     },
+    "disaster_s05": {
+        "bosses": {1: {17: 144, 28: 144, 31: 60}},
+        "marks": {"k5": (48, 3.0), "b1": (0, 1.0)},
+    },
 }
 
 # Rule 3: the share of a floor's payouts the highest must make up to

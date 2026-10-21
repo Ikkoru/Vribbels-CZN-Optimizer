@@ -23,7 +23,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Gacha History: a Seasonal rerun's pulls count with the release banners' even before the program has read any banner's rates.
 - Memory Fragments: Potential's average and middle 80% weigh each new substat by how often the game draws it.
 - Checklist: the Seasonal Shop is the Galactic Disaster Shop, the game's name for it.
-- Checklist: the Galactic Disaster Shop's whole-season estimate covers season 5. It counts both halves' Great Rift records and the story's rewards, and the weekly Chaos progress at what its score tiers pay, 5,000 a week.
+- Checklist: the Galactic Disaster Shop's whole-season estimate covers season 5. It counts both halves' Great Rift records and the story's rewards, the weekly Chaos progress at what its score tiers pay, 5,000 a week, and Celestial Bulwark's runs at what its own bosses and Rare Species pay.
 - Checklist: every row's maximum comes from the game client, so a patch that raises a cap, a pass's level or an Overclock's runs needs no program update. The Galactic Disaster Shop's pages open on the game's own dates.
 - Checklist: Excursions count down from your own daily Communication Passes, 3 plus one for each of the two town research nodes that add one, rather than a fixed 5.
 - Item, Chaos, Zero System and Memory Fragment set names come from the game client first, so an id a patch gives to another item shows the new item's name, and a renamed set shows its new name. The program's own names cover what the client does not name.
@@ -39,6 +39,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Items show the name the game shows. Every season's Memory of Light, the Memory Fragment set packages and several other packages showed another item's name, and two stickers each other's.
 - Combatants: a combatant wearing no Memory Fragments shows its stats on the Character card, not dashes.
 - A Memory Fragment set released after the program, such as Veiled Radiance, is listed in the Memory Fragments tab's Sets filter, so its fragments are no longer hidden while any set is unticked. The Character card shows it by name, not as Flex.
+- Capture Log: a Galactic Disaster clear that earns first-clear rewards shows all of them. Their Relic of a Frozen Civilization, Units and Traces of Memory were left out, and the run's own pay was shown a second time instead.
 - Checklist:
   - The Nightmare Carnival's events and this season's Virtual Tactical Simulations show their names, not their ids.
   - On the first launch after a patch, the shops name the items the patch added.

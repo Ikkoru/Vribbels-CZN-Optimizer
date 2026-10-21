@@ -52,6 +52,10 @@ def run():
 
     failures = []
     shipped = ce.SHIPPED[LIVE]
+    # The cases are read against season 4's figures alone: a later
+    # season shipped beside it becomes the one every season after it
+    # starts from, which is a reading of the table, not of the rules.
+    table = {LIVE: shipped}
     marks_a_run = sum(amount * rate
                       for amount, rate in shipped["marks"].values())
     part2 = sum(shipped["bosses"][2].values())
@@ -59,14 +63,14 @@ def run():
 
     # 1. The shipped figures alone.
     want = 21 * part2 + 21 * part2 + 21 * part3 + 63 * marks_a_run
-    got = ce.season_chaos(LIVE, [], [21, 21, 21], 1)
+    got = ce.season_chaos(LIVE, [], [21, 21, 21], 1, shipped=table)
     if not math.isclose(got, want):
         failures.append(
             f"season 4 at one run a day comes to {got!r}, not {want!r}: "
             f"each part's bosses times its days -- the first part "
             f"borrowing the second's -- plus the marks a run meets over "
             f"all 63 days.")
-    doubled = ce.season_chaos(LIVE, [], [21, 21, 21], 2)
+    doubled = ce.season_chaos(LIVE, [], [21, 21, 21], 2, shipped=table)
     if not math.isclose(doubled, 2 * want):
         failures.append(f"two runs a day come to {doubled!r}, not twice "
                         f"one run's {want!r}.")
@@ -83,7 +87,7 @@ def run():
                 f"without an update.")
 
     def floor17(live, runs, stale):
-        return ce.boss_table(live, 3, runs, None, ce.SHIPPED, stale)[17]
+        return ce.boss_table(live, 3, runs, None, table, stale)[17]
 
     fresh = [_run(LIVE, 3, [(17, 200)]), _run(LIVE, 3, [(17, 180)]),
              _run(LIVE, 3, [(17, 150)])]
@@ -98,7 +102,7 @@ def run():
     past = _run(LIVE, 3, [(17, 200)], marked={"k5": 9})
     past.update(via="zero_orb", stage=60000)
     if floor17(LIVE, [past], 0) != 180 or ce.mark_rates(
-            LIVE, [past] * ce.RATE_RUNS, ce.SHIPPED, 2, 0)[1] is not None:
+            LIVE, [past] * ce.RATE_RUNS, table, 2, 0)[1] is not None:
         failures.append(
             "a run of a past season's Chaos, entered through the Zero "
             "System, moved the live Chaos's figures. It pays the live "
@@ -138,7 +142,7 @@ def run():
     # 3. The rates.
     many = [_run("disaster_s07", 3, marked={"k5": 3}, closed=AFTER + i)
             for i in range(ce.RATE_RUNS)]
-    rates, counted = ce.mark_rates("disaster_s07", many, ce.SHIPPED, 2, 0)
+    rates, counted = ce.mark_rates("disaster_s07", many, table, 2, 0)
     if counted != ce.RATE_RUNS or rates.get("k5") != 3:
         failures.append(
             f"two seasons stale with {ce.RATE_RUNS} whole runs of three "
@@ -147,12 +151,12 @@ def run():
     for stale, runs, why in (
             (1, many, "one season stale"),
             (2, many[1:], f"{ce.RATE_RUNS - 1} runs")):
-        rates, counted = ce.mark_rates("disaster_s07", runs, ce.SHIPPED,
+        rates, counted = ce.mark_rates("disaster_s07", runs, table,
                                        stale, 0)
         if counted is not None:
             failures.append(f"{why}, the player's rates took over; both "
                             f"conditions have to hold.")
-    early = ce.mark_rates("disaster_s07", many, ce.SHIPPED, 2,
+    early = ce.mark_rates("disaster_s07", many, table, 2,
                           AFTER + 1)[1]
     if early is not None:
         failures.append("runs from before the release counted towards "
@@ -160,7 +164,7 @@ def run():
     events = ce.RATE_EVENTS
     try:
         ce.RATE_EVENTS = (("2026-01-01", "2099-01-01", "test"),)
-        if ce.mark_rates("disaster_s07", many, ce.SHIPPED, 2, 0)[1]:
+        if ce.mark_rates("disaster_s07", many, table, 2, 0)[1]:
             failures.append("runs inside a RATE_EVENTS window counted "
                             "towards the player's rates.")
     finally:
