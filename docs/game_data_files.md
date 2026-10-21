@@ -65,7 +65,7 @@ Each file's last column, `Explanation`, is the maintainer's own note on what the
 
 An id counts as "known" to the program only when an ITEM table names it. **`RECORDED_NAMES` is not one of those tables** — it is a plain id→name map, kept out of `ITEM_TABLES` because those items have no art and no established rarity. `RECORDED_ONLY` is its key set, and that is what keeps its ids on the worklist rather than promoting them.
 
-**The game client names every item**, and `item_names()` puts its names under the tables' and `RECORDED_NAMES`, so those only override. That map is what the running program names items with: the capture generator writes it into the addon's `ITEM_NAMES`, so a Capture Log line reads `Traces of Memory +40` rather than `3210001 +40`. An id nothing names stays a number there, and the Capture Log paints it dark yellow — a note that the line has just put a capture's worth of context beside a row of `items_id_unknown.tsv`. `python docs/client_tables.py --audit` lists every override that disagrees with the client, and `checks/check_capture_rewards.py` holds the worklist's names to the program's.
+**The game client names every item**, and `item_names()` puts its names over the tables' and `RECORDED_NAMES` (`hand_item_names()`), which name only what neither a client read nor the shipped table does: a patch can give an id to another item, and a name kept by hand would go on naming the old one. A client name with no letter or digit, its `???`, is no name. That map is what the running program names items with: the capture generator writes it into the addon's `ITEM_NAMES`, so a Capture Log line reads `Traces of Memory +40` rather than `3210001 +40`. An id nothing names stays a number there, and the Capture Log paints it dark yellow — a note that the line has just put a capture's worth of context beside a row of `items_id_unknown.tsv`. `python docs/client_tables.py --audit` lists every name of the tables' that disagrees with the client, and `checks/check_capture_rewards.py` holds the worklist's names to the program's.
 
 **A res_id's shape is `FFFF0GT`** — family, group, tier. The group digit is the CLASS in a promotion family (0 Striker, 1 Vanguard, 2 Hunter, 3 Ranger, 4 Psionic, 5 Controller) and the ELEMENT in a growth stone. The asset filenames disagree with the game's words in two places: `defender` draws Vanguard and `psionics` draws Psionic.
 
@@ -86,8 +86,10 @@ Node 7 per combatant: the bonus, the check and its growth, in the shape the modu
 **The in-game stat screen shows the base with Affection mixed in**, so a base typed in from it is wrong by the Affection bonus unless that is taken off first. The server sends the true figure instead: every battle's entry carries each combatant's `BASE_S_ATK/DEF/HP` at their level, and each partner's own flat stats. The capture files these (`capture_pipeline.md`, *The base stat readings are kept in a file of their own*), and `checks/check_base_stats_on_wire.py` fails on:
 
 - a combatant the readings settle differently from `characters.py`, or one it lacks;
-- a level-60 partner unlike `PARTNER_CLASS_STATS`;
+- a level-60 partner unlike `PARTNER_CLASS_STATS`, or one `partners.py` lacks;
 - a build whose sheet the program's stat formula does not reproduce.
+
+A unit the tables lack that was seen only as a guest the game put in the party is noted, not failed (`base_stats_store.own_units`): the capture marks one `guest`, and in a battle filed before it did, a request that sets the whole party (`PRESET_REQUESTS`) stands for the mark.
 
 **How a reading is settled** (`base_stats_store.resolve`):
 

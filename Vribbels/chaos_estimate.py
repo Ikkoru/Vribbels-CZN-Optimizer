@@ -84,7 +84,8 @@ RATE_RUNS = 200
 # then the base game's, which came with none. A Chaos keeps its stage id
 # whichever door it is entered by -- its own screen, the Galactic
 # Disaster's or the Zero System. Its `chaos_id` on the wire is beside
-# each: a run records both.
+# each: a run records both. The game client's names go over these
+# (`chaos_names`); these name what no client read holds.
 CHAOS_NAMES = {
     50000: ("Laboratory 0", "disaster_s01"),                 # chaos_06
     60000: ("Burning Life", "disaster_s02"),                 # chaos_07
@@ -107,7 +108,8 @@ CHAOS_NAMES = {
 # fewer marked ones, at an unmoved rate a fight. `v1_01` to `v1_04` are
 # Divine Intervention, one god's each, beside the Effect or without one;
 # the wire spells Kyrken `circen` and Sekred `secred`. `v1_05` to `v1_09`
-# are seasons 1 to 5's Effects. Each by the game's name for it.
+# are seasons 1 to 5's Effects. Each by the game's name for it, which
+# the client's own goes over (`zero_special_name`).
 # `docs/capture_pipeline.md`, *The Zero System's codex*.
 ZERO_SPECIALS = {
     "zero_orb_special_v1_01": "Kyrken's Oracle",
@@ -194,12 +196,12 @@ def is_current(run):
 
 
 def chaos_names():
-    """{stage id: (name, season)}: `CHAOS_NAMES` over the game client's
-    (`game_client.known_chaos_names`), so a Chaos a patch adds is named
-    by the client until the table names it, and the table's spelling
-    stands where both do."""
+    """{stage id: (name, season)}: the game client's
+    (`game_client.known_chaos_names`) over `CHAOS_NAMES`, so a stage a
+    patch adds or renames reads as the game names it, and the table
+    names what no client read and no shipped table holds."""
     import game_client
-    return {**game_client.known_chaos_names(), **CHAOS_NAMES}
+    return {**CHAOS_NAMES, **game_client.known_chaos_names()}
 
 
 def chaos_name(run):
@@ -218,12 +220,11 @@ def chaos_name(run):
 
 
 def zero_special_name(special):
-    """A Zero System special option by name: `ZERO_SPECIALS`'s, else the
-    game client's, else its id."""
-    if special in ZERO_SPECIALS:
-        return ZERO_SPECIALS[special]
+    """A Zero System special option by name: the game client's, else
+    `ZERO_SPECIALS`', else its id."""
     import game_client
-    return game_client.known_zero_specials().get(special, special)
+    return (game_client.known_zero_specials().get(special)
+            or ZERO_SPECIALS.get(special) or special)
 
 
 def payouts(run):

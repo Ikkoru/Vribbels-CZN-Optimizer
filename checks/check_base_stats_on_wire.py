@@ -246,10 +246,82 @@ def _row(rid, level, base, partner=(0, 0, 0), inner=None, layers=None):
             "layers": layers or {}}
 
 
-def _battle(rows, effects=None, when=1790000000, stage=1):
-    return {"stage": stage, "content": "x", "zero_system": effects is not None,
-            "effects": effects or [], "first": when, "last": when,
-            "chars": rows}
+def _battle(rows, effects=None, when=1790000000, stage=1, asked=None):
+    battle = {"stage": stage, "content": "x",
+              "zero_system": effects is not None,
+              "effects": effects or [], "first": when, "last": when,
+              "chars": rows}
+    if asked:
+        battle["asked"] = asked
+    return battle
+
+
+def _with_partner(row, pid, flat, guest=False):
+    """`row` with a level-60 partner's own record beside it, marked a
+    guest's where `guest`."""
+    row = {**row, "partner_id": pid, "partner_level": 60,
+           "partner_flat": list(flat)}
+    if guest:
+        row["guest"] = True
+    return row
+
+
+def _guests_are_not_missing():
+    """A unit the tables lack is missing only where the player picked it:
+    a guest the game put in the party -- marked so, or in a battle filed
+    before the mark by a request that sets the whole party -- is nobody
+    the tables lack, and a partner the tables lack is never held to the
+    default entry's class figures. Returns complaints."""
+    import base_stats_store as bs
+    preset = next(iter(bs.PRESET_REQUESTS))
+    found = bs.audit([
+        _battle([_with_partner(_row(999997, 60, [1, 2, 3]), 99001,
+                               (155, 5, 144)),
+                 _with_partner(_row(999995, 60, [7, 8, 9]), 99003,
+                               (155, 5, 144), guest=True)]),
+        _battle([_with_partner(_row(999996, 60, [4, 5, 6]), 99002,
+                               (155, 5, 144))], stage=2, asked=preset)])
+    out = []
+    if [row[0] for row in found["missing"]] != [999997]:
+        out.append(f"with an unknown combatant of the player's and two "
+                   f"guests -- one marked, one entered by {preset!r} -- the "
+                   f"audit reports {found['missing']} missing: a guest the "
+                   f"game put in the party is nobody the tables lack.")
+    if [row[0] for row in found["missing_partners"]] != [99001]:
+        out.append(f"the partners missing read {found['missing_partners']}, "
+                   f"not 99001 alone: a partner the tables lack is missing "
+                   f"where the player picked it.")
+    if any(row[0] in (99001, 99002, 99003) for row in found["partners"]):
+        out.append(f"a partner the tables lack was held to the default "
+                   f"entry's class figures: {found['partners']}. They say "
+                   f"nothing of it, and read as a stat the tables have wrong.")
+    if found["guests"] != [99002, 99003, 999995, 999996]:
+        out.append(f"the guests read {found['guests']}, not the two "
+                   f"combatants and two partners seen only as guests.")
+    return out
+
+
+def _a_guest_is_marked():
+    """The capture marks a unit the server calls `is_custom_char` a
+    guest, and adds no key to one of the player's. Returns complaints."""
+    import base_stats_store
+    folder = Path(tempfile.mkdtemp())
+    try:
+        own = {**_entry(1, 60, (500, 150, 300)), "is_own": True}
+        guest = {**_entry(2, 60, (400, 180, 320)), "is_custom_char": True}
+        _addon(folder)._note_base_stats("story_stage/enter_story_stage",
+                                        _reply([own, guest]))
+        battles, _builds, _note = base_stats_store.read_store(folder)
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+    rows = {r["res_id"]: r for b in battles for r in b["chars"]}
+    if rows.get(2, {}).get("guest") is not True or "guest" in rows.get(1, {}):
+        return [f"a battle with one of the player's units and a guest "
+                f"filed them as {rows}: the guest the server marks "
+                f"`is_custom_char` is filed `guest`, and the player's own "
+                f"adds no key, so a battle filed before still matches its "
+                f"next sighting."]
+    return []
 
 
 def _plus(base, add):
@@ -705,6 +777,13 @@ def _the_maintainers_readings(snapshots=None):
     for rid, level, wire, _last in found["missing"]:
         out.append(f"the server sent res_id {rid} at level {level} with "
                    f"base {wire}, and characters.py has no such combatant.")
+    for pid, level, wire, _last in found["missing_partners"]:
+        out.append(f"the server sent partner {pid} at level {level} with "
+                   f"flats {wire}, and partners.py has no such partner.")
+    if found["guests"]:
+        note(f"seen only as guests the game put in the party, so held to "
+             f"no table (base_stats_store.own_units): "
+             f"{', '.join(map(str, found['guests']))}")
     for name, cls, grade, level, gain in found["gains"]:
         out.append(f"{name} ({cls} grade {grade}) at level {level} gains "
                    f"{gain} over level 60 by the server, a gain the tables "
@@ -741,7 +820,39 @@ def _the_maintainers_readings(snapshots=None):
 def run():
     add_source_to_path()
     return (_the_capture_files_battles() + _a_mutated_deck_is_marked()
-            + _the_readings_resolve() + _node_7_leaves_the_solve()
+            + _the_readings_resolve() + _guests_are_not_missing()
+            + _a_guest_is_marked() + _node_7_leaves_the_solve()
             + _mutations_are_watched()
             + _the_overlay_answers() + _the_formula_holds()
             + _the_maintainers_readings())
+
+
+# What this check must catch, for `checks/faults.py`.
+FAULTS = [
+    ("a preset party's guest counted missing", "base_stats_store:audit",
+     "            if rid not in own:\n                guests.add(rid)\n"
+     "            elif None not in wire:",
+     "            if None not in wire:",
+     "nobody the tables lack"),
+    ("an unknown partner held to the default class",
+     "base_stats_store:audit",
+     "        if not isinstance(partner, dict):\n"
+     "            if pid not in own_partners:",
+     "        if False:\n            if pid not in own_partners:",
+     "default entry's class figures"),
+    ("a guest partner counted missing", "base_stats_store:audit",
+     "            if pid not in own_partners:\n                guests.add(pid)",
+     "            if False:\n                guests.add(pid)",
+     "missing where the player picked it"),
+    ("a marked guest taken for the player's", "base_stats_store:own_units",
+     'if isinstance(row, dict) and not row.get("guest"):',
+     "if isinstance(row, dict):", "a guest the game put in the party"),
+    ("a party-setting request not standing for the mark",
+     "base_stats_store:own_units",
+     'if battle.get("asked") in PRESET_REQUESTS:', "if False:",
+     "a guest the game put in the party"),
+    ("a guest not marked", "capture.manager:ADDON_TEMPLATE",
+     '            if rec.get("is_custom_char") is True:\n'
+     '                row["guest"] = True\n',
+     "", "is filed `guest`"),
+]

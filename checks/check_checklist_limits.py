@@ -4,8 +4,9 @@ Every `<current>/<max>` on the tab counts up to a figure the game sets:
 the day's Activity, the weekly currencies' caps, the Arkhianon Supply's
 week and level, the Simulation Challenges, the Offensive's stars, the
 Matrix's levels, the Chaos weekly score, the Great Rift's tier, an
-Overclock's runs, and the days a season's shop pages open on. Three
-ways this goes wrong with nothing to show for it:
+Overclock's runs, the days a season's shop pages open on, and the day's
+Communication Passes with the town research raising them. Three ways
+this goes wrong with nothing to show for it:
 
 1. **A table read wrong** puts a plausible number on a row: a cap of 0
    reads every holding as over it, a missing kind takes another's.
@@ -93,7 +94,26 @@ def _client(gc):
             {"id": "unlock_disaster_shop_1", "value": "20"},
             {"id": "unlock_disaster_shop_2", "value": "41"},
             {"id": "season_drop_item", "value": "3920001,3920002"}],
+        gc.TOWN_CONSTANTS: [
+            {"id": "town_enter_story", "value": "[town_enter_01]"},
+            {"id": "town_visit_ticket_max", "value": "4"}],
+        # Node 126 at two levels, 149 at one; another effect's node, and
+        # a node with a level missing, both left out.
+        gc.RESEARCH_LEVELS: [
+            _level("126", 1, "VISIT_TICKET_MAX__NUM", "[1]"),
+            _level("126", 2, "VISIT_TICKET_MAX__NUM", "[2]"),
+            _level("149", 1, "VISIT_TICKET_MAX__NUM", "[1]"),
+            _level("109", 1, "TOWN_VISIT_CHAR_MAX__LEVEL", "[1]"),
+            _level("150", 1, "VISIT_TICKET_MAX__NUM", "[1]"),
+            _level("150", 3, "VISIT_TICKET_MAX__NUM", "[3]")],
     })
+
+
+def _level(node, level, effect, figure):
+    """A town research node's row for one level."""
+    return {"id": "%s_%d" % (node, level), "link_town_research_id": node,
+            "node_level": str(level), "town_research_eff": effect,
+            "opt_1": figure}
 
 
 WANT = {
@@ -108,6 +128,8 @@ WANT = {
     "overclocks": {"event_overclock_live_15": 5},
     "disaster_constants": {"unlock_disaster_shop_1": 20,
                            "unlock_disaster_shop_2": 41},
+    "visit_tickets": 4,
+    "visit_research": {"126": [1, 2], "149": [1]},
 }
 
 
@@ -123,7 +145,9 @@ def _reader(gc):
                 f"{want!r}. Each is read off its own table "
                 f"(`game_client.limits`): a pass's dailies are its own "
                 f"missions resetting daily, an Offensive's stars its "
-                f"reward track's most, a retired pass none.")
+                f"reward track's most, a retired pass none, a research "
+                f"node only its own effect's and only with every level "
+                f"from 1.")
     # One table missing costs its own kind and nothing else.
     del client.tables[gc.WEEKLY_CHARGES]
     try:
@@ -156,7 +180,11 @@ def _snapshot():
         "stage_limit_entities": {"content_boss": {"count": 1,
                                                   "reset_time": NOW}},
         "mission_entities": {},
-        "characters": {"currencies": {"2000036": {"amount": 9}}},
+        "characters": {
+            "currencies": {"2000036": {"amount": 9}},
+            "town_data": {
+                "town_research_level_map": {"126": 2, "149": 1},
+                "day_changeable_data": {"use_town_visit_count": 1}}},
     }
 
 
@@ -171,7 +199,8 @@ def _rows(ct, gc):
                           ("supply_season", "75/80"),
                           ("simulation", "3/4"),
                           ("matrix", "100/120"),
-                          ("sortie_currency", "9/10")):
+                          ("sortie_currency", "9/10"),
+                          ("excursions", "6/7")):
             if not got.get(key) or got[key][0][0] != want:
                 out.append(
                     f"with the client's maximums the {key!r} row reads "
@@ -240,7 +269,9 @@ def _mismatches(ct, gc):
                                        ct.PASS_LEVEL_FULL,
                                        ct.PASS_DAILY_COUNT],
                    "season_pass_ch_002": [1, 1, 1]},
-        "simulation": {ct.SIMULATION_STAGE: ct.SIMULATION_RUNS}}
+        "simulation": {ct.SIMULATION_STAGE: ct.SIMULATION_RUNS},
+        "visit_tickets": ct.excursions.VISIT_TICKETS,
+        "visit_research": dict(ct.excursions.VISIT_RESEARCH)}
     try:
         gc.use({"limits": agreeing})
         quiet = ct.limit_mismatches()
@@ -256,7 +287,8 @@ def _mismatches(ct, gc):
     for word in ("ACTIVITY_FULL", "PASS_WEEK_EXP_FULL (season_pass_009)",
                  "SIMULATION_RUNS", "SORTIE_CAP", "MATRIX_LEVELS (zero_orb_5)",
                  "OFFENSIVE_BOSSES (remnants_boss_penalty_006)",
-                 "GREAT_RIFT_TARGET"):
+                 "GREAT_RIFT_TARGET", "excursions.VISIT_TICKETS",
+                 "excursions.VISIT_RESEARCH"):
         if not any(line.startswith(word + ":") for line in loud):
             out.append(
                 f"limit_mismatches did not name {word} where the client "
@@ -305,4 +337,19 @@ FAULTS = [
     ("the Chinese server's figures told", "ui.tabs.checklist_tab:"
      "limit_mismatches", 'if "_ch" not in key', "if key",
      "runs its own figures"),
+    ("another effect's research read", "game_client:_research_levels",
+     'if row.get("town_research_eff") != effect:', "if False:",
+     "only its own effect's"),
+    ("a research node read with a level missing",
+     "game_client:_research_levels",
+     "if node and sorted(levels) == list(range(1, len(levels) + 1))}",
+     "if node}", "every level from 1"),
+    ("the passes' base not the client's", "game_client:limits",
+     '"visit_tickets": lambda: _constant(client, TOWN_CONSTANTS,',
+     '"visit_tickets": lambda: 3 or _constant(client, TOWN_CONSTANTS,',
+     "a research node only its own"),
+    ("the passes' research not told",
+     "ui.tabs.checklist_tab:limit_mismatches",
+     'research if isinstance(research, dict) and research else None)',
+     "None)", "excursions.VISIT_RESEARCH"),
 ]

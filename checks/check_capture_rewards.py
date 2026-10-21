@@ -716,7 +716,7 @@ def run():
     # --- and every identification on the WORKLIST reaches the program --
     # `docs/items_id_known_not_in_materials.tsv` names each id, from the
     # game client or by hand, and the Capture Log names it from
-    # `item_names()`: the program's tables over the client's. A name
+    # `item_names()`: the client's names over the program's tables. A name
     # there that the program does not give leaves the log printing the
     # number, or another name, with nothing to say which is right.
     from game_data.constants import item_names

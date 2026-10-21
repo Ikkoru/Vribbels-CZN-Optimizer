@@ -21,10 +21,15 @@ Nothing else in a row is a count: `experienced_visit_order` and
 capture this was written against, and `version` is the row's write
 counter -- every entity in the payload carries one.
 
-**The Communication Pass has no id and no balance.** Spending one
-debits nothing anywhere. What a snapshot carries is how many visits
-have been SPENT today, and the count the game shows is the daily
+**The Communication Pass is never debited.** The client gives it an
+item, 2000006 (`currency_define`'s `town_visit_ticket`), but spending
+one moves nothing: that item's balance sits where the account started
+it however many are spent. What a snapshot carries is how many visits
+have been SPENT today, and the count the game shows is the day's
 allowance less that.
+
+**The allowance is per account**: the town's base and what its
+research adds, at the levels the account holds.
 """
 
 import json
@@ -48,11 +53,19 @@ VISIT_TYPES = 7
 # every combatant has, marked as one.
 UNKNOWN_TOTAL = "%d?" % VISIT_TYPES
 
-# Communication Passes granted per day, and where the day's spending
-# is kept. The allowance is the game's own number; the counter beside
-# it agrees with the visit board's visited flags in every snapshot,
-# and resets at `town_visit_reset_time`.
-DAILY_PASSES = 5
+# The Communication Passes a day grants before town research, and
+# {research node: what it adds at level 1, 2, ...}: an account holding
+# both nodes has the 5 the Excursion and Counseling buttons count down
+# from. The client's figures stand ahead of these
+# (`game_client.known_limits`' `visit_tickets` and `visit_research`);
+# these are for a player without the client, and
+# `checklist_tab.limit_mismatches` says when the two part.
+VISIT_TICKETS = 3
+VISIT_RESEARCH = {"126": [1], "149": [1]}
+# Where the account's research levels are kept, by node, and where the
+# day's spending is. The counter agrees with the visit board's visited
+# flags in every snapshot, and resets at `town_visit_reset_time`.
+RESEARCH_PATH = ("characters", "town_data", "town_research_level_map")
 SPENT_PATH = ("characters", "town_data", "day_changeable_data",
               "use_town_visit_count")
 
@@ -107,21 +120,55 @@ def experienced(raw_data):
     return seen or VISIT_TYPES
 
 
+def daily_passes(raw_data):
+    """The Communication Passes a day grants this account: the base,
+    and what each research node it holds adds at its level.
+
+    A snapshot without the research map reads the most a day can grant,
+    every node at its top level. The map comes in the same block as the
+    day's counter, so a snapshot short of it has no count to set against
+    it either.
+    """
+    stated = game_client.known_limits()
+    base = stated.get("visit_tickets")
+    research = stated.get("visit_research")
+    base = base if _is_count(base) else VISIT_TICKETS
+    research = research if isinstance(research, dict) and research \
+        else VISIT_RESEARCH
+    held = _dig(raw_data, RESEARCH_PATH)
+    total = base
+    for node, figures in research.items():
+        level = held.get(node) if isinstance(held, dict) else len(figures)
+        if _is_count(level) and level > 0 and figures:
+            total += figures[min(level, len(figures)) - 1]
+    return total
+
+
 def passes_left(raw_data):
     """Communication Passes left today, or None if nothing says.
 
-    `DAILY_PASSES - use_town_visit_count`. The pass is not an item and
-    not a currency: spending one debits no id anywhere, so this is the
-    only reading of it a snapshot allows.
+    `daily_passes - use_town_visit_count`. Spending a pass debits
+    nothing, so this is the only reading of it a snapshot allows.
     """
+    spent = _dig(raw_data, SPENT_PATH)
+    if not _is_count(spent):
+        return None
+    return max(0, daily_passes(raw_data) - spent)
+
+
+def _dig(raw_data, path):
+    """The value at `path` in a snapshot, or None."""
     node = raw_data or {}
-    for key in SPENT_PATH:
+    for key in path:
         if not isinstance(node, dict):
             return None
         node = node.get(key)
-    if not isinstance(node, int) or isinstance(node, bool):
-        return None
-    return max(0, DAILY_PASSES - node)
+    return node
+
+
+def _is_count(value):
+    """Whether a snapshot's value is a whole number, not a flag."""
+    return isinstance(value, int) and not isinstance(value, bool)
 
 
 def _highest(raw):

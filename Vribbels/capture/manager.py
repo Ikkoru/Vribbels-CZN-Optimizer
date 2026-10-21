@@ -2701,6 +2701,11 @@ class Addon:
             # kept still matches its next sighting.
             if mutated.get(row["res_id"]) is not None:
                 row["mutation"] = mutated[row["res_id"]]
+            # A unit the game put in the party, not one of the player's:
+            # the server marks the player's own `is_own`, a guest
+            # `is_custom_char` (`base_stats_store.PRESET_REQUESTS`).
+            if rec.get("is_custom_char") is True:
+                row["guest"] = True
             chars.append(row)
             pieces = rec.get("equipped_pieces")
             build = {

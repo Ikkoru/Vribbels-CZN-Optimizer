@@ -572,18 +572,21 @@ def audit(client):
                        f"{texts.get(f'char_base@name@{rid}')}: in the "
                        f"client, not in game_data/partners.py")
 
-    # The program's own item names go over the client's, so a name that
-    # differs is one of its tables overriding the game.
-    from game_data.constants import item_names
+    # The client's item names go over the program's own, so a name that
+    # differs is one of the program's tables gone stale. Its tables
+    # alone (`hand_item_names`): `item_names` holds the shipped table's
+    # names too, which are an older build's reading of the client.
+    from game_data.constants import hand_item_names
     theirs = game_client.item_names(client)
-    for rid, name in sorted(item_names().items()):
+    for rid, name in sorted(hand_item_names().items()):
         if rid in theirs:
             differ(f"item {rid}", "name", name, theirs[rid])
 
-    # The program's own names for a Chaos, a Zero System special and a
-    # rescue's pool go over the client's where both name one (the
-    # maintainer's spellings, from the update and Probabilities
-    # notices); the client's fill what they lack.
+    # The client's names for a Chaos and a Zero System special go over
+    # the program's own, which name what no client read holds; a
+    # rescue's pool keeps the program's label (the maintainer's, from
+    # the Probabilities notices), `INTENDED` naming where it parts on
+    # purpose.
     import chaos_estimate
     import gacha_history
     for stage, (name, season) in sorted(game_client.chaos_names(client).items()):

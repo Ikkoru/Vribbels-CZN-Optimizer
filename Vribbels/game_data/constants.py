@@ -510,9 +510,10 @@ NAMED_MATERIALS = {
 #
 # **This is where an identification survives.** The dumps are the place
 # one is worked out and `docs/items_id_known_not_in_materials.tsv` is the
-# worklist, but a name only reaches the running program from here --
-# which is what lets a Capture Log line say `Traces of Memory +40`
-# rather than `3210001 +40`.
+# worklist, but where no client read and no shipped table names an id,
+# its name reaches the running program only from here -- which is what
+# lets a Capture Log line say `Traces of Memory +40` rather than
+# `3210001 +40`. The client's name goes over one here (`item_names`).
 #
 # Kept in step with that TSV by hand. `docs/items_id_dump.py` reads the
 # keys to keep these ids ON the worklist rather than promoting them:
@@ -656,6 +657,25 @@ def growth_stone_name(element, tier):
 def item_names():
     """{res_id: display name} for every item this build can name.
 
+    **The game client's names go over the program's own**
+    (`game_client.known_item_names`). A patch can give an id another
+    item -- one the client called `Pharanes [Master 4]` came back as a
+    sticker -- and a name kept here would then go on naming the old
+    one. The program's names (`hand_item_names`) stand where no client
+    read and no shipped table names an item. Where the two disagree,
+    `python docs/client_tables.py --audit` says so.
+    """
+    import game_client
+    names = hand_item_names()
+    names.update(game_client.known_item_names())
+    return names
+
+
+def hand_item_names():
+    """{res_id: display name} for every item the program's own tables
+    name, the client's names left out: what `item_names` falls back on,
+    and what `--audit` holds against the client.
+
     **A shaped row's name is BUILT from its fields**, and each family
     spells it a different way round -- `Great Growth Stone of Passion`
     against `Advanced Battle Memory`. A caller reading `row[0]` gets
@@ -664,15 +684,8 @@ def item_names():
 
     `RECORDED_NAMES` goes on last, so an identification made by hand
     wins over anything derived.
-
-    **The game client's names go underneath them all**
-    (`game_client.known_item_names`), so every item the game has is
-    named and a table here only overrides. Where the two disagree,
-    `python docs/client_tables.py --audit` says so.
     """
-    import game_client
-    names = game_client.known_item_names()
-    names.update({rid: row[0] for rid, row in NAMED_MATERIALS.items()})
+    names = {rid: row[0] for rid, row in NAMED_MATERIALS.items()}
     names.update({rid: row[0] for rid, row in PERIOD_ITEMS.items()})
     names.update({rid: growth_stone_name(row[0], row[1])
                   for rid, row in GROWTH_STONES.items()})
@@ -713,19 +726,29 @@ PERIOD_ITEMS = {
 # same field.
 
 # The Communication Pass -- `currency_town_visit.png`, used for
-# Counseling and Excursions -- HAS NO ID. It is not an item and not a
-# currency: a debug capture taken while one was spent shows the
-# `town / run_visit` reply carrying what the visit GAVE and debiting
-# nothing, with no negative `diff` anywhere and no id moving between
-# the captures either side of it.
+# Counseling and Excursions -- IS NEVER DEBITED. The client gives it an
+# item, 2000006 (`currency_define`'s `town_visit_ticket`), whose
+# balance sits where the account started it however many are spent: a
+# debug capture taken while one was spent shows the `town / run_visit`
+# reply carrying what the visit GAVE and debiting nothing, with no
+# negative `diff` anywhere and no id moving between the captures either
+# side of it.
 #
-# **The count is DERIVED, not stored.** It is the daily allowance less
+# **The count is DERIVED, not stored.** It is the day's allowance less
 # what has been spent today:
 #
-#   5 - characters.town_data.day_changeable_data.use_town_visit_count
+#   excursions.daily_passes
+#     - characters.town_data.day_changeable_data.use_town_visit_count
 #
-# Read against two readings off the screen: 0 spent showed 5 passes and
-# 1 spent showed 4. The counter agrees with the `town_visit_info`
+# The allowance is per account: the client's `town_visit_ticket_max`,
+# 3, and one more for each of the two town research nodes whose effect
+# is `VISIT_TICKET_MAX__NUM` ("Increase the maximum amount of
+# Communications Passes you can have"), at the levels the snapshot's
+# `town_research_level_map` holds.
+#
+# Read against two readings off the screen, on an account holding both
+# nodes: 0 spent showed 5 passes and 1 spent showed 4. The counter
+# agrees with the `town_visit_info`
 # board's own visited flags in every snapshot, and
 # `town_visit_reset_time` beside it is when it goes back to 0 -- 18:00
 # UTC, which is when the game says the allowance is granted.

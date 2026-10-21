@@ -102,7 +102,8 @@ A battle's entry -- `world/get_stage_info`, answered with `stage_info` -- carrie
 - its stage (`playing_stage_info.stage_id`) and mode (`ingame_content_config_id`);
 - its Zero System effects whose group starts with one of `BASE_EFFECT_GROUPS`, the ones that can move a combatant's sheet, with their values;
 - per combatant: the base, the partner's flat stats as the sheet counts them, the Potential 7 value with the inner layer it was computed from, and the partner beside them: its id, level, limit break and own flat stats;
-- where the combatant's deck carries one, its `mutation`, below.
+- where the combatant's deck carries one, its `mutation`, below;
+- where the game put the combatant in the party, `guest`: the server marks the player's own units `is_own` and a guest `is_custom_char`, as a story stage played as someone else's team fields them. A guest can be a unit no table holds, an unplayable one with an id of its own.
 
 **A Mutation is an effect put on one Save Data**, one combatant's deck, with a Core of Mutation. The wire calls it a corruption: `savedata_manage/pick_corruption` rolls one, `apply_corruption` keeps it, and the deck carries `corruption_res_id`, `corruption_option_<number>`. The number is what is filed; the game client's `savedata_edit_corruption` table says what each does (`docs/client_data.md`, *Where each fact is*). The entered sheet does not carry a Mutation, so its readings are believed: an Adelheid deck read DEF 477 both before its Mutation 9 (DEF +14%) and after. `base_stats_store.mutation_gaps` watches for the same build stated with and without one on differing sheets, and `checks/check_base_stats_on_wire.py` fails on any; such a Mutation goes in `MUTATIONS_ON_THE_SHEET`, and its decks' readings are set aside. A Full-Scale Offensive's and a Great Rift's entry name their decks in `clear_record_savedata_ids`, read against the inventory's `savedata`, which each reply's whole `savedata_entity` keeps current (`Addon._note_savedata`); the Tower sends its decks whole in `savedata_list`. A Simulation stage names only a team index, and is not read.
 
@@ -231,7 +232,7 @@ Every save prints `[SYNC] saved`, and that is what the app reloads on. The human
 
 **The snapshot's temp-file replace can be refused.** Windows returns `[WinError 5] Access is denied` while another process holds the destination open — the app reading it, an indexer, an antivirus. `_save_data` retries; a save that still cannot land says so and leaves the previous snapshot intact.
 
-A Communication Pass is in none of them, because it is in nothing. Spending one debits no id anywhere; the count is derived from `characters.town_data.day_changeable_data.use_town_visit_count`. `Vribbels/game_data/constants.py` holds the evidence.
+A Communication Pass is in none of them, because spending one debits nothing: its client item, 2000006, keeps its starting balance. The count is derived from `characters.town_data.day_changeable_data.use_town_visit_count`, against an allowance the account's town research raises (`excursions.daily_passes`). `Vribbels/game_data/constants.py` holds the evidence.
 
 ## The item counts arrive once, and change through the reward keys and a sweep
 

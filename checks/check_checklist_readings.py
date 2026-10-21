@@ -768,7 +768,7 @@ def run():
             f"a dash against the stand-in threshold.")
 
     # --- passes left today --------------------------------------------
-    allowance = excursions.DAILY_PASSES
+    allowance = excursions.daily_passes({})
     for spent, want in ((0, f"{allowance}/{allowance}"),
                         (2, f"{allowance - 2}/{allowance}"),
                         (allowance, f"0/{allowance}"),

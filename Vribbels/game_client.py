@@ -76,7 +76,7 @@ GAMERES = Path("bin") / "appdata" / "cznlive" / "gameres"
 # reader that changes what it reads raises this: every install then
 # reads its client again once, rather than at the next patch.
 CACHE_FILE = "game_client.json"
-CACHE_FORMAT = 15
+CACHE_FORMAT = 16
 
 # The manifest layout this reads. A different version is a different
 # layout until shown otherwise.
@@ -161,6 +161,10 @@ VISIT_GROUP = re.compile(r"normal_visit_(\d+)")
 # An item's English name: the text `item@name@<res_id>`, one for every
 # item the game has, whichever item table holds its row.
 ITEM_NAME = re.compile(r"item@name@(\d+)")
+# What a name holds that a placeholder does not: a letter or a digit.
+# The client can name an unreleased item `???`, which is no name to put
+# over one the program has.
+NAMING = re.compile(r"\w")
 
 # Where an event's rewards are listed. A mission row per reward, by the
 # event's id; a step track's ladder, by its one mission's id; and the
@@ -193,8 +197,10 @@ TRAUMA_ACHIEVEMENTS = "trauma_code_achievement@trauma_code_achievement"
 # Simulation Challenges' weekly runs, each Full-Scale Offensive's
 # bosses and stars, each Zero System reward track's top level, each
 # Galactic Disaster season's weekly score, the Great Rift's top weekly
-# tier, each Overclock's daily runs, and the Galactic Disaster's
-# constants -- its shop pages' day offsets among them. See `limits`.
+# tier, each Overclock's daily runs, the Galactic Disaster's constants
+# -- its shop pages' day offsets among them -- and the day's
+# Communication Passes with the town research that raises them. See
+# `limits`.
 ACTIVITY_TIERS = "guide_daily@guide_daily"
 WEEKLY_CHARGES = "currency_charge@currency_charge"
 PASS_TABLE = "season_pass@season_pass"
@@ -209,6 +215,13 @@ DISASTER_SEASONS = "disaster_season@disaster_season"
 RIFT_TIERS = "disaster_rank_score_reward@disaster_rank_score_reward"
 OVERCLOCK_TABLE = "event_overclock@event_overclock"
 DISASTER_CONSTANTS = "disaster_constant_meta@disaster_constant_meta"
+# The passes Excursions and Counseling share: the town's base allowance,
+# and the research nodes of the effect that raises it, one row per
+# level.
+TOWN_CONSTANTS = "town_constant_meta@town_constant_meta"
+VISIT_TICKET_BASE = "town_visit_ticket_max"
+RESEARCH_LEVELS = "town_research_node_level@town_research_node_level"
+VISIT_TICKET_EFFECT = "VISIT_TICKET_MAX__NUM"
 # The columns of `event@event` that carry a schedule's id. Its own `id`
 # is the event's number, never a schedule, and kept out so a family
 # worked out over these keys holds instalments and nothing else.
@@ -811,7 +824,11 @@ def limits(client):
     * `overclocks`: {event id: daily runs};
     * `disaster_constants`: {constant id: figure}, the Galactic
       Disaster's, its shop pages' days into the season's schedule among
-      them (`unlock_disaster_shop_<page>`).
+      them (`unlock_disaster_shop_<page>`);
+    * `visit_tickets`: the Communication Passes a day grants before
+      town research;
+    * `visit_research`: {research node: [what the node adds at level
+      1, 2, ...]}.
     """
     readers = {
         "activity": lambda: max(_figure(row.get("point_count")) or 0
@@ -840,6 +857,10 @@ def limits(client):
             row["id"]: _figure(row["value"])
             for row in client.rows(DISASTER_CONSTANTS)
             if isinstance(_figure(row.get("value")), int)},
+        "visit_tickets": lambda: _constant(client, TOWN_CONSTANTS,
+                                           VISIT_TICKET_BASE),
+        "visit_research": lambda: _research_levels(client,
+                                                   VISIT_TICKET_EFFECT),
     }
     out = {}
     for kind, read in readers.items():
@@ -897,6 +918,37 @@ def _offensives(client):
                      for tier in track), default=0)
         out[row["id"]] = [bosses, stars]
     return out
+
+
+def _constant(client, table, key):
+    """One figure of a constants table, its row `key`'s `value`, or
+    None."""
+    for row in client.rows(table):
+        if row.get("id") == key:
+            return _figure(row.get("value"))
+    return None
+
+
+def _research_levels(client, effect):
+    """{town research node: [its figure at level 1, 2, ...]} for every
+    node of one effect, the figure `opt_1`'s first.
+
+    A level's row states the effect AT that level, not what the level
+    adds: a Stamina node's five read 5, 10, 15, 20 and 25. A node whose
+    levels do not run unbroken from 1 is left out rather than read with
+    a hole in it."""
+    held = {}
+    for row in client.rows(RESEARCH_LEVELS):
+        if row.get("town_research_eff") != effect:
+            continue
+        level = _figure(row.get("node_level"))
+        figures = _figure_list(row.get("opt_1"))
+        if isinstance(level, int) and figures and isinstance(figures[0], int):
+            held.setdefault(row.get("link_town_research_id"), {})[level] = \
+                figures[0]
+    return {node: [levels[n] for n in sorted(levels)]
+            for node, levels in held.items()
+            if node and sorted(levels) == list(range(1, len(levels) + 1))}
 
 
 def _matrix_levels(client):
@@ -1050,12 +1102,13 @@ def item_rarities(client):
 
 
 def item_names(client):
-    """{item res_id: English name} for every item the client names."""
+    """{item res_id: English name} for every item the client names, a
+    placeholder (`NAMING`) not being a name."""
     out = {}
     for key, text in client.text().items():
         match = ITEM_NAME.fullmatch(key)
         name = clean(text) if match else ""
-        if name:
+        if NAMING.search(name):
             out[int(match.group(1))] = name
     return out
 
@@ -1681,12 +1734,15 @@ def known_daily_tasks():
 
 def known_item_names():
     """{item res_id: English name}: the shipped table, with what this
-    machine's client says over it. The program's own names go over
-    both (`game_data.constants.item_names`)."""
+    machine's client says over it, a placeholder in either not being a
+    name (`NAMING`). These go over the program's own names, which stand
+    where neither names an item (`game_data.constants.item_names`)."""
     from game_data import from_client
-    out = dict(from_client.ITEM_NAMES)
+    out = {res_id: name for res_id, name in from_client.ITEM_NAMES.items()
+           if NAMING.search(name)}
     for res_id, name in ((_facts or {}).get("item_names") or {}).items():
-        if str(res_id).isdigit() and name:
+        if str(res_id).isdigit() and isinstance(name, str) \
+                and NAMING.search(name):
             out[int(res_id)] = name
     return out
 
@@ -1711,8 +1767,8 @@ def known_item_rarities():
 
 def known_chaos_names():
     """{stage id: (English name, season)}: the shipped table, with what
-    this machine's client says over it. `chaos_estimate` puts its own
-    names over both."""
+    this machine's client says over it. These go over `chaos_estimate`'s
+    own names, which stand where neither names a stage."""
     from game_data import from_client
     out = dict(getattr(from_client, "CHAOS_NAMES", {}))
     for stage, named in ((_facts or {}).get("chaos_names") or {}).items():
@@ -1723,7 +1779,8 @@ def known_chaos_names():
 
 def known_zero_specials():
     """{special option id: the game's name}: the shipped table, with
-    what this machine's client says over it."""
+    what this machine's client says over it. These go over
+    `chaos_estimate.ZERO_SPECIALS`."""
     from game_data import from_client
     out = dict(getattr(from_client, "ZERO_SPECIALS", {}))
     out.update((_facts or {}).get("zero_specials") or {})

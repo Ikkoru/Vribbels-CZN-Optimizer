@@ -200,6 +200,12 @@ def _report(found, gaps):
     for name, level, wire, program, last in found["partners"]:
         print("  %-12s lvl %-3s server %-15s program %-15s (%s)" % (
             name, level, wire, program, _when(last)))
+    print("MISSING from partners.py:")
+    for pid, level, wire, last in found["missing_partners"]:
+        print("  res_id %-8s lvl %-3s server %s (%s)" % (pid, level, wire,
+                                                       _when(last)))
+    print("GUESTS, seen only as units the game put in the party:")
+    print("  " + (", ".join(map(str, found["guests"])) or "-"))
     print("STAT FORMULA unlike the server's sheet:")
     for rid, what, server, program in gaps:
         name = (CHARACTERS.get(rid) or {}).get("name", rid) \

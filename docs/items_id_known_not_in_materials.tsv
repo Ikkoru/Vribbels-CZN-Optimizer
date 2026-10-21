@@ -1,7 +1,7 @@
 res_id	where	amount	Name	Type	Note	Explanation
 2000002	currencies	89	Aether	Stamina	Max 320 stored at max Ark upgrade level. 1 per 6min recovered	
 2000005	currencies	0	Skill Points			
-2000006	currencies	3	Ark Tour Pass		Owned Tour Passes (the game also calls them Communication Passes): a stock of at most 3 (client town_visit_ticket_max), apart from the daily recharge. Held at 3 across a day's 5 Excursions in three logs	
+2000006	currencies	3	Ark Tour Pass		The Communication Pass's item (client currency_define town_visit_ticket), never debited: held at 3 across a day's 5 Excursions in three logs. The day's allowance is client town_visit_ticket_max (3) plus 1 for each of town research nodes 126 and 149 (VISIT_TICKET_MAX__NUM); excursions.daily_passes
 2000007	currencies	23	Clockwork of Time	In-game Dice Reroll Resource	Max 25 stored. 25 recharged daily	
 2000008	currencies	0	The Engine of Time			
 2000011	currencies	369	Moment of the Radiant Hero	Shop Currency		

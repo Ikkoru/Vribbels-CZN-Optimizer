@@ -161,6 +161,33 @@ def plain_battles(battles):
     return [b for b in battles if not b.get("zero_system")]
 
 
+# **A unit the game put in the party is a guest**, not one of the
+# player's: a story stage played as someone else's team, a tutorial's.
+# A guest can be one no table of the program's holds -- unplayable,
+# nameless, an id of its own -- so a unit seen only as one is not a unit
+# the tables are missing. The server marks the player's own `is_own`
+# and a guest `is_custom_char`, which the capture files as a row's
+# `guest` (`Addon._note_base_stats`); in a battle filed before it did,
+# the requests that set the whole party stand for the mark.
+PRESET_REQUESTS = frozenset({"story_stage/enter_story_experience_stage",
+                             "tutorial/request_stage"})
+
+
+def own_units(battles):
+    """(combatant ids, partner ids) seen in a party of the player's: in
+    a row not marked `guest`, of a battle no `PRESET_REQUESTS` request
+    entered."""
+    units, partners = set(), set()
+    for battle in battles:
+        if battle.get("asked") in PRESET_REQUESTS:
+            continue
+        for row in battle.get("chars") or []:
+            if isinstance(row, dict) and not row.get("guest"):
+                units.add(row.get("res_id"))
+                partners.add(row.get("partner_id"))
+    return units, partners
+
+
 def _additive(battle):
     """Whether every stat effect of `battle` adds one amount to everyone:
     a record filed before effects were kept cannot say, and is not."""
@@ -341,13 +368,21 @@ def audit(battles):
     - `partners`: (name, level, wire, program, last seen) for each
       partner whose own flat stats are not what `table_partner_stats`
       gives at that level;
+    - `missing_partners`: (res_id, level, wire, last seen) for a partner
+      the server sent that partners.py does not have -- never held to
+      the default entry's class, whose figures say nothing of it;
+    - `guests`: the ids of combatants and partners the tables lack that
+      were seen only as guests the game put in the party (`own_units`);
     - `unseen`: names in characters.py nothing has settled.
     """
     from game_data.characters import CHARACTERS, level_bonus
     from game_data.partners import PARTNERS, table_partner_stats
     out = {"differs": [], "missing": [], "changed": [], "gains": [],
-           "conflicts": [], "partners": [], "unseen": []}
+           "conflicts": [], "partners": [], "missing_partners": [],
+           "guests": [], "unseen": []}
     bases, out["conflicts"] = resolve(battles)
+    own, own_partners = own_units(battles)
+    guests = set()
 
     history = {}
     for battle in sorted(plain_battles(battles),
@@ -373,7 +408,9 @@ def audit(battles):
             else "derived"
         char = CHARACTERS.get(rid)
         if not isinstance(char, dict):
-            if None not in wire:
+            if rid not in own:
+                guests.add(rid)
+            elif None not in wire:
                 out["missing"].append((rid, level, wire, last))
             continue
         seen.add(rid)
@@ -398,6 +435,14 @@ def audit(battles):
 
     for pid, levels in sorted(partner_flats(battles).items(), key=str):
         partner = PARTNERS.get(pid)
+        if not isinstance(partner, dict):
+            if pid not in own_partners:
+                guests.add(pid)
+                continue
+            out["missing_partners"] += [(pid, level, held["flat"],
+                                         held["read_at"])
+                                        for level, held in sorted(levels.items())]
+            continue
         for level, held in sorted(levels.items()):
             program = table_partner_stats(pid, level)
             program = [program["atk"], program["def"], program["hp"]]
@@ -405,6 +450,7 @@ def audit(battles):
                 out["partners"].append((
                     partner["name"] if isinstance(partner, dict) else pid,
                     level, held["flat"], program, held["read_at"]))
+    out["guests"] = sorted(guests, key=str)
     return out
 
 

@@ -3290,8 +3290,8 @@ GREAT_RIFT_WEEK_STAMP = "score_week_id"
 # (`game_client.known_limits`), and these figures stand where it does
 # not -- a client the program cannot read, an id it does not hold.
 # `limit_mismatches` lists where the two part, which run from source the
-# launch says. Communication Passes (`excursions.DAILY_PASSES`) are the
-# one with no client figure found.
+# launch says. The day's Communication Passes are `excursions`' own
+# figures, held the same way.
 
 
 def _limit(kind, key=None):
@@ -3378,6 +3378,11 @@ def limit_mismatches(raw=None, now=None):
         compare(f"CHAOS_PROGRESS_FULL ({season})", CHAOS_PROGRESS_FULL,
                 _limit("disaster_weekly", season))
     compare("GREAT_RIFT_TARGET", GREAT_RIFT_TARGET, _limit("rift_target"))
+    compare("excursions.VISIT_TICKETS", excursions.VISIT_TICKETS,
+            _limit("visit_tickets"))
+    research = game_client.known_limits().get("visit_research")
+    compare("excursions.VISIT_RESEARCH", excursions.VISIT_RESEARCH,
+            research if isinstance(research, dict) and research else None)
     for season, days in sorted(SUPPLY_ROUNDS.items()):
         stated = _client_rounds(raw, season) if raw else None
         if stated is None:
@@ -5137,15 +5142,16 @@ def _readings(raw, now=None, tracked=None):
         out["chaos_delegation"] = _one(DELEGATION_DONE if ran
                                    else DELEGATION_TODO, _done(ran))
 
-    # Communication Passes left today. Not an item and not a currency --
-    # `excursions.passes_left` says why that reading is the only one a
-    # snapshot allows.
+    # Communication Passes left today, against the account's own
+    # allowance. Spending one debits nothing -- `excursions.passes_left`
+    # says why that reading is the only one a snapshot allows.
     # A day that has rolled brings the whole allowance back, and
     # the stale count says none of it was spent today.
+    allowance = excursions.daily_passes(raw)
     left = (excursions.passes_left(raw) if fresh or block is None
-            else excursions.DAILY_PASSES)
+            else allowance)
     out["excursions"] = _one(
-        "%s/%d" % (NO_DATA if left is None else left, excursions.DAILY_PASSES),
+        "%s/%d" % (NO_DATA if left is None else left, allowance),
         UNKNOWN if left is None else _done(left == 0))
 
     # Both weekly currencies are things to SPEND, so a holding is work

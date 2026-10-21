@@ -402,28 +402,41 @@ def _totals_precedence(gc):
 
 
 def _item_precedence(gc):
-    """Item names: the program's tables over this machine's client, the
-    client over the shipped table. Returns complaints."""
-    from game_data import from_client
+    """Item names: this machine's client over the shipped table, and
+    both over the program's tables, which name only what neither does;
+    a placeholder is no name. Returns complaints."""
+    from game_data import constants, from_client
     from game_data.constants import NAMED_MATERIALS, item_names
     out = []
-    own_id, (own_name, *_rest) = next(iter(NAMED_MATERIALS.items()))
+    own_id, _row = next(iter(NAMED_MATERIALS.items()))
     shipped_id = next(rid for rid in from_client.ITEM_NAMES
-                      if rid not in item_names.__globals__["NAMED_MATERIALS"]
-                      and rid not in item_names.__globals__["RECORDED_NAMES"])
-    gc.use({"item_names": {"999999901": "Client Only Item",
-                           str(shipped_id): "Client Over Shipped",
-                           str(own_id): "Not The Program's"}})
-    names = item_names()
+                      if rid not in NAMED_MATERIALS
+                      and rid not in constants.RECORDED_NAMES)
+    try:
+        constants.RECORDED_NAMES[999999904] = "Named By Hand"
+        constants.RECORDED_NAMES[999999905] = "Only The Program's"
+        gc.use({"item_names": {"999999901": "Client Only Item",
+                               str(shipped_id): "Client Over Shipped",
+                               str(own_id): "The Client's",
+                               "999999904": "???"}})
+        names = item_names()
+    finally:
+        constants.RECORDED_NAMES.pop(999999904, None)
+        constants.RECORDED_NAMES.pop(999999905, None)
     for rid, want, why in (
             (999999901, "Client Only Item",
              "an item only the client names has to be named, or the "
              "Capture Log shows its id"),
             (shipped_id, "Client Over Shipped",
              "this machine's client is newer than the shipped table"),
-            (own_id, own_name,
-             "a table of the program's own overrides the client; "
-             "`--audit` lists where they disagree")):
+            (own_id, "The Client's",
+             "the client's names go over the program's tables, which "
+             "would otherwise go on naming an id a patch gave to another "
+             "item; `--audit` lists where they disagree"),
+            (999999904, "Named By Hand",
+             "a placeholder is no name, and the program's stands"),
+            (999999905, "Only The Program's",
+             "the program's tables name what no client read holds")):
         if names.get(rid) != want:
             out.append(f"item {rid} is named {names.get(rid)!r}, not "
                        f"{want!r}: {why}.")
@@ -874,6 +887,20 @@ FAULTS = [
      "not 'Landed Late'"),
     ("a client read not moving the generation", "game_client:use",
      "_generation += 1", "_generation += 0", "not 'Landed Late'"),
+    ("the program's item names over the client's",
+     "game_data.constants:item_names",
+     "names.update(game_client.known_item_names())",
+     "names = {**game_client.known_item_names(), **names}",
+     "the client's names go over the program's tables"),
+    ("a placeholder taken for a name", "game_client:known_item_names",
+     "if str(res_id).isdigit() and isinstance(name, str) \\\n"
+     "                and NAMING.search(name):",
+     "if str(res_id).isdigit() and isinstance(name, str):",
+     "a placeholder is no name"),
+    ("the program's tables not under the client's",
+     "game_data.constants:item_names",
+     "names = hand_item_names()", "names = {}",
+     "name what no client read holds"),
 ]
 
 

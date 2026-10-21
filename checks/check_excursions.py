@@ -13,11 +13,14 @@ zero would draw 0 for every combatant on a snapshot taken before the
 addon stored one. The panel tells those two apart and this pins which
 is which.
 
-The Communication Pass is a third: it has no id and no balance, so its
-count is the daily allowance less what today has spent. A snapshot that
+The Communication Pass is a third: spending one debits nothing, so its
+count is the day's allowance less what today has spent. A snapshot that
 does not carry the counter has to read as UNKNOWN -- treated as zero
 spent it would report a full allowance, which is a number nobody could
-tell from a real one.
+tell from a real one. And the allowance is the ACCOUNT's: the town's
+base and what the research it holds adds. A constant 5 reads right for
+an account holding both research nodes and two passes too many for one
+holding neither.
 
 The fourth is the capture end: nothing downstream can show a board the
 addon does not save, and `ADDON_TEMPLATE` is a string literal that
@@ -82,13 +85,14 @@ def run():
                         "VISIT_TYPES")
 
     # The Communication Pass: an allowance less what today has spent.
-    for spent, left in ((0, ex.DAILY_PASSES), (1, ex.DAILY_PASSES - 1),
-                        (ex.DAILY_PASSES, 0), (ex.DAILY_PASSES + 3, 0)):
+    full = ex.daily_passes({})
+    for spent, left in ((0, full), (1, full - 1), (full, 0), (full + 3, 0)):
         got = ex.passes_left(_town(spent))
         if got != left:
             failures.append(
                 f"{spent} visits spent gave {got} passes left, not {left}."
             )
+    failures.extend(_allowance(ex))
     for missing, what in (({}, "an empty snapshot"),
                           ({"characters": {}}, "no town_data"),
                           (_town("five"), "a non-numeric counter")):
@@ -152,6 +156,57 @@ def _totals(ex):
     return out
 
 
+def _allowance(ex):
+    """The day's passes are the base and the research the account
+    holds, the client's figures ahead of the module's. Returns
+    complaints."""
+    import game_client
+    out = []
+    real = game_client.known_limits
+    try:
+        # The module's own figures, nothing stated by any client.
+        game_client.known_limits = lambda: {}
+        base = ex.VISIT_TICKETS
+        nodes = sorted(ex.VISIT_RESEARCH)
+        top = base + sum(f[-1] for f in ex.VISIT_RESEARCH.values())
+        for levels, want, what in (
+                ({node: 1 for node in nodes}, base + sum(
+                    ex.VISIT_RESEARCH[n][0] for n in nodes), "every node"),
+                ({}, base, "no research"),
+                ({nodes[0]: 1}, base + ex.VISIT_RESEARCH[nodes[0]][0],
+                 "one node"),
+                (None, top, "no research map")):
+            got = ex.daily_passes(_town(0, levels))
+            if got != want:
+                out.append(
+                    f"an account with {what} researched is granted {got} "
+                    f"passes a day, not {want}. The allowance is the town's "
+                    f"base and what each research node it holds adds; a "
+                    f"snapshot with no map reads the most a day can grant.")
+        # The client's figures stand ahead, and a level past a node's
+        # listed ones reads its top one.
+        game_client.known_limits = lambda: {
+            "visit_tickets": 2, "visit_research": {"901": [1, 3]}}
+        for levels, want in (({"901": 2, nodes[0]: 1}, 5),
+                             ({"901": 4}, 5), ({"901": 1}, 3)):
+            got = ex.daily_passes(_town(0, levels))
+            if got != want:
+                out.append(
+                    f"with the client stating a base of 2 and node 901 "
+                    f"adding 1 then 3, research {levels} grants {got} "
+                    f"passes, not {want}: the client's figures are the "
+                    f"whole answer where it states them, and a level past "
+                    f"a node's listed ones reads its top one.")
+        got = ex.passes_left(_town(1, {"901": 1}))
+        if got != 2:
+            out.append(f"one pass spent of the client's 3 leaves {got}, "
+                       f"not 2: what is left counts down from the "
+                       f"account's own allowance.")
+    finally:
+        game_client.known_limits = real
+    return out
+
+
 def _one_rank_row_is_merged():
     """A run's reply updates its rank's row among the standings.
 
@@ -193,10 +248,13 @@ def _one_rank_row_is_merged():
     return out
 
 
-def _town(spent):
-    """A snapshot carrying just the daily visit counter."""
-    return {"characters": {"town_data": {
-        "day_changeable_data": {"use_town_visit_count": spent}}}}
+def _town(spent, research=None):
+    """A snapshot carrying the daily visit counter, and the research
+    levels where `research` is given."""
+    town = {"day_changeable_data": {"use_town_visit_count": spent}}
+    if research is not None:
+        town["town_research_level_map"] = research
+    return {"characters": {"town_data": town}}
 
 
 def _template_saves(source, field):
@@ -210,3 +268,24 @@ def _template_saves(source, field):
         return any(isinstance(k, ast.Constant) and k.value == field
                    for k in node.value.keys)
     return False
+
+
+# What this check must catch, for `checks/faults.py`.
+FAULTS = [
+    ("a fixed allowance", "excursions:daily_passes",
+     "    return total", "    return VISIT_TICKETS + 2",
+     "what each research node it holds adds"),
+    ("the research map ignored", "excursions:daily_passes",
+     "level = held.get(node) if isinstance(held, dict) else len(figures)",
+     "level = len(figures)", "what each research node it holds adds"),
+    ("the module's base over the client's", "excursions:daily_passes",
+     "base = base if _is_count(base) else VISIT_TICKETS",
+     "base = VISIT_TICKETS", "the client's figures are the whole answer"),
+    ("a level past the listed ones dropped", "excursions:daily_passes",
+     "figures[min(level, len(figures)) - 1]",
+     "(figures[level - 1] if level <= len(figures) else 0)",
+     "reads its top one"),
+    ("spent counted down from a fixed 5", "excursions:passes_left",
+     "max(0, daily_passes(raw_data) - spent)", "max(0, 5 - spent)",
+     "the account's own allowance"),
+]
