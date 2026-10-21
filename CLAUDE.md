@@ -53,6 +53,7 @@ Snapshots are the maintainer's captured game data. Read them; never write to `Vr
 | Shipping `default_settings/` — maintainer workflow | `docs/how_to_maintain_default_settings.md` |
 | `capture/`, snapshot parsing, char-vs-partner classification | `docs/capture_pipeline.md` |
 | What a debug capture would log and save, replayed through the real addon | `docs/replay_log.py`, from the command line or imported by a probe |
+| What a debug capture asked and was answered, request by request, sign-in fields blanked | `docs/log_requests.py` |
 | Folding superseded captures into the archive | `Vribbels/capture/archive.py`, run by hand with `docs/snapshots_archive.py` |
 | The Gacha History: pull records, pity, 50/50s, luck, imports | `docs/gacha_history.md` |
 | `game_data/*.py`, the launch-time validator, stat vocabularies | `docs/game_data_files.md` |
