@@ -114,6 +114,9 @@ class Deck:
     combatant: int
     cards: list = field(default_factory=list)
     adjustments: list = field(default_factory=list)
+    # The user's own figure for a Combatant's own AP pool, such as Rita's
+    # Chronal Ascension (plan D47); None for the client's.
+    ap_pool: int | None = None
     # The cards deleted, by id, as the Save Data lists them: the record
     # the five-removal rule counts.
     removed: list = field(default_factory=list)

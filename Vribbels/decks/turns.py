@@ -71,6 +71,13 @@ LASTING = ("TERM_BATTLE", "TERM_PASSIVE", "TERM_PASSIVE_WHOLE")
 # The battle timings a turn's start falls on.
 TURN_START = ("TIMING_DRAW_AFTER", "TIMING_DRAW_BEFORE", "TIMING_TURN_BEGIN")
 
+# A Combatant's own AP pool, by the card that switches it on (plan
+# D47): Rita's Chronal Ascension, which at the start of the turn her
+# Chronicle stacks become, paying for her Basic and Signature cards
+# before the team's AP. The client holds the cap, the status's
+# `overlay_value_max`; the rest it says in words only.
+POOLS = {"c_30097_srt4": {"status": "cs01_0878", "pays": ("c_30097_srt", "c_30097_uni")}}
+
 
 @dataclass
 class Figure:
@@ -128,6 +135,10 @@ class Played:
     # What it gives at the start of battle only.
     start_draw: Figure = field(default_factory=Figure)
     start_ap: Figure = field(default_factory=Figure)
+    # A Combatant's own AP pool pays for it first (plan D47); and the
+    # pool this card switches on, from the turn after its play.
+    pool_paid: bool = False
+    pool_switch: int = 0
 
 
 def _keyword(talents, family):
@@ -236,6 +247,21 @@ def fires(condition_id, catalogue):
     return EACH_TURN if turn_reset else BATTLE
 
 
+# The battle's conditions said in words, by the unit part they test.
+UNIT_WORDS = {"CONDITION_CHAR_EGO_BREAK": "on Ravage",
+              "CONDITION_CHAR_KILL": "when an enemy is defeated"}
+
+
+def _trigger_words(condition_id, effect_id, catalogue):
+    """What a trigger waits for, as the user reads it."""
+    for control in catalogue.conditions.get(condition_id, ()):
+        for part in control["units"]:
+            words = UNIT_WORDS.get(part.get("condition_unit"))
+            if words:
+                return words
+    return f"when triggered ({effect_id})"
+
+
 class _Reader:
     """Walks effects into figures: a card's, or what an Equipment piece,
     a Buff or a Mutation holds."""
@@ -273,7 +299,8 @@ class _Reader:
                 timing = fires(condition, self.catalogue) if condition else BATTLE
                 if timing == BATTLE or here not in (PLAY, timing):
                     here = BATTLE
-                    here_why = here_why or f"when triggered ({effect_id})"
+                    here_why = here_why or _trigger_words(condition, effect_id,
+                                                          self.catalogue)
                 else:
                     here = timing
             elif condition and not available(condition, self.catalogue):
@@ -552,8 +579,17 @@ class DeckTurns:
     # What its Equipment, their Buffs and blessings, and its Mutation
     # give (plan D21), each a `Bonus`.
     bonuses: list = field(default_factory=list)
+    # Its Combatant's own AP pool a regular turn (plan D47), 0 for none.
+    pool: int = 0
     # Cards the catalogue lacks, left out of every sum.
     unknown_cards: list = field(default_factory=list)
+
+    @property
+    def pool_saving(self):
+        """The AP the pool pays a regular turn: what its cards cost, up
+        to the pool."""
+        return min(self.pool, sum(card.cost.value for card in self.regular_cards
+                                  if card.pool_paid))
 
     @property
     def turn_draw(self):
@@ -576,7 +612,19 @@ class DeckTurns:
 
     @property
     def net_ap(self):
-        return self.regular.net_ap + self.turn_ap
+        return self.regular.net_ap + self.turn_ap + self.pool_saving
+
+
+def _pool_of(deck, played_cards, catalogue):
+    """The AP pool `deck`'s Combatant brings (plan D47), and the card
+    switching it on: the user's figure where the deck sets one, else the
+    client's cap once a switch card is in the deck."""
+    for card in played_cards:
+        held = POOLS.get(card.card) or POOLS.get(card.card.rsplit("_rsp", 1)[0])
+        if held is not None:
+            cap = _number(catalogue.statuses.get(held["status"], {}).get("overlay_value_max"))
+            return (deck.ap_pool if deck.ap_pool is not None else cap), card.card, held["pays"]
+    return 0, None, ()
 
 
 def deck_turns(deck, catalogue):
@@ -601,6 +649,13 @@ def deck_turns(deck, catalogue):
             copy = replace(made.played, needs_draw=made.needs_draw,
                            notes=made.played.notes + made.notes)
             listed[made.turns].extend([copy] * made.copies)
+    out.pool, switch, pays = _pool_of(deck, [p for _h, p in out.played], catalogue)
+    if out.pool:
+        out.regular_cards = [replace(card, pool_paid=card.card.startswith(pays))
+                             for card in out.regular_cards]
+        out.setup_cards = [replace(card, pool_paid=card.card.startswith(pays),
+                                   pool_switch=out.pool if card.card == switch else 0)
+                           for card in out.setup_cards]
     for card in out.regular_cards:
         out.regular.add(card)
     for card in out.setup_cards:
@@ -649,12 +704,20 @@ def plan_setup(setup, regular, draw=5, energy=3, openers=(), bonus_draw=0,
     the most setup cards be played is chosen, ties going to what leaves
     the most over; then the setup cards that fit, those giving the most
     first. An Upgrade's lasting effect gives from the turn after its
-    play (plan D42). `setup` and `regular` are `Played`s; `openers` are
-    the regular Opener cards, which proc at the start of battle for AP,
-    as an Opener setup card does (plan D18). A `SetupPlan`."""
+    play (plan D42), and so does a Combatant's own AP pool, which pays
+    for its own cards first (plan D47). `setup` and `regular` are
+    `Played`s; `openers` are the regular Opener cards, which proc at the
+    start of battle for AP, as an Opener setup card does (plan D18). A
+    `SetupPlan`."""
     def nets(card):
         return (card.draw.value - (1 if card.needs_draw else 0),
                 card.ap.value - card.cost.value)
+
+    def play(card, hand, ap, pool):
+        """The hand, AP and pool left once `card` is played."""
+        paid = min(pool, card.cost.value) if card.pool_paid else 0
+        d, a = nets(card)
+        return hand + d, ap + a + paid, pool - paid
 
     free = [card for card in regular
             if min(nets(card)) >= 0 and max(nets(card)) > 0]
@@ -666,9 +729,10 @@ def plan_setup(setup, regular, draw=5, energy=3, openers=(), bonus_draw=0,
     plan = SetupPlan()
     first = True
     # What the setup cards played so far give each turn after.
-    gained_draw = gained_ap = 0
+    gained_draw = gained_ap = gained_pool = 0
     while waiting or (first and at_start):
         hand, ap = draw + bonus_draw + gained_draw, energy + bonus_ap + gained_ap
+        pool = gained_pool
         if first:
             hand, ap = hand + start_draw, ap + start_ap
             # Proc at the start of battle: AP spent, no card drawn.
@@ -676,23 +740,21 @@ def plan_setup(setup, regular, draw=5, energy=3, openers=(), bonus_draw=0,
                 ap += card.ap.value - card.cost.value + card.start_ap.value
                 hand += card.draw.value + card.start_draw.value
         for card in free:
-            d, a = nets(card)
-            hand, ap = hand + d, ap + a
+            hand, ap, pool = play(card, hand, ap, pool)
         best = None
         for mask in range(1 << len(trades)):
             chosen = [card for i, card in enumerate(trades) if mask >> i & 1]
-            h, a = hand, ap
+            h, a, p = hand, ap, pool
             for card in chosen:
-                d, e = nets(card)
-                h, a = h + d, a + e
+                h, a, p = play(card, h, a, p)
             if h < 0 or a < 0:
                 continue
             played_setup = []
             for card in waiting:
-                d, e = nets(card)
-                if h + d >= 0 and a + e >= 0:
+                h2, a2, p2 = play(card, h, a, p)
+                if h2 >= 0 and a2 >= 0:
                     played_setup.append(card)
-                    h, a = h + d, a + e
+                    h, a, p = h2, a2, p2
             score = (len(played_setup), h + a)
             if best is None or score > best[0]:
                 best = (score, chosen, played_setup, h, a)
@@ -705,6 +767,7 @@ def plan_setup(setup, regular, draw=5, energy=3, openers=(), bonus_draw=0,
                                     draw_left=h, ap_left=a))
         gained_draw += sum(card.turn_draw.value for card in now)
         gained_ap += sum(card.turn_ap.value for card in now)
+        gained_pool += sum(card.pool_switch for card in now)
         waiting = [card for card in waiting if card not in played_setup]
         first = False
     return plan
@@ -722,12 +785,20 @@ class TeamTurns:
     setup: SetupPlan = field(default_factory=SetupPlan)
 
 
-def team_turns(team, catalogue):
+# What a Ravage gives besides firing the On-Ravage effects: "On
+# Ravage, gain 1 Action Point", which the client says in words only
+# (plan D48).
+RAVAGE_AP = 1
+
+
+def team_turns(team, catalogue, ravages=0):
     """`team` as it plays, a `TeamTurns`: a regular turn's draw and AP
     surplus (plan 3.1), the turn's own draw and AP plus each deck's
-    nets, and how its setup cards get played."""
+    nets, and how its setup cards get played. `ravages` is the user's
+    Ravages a turn (plan D48), each worth RAVAGE_AP; the On-Ravage
+    effects stay the battle's, with their figures."""
     draw = catalogue.constants.get("draw", 5)
-    energy = catalogue.constants.get("energy", 3)
+    energy = catalogue.constants.get("energy", 3) + ravages * RAVAGE_AP
     out = TeamTurns(decks=[deck_turns(deck, catalogue) for deck in team.decks])
     out.draw_surplus = draw + sum(d.net_draw for d in out.decks)
     out.ap_surplus = energy + sum(d.net_ap for d in out.decks)

@@ -149,7 +149,9 @@ The readings set aside, each failing decks the game accepted:
 
 **Bonuses** (`turns.bonuses`, plan D21) are what a deck's Equipment, at its star level, its Buffs and hammer blessings, and its Mutation give, read through the same walk as a card's lasting statuses: plainly each turn, plainly at the start of battle, or as the battle decides, which the user can type in as a correction. A hammer blessing adds another piece's effect, read at that piece's first star.
 
-**The team's regular turn** (`turns.team_turns`) has a surplus of the turn's own draw and AP plus every deck's nets (plan 3.1). The turn's figures are the client's battle constants (`catalogue.CONSTANTS`). A "?" figure counts as 0 in the sums, and the sum says some part is the battle's.
+**A Combatant's own AP pool** (`turns.POOLS`, plan D47): Rita's Chronal Ascension, which her Chronicle stacks become at the start of the turn, pays for her Basic and Signature cards before the team's AP, once Chrono Archon is in the deck. Its cap is the client's (the Chronicle status's `overlay_value_max`); the user can set the deck's own (`Deck.ap_pool`). A regular turn's pool pays what her cards cost up to the cap (`DeckTurns.pool_saving`), and in the setup turns it starts the turn after Chrono Archon is played.
+
+**The team's regular turn** (`turns.team_turns`) has a surplus of the turn's own draw and AP plus every deck's nets (plan 3.1). The turn's figures are the client's battle constants (`catalogue.CONSTANTS`). A "?" figure counts as 0 in the sums, and the sum says some part is the battle's. **Ravages a turn** are the user's, 0 until set (plan D48): each adds 1 AP (`turns.RAVAGE_AP`, which the client says in words only), and the On-Ravage effects stay the battle's, shown "on Ravage" with their figures.
 
 **The setup turns** (`turns.plan_setup`, plan D72) assume a perfect draw. Each turn starts with the turn's cards in hand and its AP, the bonuses and corrections each turn, the start-of-battle bonuses in turn 1, and the lasting effects of the setup cards played in earlier turns:
 
@@ -192,6 +194,7 @@ The maintainer's deck spreadsheet prices the cards of each of its teams, by hand
   - on a catalogue of the check's own, each reading rule above holds for the card built to exercise it, and the user's figures stand over it;
   - a deck's lists and nets, and the team's surplus off the catalogue's own turn figures;
   - each timing of a trigger, and what Equipment at its star level, a Buff and a Mutation give;
+  - Rita's pool, with its cap read off the client and the user's own, in a regular turn and in setup, and the Ravages a turn;
   - the setup plan on cards built for each of its steps;
   - each cell of the created-card table, and what moves a made card between cells, on a maker built for it;
   - the cards whose figures the Deck Calcs tab gives read the same off the installed client.

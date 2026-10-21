@@ -167,6 +167,8 @@ def _catalogue():
         "st_eq_start": {"link_skill_eff_id": "[start_draw,start_ap]",
                         "term_type_1": "TERM_BATTLE"},
         "st_eq_battle": {"link_skill_eff_id": "[battle_draw]", "term_type_1": "TERM_BATTLE"},
+        # The pool's cap is not the game's 6, so a 6 typed in shows.
+        "cs01_0878": {"overlay_value_max": "5", "term_type_1": "TERM_EFF_WHOLE_FINALLY"},
     }
     conditions = {
         "cd_pile": _condition({"condition_card": "CONDITION_CARD_AMOUNT",
@@ -240,6 +242,10 @@ def _catalogue():
         "c_9_upgrade_each_turn": _card(category="CARD_POWER", effects=["each_turn_put"]),
         "c_9_regular_each_turn": _card(effects=["each_turn_put"]),
         "c_9_chance": _card(effects=["chance"]),
+        # Rita's AP pool (plan D47), under her own ids, which the pool's
+        # table names.
+        "c_30097_srt4": _card(category="CARD_POWER", name="Chrono Archon"),
+        "c_30097_srt1": _card(cost=3, category="CARD_ATK", name="Time Acceleration"),
     }
     return Catalogue({
         "cards": cards, "effects": effects, "statuses": statuses,
@@ -400,6 +406,44 @@ def _bonuses_report():
     if held.turn_ap != 2:
         out.append(f"the deck's Equipment and Buff give {held.turn_ap} AP a turn in its "
                    f"nets, not 2.")
+    return out
+
+
+def _pool_report():
+    """Rita's own AP pool (plan D47) and the Ravages a turn (plan D48)."""
+    from decks import turns
+    from decks.model import Deck, DeckCard, Team
+    catalogue = _catalogue()
+    out = []
+    rita = [DeckCard("c_30097_srt4"), DeckCard("c_30097_srt1"), DeckCard("c_30097_srt1")]
+    held = turns.deck_turns(Deck(combatant=30097, cards=rita), catalogue)
+    if (held.pool, held.pool_saving, held.net_ap) != (5, 5, -1):
+        out.append(f"Rita's deck has a pool of {held.pool} paying {held.pool_saving} AP, "
+                   f"net AP {held.net_ap}, not 5, 5 and -1: the pool, capped by the "
+                   f"client's status, pays for her own cards first. See `_pool_of` and "
+                   f"`DeckTurns.pool_saving` in decks/turns.py.")
+    mine = turns.deck_turns(Deck(combatant=30097, cards=rita, ap_pool=2), catalogue)
+    if mine.pool_saving != 2:
+        out.append("the user's own pool figure for Rita's deck is not the one counted.")
+    if turns.deck_turns(Deck(combatant=30097, cards=rita[1:]), catalogue).pool:
+        out.append("Rita's pool counts without Chrono Archon in the deck, which switches it on.")
+    switch = _card_like("switch", 1)
+    switch.pool_switch = 5
+    own = _card_like("own", 3)
+    own.pool_paid = True
+    plan = turns.plan_setup([switch, own], [], draw=5, energy=3)
+    got = [[card.name for card in turn.setup] for turn in plan.turns]
+    if got != [["switch"], ["own"]] or plan.turns[-1].ap_left != 3:
+        out.append(f"with Rita's pool switched on in turn 1, setup plays {got}, leaving "
+                   f"{plan.turns[-1].ap_left if plan.turns else '-'} AP: her own 3-AP card "
+                   f"should be paid from the pool in turn 2, leaving 3. See `plan_setup`.")
+    team = turns.team_turns(Team(decks=[Deck(combatant=9, cards=[DeckCard("c_9_plain")])]),
+                            catalogue, ravages=2)
+    plain = turns.team_turns(Team(decks=[Deck(combatant=9, cards=[DeckCard("c_9_plain")])]),
+                             catalogue)
+    if team.ap_surplus - plain.ap_surplus != 2:
+        out.append(f"two Ravages a turn add {team.ap_surplus - plain.ap_surplus} AP to the "
+                   f"surplus, not 2 (plan D48). See `team_turns`.")
     return out
 
 
@@ -606,8 +650,8 @@ def _deck_calcs_report():
 
 def run():
     add_source_to_path()
-    return (_rules_report() + _totals_report() + _bonuses_report() + _setup_report()
-            + _created_report() + _deck_calcs_report())
+    return (_rules_report() + _totals_report() + _bonuses_report() + _pool_report()
+            + _setup_report() + _created_report() + _deck_calcs_report())
 
 
 FAULTS = [
@@ -740,4 +784,23 @@ FAULTS = [
     ("the turn bonus left out of setup", "decks.turns:plan_setup",
      "hand, ap = draw + bonus_draw + gained_draw, energy + bonus_ap + gained_ap",
      "hand, ap = draw + gained_draw, energy + gained_ap", "a bonus every turn"),
+    ("the pool's cap typed in", "decks.turns:_pool_of",
+     'cap = _number(catalogue.statuses.get(held["status"], {}).get("overlay_value_max"))',
+     "cap = 6", "the pool, capped by the client's status"),
+    ("the user's pool ignored", "decks.turns:_pool_of",
+     'return (deck.ap_pool if deck.ap_pool is not None else cap), card.card, held["pays"]',
+     'return cap, card.card, held["pays"]', "the user's own pool figure"),
+    ("the pool saving nothing", "decks.turns:DeckTurns.pool_saving",
+     "return min(self.pool, sum(card.cost.value for card in self.regular_cards",
+     "return 0 * min(self.pool, sum(card.cost.value for card in self.regular_cards",
+     "the pool, capped by the client's status"),
+    ("the pool unused in setup", "decks.turns:plan_setup",
+     "paid = min(pool, card.cost.value) if card.pool_paid else 0", "paid = 0",
+     "with Rita's pool switched on"),
+    ("the pool never switched on in setup", "decks.turns:plan_setup",
+     "gained_pool += sum(card.pool_switch for card in now)", "pass",
+     "with Rita's pool switched on"),
+    ("Ravages ignored", "decks.turns:team_turns",
+     'energy = catalogue.constants.get("energy", 3) + ravages * RAVAGE_AP',
+     'energy = catalogue.constants.get("energy", 3)', "two Ravages a turn"),
 ]
