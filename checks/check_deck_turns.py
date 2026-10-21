@@ -63,6 +63,12 @@ def _effect(eff, value=1, operation="OPERATION_ACTIVE", **columns):
             **columns}
 
 
+def _make(cards, count=1, place="CARD_PLACE_HAND", operation="OPERATION_ACTIVE", **columns):
+    return _effect("SKILL_EFF_CARD_GET", count, operation=operation,
+                   target_card_set="CARD_SET_DESIGNED", eff_card_place=place,
+                   target_card_set_opt_multiple_link=cards, **columns)
+
+
 def _condition(card_part):
     return [{"type": "stack", "and_or": "AND", "cards": [card_part], "units": [],
              "timings": [], "battle_timing": []}]
@@ -109,6 +115,24 @@ def _catalogue():
         "lasting_ap": _effect(ENERGY, operation="OPERATION_TRIGGER", sign="MATHSIGN_ADD"),
         "choose": _effect("SKILL_EFF_CARD_OPTION_SELECT",
                           eff_opt_multiple_link="[c_9_opt1,c_9_opt2]"),
+        "make_temp_hand": _make("[c_9_temp]", 2),
+        "make_temp_deck": _make("[c_9_temp]", place="CARD_PLACE_DECK"),
+        "make_stay": _make("[c_9_stay]"),
+        "make_idle": _make("[c_9_idle]"),
+        "make_pick": _make("[c_9_temp,c_9_stay]", eff_card_target_count="1"),
+        "make_grave": _make("[c_9_grave]"),
+        "add_exhaust": _effect("SKILL_EFF_CARD_TALENT_ADD", target_card_set="CARD_SET_BEFORE_EFF_TARGET",
+                               eff_opt="[TALENT_EXHAUST]"),
+        "lasting_make_put": _effect(STATUS, target_card_set="CARD_SET_NONE",
+                                    link_cs_id="[st_lasting_make]"),
+        # On no trigger: only the status lasting the battle makes it a
+        # card made every time.
+        "lasting_make": _make("[c_9_temp]"),
+        "grave_on": _effect(STATUS, operation="OPERATION_PASSIVE",
+                            target_card_set="CARD_SET_THIS_CARD", link_cs_id="[st_grave]"),
+        "not_shuffle": _effect("SKILL_EFF_CARD_NOT_SHUFFLE", operation="OPERATION_PASSIVE"),
+        "make_arrow": _make("[c_30113_cre1]", place="CARD_PLACE_DECK"),
+        "make_flash": _make("[c_30047_srt4_rsp3_mut]"),
     }
     statuses = {
         "st_self": {"link_skill_eff_id": "[self_move]", "term_type_1": "TERM_BATTLE"},
@@ -117,6 +141,8 @@ def _catalogue():
         "st_uses": {"link_skill_eff_id": "[trigger]", "term_type_1": "TERM_EFF_WHOLE"},
         "st_own": {"link_skill_eff_id": "[own_cut]", "term_type_1": "TERM_BATTLE"},
         "st_lasting": {"link_skill_eff_id": "[lasting_ap]", "term_type_1": "TERM_BATTLE"},
+        "st_lasting_make": {"link_skill_eff_id": "[lasting_make]", "term_type_1": "TERM_BATTLE"},
+        "st_grave": {"link_skill_eff_id": "[not_shuffle]", "term_type_1": "TERM_BATTLE"},
     }
     conditions = {
         "cd_pile": _condition({"condition_card": "CONDITION_CARD_AMOUNT",
@@ -152,6 +178,29 @@ def _catalogue():
         "c_9_opt1": _card(effects=["draw2"]), "c_9_opt2": _card(effects=["ap1"]),
         "c_9_base": _card(cost=2),
         "c_9_base_rsp1": _card(cost=0, effects=["draw1"]),
+        # What makers make: a card that leaves after use, one that stays,
+        # one that changes nothing, one that stays in the Graveyard, and
+        # two the maintainer's exceptions name.
+        "c_9_temp": _card(effects=["draw1"], talents=["TALENT_EXHAUST"], name="Temp"),
+        "c_9_stay": _card(name="Stay"),
+        "c_9_idle": _card(cost=0, talents=["TALENT_EXHAUST"], name="Idle"),
+        "c_9_grave": _card(effects=["grave_on"], name="Grave"),
+        "c_30113_cre1": _card(cost=0, talents=["TALENT_UNPLAYABLE", "TALENT_EXHAUST"],
+                              effects=["draw1"], name="Homing Arrow"),
+        "c_30047_srt4_rsp3_mut": _card(cost=3, talents=["TALENT_EXHAUST"], name="Hew"),
+        "c_9_maker_hand": _card(effects=["make_temp_hand"]),
+        "c_9_maker_deck": _card(effects=["make_temp_deck"]),
+        "c_9_upgrade_hand": _card(category="CARD_POWER", effects=["make_temp_hand"]),
+        "c_9_upgrade_deck": _card(category="CARD_POWER", effects=["make_temp_deck"]),
+        "c_9_maker_stay": _card(effects=["make_stay"]),
+        "c_9_upgrade_stay": _card(category="CARD_POWER", effects=["make_stay"]),
+        "c_9_maker_idle": _card(effects=["make_idle"]),
+        "c_9_maker_pick": _card(effects=["make_pick"]),
+        "c_9_maker_adds": _card(effects=["make_stay", "add_exhaust"]),
+        "c_9_maker_grave": _card(effects=["make_grave"]),
+        "c_9_lasting_maker": _card(category="CARD_POWER", effects=["lasting_make_put"]),
+        "c_9_arrow_maker": _card(effects=["make_arrow"]),
+        "c_9_flash_maker": _card(effects=["make_flash"]),
     }
     return Catalogue({
         "cards": cards, "effects": effects, "statuses": statuses,
@@ -299,6 +348,83 @@ def _totals_report():
     return out
 
 
+# (what, the maker, the card made, its list, needs a draw, copies a
+# turn, the deck grows, changes nothing, hidden, gone, a piece of a note
+# or "")
+CREATED = [
+    ("a card made into hand, leaving after use, on every play", "c_9_maker_hand",
+     "c_9_temp", "regular", False, 2, False, False, False, True, ""),
+    ("a card made into the deck, leaving after use, on every play", "c_9_maker_deck",
+     "c_9_temp", "regular", True, 1, False, False, False, True, ""),
+    ("an Upgrade's card made into hand once", "c_9_upgrade_hand",
+     "c_9_temp", "setup", False, 2, False, False, False, True, ""),
+    ("an Upgrade's card made into the deck once", "c_9_upgrade_deck",
+     "c_9_temp", "setup", True, 1, False, False, False, True, ""),
+    ("a card that stays, made on every play", "c_9_maker_stay",
+     "c_9_stay", "regular", True, 1, True, False, False, False, ""),
+    ("a card that stays, made once", "c_9_upgrade_stay",
+     "c_9_stay", "regular", True, 1, False, False, False, False, ""),
+    ("a made card that changes nothing", "c_9_maker_idle",
+     "c_9_idle", "regular", False, 1, False, True, False, True, ""),
+    ("one of two cards made", "c_9_maker_pick",
+     "c_9_temp", "regular", False, 1, False, False, False, True, "one of 2"),
+    ("a card its maker gives Exhaust", "c_9_maker_adds",
+     "c_9_stay", "regular", False, 1, False, False, False, True, ""),
+    ("a made card that stays in the Graveyard", "c_9_maker_grave",
+     "c_9_grave", "regular", False, 1, False, False, False, True, ""),
+    ("an Upgrade's lasting status making a card each time", "c_9_lasting_maker",
+     "c_9_temp", "regular", False, 1, False, False, False, True, ""),
+    ("an exception the maintainer ignores", "c_9_arrow_maker",
+     "c_30113_cre1", "regular", True, 1, False, False, True, True, "draws a card"),
+]
+
+
+def _created_report():
+    """Each cell of plan D14's table, and what moves a card between
+    them, on a maker built for it; a deck's lists with them."""
+    from decks import created, turns
+    from decks.model import Deck, DeckCard
+    catalogue = _catalogue()
+    out = []
+    for what, maker, card, listed, draw, copies, grows, idle, hidden, gone, noted in CREATED:
+        held = DeckCard(maker)
+        made = created.created_cards(held, turns.played(held, catalogue), catalogue)
+        found = [m for m in made if m.card == card]
+        if not found:
+            out.append(f"{what}: {maker} makes {[m.card for m in made]}, not {card}. See "
+                       f"`creations` in decks/created.py.")
+            continue
+        m = found[0]
+        got = (m.turns, m.needs_draw, m.copies, m.grows, m.idle, m.hidden, m.gone)
+        want = (listed, draw, copies, grows, idle, hidden, gone)
+        if got != want:
+            names = ("list", "needs a draw", "copies", "grows", "changes nothing",
+                     "hidden", "gone")
+            wrong = [f"{n} {g!r} not {w!r}" for n, g, w in zip(names, got, want) if g != w]
+            out.append(f"{what}: {'; '.join(wrong)}. See `created_cards` in "
+                       f"decks/created.py and plan.md D14.")
+        if noted and not any(noted in n for n in m.notes):
+            out.append(f"{what}: no note says {noted!r}.")
+    flash = created.created_cards(DeckCard("c_9_flash_maker"),
+                                  turns.played(DeckCard("c_9_flash_maker"), catalogue),
+                                  catalogue)
+    if not flash or flash[0].played.cost.value != 0:
+        out.append("an exception's practical cost (Hew (Flash), 0) is not what the "
+                   "made card costs. See decks/exceptions.py.")
+    held = turns.deck_turns(Deck(combatant=9, cards=[DeckCard("c_9_maker_hand")]), catalogue)
+    sums = (held.regular.cards, held.regular.cost, held.regular.draw)
+    if sums != (1, 3, 2):
+        out.append(f"a deck whose card makes two cards into hand sums to cards, cost, "
+                   f"draw {sums}, not (1, 3, 2): each made card counts, and needs no "
+                   f"draw (plan D15). See `deck_turns` in decks/turns.py.")
+    held = turns.deck_turns(Deck(combatant=9, cards=[DeckCard("c_9_maker_idle"),
+                                                     DeckCard("c_9_arrow_maker")]), catalogue)
+    if (held.regular.cards, held.regular.cost) != (2, 2):
+        out.append("a made card that changes nothing, or one an exception hides, is "
+                   "counted in a list (plan D43, D45).")
+    return out
+
+
 def _card_like(name, cost=0, draw=0, ap=0, opener=False):
     from decks import turns
     return turns.Played(card=name, name=name, cost=turns.Figure(cost),
@@ -377,7 +503,8 @@ def _deck_calcs_report():
 
 def run():
     add_source_to_path()
-    return _rules_report() + _totals_report() + _setup_report() + _deck_calcs_report()
+    return (_rules_report() + _totals_report() + _setup_report() + _created_report()
+            + _deck_calcs_report())
 
 
 FAULTS = [
@@ -424,7 +551,8 @@ FAULTS = [
     ("the user's figure ignored", "decks.turns:played",
      "if key in held.overrides:", "if False:", "the user's own figure"),
     ("a card left out of its list's count", "decks.turns:Sums.add",
-     "self.cards += 1", "pass", "a deck's regular list sums"),
+     "self.cards += 1 if played.needs_draw else 0", "pass",
+     "a deck's regular list sums"),
     ("a deck's corrections left out", "decks.turns:deck_turns",
      "out.draw_adjustment += adjustment.draw", "pass", "the user's corrections"),
     ("the turn's draw typed in", "decks.turns:team_turns",
@@ -447,4 +575,37 @@ FAULTS = [
     ("setup cards not the cheapest first", "decks.turns:plan_setup",
      "key=lambda c: -sum(nets(c)))", "key=lambda c: sum(nets(c)))",
      "the cheaper card first"),
+    ("a one-time maker's cards made every time", "decks.created:creations",
+     "every_time=fires or via_lasting or not once_by_kind", "every_time=True",
+     "an Upgrade's card made into hand once"),
+    ("a card made into hand needing a draw", "decks.created:created_cards",
+     "needs_draw = not (gone and creation.to_hand)", "needs_draw = True",
+     "a card made into hand, leaving after use"),
+    ("a maker's keywords ignored", "decks.created:created_cards",
+     "talents = tuple(dict.fromkeys(made.talents + creation.talents))",
+     "talents = made.talents", "a card its maker gives Exhaust"),
+    ("the Graveyard's keeping ignored", "decks.created:_gone",
+     'if effect.get("eff") == NOT_SHUFFLE:', "if False:", "stays in the Graveyard"),
+    ("a lasting status's cards made once", "decks.created:creations",
+     'lasting = status.get("term_type_1") in LASTING', "lasting = False",
+     "an Upgrade's lasting status"),
+    ("a made card that changes nothing counted", "decks.created:created_cards",
+     "idle = (creation.to_hand and made.cost.value == 0",
+     "idle = (False and made.cost.value == 0", "a made card that changes nothing"),
+    ("the exceptions table ignored", "decks.created:created_cards",
+     "exception = EXCEPTIONS.get(card_id, {})", "exception = {}",
+     "an exception the maintainer ignores"),
+    ("a made card's copies counted once", "decks.turns:deck_turns",
+     "listed[made.turns].extend([copy] * made.copies)", "listed[made.turns].append(copy)",
+     "a deck whose card makes two cards into hand"),
+    ("a growing deck not flagged", "decks.created:created_cards",
+     "grows=creation.every_time and not gone", "grows=False",
+     "a card that stays, made on every play"),
+    ("one of several not noted", "decks.created:created_cards",
+     "if creation.pick or creation.pool:", "if False:", "one of two cards made"),
+    ("an exception's practical cost ignored", "decks.created:created_cards",
+     'if "cost" in exception:', "if False:", "an exception's practical cost"),
+    ("hidden and idle made cards counted", "decks.turns:deck_turns",
+     "if made.hidden or made.idle or made.turns not in listed:",
+     "if made.turns not in listed:", "is counted in a list"),
 ]

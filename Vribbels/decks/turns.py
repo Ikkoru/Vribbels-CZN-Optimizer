@@ -14,7 +14,7 @@ with its amount where the data gives one, for the user to give a number
 (plan D12).
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from .catalogue import _list
 
@@ -108,6 +108,9 @@ class Played:
     opener: bool = False
     # What was assumed, such as a choice's first option.
     notes: list = field(default_factory=list)
+    # It must be drawn to be played; a card made into hand need not be
+    # (plan D15).
+    needs_draw: bool = True
 
 
 def _keyword(talents, family):
@@ -350,7 +353,7 @@ class Sums:
     unknown: bool = False
 
     def add(self, played):
-        self.cards += 1
+        self.cards += 1 if played.needs_draw else 0
         self.cost += played.cost.value
         self.draw += played.draw.value
         self.ap += played.ap.value
@@ -375,6 +378,13 @@ class DeckTurns:
     deck: object
     # (DeckCard, Played) for every card in the deck the client knows.
     played: list = field(default_factory=list)
+    # The cards they make in battle (`created.CreatedCard`), hidden and
+    # idle ones too.
+    created: list = field(default_factory=list)
+    # Every card each list counts, the deck's and those made, a made
+    # card once per copy a turn.
+    regular_cards: list = field(default_factory=list)
+    setup_cards: list = field(default_factory=list)
     regular: Sums = field(default_factory=Sums)
     setup: Sums = field(default_factory=Sums)
     # The user's corrections a turn (plan D22), summed.
@@ -395,7 +405,10 @@ class DeckTurns:
 
 
 def deck_turns(deck, catalogue):
-    """`deck` as it plays, a `DeckTurns`."""
+    """`deck` as it plays, a `DeckTurns`: its cards and those they make
+    in battle, each in its list."""
+    # NOT at the top: `created` imports this module.
+    from .created import created_cards
     out = DeckTurns(deck=deck)
     for held in deck.present():
         played_card = played(held, catalogue)
@@ -403,10 +416,20 @@ def deck_turns(deck, catalogue):
             out.unknown_cards.append(held.card)
             continue
         out.played.append((held, played_card))
-        if played_card.turns == REGULAR:
-            out.regular.add(played_card)
-        elif played_card.turns == SETUP:
-            out.setup.add(played_card)
+        listed = {REGULAR: out.regular_cards, SETUP: out.setup_cards}
+        if played_card.turns in listed:
+            listed[played_card.turns].append(played_card)
+        for made in created_cards(held, played_card, catalogue):
+            out.created.append(made)
+            if made.hidden or made.idle or made.turns not in listed:
+                continue
+            copy = replace(made.played, needs_draw=made.needs_draw,
+                           notes=made.played.notes + made.notes)
+            listed[made.turns].extend([copy] * made.copies)
+    for card in out.regular_cards:
+        out.regular.add(card)
+    for card in out.setup_cards:
+        out.setup.add(card)
     for adjustment in deck.adjustments:
         out.draw_adjustment += adjustment.draw
         out.ap_adjustment += adjustment.ap
@@ -451,7 +474,8 @@ def plan_setup(setup, regular, draw=5, energy=3, openers=(), bonus_draw=0,
     regular Opener cards, which proc at the start of battle for AP, as
     an Opener setup card does (plan D18). A `SetupPlan`."""
     def nets(card):
-        return card.draw.value - 1, card.ap.value - card.cost.value
+        return (card.draw.value - (1 if card.needs_draw else 0),
+                card.ap.value - card.cost.value)
 
     free = [card for card in regular
             if min(nets(card)) >= 0 and max(nets(card)) > 0]
@@ -523,8 +547,8 @@ def team_turns(team, catalogue):
     out.draw_surplus = draw + sum(d.net_draw for d in out.decks)
     out.ap_surplus = energy + sum(d.net_ap for d in out.decks)
     out.unknown = any(d.regular.unknown for d in out.decks)
-    regular = [p for d in out.decks for _h, p in d.played if p.turns == REGULAR]
-    setup = [p for d in out.decks for _h, p in d.played if p.turns == SETUP]
+    regular = [p for d in out.decks for p in d.regular_cards]
+    setup = [p for d in out.decks for p in d.setup_cards]
     out.setup = plan_setup(setup, regular, draw, energy,
                            openers=[p for p in regular if p.opener],
                            bonus_draw=sum(d.draw_adjustment for d in out.decks),

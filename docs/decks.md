@@ -6,7 +6,9 @@
 - `model.py` holds a deck and a team.
 - `wire.py` turns the captured Save Data into decks.
 - `rules.py` weighs a deck and lists the deck-building rules it breaks.
-- `turns.py` reads what each card costs, draws and gives in AP, and which turns it counts in.
+- `turns.py` reads what each card costs, draws and gives in AP, and which turns it counts in, and sums a deck's turn and the team's.
+- `created.py` finds the cards a deck's cards make in battle, and places each in a list.
+- `exceptions.py` is the maintainer's table of cards whose play differs from their data.
 
 ## The client's tables
 
@@ -15,7 +17,7 @@ Read with `game_client.Client` (`docs/client_data.md`), each table named as `--t
 | What | Tables | The catalogue's key |
 | --- | --- | --- |
 | Cards | every `card(<group>)@card`, and season 5's `memory_grade_define@card` | `cards`, by id: its group, name, text, kind (`sort`), category, rarity, cost, keywords (`talent`), classes, `r_spark_replace_cost`, Epiphany tags (`r_spark_tag_default`), effects, child cards |
-| A card's versions | every `card(<group>)@card_r_spark` | `versions`, the five Signature Epiphanies (`rsp1`–`rsp5_<card>`); `upgrades`, a Potential node's (`pot_`) and Ego Manifestation's (`lbk_`) |
+| A card's versions | every `card(<group>)@card_r_spark` | `versions`, the five Signature Epiphanies (`rsp1`–`rsp5_<card>`); `upgrades`, a Potential node's (`pot_`) and Ego Manifestation's (`lbk_`). A version with no name of its own in the text goes by its base card's |
 | Effects and statuses | every `@skill_eff` and `@cs` | `effects`, `statuses`: only those a card, an Epiphany, a Persona effect, a piece of Equipment, a Buff or a Mutation reaches, through `link_cs_id`, `link_skill_eff_id` and `show_link_cs_id` |
 | Conditions | every `condition(<group>)` set's `@condition`, `@condition_control`, `@cond_card`, `@cond_unit` and `@cond_timing` | `conditions`: for each condition an effect names (`eff_link_condition_id`), its control rows in order, `<key>_<n>`. A `stack` row tests its card, unit and timing parts; a `reset` row says at which battle timing the count starts over |
 | Neutral and Divine Epiphanies | `r_spark@r_spark` | `epiphanies`: a Divine one names its god (`god_type`), a Neutral one none, and each holds the conditions below |
@@ -136,7 +138,7 @@ The readings set aside, each failing decks the game accepted:
 
 **The user's own figures** stand over what is read: a `DeckCard`'s `overrides` give a cost, draw or AP gain for a figure the battle decides, and move a card between the lists (plan D12, 3.2).
 
-**A deck's turn** (`turns.deck_turns`) sums its regular and its setup cards apart, each card needing one draw. Its nets are what it adds to the team's regular turn: its draws less its cards, its AP gain less its cost, and the user's own corrections a turn, each with a note (`model.Adjustment`; plan D22, D71).
+**A deck's turn** (`turns.deck_turns`) sums its regular and its setup cards apart, with the cards they make (*Created cards*); each card needs one draw, but one made into hand. Its nets are what it adds to the team's regular turn: its draws less its cards, its AP gain less its cost, and the user's own corrections a turn, each with a note (`model.Adjustment`; plan D22, D71).
 
 **The team's regular turn** (`turns.team_turns`) has a surplus of the turn's own draw and AP plus every deck's nets (plan 3.1). The turn's figures are the client's battle constants (`catalogue.CONSTANTS`). A "?" figure counts as 0 in the sums, and the sum says some part is the battle's.
 
@@ -149,7 +151,26 @@ The readings set aside, each failing decks the game accepted:
 
 An Opener card procs at the start of battle for its AP, without a card in hand. A setup card no turn can afford is reported (`SetupPlan.stuck`). Each turn keeps what it played and what it left over: turn 1's and turn 2's surplus (plan D20).
 
-**Held to the maintainer's figures.** The maintainer's deck spreadsheet prices the cards of each of its teams, by hand, on its Deck Calcs tab. The cards the program reads exactly as the sheet does are the check's fixture (`DECK_CALCS` in `checks/check_deck_turns.py`); the rest go to the maintainer for review.
+### Created cards
+
+`created.created_cards` finds what a card makes in battle: a `SKILL_EFF_CARD_GET` effect, on the card or on a status it puts on, and what it makes: its cards (`target_card_set_opt_multiple_link`), how many (`eff_value`), and where (`eff_card_place`). Each made card is placed by three questions (plan D14):
+
+- **Does it leave after use?** It does when it is an Upgrade, has an Exhaust or Remove keyword, or has a status keeping it in the Graveyard on Shuffle (`SKILL_EFF_CARD_NOT_SHUFFLE`; plan D51). The keywords its maker gives it count: the effects right after a creation, aimed at the card just made (`CARD_SET_BEFORE_EFF_TARGET`), add keywords (`SKILL_EFF_CARD_TALENT_ADD`) and cut its cost.
+- **Is it made once or every time?** Once when its maker leaves after its play (a setup card) and makes it on play; every time when the maker stays, or it is made on a trigger or by a status lasting the battle.
+- **Does it go to hand?** Then it needs no draw (plan D15).
+
+| Made card | once, to hand | once, to the deck | every time |
+| --- | --- | --- | --- |
+| leaves after use | setup, no draw | setup | regular (no draw if to hand) |
+| stays | regular | regular | regular, and the deck grows each turn (plan D16) |
+
+A list counts a made card once per copy a creation makes, one turn's worth for a maker that makes it every time. **One of several made**, chosen or at random, takes the first, with a note (plan D44). **A made card that changes no sum** is set apart (`idle`; plan D43): made into hand, free, gone by the turn's end, with no draw, AP or creation of its own. A made card's own creations count too, a step deep.
+
+**The maintainer's exceptions** (`exceptions.EXCEPTIONS`, plan D45, D50) stand over the data where play differs: a card ignored outright (Homing Arrow), one hidden by default (Homing Laser L), a practical cost (Hew (Flash) at 0), or a card that cycles back though its keywords say it leaves (Dirge Bullet). A user can still set any card per deck.
+
+### Held to the maintainer's figures
+
+The maintainer's deck spreadsheet prices the cards of each of its teams, by hand, on its Deck Calcs tab. The cards the program reads exactly as the sheet does are the check's fixture (`DECK_CALCS` in `checks/check_deck_turns.py`); the rest go to the maintainer for review.
 
 ## Checks
 
@@ -162,4 +183,5 @@ An Opener card procs at the start of battle for its AP, without a card in hand. 
   - on a catalogue of the check's own, each reading rule above holds for the card built to exercise it, and the user's figures stand over it;
   - a deck's lists and nets, and the team's surplus off the catalogue's own turn figures;
   - the setup plan on cards built for each of its steps;
+  - each cell of the created-card table, and what moves a made card between cells, on a maker built for it;
   - the cards whose figures the Deck Calcs tab gives read the same off the installed client.

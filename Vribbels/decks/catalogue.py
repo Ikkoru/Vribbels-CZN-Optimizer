@@ -249,6 +249,13 @@ def read(client):
         elif STATUS_TABLE.search(name):
             for row in client.rows(name):
                 data["statuses"][row["id"]] = _compact(row)
+    # A version has no name of its own in the text: it goes by its base
+    # card's, which a card made in battle as a version needs too.
+    for base, kinds in list(data["versions"].items()) + list(data["upgrades"].items()):
+        for target in kinds.values():
+            held = data["cards"].get(target)
+            if held is not None and not held["name"] and base in data["cards"]:
+                held["name"] = data["cards"][base]["name"]
 
     data["epiphanies"] = {row["id"]: _epiphany(row, texts)
                           for row in client.rows(EPIPHANY_TABLE)
