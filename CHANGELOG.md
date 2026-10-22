@@ -6,54 +6,61 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.com/Vorbroker/Vribbels-CZN-Optimizer) at v1.7.0 (2026-02-07) and restarts versioning from v1.0.0. For the pre-fork history, see the upstream repository's CHANGELOG.
 
-## [2.6.0] - unreleased
+## [2.6.0] - Card Skin Packs, Season 5
 
 ### Added
 
-- Checklist: a story event with nothing to claim, such as Escape from Judgment, shows its Progress the way the game does, as a percentage of its episodes cleared.
-- Checklist: the Nightmare Carnival's countdown and Exchange show their rewards claimed. The Exchange is red while you hold the tokens for a tier still unclaimed.
-- Checklist: an event the program cannot read has a `Finished?` box.
-- Checklist: a shop product priced in another currency than its shop's shows its price beside its count, in the shop's colour: the Prism Module shop's Lumina Lens, at 3 Prism Lens.
-- Rossweisse, when you lack her or she wears no partner, is optimized with Sig, her release partner. She, Sig, Blanche and Capri also show where the game client cannot be read.
-- Gacha History: Card Skin Pack pulls are kept beside the Rescue records, so they outlast the half year the game lists them for. Open the packs' history in game while capturing to keep the ones already made.
+- Stats & Gacha History: Card Skin Pack pulls are kept beside the Rescue records, so they outlast the half year the game lists them for. To keep the ones already made, open Shop > Lumina Theater > Probability Info > Pack Purchase History while capturing, and go to its last page.
   - A Card Skin Packs row under the banners: your pulls, Super Rares under 5★ and Rares under 4★, the pulls since your last Super Rare, and your luck against the packs' flat 1.3% and 13%. Its pulls list each skin by the combatant it is for, and say which were duplicates.
-  - Overall Gacha Stats: the luck with the Card Skin Packs counted, beside the luck with the Prism Module. The packs' fastest and slowest Super Rare and best streak sit beside the Prism Module's, with where in game their history opens.
-  - Each skin's and pack's name is kept as the game gave it when pulled. Export JSON carries the packs' pulls, and Import JSON reads them back.
-- Combatants: a partner's Exploration Passives, the ones it brings to Chaos and Sortie runs, list under its Ego card, as they stand at its limit break.
-- Rossweisse's Potential 7 is scored, and the Fill button fills its ATK.
+  - Overall Gacha Stats: the luck with the Card Skin Packs counted, beside the luck with the Prism Module. The packs' fastest and slowest Super Rare and best streak sit beside the Prism Module's.
+  - Each skin's and pack's name is kept as the game gave it. Export JSON carries the packs' pulls, and Import JSON reads them back.
+- Checklist:
+  - A story event with nothing to claim, such as Escape from Judgment, shows its Progress as the game does, in percent of its episodes cleared.
+  - The Nightmare Carnival's countdown and Exchange show their rewards claimed. The Exchange is red while you hold the tokens for a tier still unclaimed.
+  - An event the program cannot read has a `Finished?` box.
+  - A shop product priced in another currency than its shop's shows its price beside its count, in the shop's colour: the Prism Module shop's Lumina Lens, at 3 Prism Lens.
+- Combatants: a partner's Exploration Passives, the ones it brings to Chaos and Sortie runs, list under its Ego card, at its limit break.
+- Rossweisse, Sig, Blanche and Capri show even where the game client cannot be read.
+  - Rossweisse's Potential 7 is scored, and the Fill button fills its ATK.
+  - When you lack Rossweisse or she wears no partner, she is optimized with Sig, her release partner.
+- Optimizer: the Veiled Radiance and Snowflake of OFM sets count, by the Effect % you give them in Set Configuration.
 - A partner released after the program shows its Ego card's text, from the game client.
 
 ### Changed
 
-- Checklist: until the Great Rift opens with the season's second part, the Seasonal Accumulated Score shows the days left until then, uncoloured.
-- Overall Gacha Stats: the sections read Combatant & Partner banners, +Prism Module and +Card Skins.
-- Combatants: the Partner card's name, stars, class, level, Ego and stats share its first line, the level out of the top a partner reaches. The passive, the Ego skill and the Exploration Passives are labelled.
-
-- Combatants and partners take their names, classes, stats and plain passive bonuses from the game client, so a patch that rebalances one needs no program update. One released after the program shows with the game's figures instead of as Unknown.
+- Combatants and partners take their names, classes, stats and plain passive bonuses from the game client, so a patch that rebalances one needs no program update. One released after the program shows with the game's figures.
+- Checklist:
+  - Every row's maximum comes from the game client, so a patch that raises a cap, a pass's level or an Overclock's runs needs no program update. The Galactic Disaster Shop's pages open on the game's own dates.
+  - The Seasonal Shop is the Galactic Disaster Shop, the game's name for it.
+  - The Galactic Disaster Shop's whole-season estimate covers season 5, at one Chaos run a day by default:
+    - It counts both parts' Great Rift records, the story's rewards, and the weekly Chaos progress at what its score tiers pay, 5,000 a week.
+    - Celestial Bulwark's runs count at what its bosses and Rare Species pay, with each part's Memory Resonance Amplification nodes from the game client. Your own runs count at the nodes each was made with.
+    - A season the program has no figures for uses your own Rare Species and Aether Eater rates once you have 30 whole runs of it.
+  - Excursions count down from your own daily Communication Passes: 3, plus one for each of the two town research nodes that add one.
+  - Until the Great Rift opens with the season's second part, the Seasonal Accumulated Score shows the days left until then, uncoloured.
+- Combatants:
+  - The Partner card's name, stars, class, level, Ego and stats share its first line, the level out of the top a partner reaches. The passive, the Ego skill and the Exploration Passives are labelled.
+  - The list's Level columns read `LVL`, and the Equipped Memory Fragments cells are wider.
+- Stats & Gacha History: Overall Gacha Stats' sections read Combatant & Partner banners, +Prism Module and +Card Skins.
+- Stats & Gacha History: a Seasonal rerun's pulls count with the release banners' even before the program has read any banner's rates.
+- Item, Chaos and Zero System names come from the game client first, so an id a patch gives to another item shows the new item's name. A Memory Fragment set keeps the program's own name, such as Snowflake of OFM.
 - When a patch leaves the game client unreadable, names and figures come from the last time it was read.
-- Gacha History: a Seasonal rerun's pulls count with the release banners' even before the program has read any banner's rates.
 - Memory Fragments: Potential's average and middle 80% weigh each new substat by how often the game draws it.
-- Checklist: the Seasonal Shop is the Galactic Disaster Shop, the game's name for it.
-- Checklist: the Galactic Disaster Shop's whole-season estimate covers season 5. It counts both halves' Great Rift records and the story's rewards, the weekly Chaos progress at what its score tiers pay, 5,000 a week, and Celestial Bulwark's runs at what its own bosses and Rare Species pay.
-  - Each part's runs count the Memory Resonance Amplification nodes its skill tree holds, read from the game client, so the estimate follows a part's whole tree from the day it opens. Your own runs count at the nodes each was made with.
-  - A season the program has no figures for counts your own Rare Species and Aether Eater rates once you have 30 whole runs of it.
-- Checklist: every row's maximum comes from the game client, so a patch that raises a cap, a pass's level or an Overclock's runs needs no program update. The Galactic Disaster Shop's pages open on the game's own dates.
-- Checklist: Excursions count down from your own daily Communication Passes, 3 plus one for each of the two town research nodes that add one, rather than a fixed 5.
-- Item, Chaos and Zero System names come from the game client first, so an id a patch gives to another item shows the new item's name. The program's own names cover what the client does not name. A Memory Fragment set keeps the program's own name, such as Snowflake of OFM; the game's names only a set the program has no entry for.
+- Substat roll ranges come from the game client. When a patch changes a substat's highest roll, presets you never edited are re-worked to match at launch.
 - Settings you never changed take each release's new defaults at launch, without Restore Defaults: Gear Score presets, Combatant presets, Combatant settings and the settings file. Ones you changed keep yours.
   - A launch that changes any backs your files up first, then says what it changed, with Undo.
-  - Setup & Settings: Update unchanged settings to new defaults automatically turns it off.
-- Substat roll ranges come from the game client. When a patch changes a substat's highest roll, presets you never edited are re-worked to match at launch.
+  - Setup & Settings: `Update unchanged settings to new defaults automatically` turns it off.
 
 ### Fixed
 
 - Partners below level 30 show their right level, and the stats that go with it. Combatants' levels read up to 62.
 - Tiphera's fifth Potential node raises DEF% and her sixth Crit Rate, not the other way round.
-- Items show the name the game shows. Every season's Memory of Light, the Memory Fragment set packages and several other packages showed another item's name, and two stickers each other's.
+- Eishlen's and Itsuku's Ego card text match the game's.
+- Items show the name the game shows: every season's Memory of Light, the Memory Fragment set packages and several other packages, and two stickers that showed each other's.
 - Combatants: a combatant wearing no Memory Fragments shows its stats on the Character card, not dashes.
-- A Memory Fragment set released after the program, such as Veiled Radiance, is listed in the Memory Fragments tab's Sets filter, and its fragments show while any set is unticked. The Character card shows it by name, not as Flex.
-- Capture: a Chaos run carried across captures, or played partly on another device, is recorded as one run instead of not at all. Fights no capture saw keep it out of the season estimate's Rare Species rates.
-- Capture Log: a Galactic Disaster clear that earns first-clear rewards shows all of them. Their Relic of a Frozen Civilization, Units and Traces of Memory were left out, and the run's own pay was shown a second time instead.
+- A Memory Fragment set released after the program is listed in the Memory Fragments tab's Sets filter, and its fragments show while any set is unticked. The Character card shows it by name, not as Flex.
+- Capture: a Chaos run carried across captures, or played partly on another device, is recorded as one run instead of not at all.
+- Capture Log: a Galactic Disaster clear that earns first-clear rewards shows all of them, and the run's own pay once.
 - Checklist:
   - The Nightmare Carnival's events and this season's Virtual Tactical Simulations show their names, not their ids.
   - On the first launch after a patch, the shops name the items the patch added.
