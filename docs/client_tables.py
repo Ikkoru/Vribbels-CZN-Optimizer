@@ -296,13 +296,18 @@ def shipped_source(client, partners=None):
               in sorted(skins["packs"].items())]
     lines += ["}", "",
               "# {season: (amplification nodes by the end of each part, "
-              "...)}. See",
-              "# game_client.season_nodes; chaos_estimate.season_nodes "
+              "...)}, each",
+              "# read grown onto the copy it replaces. See "
+              "game_client.season_nodes",
+              "# and grown_season_nodes; chaos_estimate.season_nodes "
               "reads it.",
               "SEASON_NODES = {"]
-    lines += [f"    {ascii(season)}: {ascii(tuple(counts))},"
-              for season, counts in sorted(
-                  game_client.season_nodes(client).items())]
+    from game_data import from_client
+    kept = getattr(from_client, "SEASON_NODES", {})
+    trees = game_client.season_nodes(client)
+    lines += [f"    {ascii(season)}: "
+              f"{ascii(tuple(game_client.grown_season_nodes(kept.get(season), trees.get(season))))},"
+              for season in sorted(set(kept) | set(trees))]
     words = client_words(client, partners)
     lines += ["}", "",
               "# The client's own words for what the program's tables "

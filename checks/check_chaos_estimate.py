@@ -36,7 +36,8 @@ else, so a broken one reads as a plausible figure:
    itself in the tip's label.
 10. **The client's tree is read by part** (`game_client.season_nodes`):
     a part's count takes in the parts before it, the nodes the client
-    has rows for, amplification nodes alone.
+    has rows for, amplification nodes alone; and a season with one
+    layout for all its parts grows a part a patch (`grown_season_nodes`).
 
 The client's trees are put in place for the run with `game_client.use`
 and the shipped extract's taken away, so the cases read the same on any
@@ -412,6 +413,20 @@ def _client_tree(game_client):
         def rows(self, name):
             return rows.get(name, [])
 
+    grow = game_client.grown_season_nodes
+    for before, read, want, what in (
+            ([13], [19], [13, 19], "a one-layout season's new total is "
+                                   "the next part's"),
+            ([13, 19], [19], [13, 19], "a total already kept adds no part"),
+            ([13, 19], [25], [13, 19, 25], "the third part's total follows"),
+            ([13], [13, 19, 25], [13, 19, 25], "a layout per part stands "
+                                               "whole"),
+            ([], [13], [13], "a first read stands"),
+            ([13, 19], [], [13, 19], "no read keeps what was kept")):
+        if grow(before, read) != want:
+            return [f"kept {before} and read {read} grow to "
+                    f"{grow(before, read)}, not {want}: {what} "
+                    f"(`grown_season_nodes`)."]
     got = game_client.season_nodes(_Client())
     if got != {"disaster_s09": [2, 4, 4]}:
         return [f"a tree whose layouts list nodes 1-4, then 3-6, then 1-7 "
@@ -497,6 +512,13 @@ FAULTS = [
     ("a part's layout read alone", "game_client:season_nodes",
      "shown |= parts[part]", "shown = set(parts[part])",
      "each part counts what its layout"),
+    ("a one-layout total laid over the parts kept",
+     "game_client:grown_season_nodes",
+     "return before + [read[-1]]", "return read",
+     "the next part's"),
+    ("a total already kept added again", "game_client:grown_season_nodes",
+     "if read and read[-1] > before[-1]:", "if read:",
+     "adds no part"),
     ("a node with no row counted", "game_client:season_nodes",
      "counts.append(sum(1 for number in shown if held.get(number)))",
      "counts.append(sum(1 for number in shown if held.get(number, True)))",

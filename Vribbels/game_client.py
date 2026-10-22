@@ -1594,9 +1594,13 @@ def card_skins(client):
 # 2's first is `disaster_s02_skilltree_circle`) lists every node number
 # on screen by then, so a part's nodes are those its layout lists and the
 # one before did not. A number with no node row is one shown locked,
-# opening with a later part: season 5's one layout lists all 35, and
-# `_uk` names the lines drawn to those. A Memory Resonance Amplification
-# node's effect is `AMPLIFY_GROUP`'s, 1% of the season's currency a node.
+# opening with a later part. **From season 5 on, one layout holds the
+# whole season** (the game's patch notes): it lists all 35 numbers, `_uk`
+# names the lines drawn to the locked ones, and a part's nodes arrive as
+# rows under it with the patch that opens the part. So one read gives
+# such a season's total so far, and the parts come from the reads before
+# it (`grown_season_nodes`). A Memory Resonance Amplification node's
+# effect is `AMPLIFY_GROUP`'s, 1% of the season's currency a node.
 SEASON_NODES_TABLE = "zero_orb_season_skilltree@zero_orb_season_node"
 SEASON_SKILLS_TABLE = "zero_orb_season_skilltree@zero_orb_season_skill"
 SEASON_LAYOUTS_TABLE = "zero_orb_season_skilltree@zero_orb_season_circle"
@@ -1640,6 +1644,21 @@ def season_nodes(client):
         if counts and counts[-1]:
             out[season] = counts
     return out
+
+
+def grown_season_nodes(before, read):
+    """A season's counts by part, from the counts kept `before` and a
+    new `read` (`season_nodes`). A read of a layout per part, as long
+    as what was kept, stands whole. A one-layout read is the season's
+    total so far: above the last part kept, it is the next part's, the
+    patch that opened that part having added its rows; else the kept
+    counts stand. Each patch opening one part is what makes this right."""
+    before, read = list(before or ()), list(read or ())
+    if not before or (len(read) > 1 and len(read) >= len(before)):
+        return read or before
+    if read and read[-1] > before[-1]:
+        return before + [read[-1]]
+    return before
 
 
 def zero_specials(client):
@@ -2197,15 +2216,16 @@ def known_card_skins():
 
 def known_season_nodes():
     """{season: (amplification nodes by the end of each part, ...)}: the
-    shipped table, with what this machine's client says over it, season
-    by season. See `season_nodes`."""
+    shipped table, grown by what this machine's client says, season by
+    season (`grown_season_nodes`). See `season_nodes`."""
     from game_data import from_client
     out = {season: tuple(counts) for season, counts
            in getattr(from_client, "SEASON_NODES", {}).items()}
     for season, counts in ((_facts or {}).get("season_nodes") or {}).items():
         if isinstance(counts, list) and counts and all(
                 isinstance(n, int) for n in counts):
-            out[str(season)] = tuple(counts)
+            out[str(season)] = tuple(grown_season_nodes(
+                out.get(str(season)), counts))
     return out
 
 

@@ -42,7 +42,7 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
   1. **Season 5.** Its Chaos, Celestial Bulwark, is stage 100000, and Relic of a Frozen Civilization (3920032) is its currency, off the build-126 client. Its shop pages open on the client's own offsets, 21, 42 and 63 days into the season's schedule: 10-21, 11-11, 12-02. `SEASON_ESTIMATE["disaster_s05"]` is in, from `python docs/client_tables.py --season disaster_s05`.
      - **At the 11-11 and 12-02 patches**, re-read that and update the entry: the client lists a part's story and achievements with the patch that opens it, so build 126 holds chapter 1's alone, and the entry takes it three times for the story. The Great Rift terms are season 4's until the client lists season 5's; its weekly tiers' table still names season 4's currency.
      - `chaos_estimate.SHIPPED["disaster_s05"]` is off its first cleared run, at 0 amplification nodes: bosses 144 on floors 17 and 28, 60 on floor 31, the Rare Species 48. Its mark rates rest on that one run; refresh the entry from `python docs/chaos_runs.py` as runs come in.
-     - **At the 11-11 patch**, see how the client adds part 2's skill-tree nodes (`past_plans/chaos_amplification.md`, *Left open*): a second layout reads right, rows under the one layout would count as part 1's.
+     - **At the 11-11 patch**, see that `from_client.SEASON_NODES["disaster_s05"]` grows to two parts, the total under the one layout becoming part 2's (`game_client.grown_season_nodes`).
 
 - **I31 — The Chaos estimate's loose end.** Built as the maintainer specified:
 

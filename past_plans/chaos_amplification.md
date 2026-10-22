@@ -24,6 +24,4 @@ Each Memory Resonance Amplification node of a Galactic Disaster season's skill t
 - **Rule 5**: a season the program ships no figures for borrows another map's mark rates (season 4 met 1.43 Rare Species a run, season 5 3.0), so the player's own take over after `UNSHIPPED_RATE_RUNS` whole runs of it, where rule 4 waits two seasons and 200 runs.
 - A season dated by nothing runs as many parts as its node counts reach, the season before's carried in: three for season 5.
 
-## Left open
-
-- **At the 11-11 patch**, see how the client adds season 5's part 2 nodes: a second layout, as seasons 2 to 4 have, reads right; rows added under the one layout would count as part 1's, and `season_nodes` would want the parts told apart another way.
+- **One layout for the whole season from season 5 on**, the game's patch notes say, each part's nodes arriving as rows under it. A read gives the total so far, grown onto the counts kept before as the next part's (`game_client.grown_season_nodes`), by `--ship` into `from_client.SEASON_NODES` and by a launch over it. It rests on each patch opening one part.
