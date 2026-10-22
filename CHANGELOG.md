@@ -15,11 +15,16 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Checklist: an event the program cannot read has a `Finished?` box.
 - Checklist: a shop product priced in another currency than its shop's shows its price beside its count, in the shop's colour: the Prism Module shop's Lumina Lens, at 3 Prism Lens.
 - Rossweisse, when you lack her or she wears no partner, is optimized with Sig, her release partner. She, Sig, Blanche and Capri also show where the game client cannot be read.
-- Gacha History: Card Skin Pack pulls are kept beside the Rescue records, so they outlast the half year the game lists them for. Open the packs' history in game while capturing to keep the ones already made. The tab does not show them yet.
+- Gacha History: Card Skin Pack pulls are kept beside the Rescue records, so they outlast the half year the game lists them for. Open the packs' history in game while capturing to keep the ones already made.
+  - A Card Skin Packs row under the banners: your pulls, Super Rares under 5★ and Rares under 4★, the pulls since your last Super Rare, and your luck against the packs' flat 1.3% and 13%. Its pulls list each skin by the combatant it is for, and say which were duplicates.
+  - Overall Gacha Stats: the luck with the Card Skin Packs counted, beside the luck with the Prism Module, and the packs' fastest and slowest Super Rare and best streak beside the Prism Module's.
+- Rossweisse's Potential 7 is scored, and the Fill button fills its ATK.
+- A partner released after the program shows its Ego card's text, from the game client.
 
 ### Changed
 
 - Checklist: until the Great Rift opens with the season's second part, the Seasonal Accumulated Score shows the days left until then, uncoloured.
+- Overall Gacha Stats: the sections read Combatant & Partner banners, +Prism Module and +Card Skins.
 
 - Combatants and partners take their names, classes, stats and plain passive bonuses from the game client, so a patch that rebalances one needs no program update. One released after the program shows with the game's figures instead of as Unknown.
 - When a patch leaves the game client unreadable, names and figures come from the last time it was read.

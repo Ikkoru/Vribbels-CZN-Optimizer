@@ -3542,6 +3542,18 @@ def _gacha_history_draws_its_rows(tab):
               "reward": _json.dumps([three, four, five, nobody])}
     partner_record = {"id": "2", "gacha_id": partner_banner,
                       "createAt": "1000", "reward": _json.dumps([three])}
+    # A Card Skin Pack's pull of one of each rarity, off the shipped
+    # skins; its row stands last in the Banners list.
+    from game_data import from_client
+    by_rarity = {skin[1]: res_id for res_id, skin
+                 in sorted(from_client.CARD_SKINS.items())}
+    skin_record = {"id": "91", "createAt": "1000", "count": 3,
+                   "card_skin_package_id": next(iter(
+                       from_client.CARD_SKIN_PACKS)),
+                   "reward": _json.dumps([by_rarity["COMMON"],
+                                          by_rarity["RARE"],
+                                          by_rarity["SUPER_RARE"]]),
+                   "dup": "[0,0,0]"}
     rates = {"pools": {"ssr_rate_up_success_pool_ids":
                        ["pickup_c_1_rateup_ssr_c_%d" % five],
                        "sr_combatant_pool_ids":
@@ -3574,7 +3586,8 @@ def _gacha_history_draws_its_rows(tab):
                      "gacha_pity_pickup_supporter":
                      pity("pickup_supporter")},
             "read": {banner: days_ago(gh.URGENT_AFTER_DAYS + 1),
-                     partner_banner: days_ago(1)}}),
+                     partner_banner: days_ago(1)},
+            "skin_records": [skin_record], "skin_read": days_ago(1)}),
             encoding="utf-8")
         tab._folder = lambda: folder
         tab.refresh()
@@ -3583,10 +3596,10 @@ def _gacha_history_draws_its_rows(tab):
                                      URGENT_NOTE),
                 "pickup_supporter": (BEHIND_TAG, tab.behind_label,
                                      BEHIND_NOTE)}
-        if sorted(rows) != sorted(want):
+        if sorted(rows[:-1]) != sorted(want) or rows[-1:] != (gh.SKIN_POOL,):
             out.append(f"the Gacha History's banner list holds {list(rows)} "
                        f"for a history of a Combatant and a Partner "
-                       f"rate-up")
+                       f"rate-up and a Card Skin Pack, the packs last")
         else:
             for row, (tag, label, note) in want.items():
                 tags = tuple(tab.summary_tree.item(row)["tags"])
@@ -3783,7 +3796,8 @@ def _gacha_overall_fits(tab, gh):
     """
     from datetime import datetime
     from ui.tabs.gacha_history_tab import (
-        ALL_BANNERS, OVERALL_TITLE, PRISM_ONLY, WITHOUT_PRISM)
+        OVERALL_TITLE, PRISM_ONLY, SKINS_ONLY, WITH_PRISM, WITH_SKINS,
+        WITHOUT_PRISM)
 
     out = []
     pulls = [pull for pool in tab.history.ordered() for pull in pool.pulls]
@@ -3818,9 +3832,24 @@ def _gacha_overall_fits(tab, gh):
     problems, headings = _sheet_complaints(OVERALL_TITLE, text,
                                            tab.overall_holder)
     out.extend(problems)
-    # Every banner's section sits beside the first, on its heading's line.
-    if headings != [WITHOUT_PRISM + "\t" + ALL_BANNERS, PRISM_ONLY]:
+    # The wider sections sit beside the first, on its heading's line, and
+    # the Card Skin Packs' records beside the Prism Module's.
+    if headings != ["\t".join((WITHOUT_PRISM, WITH_PRISM, WITH_SKINS)),
+                    PRISM_ONLY + "\t" + SKINS_ONLY]:
         out.append(f"the {OVERALL_TITLE} sheet's headings read {headings}")
+    # The two halves share the room: the second starts at its middle, the
+    # first stop of the line's own (`BESIDE_TAG`).
+    from ui.tabs.gacha_history_tab import BESIDE_TAG
+    line = next((n for n in range(1, int(text.index("end").split(".")[0]))
+                 if text.get(f"{n}.0", f"{n}.end").startswith(
+                     PRISM_ONLY + "\t")), None)
+    stops = text.tk.splitlist(text.tag_cget(BESIDE_TAG % (line - 1), "tabs")) \
+        if line else ()
+    half = tab._banners_width() // 2
+    if not stops or int(float(str(stops[0]))) < half:
+        out.append(f"the {SKINS_ONLY} records start at "
+                   f"{stops[0] if stops else None}px, short of the middle "
+                   f"of the sheet's {2 * half}px: the two halves share it.")
     # The spacing audit finds this panel by its exact title and these
     # rows by their words. A rename the registry does not follow leaves
     # those rows reading nothing, and only an audit would say so.
@@ -6312,4 +6341,12 @@ FAULTS = [
      "(apart[key], colour) if key in apart else None",
      "(apart[key], None) if key in apart else None",
      "not its shop heading's"),
+    ("the gacha sheet's halves not split at the middle",
+     "ui.tabs.gacha_history_tab:GachaHistoryTab._overall_layout",
+     "if k == 1 and room and rows[run[0]].halves:", "if False:",
+     "short of the middle"),
+    ("the Card Skin Packs' records not beside the Prism Module's",
+     "ui.tabs.gacha_history_tab:GachaHistoryTab._overall_rows",
+     "Beside(PRISM_ONLY, SKINS_ONLY, halves=True),",
+     "PRISM_ONLY, SKINS_ONLY,", "sheet's headings read"),
 ]

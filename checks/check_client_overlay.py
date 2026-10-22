@@ -608,7 +608,7 @@ def _installed(characters, partners):
     hand_c, hand_p = hand("CHARACTERS"), hand("PARTNERS")
     hand_s = hand("PARTNER_CLASS_STATS")
     # What the tool wrote from the client vouches for nothing: an entry
-    # it fills whole, and a value marked `# client` in one of the
+    # it fills whole, and a value marked `# client-based` in one of the
     # maintainer's (`game_data.client_sync`).
     from game_data import client_sync
     marked_c = client_sync.marked("CHARACTERS")

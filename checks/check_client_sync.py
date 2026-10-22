@@ -7,7 +7,7 @@ goes wrong goes wrong in the maintainer's own work:
 1. **A line nobody marked is rewritten**, and a value the maintainer
    read in game becomes the client's, with nothing to show it changed
    but the diff.
-2. **What is marked goes stale**: a block or a `# client` value left at
+2. **What is marked goes stale**: a block or a `# client-based` value left at
    the last patch's figures, a unit the client added never arriving, or
    a nameless one arriving as an entry called Unknown.
 3. **The file comes back otherwise than it went in**: a CRLF file turned
@@ -22,6 +22,9 @@ goes wrong goes wrong in the maintainer's own work:
 6. **The launch from source ships when it should not**, a read of an
    unreadable build or an older client writing over a newer copy, or
    its notice drops what the tools said.
+7. **A partner's Ego text is read wrong** (`game_client.ego_text`): a
+   figure off the wrong effect, a hit count lost, a battle count or a
+   `#code#` left in the text a player sees.
 
 Held on synthetic tables in a temporary folder: no installed client and
 no real table is touched.
@@ -45,20 +48,20 @@ CHARACTERS_PY = (
     "    1: {\n"
     '        "name": "Hand",\n'
     '        "grade": 4,\n'
-    '        "base_atk": 100,  # client\n'
+    '        "base_atk": 100,  # client-based\n'
     '        "node_60": "HP%",  # read in game\n'
     "    },\n"
     "    2: {\n"
-    '        "name": "Old",  # client block start\n'
+    '        "name": "Old",  # client-based block start\n'
     '        "grade": 5,\n'
-    '        "from_client": True,  # client block end\n'
+    '        "from_client": True,  # client-based block end\n'
     "    },\n"
     "    3: {\n"
-    '        "name": "Gone",  # client block start\n'
-    '        "from_client": True,  # client block end\n'
+    '        "name": "Gone",  # client-based block start\n'
+    '        "from_client": True,  # client-based block end\n'
     "    },\n"
     "    6: {\n"
-    '        "name": "Broken",  # client block start\n'
+    '        "name": "Broken",  # client-based block start\n'
     '        "grade": 4,\n'
     "    },\n"
     "}\n"
@@ -79,11 +82,11 @@ PARTNERS_PY = (
     "\n"
     "PARTNER_CLASS_STATS = {\n"
     '    (5, "Striker"):  {"atk": 1, "def": 2, "hp": 3},\n'
-    '    (4, "Vanguard"): {"atk": 5, "def": 40, "hp": 95},  # client\n'
+    '    (4, "Vanguard"): {"atk": 5, "def": 40, "hp": 95},  # client-based\n'
     "}\n"
     "\n"
     "SIGNATURE_PARTNERS = {\n"
-    '    "Hand Five": "Hand Partner", "Old": "Stale",  # client\n'
+    '    "Hand Five": "Hand Partner", "Old": "Stale",  # client-based\n'
     "}\n"
     "\n"
     "PARTNER_EXCEPTIONS = {\n"
@@ -155,7 +158,7 @@ def _written(folder):
     held, texts = _entries(folder)
     chars = held["CHARACTERS"]
     if chars[1].get("base_atk") != 999:
-        out.append(f"a hand entry's `# client` value reads "
+        out.append(f"a hand entry's `# client-based` value reads "
                    f"{chars[1].get('base_atk')}, not the client's 999: what "
                    f"is marked is the tool's to keep current.")
     unmarked = ['        "name": "Hand",', '        "grade": 4,',
@@ -213,9 +216,9 @@ def _written(folder):
                    f"stays.")
     if sig.get("Old") != "Stale" or sig.get("Hand Five") != "Hand Partner" \
             or not any("shares its line" in line for line in said):
-        out.append("a `# client` line holding two pairings was rewritten "
-                   "for one, or left without a word: the rewrite is the "
-                   "whole line.")
+        out.append("a `# client-based` line holding two pairings was "
+                   "rewritten for one, or left without a word: the rewrite "
+                   "is the whole line.")
     # The endings each file came with, and untouched lines as they were.
     raw = (folder / "characters.py").read_bytes()
     if raw.count(b"\n") != raw.count(b"\r\n"):
@@ -358,15 +361,84 @@ def _notice():
     return out
 
 
+def _ego_texts():
+    """A partner's Ego card text as `game_client.ego_text` reads it off
+    the card's effects, and as `partner_entry` writes it. Returns
+    complaints."""
+    import game_client
+    from game_data import client_sync
+    out = []
+    card = {"desc": "card@desc@p", "desc_outgame": "none",
+            "link_skill_eff_id": "[e0,e1,e2]"}
+    texts = {"card@desc@p": (
+        "#result_damage_0# Defense-Based Damage<br>#result_ev_1# $Vulnerable$"
+        "<br>+#cs_ev_2_0#% to #match_comb_char#\u2018s cards for "
+        "each(#result_vt_mul_2_1#) buff<br>Draw #during_ev_1_0#")}
+    effects = {"e0": {"eff_value": "60", "eff_count_value": "4"},
+               "e1": {"eff_value": "2",
+                      "during_eff_0_link_skill_eff_id": "d0"},
+               "d0": {"eff_value": "3"},
+               "e2": {"eff_value": "1", "link_cs_id": "[cs1]"}}
+    statuses = {"cs1": {"link_skill_eff_id": "[cs1_01]"}}
+    status_effects = {"cs1_01": {"eff_value": "25"}}
+    want = ("60% Defense-Based Damage x 4\n2 Vulnerable\n+25% to the "
+            "assigned Combatant's cards for each buff\nDraw 3")
+    got = game_client.ego_text(card, texts, effects, statuses, status_effects)
+    if got != want:
+        out.append(f"an Ego card's text reads {got!r}, not {want!r}: each "
+                   f"figure off its effect, a status's off the status, the "
+                   f"hits after Damage, the battle's counts taken out "
+                   f"(`game_client.ego_text`).")
+    texts["card@desc_outgame@p"] = "Out of battle #result_ev_1#"
+    got = game_client.ego_text(dict(card, desc_outgame="card@desc_outgame@p"),
+                               texts, effects, statuses, status_effects)
+    if got != "Out of battle 2":
+        out.append(f"a card with an out-of-battle text reads {got!r}: that "
+                   f"text is the one the game shows outside a fight.")
+    texts["card@desc@p"] = "+#ecdv0_0#% for each card"
+    got = game_client.ego_text(card, texts, effects, statuses, status_effects)
+    if got is not None:
+        out.append(f"an Ego card holding a figure the reader does not read "
+                   f"reads {got!r}: it is no text, not one with a #code# in "
+                   f"it.")
+    fact = {"name": "Probe", "grade": 4, "class": "Striker",
+            "ego_desc": "2 Dominion Shard"}
+    if client_sync.partner_entry(fact).get("ego_desc") != "2 Dominion Shard" \
+            or client_sync.partner_entry(dict(fact, ego_desc=None)).get(
+                "ego_desc") != "":
+        out.append("a partner entry's ego_desc is not the client's text, or "
+                   "not empty where the client's could not be read.")
+    return out
+
+
 def run():
     add_source_to_path()
     with tempfile.TemporaryDirectory() as tmp:
         failures = _written(Path(tmp))
-    return failures + _companions() + _level_terms() + _notice()
+    return (failures + _companions() + _level_terms() + _notice()
+            + _ego_texts())
 
 
 # What this check must catch, for `checks/faults.py`.
 FAULTS = [
+    ("an Ego card's hits lost", "game_client:_hits",
+     "if isinstance(hits, int) and hits > 1 and word >= 0:", "if False:",
+     "an Ego card's text reads"),
+    ("a status's figure not read", "game_client:ego_text",
+     'elif kind == "cs_ev" and m is not None:', "elif False:",
+     "an Ego card's text reads"),
+    ("a battle's count left in", "game_client:ego_text",
+     'text = EGO_COUNTER.sub("", raw)', "text = raw",
+     "an Ego card's text reads"),
+    ("a #code# left in the text", "game_client:ego_text",
+     "if unread or EGO_UNREAD.search(text):", "if unread:",
+     "a figure the reader does not read"),
+    ("the out-of-battle text passed over", "game_client:ego_text",
+     'raw = texts.get(card.get("desc_outgame")) or texts.get(card.get("desc"))',
+     'raw = texts.get(card.get("desc"))', "out-of-battle text"),
+    ("the client's Ego text not written", "game_data.client_sync:partner_entry",
+     'entry["ego_desc"] = stated.get("ego_desc", "")', 'entry["ego_desc"] = ""',
+     "a partner entry's ego_desc"),
     ("a class's own curve written as steps", "game_data.client_sync:_level_terms",
      "if not gains or LEVEL_BONUS_BY_CLASS.get((cls, grade)) == gains:",
      "if not gains:", "their own class and grade's curve"),

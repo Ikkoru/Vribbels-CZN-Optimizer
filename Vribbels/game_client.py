@@ -76,7 +76,7 @@ GAMERES = Path("bin") / "appdata" / "cznlive" / "gameres"
 # reader that changes what it reads raises this: every install then
 # reads its client again once, rather than at the next patch.
 CACHE_FILE = "game_client.json"
-CACHE_FORMAT = 17
+CACHE_FORMAT = 18
 
 # The manifest layout this reads. A different version is a different
 # layout until shown otherwise.
@@ -1254,16 +1254,126 @@ def _passive_stats(client):
             for rid, stats in found.items()}
 
 
+# A partner Ego card's text holds its figures as `#kind_N#` or
+# `#kind_N_M#`, N the card's Nth effect (`link_skill_eff_id`):
+# `result_damage` and `result_coeff_ev` a percentage of it, `result_ev`
+# it bare, `cs_ev` the Mth effect of the status it applies, `during_ev`
+# its `during_eff_<M>` effect. `match_comb_char` and `own_char` name the
+# assigned combatant, and `final_ectc` and `result_vt_mul` are counts
+# taken in battle, which the out-of-battle text leaves out.
+EGO_FIGURE = re.compile(r"#([a-z_]+?)_(\d+)(?:_(\d+))?#")
+EGO_OWNER = re.compile(r"#(?:match_comb_char|own_char)#")
+EGO_COUNTER = re.compile(r"\(?#(?:final_ectc|result_vt_mul)_\d+(?:_\d+)?#\)?")
+EGO_ASSIGNED = "the assigned Combatant"
+EGO_PERCENT = ("result_damage", "result_coeff_ev")
+# What is left of any other kind: a figure this does not read.
+EGO_UNREAD = re.compile(r"#[^#\s<>]+#")
+# The statuses an Ego card applies, and their effects: the partners'
+# own and the shared ones (`cs(card1)`).
+STATUS_TABLE = re.compile(r"^cs(?:\([^)]+\))?@(cs|skill_eff)$")
+
+
+def _ids(cell):
+    """A table's `[a,b]` cell as ['a', 'b']."""
+    return [part.strip() for part in str(cell or "").strip("[]").split(",")
+            if part.strip() and part.strip() != "none"]
+
+
+def _statuses(client):
+    """({status id: row}, {status effect id: row}) over every status
+    table the client holds."""
+    statuses, effects = {}, {}
+    for path in client.archive.files:
+        match = STATUS_TABLE.fullmatch(path[3:-3]) \
+            if path.startswith("db/") and path.endswith(".db") else None
+        if match:
+            held = statuses if match.group(1) == "cs" else effects
+            held.update({r["id"]: r for r in client.rows(path[3:-3])})
+    return statuses, effects
+
+
+def _hits(raw, links, effects):
+    """`raw` with each damage figure that hits more than once given its
+    hits after the word Damage that follows it on its line, as the game
+    draws them: `60% Defense-Based Damage x 4`. The template does not
+    say them; the effect's `eff_count_value` does."""
+    out, at = [], 0
+    for match in EGO_FIGURE.finditer(raw):
+        n = int(match.group(2))
+        if match.group(1) not in EGO_PERCENT or match.group(3) is not None \
+                or n >= len(links):
+            continue
+        hits = _figure((effects.get(links[n]) or {}).get("eff_count_value"))
+        line_end = BREAK.search(raw, match.end())
+        word = raw.find("Damage", match.end(),
+                        line_end.start() if line_end else len(raw))
+        if isinstance(hits, int) and hits > 1 and word >= 0:
+            out.append(raw[at:word + len("Damage")] + f" x {hits}")
+            at = word + len("Damage")
+    return "".join(out) + raw[at:]
+
+
+def ego_text(card, texts, effects, statuses, status_effects):
+    """A partner's Ego card text as the game shows it out of battle,
+    every figure read off its effects (`EGO_FIGURE`, `_hits`); None
+    where the card has no text or holds a figure this does not read.
+    `card@desc_outgame` is that text where the card has one; without,
+    `card@desc` is, the assigned combatant named and the battle's counts
+    taken out."""
+    raw = texts.get(card.get("desc_outgame")) or texts.get(card.get("desc"))
+    if not raw:
+        return None
+    links = _ids(card.get("link_skill_eff_id"))
+    raw = _hits(raw, links, effects)
+    unread = []
+
+    def figure(match):
+        kind, n, m = match.group(1), int(match.group(2)), match.group(3)
+        effect = effects.get(links[n]) if n < len(links) else None
+        value, suffix = None, ""
+        if effect is None:
+            pass
+        elif kind in EGO_PERCENT and m is None:
+            value, suffix = effect.get("eff_value"), "%"
+        elif kind == "result_ev" and m is None:
+            value = effect.get("eff_value")
+        elif kind == "cs_ev" and m is not None:
+            status = statuses.get(next(iter(_ids(effect.get("link_cs_id"))),
+                                       None)) or {}
+            inner = _ids(status.get("link_skill_eff_id"))
+            if int(m) < len(inner):
+                value = (status_effects.get(inner[int(m)]) or {}).get(
+                    "eff_value")
+        elif kind == "during_ev" and m is not None:
+            value = (effects.get(effect.get(
+                f"during_eff_{m}_link_skill_eff_id")) or {}).get("eff_value")
+        number = _figure(value)
+        if number is None:
+            unread.append(match.group())
+            return match.group()
+        return f"{number}{suffix}"
+
+    text = EGO_COUNTER.sub("", raw)
+    text = EGO_OWNER.sub(EGO_ASSIGNED, text)
+    text = EGO_FIGURE.sub(figure, text)
+    if unread or EGO_UNREAD.search(text):
+        return None
+    # A left quote stands for the apostrophe after a name in a few.
+    return passage(text.replace(chr(0x2018), "'"))
+
+
 def partners(client):
     """{partner res_id: what `game_data.partners` holds of it}: name,
     grade, class, passive name, the passive's plain stats (`stats`, as
     `_passive_stats` reads them), its lines at each level as the game
-    draws them (`passive_lines`), the Ego card's name and cost, and the
-    flat stats at level 60 (`level_60`)."""
+    draws them (`passive_lines`), the Ego card's name, cost and text
+    (`ego_text`), and the flat stats at level 60 (`level_60`)."""
     texts = client.text()
     levels = client.rows("partner_base@partner_level")
     ascends = client.rows("partner_base@partner_ascend")
     cards = {r["id"]: r for r in client.rows("card(partner)@card")}
+    card_effects = {r["id"]: r for r in client.rows("card(partner)@skill_eff")}
+    statuses, status_effects = _statuses(client)
     stats = _passive_stats(client)
     classes = {**CLASS_NAMES, **class_names(client)}
     lines = {}
@@ -1298,6 +1408,8 @@ def partners(client):
                 for _line, by_level in sorted(lines.get(rid, {}).items())],
             "ego_name": passage(texts.get(card.get("name"))) or None,
             "ego_cost": _figure(card.get("cost")),
+            "ego_desc": ego_text(card, texts, card_effects, statuses,
+                                 status_effects),
             "level_60": {stat: (_figure(row.get(f"default_{stat}_add")) or 0)
                          + flat[stat] + promoted[stat]
                          for stat in ("atk", "def", "hp")},
@@ -1322,6 +1434,109 @@ def chaos_names(client):
         out[stage] = (name, f"disaster_s{season.group(1)}" if season
                       else None)
     return out
+
+
+# A partner's Exploration Passives (`partner_ego_passive`): its
+# `link_partner_ego_passive_key` names a row per slot for each limit
+# break its passive rises at, and the passive's level there names its
+# text (`partner_ego_passive_eff`, `<passive>_<level>`). The one whose
+# `belong_character_eff` is YES acts on the assigned combatant alone;
+# the rest on every combatant and the run.
+EXPLORATION_SLOTS = "partner_ego_passive@partner_ego_passive"
+EXPLORATION_TEXTS = "partner_ego_passive@partner_ego_passive_eff"
+
+
+def exploration_passives(client):
+    """{partner res_id: [{name, assigned, steps}]}: a partner's
+    Exploration Passives in the game's slot order, each one's name,
+    whether it acts on the assigned combatant alone, and [limit break,
+    its text from then on] for each limit break it rises at."""
+    texts = client.text()
+    effects = {r["id"]: r for r in client.rows(EXPLORATION_TEXTS)}
+    slots = {}
+    for row in client.rows(EXPLORATION_SLOTS):
+        key = row.get("id", "").rpartition("_")[0]
+        slots.setdefault(key, {}).setdefault(row.get("eff_class"),
+                                             []).append(row)
+    out = {}
+    for partner in client.rows("partner_base@char_partner"):
+        rid = _figure(partner.get("id"))
+        held = slots.get(partner.get("link_partner_ego_passive_key") or "")
+        if not isinstance(rid, int) or not held:
+            continue
+        passives = []
+        for slot in sorted(held):
+            rows = sorted(held[slot],
+                          key=lambda r: _figure(r.get("limit_break")) or 0)
+            name, steps = None, []
+            for row in rows:
+                level, at = _figure(row.get("level")), _figure(
+                    row.get("limit_break"))
+                effect = effects.get("%s_%02d" % (
+                    row.get("link_partner_ego_passive_eff_key"), level)) \
+                    if isinstance(level, int) else None
+                text = passage(texts.get((effect or {}).get("description")))
+                name = name or passage(texts.get((effect or {}).get("name")))
+                if text and isinstance(at, int):
+                    steps.append([at, text])
+            if name and steps:
+                passives.append({"name": name, "steps": steps, "assigned":
+                                 rows[0].get("belong_character_eff") == "YES"})
+        if passives:
+            out[rid] = passives
+    return out
+
+
+# The Card Skin Packs: each skin's rarity and pack (`card_skin`), and each
+# pack's two pools (`card_skin_package`), each pool a share of 10,000
+# (`common_ratio`, `special_ratio`) split over its skins by their weights
+# (`card_skin_pool`, rows `<pool>_<n>`).
+CARD_SKIN_TABLE = "card_skin@card_skin"
+CARD_SKIN_PACKS = "card_skin_package@card_skin_package"
+CARD_SKIN_POOLS = "card_skin_pool@card_skin_pool"
+
+
+def card_skins(client):
+    """{"skins": {skin res_id: [name, rarity, the combatant it is for]},
+    "packs": {pack id: [name, {rarity: the chance a pull is one}, the
+    combatant its Super Rare is for]}}: every Card Skin and every pack,
+    the chances from the pools' shares and weights."""
+    texts = client.text()
+    skins = {}
+    for row in client.rows(CARD_SKIN_TABLE):
+        rid = _figure(row.get("id"))
+        if isinstance(rid, int) and row.get("rarity"):
+            skins[rid] = [passage(texts.get(row.get("name"))
+                                  or row.get("name")) or None,
+                          row["rarity"], _figure(row.get("link_char_base_id"))]
+    pools = {}
+    for row in client.rows(CARD_SKIN_POOLS):
+        weight, skin = _figure(row.get("ratio")), _figure(
+            row.get("link_card_skin_id"))
+        if isinstance(weight, (int, float)) and skin in skins:
+            pools.setdefault(row.get("id", "").rpartition("_")[0], []).append(
+                (skins[skin][1], weight, skins[skin][2]))
+    packs = {}
+    for row in client.rows(CARD_SKIN_PACKS):
+        chances, featured = {}, None
+        for pool, share in (("common_link_card_skin_pool_key", "common_ratio"),
+                            ("special_link_card_skin_pool_key",
+                             "special_ratio")):
+            held, share = pools.get(row.get(pool)) or [], _figure(row.get(share))
+            total = sum(weight for _rarity, weight, _who in held)
+            if not held or not isinstance(share, (int, float)) or not total:
+                continue
+            for rarity, weight, who in held:
+                chances[rarity] = chances.get(rarity, 0) \
+                    + share / 10000 * weight / total
+                if rarity == "SUPER_RARE":
+                    featured = who
+        if row.get("id") and chances:
+            packs[row["id"]] = [passage(texts.get(row.get("product_name"))
+                                        or row.get("product_name")) or None,
+                                {r: round(c, 6) for r, c in chances.items()},
+                                featured]
+    return {"skins": skins, "packs": packs}
 
 
 def zero_specials(client):
@@ -1520,6 +1735,9 @@ def read_facts(install):
         "fragment_stats": fragment_stats(client),
         "item_rarities": {str(res_id): word for res_id, word
                           in item_rarities(client).items()},
+        "exploration_passives": {str(res_id): passives for res_id, passives
+                                 in exploration_passives(client).items()},
+        "card_skins": card_skins(client),
     }
 
 
@@ -1832,6 +2050,45 @@ def known_zero_specials():
     out = dict(getattr(from_client, "ZERO_SPECIALS", {}))
     out.update((_facts or {}).get("zero_specials") or {})
     return out
+
+
+def known_exploration_passives():
+    """{partner res_id: ((name, acts on the assigned combatant alone,
+    ((limit break, its text from then on), ...)), ...)}: the shipped
+    table, with what this machine's client says over it, partner by
+    partner. See `exploration_passives`."""
+    from game_data import from_client
+    out = dict(getattr(from_client, "EXPLORATION_PASSIVES", {}))
+    for key, passives in ((_facts or {}).get("exploration_passives")
+                          or {}).items():
+        try:
+            out[int(key)] = tuple(
+                (str(p["name"]), bool(p["assigned"]),
+                 tuple((int(at), str(text)) for at, text in p["steps"]))
+                for p in passives)
+        except (KeyError, TypeError, ValueError):
+            continue
+    return out
+
+
+def known_card_skins():
+    """({skin res_id: (name, rarity, the combatant it is for)}, {pack
+    id: (name, {rarity: the chance a pull is one}, the combatant its
+    Super Rare is for)}): the shipped tables, with what this machine's
+    client says over them. See `card_skins`."""
+    from game_data import from_client
+    skins = dict(getattr(from_client, "CARD_SKINS", {}))
+    packs = dict(getattr(from_client, "CARD_SKIN_PACKS", {}))
+    held = (_facts or {}).get("card_skins") or {}
+    for key, skin in (held.get("skins") or {}).items():
+        if str(key).isdigit() and isinstance(skin, (list, tuple)) \
+                and len(skin) == 3:
+            skins[int(key)] = tuple(skin)
+    for key, pack in (held.get("packs") or {}).items():
+        if isinstance(pack, (list, tuple)) and len(pack) == 3 \
+                and isinstance(pack[1], dict):
+            packs[key] = (pack[0], dict(pack[1]), pack[2])
+    return skins, packs
 
 
 def known_general_units():

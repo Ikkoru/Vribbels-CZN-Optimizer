@@ -164,6 +164,7 @@ POTENTIAL_7 = {
     1018: (_grow("CRate", 5, "ATK", 600, 40, 1, 10),),           # Rin
     30097: ({"grants": "ATK%", "value": 10, "stat": "ATK",       # Rita
              "at": 800},),
+    30134: (_grow("Element%", 5, "ATK", 600, 20, 2, 10),),       # Rossweisse
     1005: (                                                     # Selena
         {"grants": "Element%", "value": 4},
         {"grants": "Element%", "value": 4, "stat": "Extra DMG%", "at": 30},

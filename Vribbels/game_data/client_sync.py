@@ -14,12 +14,12 @@ shipped, and so does the build (`OptimizerGUI._report_client_parts`,
 **Only what is marked is the tool's.** Three markers, each the whole of
 a line's comment:
 
-- `# client block start` on an entry's first value line and `# client
-  block end` on its last: an entry the client fills whole, such as a
-  unit the hand table had no entry for. Everything from the one to the
-  other is rewritten; the entry's key line and its closing brace are
-  not.
-- `# client` on one value's line inside an entry of the maintainer's:
+- `# client-based block start` on an entry's first value line and
+  `# client-based block end` on its last: an entry the client fills
+  whole, such as a unit the hand table had no entry for. Everything
+  from the one to the other is rewritten; the entry's key line and its
+  closing brace are not.
+- `# client-based` on one value's line inside an entry of the maintainer's:
   that value is the client's, the rest of the entry the maintainer's.
   In a line table (`LINE_TABLES`), whose entries are one line each, it
   marks a whole entry, on a line holding no other.
@@ -34,7 +34,7 @@ An entry the client fills whole carries `"from_client": True`, which is
 what the program sees of the mark when it runs: the data check asks such
 an entry for nothing of the maintainer's, a Potential 7 entry among
 them, and `check_client_overlay` and `--audit` hold nothing to it.
-`marked` gives the `# client` values, which nothing at run time can see.
+`marked` gives the `# client-based` values, which nothing at run time can see.
 
 Writes nothing but the tables' marked lines, each line ending as the
 file's do, and only where the result still parses to the same table
@@ -50,9 +50,9 @@ import tokenize
 from pathlib import Path
 
 # The markers, each the whole of a line's comment.
-CLIENT = "# client"
-BLOCK_START = "# client block start"
-BLOCK_END = "# client block end"
+CLIENT = "# client-based"
+BLOCK_START = "# client-based block start"
+BLOCK_END = "# client-based block end"
 
 # The key an entry the client fills whole carries.
 FROM_CLIENT = "from_client"
@@ -94,7 +94,7 @@ def combatant_entry(fact, whole=True):
     combatant the client fills whole: the default entry's fields where
     the client gives none, and `from_client`, as the overlay builds a
     combatant only the client knows; else only what the client states,
-    for a `# client` value to take."""
+    for a `# client-based` value to take."""
     from .characters import DEFAULT_CHARACTER
     plain = [field for field in COMBATANTS[3] if field not in LEVEL_FIELDS]
     stated = {field: fact[field] for field in plain
@@ -136,12 +136,13 @@ def _level_terms(gains, cls, grade):
 def partner_entry(fact, whole=True):
     """The entry `partners.py` holds for a partner the client states,
     from `game_client.partners`' fact for it, its passive drawn from the
-    client's lines (`client_overlay.passive_template`). `whole` as for
-    `combatant_entry`; the client writes no Ego description."""
+    client's lines (`client_overlay.passive_template`), its Ego card's
+    text as the game shows it out of battle (`game_client.ego_text`).
+    `whole` as for `combatant_entry`."""
     from .client_overlay import passive_template
     from .partners import DEFAULT_PARTNER
     stated = {field: fact[field] for field in PARTNERS[3]
-              if field not in ("passive_desc", "values", "stats", "ego_desc")
+              if field not in ("passive_desc", "values", "stats")
               and fact.get(field) is not None}
     if fact.get("passive_lines"):
         stated["passive_desc"], stated["values"] = passive_template(
@@ -153,7 +154,9 @@ def partner_entry(fact, whole=True):
         return stated
     entry = {field: stated.get(field, copy.deepcopy(DEFAULT_PARTNER.get(field)))
              for field in PARTNERS[3]}
-    entry["ego_desc"] = ""
+    # None where the card holds a figure the reader does not read: an
+    # empty text, not the placeholder partner's "Unknown effect.".
+    entry["ego_desc"] = stated.get("ego_desc", "")
     entry[FROM_CLIENT] = True
     return entry
 
@@ -203,7 +206,7 @@ def sync(facts, folder=HERE, write=True):
     `facts` -- `{"combatants": ..., "partners": ..., "recommended":
     ...}`, as `game_client.combatants`, `partners` and
     `recommended_partners` give them: a unit or a pairing a table lacks
-    added, every block and `# client` value rewritten. Returns (lines
+    added, every block and `# client-based` value rewritten. Returns (lines
     saying what changed, {file name: its new text}); writes the files
     where `write`."""
     folder = Path(folder)
@@ -257,7 +260,7 @@ def write_out(changed, folder=HERE):
 
 
 def marked(table, folder=HERE):
-    """{entry key: {field: line}} of the `# client` values in one of the
+    """{entry key: {field: line}} of the `# client-based` values in one of the
     entry tables (`CHARACTERS`, `PARTNERS`), and {entry key: line} in a
     line table (`LINE_TABLES`): what the client fills among the
     maintainer's entries, which nothing at run time can see."""
@@ -293,7 +296,7 @@ def marked(table, folder=HERE):
 
 def _sync_entries(text, name, table, whole, stated, said):
     """`text` with the entry table's blocks the client's `whole` entries,
-    its `# client` values what the client has `stated`, and a block
+    its `# client-based` values what the client has `stated`, and a block
     added for each unit it lacks."""
     comments = _comments(text)
     node = _table(ast.parse(text), table)
@@ -383,7 +386,7 @@ def _closing(lines, node, name, table):
 
 
 def _sync_lines(text, name, table, theirs, said):
-    """`text` with the line table's `# client` entries the client's, and
+    """`text` with the line table's `# client-based` entries the client's, and
     an entry added for each key it lacks."""
     comments = _comments(text)
     node = _table(ast.parse(text), table)

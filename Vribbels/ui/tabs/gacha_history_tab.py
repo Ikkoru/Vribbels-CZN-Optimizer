@@ -64,7 +64,8 @@ def _unit_names():
 # text at either scale and nothing here is a pixel count. A callable is
 # read when the list is built. The LAST column of each list stretches.
 SUMMARY_COLUMNS = (
-    ("banner", "Banner", tuple(gh.POOL_LABELS.values()), tk.W),
+    ("banner", "Banner", tuple(gh.POOL_LABELS.values()) + (gh.SKIN_LABEL,),
+     tk.W),
     ("pulls", "Pulls", ("99,999",), tk.E),
     ("fives", "5★", ("999",), tk.E),
     ("avg", "Avg 5★ pull", ("99.9",), tk.E),
@@ -83,7 +84,7 @@ PULL_COLUMNS = (
     ("pull", "Pull", ("70",), tk.E),
     ("featured", "Rate-up", _unit_names, tk.W),
     ("outcome", "50/50", (gh.WON, gh.LOST, gh.GUARANTEED, gh.RATE_UP,
-                          gh.UNKNOWN), tk.W),
+                          gh.UNKNOWN, gh.DUPLICATE), tk.W),
     ("time", "Time", ("0000-00-00 00:00",), tk.W),
 )
 
@@ -166,9 +167,11 @@ STATUS_STYLE = "GachaHistory.Status.TLabel"
 # a luck row's long value has nothing beside it, so it does not push
 # the units column out.
 OVERALL_TITLE = "Overall Gacha Stats"
-WITHOUT_PRISM = "All banners, except Prism Module"
+WITHOUT_PRISM = "Combatant & Partner banners"
 PRISM_ONLY = "Prism Module"
-ALL_BANNERS = "All banners"
+WITH_PRISM = "+Prism Module"
+WITH_SKINS = "+Card Skins"
+SKINS_ONLY = gh.SKIN_LABEL
 HEADING_FONT = ("Segoe UI", 9, "bold")
 
 # Under it, the account's standings: three lists with a column per
@@ -254,14 +257,20 @@ BESIDE_GAP = 16         # spacing: control group ↔ control group -- run, run �
 
 
 class Beside:
-    """One line of the gacha sheet holding two sections' lines side by
-    side: `left` and `right`, each a heading's string or a row's
-    fields. The left keeps the sheet's stops; the right starts past it,
-    on stops the line carries itself (`GachaHistoryTab._overall_layout`).
-    """
+    """One line of the gacha sheet holding several sections' lines side
+    by side: `parts`, each a heading's string or a row's fields. The
+    first keeps the sheet's stops; each after it starts past the one
+    before, on stops the line carries itself, and a run of these lines
+    is laid out together (`GachaHistoryTab._overall_layout`). `halves`
+    starts the second at the middle of the sheet's room, so the two
+    share it equally."""
 
-    def __init__(self, left, right):
-        self.left, self.right = left, right
+    def __init__(self, *parts, halves=False):
+        self.parts, self.halves = parts, halves
+
+    @property
+    def left(self):
+        return self.parts[0]
 
 
 def _stars(stars):
@@ -303,7 +312,8 @@ def _units(pulls):
     came, counted where it came more than once."""
     counts = {}
     for pull in pulls:
-        name = gh.unit_name(pull.res_id)
+        name = gh.unit_name(gh.skin_wearer(pull.res_id)
+                            if pull.pool == gh.SKIN_POOL else pull.res_id)
         counts[name] = counts.get(name, 0) + 1
     return ", ".join(name if n == 1 else "%s x%d" % (name, n)
                      for name, n in counts.items())
@@ -974,12 +984,13 @@ class GachaHistoryTab(BaseTab):
                 per += " (expected avg %s)" % _number(o.rate_up_expected)
         streak = "Most 5★s in %d pulls" % gh.STREAK_PULLS
         return (
-            # Every banner's section is its heading and its luck, which
-            # sit beside the first section's rather than a section down.
-            Beside(WITHOUT_PRISM, ALL_BANNERS),
+            # The wider sections are a heading and a luck each, which sit
+            # beside the first section's rather than a section down.
+            Beside(WITHOUT_PRISM, WITH_PRISM, WITH_SKINS),
             Beside(("Pulls", format(o.pulls_without_prism, ","),
                     _rank(o.luck_without_prism)),
-                   ("Luck", _rank(o.luck_with_prism))),
+                   ("Luck", _rank(o.luck_with_prism)),
+                   ("Luck", _rank(o.luck_with_skins))),
             ("50/50s won",) + fifty,
             ("Rate-Up pulls avg", per),
             ("Fastest 5★",) + _standout(o.fastest),
@@ -987,10 +998,16 @@ class GachaHistoryTab(BaseTab):
             ("Fastest rate-up",) + _standout(o.fastest_rate_up),
             ("Slowest rate-up",) + _standout(o.slowest_rate_up),
             (streak,) + _standout(o.streak, streak=True),
-            PRISM_ONLY,
-            ("Fastest 5★",) + _standout(o.prism_fastest),
-            ("Slowest 5★",) + _standout(o.prism_slowest),
-            (streak,) + _standout(o.prism_streak, streak=True),
+            # The Prism Module's and the Card Skin Packs' records, side
+            # by side in two equal halves, a Super Rare as a 5-star.
+            Beside(PRISM_ONLY, SKINS_ONLY, halves=True),
+            Beside(("Fastest 5★",) + _standout(o.prism_fastest),
+                   ("Fastest 5★",) + _standout(o.skin_fastest), halves=True),
+            Beside(("Slowest 5★",) + _standout(o.prism_slowest),
+                   ("Slowest 5★",) + _standout(o.skin_slowest), halves=True),
+            Beside((streak,) + _standout(o.prism_streak, streak=True),
+                   (streak,) + _standout(o.skin_streak, streak=True),
+                   halves=True),
         )
 
     def _fill_overall(self):
@@ -1139,15 +1156,15 @@ class GachaHistoryTab(BaseTab):
         side a `Beside`, whose own stops a tag of its own carries."""
         font = tkfont.nametofont("TkDefaultFont")
         bold = tkfont.Font(font=HEADING_FONT)
-        stops, widest, beside = self._overall_layout(rows, font, bold)
+        stops, widest, beside, _ends = self._overall_layout(
+            rows, font, bold, self._banners_width())
         text.configure(state=tk.NORMAL, tabs=tuple(stops))
         text.delete("1.0", tk.END)
         # The first line takes `TOP_TAG`, heading or row: it crosses
         # nothing, so nothing is charged above it.
         for n, row in enumerate(rows):
             end = "\n" if n < len(rows) - 1 else ""
-            parts = (row.left, row.right) if isinstance(row, Beside) \
-                else (row,)
+            parts = row.parts if isinstance(row, Beside) else (row,)
             heading = isinstance(parts[0], str)
             tags = (TOP_TAG if n == 0 else HEADING_TAG if heading
                     else ROW_TAG,) + ((BOLD_TAG,) if heading else ())
@@ -1170,42 +1187,55 @@ class GachaHistoryTab(BaseTab):
         """`rows` with each record's ties cut to as many pairs as fit
         the Banners list's width, keeping the OLDEST. The sheet sits in
         that list's column, and a wider sheet would widen the column and
-        take the difference from the pulls list beside it.
+        take the difference from the pulls list beside it. A record in
+        a pair of halves is cut to fit beside the other half, apart from
+        the full-width ones.
 
         Every record keeps its first pair, which is the record itself;
         only its ties are ever cut.
         """
         available = self._banners_width()
-        pairs = max([(len(row) - 2) // 2 for row in rows
-                     if not isinstance(row, (str, Beside))] + [1])
+
+        def halved(row):
+            return isinstance(row, Beside) and row.halves
+
+        def parts(row):
+            return row.parts if isinstance(row, Beside) else (row,)
+
+        def cut(part, pairs):
+            return part if isinstance(part, str) else part[:2 + 2 * pairs]
+
+        def most(rows_):
+            return max([(len(part) - 2) // 2 for row in rows_
+                        for part in parts(row)
+                        if not isinstance(part, str)] + [1])
+
+        full = most([row for row in rows if not halved(row)])
+        half = most([row for row in rows if halved(row)])
         while True:
-            cut = [row if isinstance(row, (str, Beside))
-                   else row[:2 + 2 * pairs] for row in rows]
-            if pairs <= 1 or self._overall_layout(
-                    cut, font, bold)[1] <= available:
-                return cut
-            pairs -= 1
+            out = [Beside(*(cut(part, half if row.halves else full)
+                            for part in row.parts), halves=row.halves)
+                   if isinstance(row, Beside) else cut(row, full)
+                   for row in rows]
+            ends = self._overall_layout(out, font, bold, available)[3]
+            over = {flag: max([end for row, end in zip(out, ends)
+                               if halved(row) == flag] + [0]) > available
+                    for flag in (True, False)}
+            if over[True] and half > 1:
+                half -= 1
+            elif over[False] and full > 1:
+                full -= 1
+            else:
+                return out
 
     @staticmethod
-    def _overall_layout(rows, font, bold):
-        """(tab stops, widest line, {line: its own stops}), in pixels
-        from the line's start.
-
-        Row by row: each column is as wide as its widest text among the
-        rows with something AFTER it -- a row that ends at a column puts
-        no tab after it, so its width stops nobody. The gaps are
-        distances and take `px()`; the text is measured and does not.
-
-        A `Beside` line's left part is one of those rows. Its right part
-        starts `BESIDE_GAP` past the furthest left part of any such line
-        -- a heading, or a figure and its value -- so those lines carry
-        stops of their own: the sheet's up to their left part's last
-        field, then the right part's.
-        """
-        lefts = [row.left if isinstance(row, Beside) else row
-                 for row in rows]
-        cells = [row for row in lefts if not isinstance(row, str)]
-        stops, start = [], 0
+    def _column_stops(cells, font, origin=0):
+        """The stops of rows of fields set from `origin`: each column as
+        wide as its widest text among the rows with something AFTER it
+        -- a row that ends at a column puts no tab after it, so its
+        width stops nobody -- then its gap. The gaps are distances and
+        take `px()`; the text is measured and does not."""
+        stops, start = [], origin
         for column in range(max([len(row) for row in cells] + [1]) - 1):
             if column == 0:
                 gap = FIGURE_TO_VALUE
@@ -1221,33 +1251,71 @@ class GachaHistoryTab(BaseTab):
             # spacing: element and its label ↔ element and its label -- run, run ↔
             start += widest + px(gap)
             stops.append(start)
-        def end(part):
+        return stops
+
+    @staticmethod
+    def _beside_runs(rows):
+        """The line numbers of each run of consecutive `Beside` lines
+        alike in `halves`: what `_overall_layout` lays out together."""
+        runs = []
+        for n, row in enumerate(rows):
+            if not isinstance(row, Beside):
+                continue
+            if runs and runs[-1][-1] == n - 1 \
+                    and rows[n - 1].halves == row.halves:
+                runs[-1].append(n)
+            else:
+                runs.append([n])
+        return runs
+
+    @classmethod
+    def _overall_layout(cls, rows, font, bold, room=None):
+        """(tab stops, widest line, {line: its own stops}, each line's
+        end), in pixels from the line's start. The rows' columns are
+        `_column_stops`'.
+
+        A `Beside` line's first part is one of those rows. A run of such
+        lines is laid out together, part by part: each part starts
+        `BESIDE_GAP` past the furthest end of the part before it on any
+        line of the run -- with `halves`, the second at the middle of
+        `room` where that is further -- and its rows' columns are their
+        own, set from there. So those lines carry stops of their own:
+        the sheet's up to their first part's last field, then each
+        part's.
+        """
+        lefts = [row.parts[0] if isinstance(row, Beside) else row
+                 for row in rows]
+        stops = cls._column_stops(
+            [row for row in lefts if not isinstance(row, str)], font)
+
+        def finish(part, start, local):
             if isinstance(part, str):
-                return bold.measure(part)
-            return ((stops[len(part) - 2] if len(part) > 1 else 0)
+                return start + bold.measure(part)
+            return ((local[len(part) - 2] if len(part) > 1 else start)
                     + font.measure(part[-1]))
 
-        ends = [end(part) for part in lefts]
+        ends = [finish(part, 0, stops) for part in lefts]
         beside = {}
-        pairs = [(n, row) for n, row in enumerate(rows)
-                 if isinstance(row, Beside)]
-        if pairs:
-            # spacing: heading ↔ element -- run, run ↔
-            right = max(end(row.left) for _n, row in pairs) + px(BESIDE_GAP)
-            figures = [font.measure(row.right[0]) for _n, row in pairs
-                       if not isinstance(row.right, str)]
-            # spacing: label ↔ its element -- run, run ↔
-            value = right + max(figures + [0]) + px(FIGURE_TO_VALUE)
-            for n, row in pairs:
-                own = [] if isinstance(row.left, str) \
-                    else stops[:len(row.left) - 1]
-                if isinstance(row.right, str):
-                    beside[n] = tuple(own + [right])
-                    ends.append(right + bold.measure(row.right))
-                else:
-                    beside[n] = tuple(own + [right, value])
-                    ends.append(value + font.measure(row.right[-1]))
-        return stops, max(ends + [1]), beside
+        for run in cls._beside_runs(rows):
+            own = {n: [] if isinstance(rows[n].parts[0], str)
+                   else stops[:len(rows[n].parts[0]) - 1] for n in run}
+            for k in range(1, max(len(rows[n].parts) for n in run)):
+                lines = [n for n in run if len(rows[n].parts) > k]
+                # spacing: heading ↔ element -- run, run ↔
+                start = max(ends[n] for n in lines) + px(BESIDE_GAP)
+                if k == 1 and room and rows[run[0]].halves:
+                    start = max(start, room // 2)
+                local = cls._column_stops(
+                    [rows[n].parts[k] for n in lines
+                     if not isinstance(rows[n].parts[k], str)], font, start)
+                for n in lines:
+                    part = rows[n].parts[k]
+                    own[n] += [start] if isinstance(part, str) \
+                        else [start] + local[:len(part) - 1]
+                    ends[n] = finish(part, start, local)
+            for n in run:
+                beside[n] = tuple(own[n])
+        return stops, max(ends + [1]), beside, ends
 
     def _on_pick(self, _event):
         chosen = self.summary_tree.selection()
@@ -1265,12 +1333,16 @@ class GachaHistoryTab(BaseTab):
             return
         self.pulls_frame.configure(text="Pulls: %s" % pool.label)
         wanted = dict(FILTERS).get(self.filter_var.get())
+        # A Card Skin is named by the combatant it is for, and its pack's
+        # rate-up is the combatant its Super Rare is for.
+        skins = pool.pool == gh.SKIN_POOL
         for pull in reversed(pool.pulls):
             if wanted is not None and pull.stars not in wanted:
                 continue
+            unit = gh.skin_wearer(pull.res_id) if skins else pull.res_id
             tree.insert("", tk.END, tags=(self._star_tag(pull.stars),),
                         values=self._spaced((
-                            pull.number, gh.unit_name(pull.res_id),
+                            pull.number, gh.unit_name(unit),
                             _stars(pull.stars), pull.pity,
                             gh.unit_name(pull.featured)
                             if pull.featured else "",

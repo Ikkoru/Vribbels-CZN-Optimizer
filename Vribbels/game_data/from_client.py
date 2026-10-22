@@ -3188,3 +3188,248 @@ ITEM_RARITIES = {
         9900004, 9900005, 9900006, 9900008,
     ],
 }
+
+# {partner res_id: ((name, acts on the assigned combatant alone,
+# ((limit break, its text from then on), ...)), ...)}, in the
+# game's slot order. See game_client.exploration_passives.
+EXPLORATION_PASSIVES = {
+    1025: (
+        ('Exalted Conviction', True, ((0, "Increase Divine Epiphany rate of the assigned Combatant's cards by 20% during battle"),)),
+        ('Secure Loot', False, ((0, 'Increase Credit Gain Amount by 4%'), (2, 'Increase Credit Gain Amount by 8%'))),
+        ('Thorough Preparation', False, ((0, 'On entering Chaos/Sortie, gain 1 Rare equipment'), (4, 'On entering Chaos/Sortie, gain 1 Legendary equipment'))),
+    ),
+    1058: (
+        ('Mental Care', True, ((0, 'Decrease the number of Break Recovery Cards required by the assigned Combatant by 1 in Chaos/Sortie'),)),
+        ('Charisma', False, ((0, 'Decrease Stress Gain Amount by 6%'), (2, 'Decrease Stress Gain Amount by 12%'))),
+        ('Superior Scouting', False, ((0, 'Increase chance for a Rare Unidentified Area to appear by 6%'), (4, 'Increase chance for a Rare Unidentified Area to appear by 12%'))),
+    ),
+    1070: (
+        ('Mood Maker', True, ((0, "At the end of battle, decrease the assigned Combatant's Stress by 2"),)),
+        ('Flexible Negotiation', False, ((0, '4% discount at Dellang Shop in Chaos/Sortie'), (2, '8% discount at Dellang Shop in Chaos/Sortie'))),
+        ('Fundraising', False, ((0, '+30 Starting Credits when entering Chaos/Sortie'), (4, '+60 Starting Credits when entering Chaos/Sortie'))),
+    ),
+    20001: (
+        ('Thorough Preparation', False, ((0, 'On entering Chaos/Sortie, gain 1 Rare equipment'), (2, 'On entering Chaos/Sortie, gain 1 Legendary equipment'))),
+        ('Secure Loot', False, ((0, 'Increase Credit Gain Amount by 4%'), (4, 'Increase Credit Gain Amount by 8%'))),
+    ),
+    20002: (
+        ('Tactical Adjustment', True, ((0, "Increase the assigned Combatant's Shield and Recovery Amounts by 15% in Chaos/Sortie"),)),
+        ('Strategic Advice', False, ((0, '+1 Dice Roll Effect'), (2, '+2 Dice Roll Effect'))),
+        ('Flexible Negotiation', False, ((0, '4% discount at Dellang Shop in Chaos/Sortie'), (4, '8% discount at Dellang Shop in Chaos/Sortie'))),
+    ),
+    20003: (
+        ('Thorough Preparation', False, ((0, 'On entering Chaos/Sortie, gain 1 Rare equipment'), (2, 'On entering Chaos/Sortie, gain 1 Legendary equipment'))),
+        ('Arcane Knowledge', False, ((0, 'Increase chance of obtaining Monster Cards by 6%'), (4, 'Increase chance of obtaining Monster Cards by 12%'))),
+    ),
+    20004: (
+        ('Exalted Conviction', True, ((0, "Increase Divine Epiphany rate of the assigned Combatant's cards by 20% during battle"),)),
+        ('Arcane Knowledge', False, ((0, 'Increase chance of obtaining Monster Cards by 6%'), (2, 'Increase chance of obtaining Monster Cards by 12%'))),
+        ('Flexible Negotiation', False, ((0, '4% discount at Dellang Shop in Chaos/Sortie'), (4, '8% discount at Dellang Shop in Chaos/Sortie'))),
+    ),
+    20005: (
+        ('Mental Care', True, ((0, 'Decrease the number of Break Recovery Cards required by the assigned Combatant by 1 in Chaos/Sortie'),)),
+        ('Charisma', False, ((0, 'Decrease Stress Gain Amount by 6%'), (2, 'Decrease Stress Gain Amount by 12%'))),
+        ('Thorough Preparation', False, ((0, 'On entering Chaos/Sortie, gain 1 Rare equipment'), (4, 'On entering Chaos/Sortie, gain 1 Legendary equipment'))),
+    ),
+    20006: (
+        ('Exalted Conviction', True, ((0, "Increase Divine Epiphany rate of the assigned Combatant's cards by 20% during battle"),)),
+        ('Strategic Advice', False, ((0, '+1 Dice Roll Effect'), (2, '+2 Dice Roll Effect'))),
+        ('Charisma', False, ((0, 'Decrease Stress Gain Amount by 6%'), (4, 'Decrease Stress Gain Amount by 12%'))),
+    ),
+    20007: (
+        ('Fundraising', False, ((0, '+30 Starting Credits when entering Chaos/Sortie'), (2, '+60 Starting Credits when entering Chaos/Sortie'))),
+        ('Charisma', False, ((0, 'Decrease Stress Gain Amount by 6%'), (4, 'Decrease Stress Gain Amount by 12%'))),
+    ),
+    20008: (
+        ('Mental Care', True, ((0, 'Decrease the number of Break Recovery Cards required by the assigned Combatant by 1 in Chaos/Sortie'),)),
+        ('Charisma', False, ((0, 'Decrease Stress Gain Amount by 6%'), (2, 'Decrease Stress Gain Amount by 12%'))),
+        ('Strategic Advice', False, ((0, '+1 Dice Roll Effect'), (4, '+2 Dice Roll Effect'))),
+    ),
+    20009: (
+        ('Exalted Conviction', True, ((0, "Increase Divine Epiphany rate of the assigned Combatant's cards by 20% during battle"),)),
+        ('Arcane Knowledge', False, ((0, 'Increase chance of obtaining Monster Cards by 6%'), (2, 'Increase chance of obtaining Monster Cards by 12%'))),
+        ('Secure Loot', False, ((0, 'Increase Credit Gain Amount by 4%'), (4, 'Increase Credit Gain Amount by 8%'))),
+    ),
+    20011: (
+        ('Flexible Negotiation', False, ((0, '4% discount at Dellang Shop in Chaos/Sortie'), (2, '8% discount at Dellang Shop in Chaos/Sortie'))),
+        ('Superior Scouting', False, ((0, 'Increase chance for a Rare Unidentified Area to appear by 6%'), (4, 'Increase chance for a Rare Unidentified Area to appear by 12%'))),
+    ),
+    20014: (
+        ('Mood Maker', True, ((0, "At the end of battle, decrease the assigned Combatant's Stress by 2"),)),
+        ('Charisma', False, ((0, 'Decrease Stress Gain Amount by 6%'), (2, 'Decrease Stress Gain Amount by 12%'))),
+        ('Secure Loot', False, ((0, 'Increase Credit Gain Amount by 4%'), (4, 'Increase Credit Gain Amount by 8%'))),
+    ),
+    20019: (
+        ('Mood Maker', True, ((0, "At the end of battle, decrease the assigned Combatant's Stress by 2"),)),
+        ('Secure Loot', False, ((0, 'Increase Credit Gain Amount by 4%'), (2, 'Increase Credit Gain Amount by 8%'))),
+        ('Charisma', False, ((0, 'Decrease Stress Gain Amount by 6%'), (4, 'Decrease Stress Gain Amount by 12%'))),
+    ),
+    20021: (
+        ('Exalted Conviction', True, ((0, "Increase Divine Epiphany rate of the assigned Combatant's cards by 20% during battle"),)),
+        ('Superior Scouting', False, ((0, 'Increase chance for a Rare Unidentified Area to appear by 6%'), (2, 'Increase chance for a Rare Unidentified Area to appear by 12%'))),
+        ('Fundraising', False, ((0, '+30 Starting Credits when entering Chaos/Sortie'), (4, '+60 Starting Credits when entering Chaos/Sortie'))),
+    ),
+    20024: (
+        ('Charisma', False, ((0, 'Decrease Stress Gain Amount by 6%'), (2, 'Decrease Stress Gain Amount by 12%'))),
+        ('Strategic Advice', False, ((0, '+1 Dice Roll Effect'), (4, '+2 Dice Roll Effect'))),
+    ),
+    20025: (
+        ('Flexible Negotiation', False, ((0, '4% discount at Dellang Shop in Chaos/Sortie'), (2, '8% discount at Dellang Shop in Chaos/Sortie'))),
+        ('Fundraising', False, ((0, '+30 Starting Credits when entering Chaos/Sortie'), (4, '+60 Starting Credits when entering Chaos/Sortie'))),
+    ),
+    20027: (
+        ('Superior Scouting', False, ((0, 'Increase chance for a Rare Unidentified Area to appear by 6%'), (2, 'Increase chance for a Rare Unidentified Area to appear by 12%'))),
+        ('Fundraising', False, ((0, '+30 Starting Credits when entering Chaos/Sortie'), (4, '+60 Starting Credits when entering Chaos/Sortie'))),
+    ),
+    20030: (
+        ('Mental Care', True, ((0, 'Decrease the number of Break Recovery Cards required by the assigned Combatant by 1 in Chaos/Sortie'),)),
+        ('Fundraising', False, ((0, '+30 Starting Credits when entering Chaos/Sortie'), (2, '+60 Starting Credits when entering Chaos/Sortie'))),
+        ('Superior Scouting', False, ((0, 'Increase chance for a Rare Unidentified Area to appear by 6%'), (4, 'Increase chance for a Rare Unidentified Area to appear by 12%'))),
+    ),
+    20032: (
+        ('Secure Loot', False, ((0, 'Increase Credit Gain Amount by 4%'), (2, 'Increase Credit Gain Amount by 8%'))),
+        ('Flexible Negotiation', False, ((0, '4% discount at Dellang Shop in Chaos/Sortie'), (4, '8% discount at Dellang Shop in Chaos/Sortie'))),
+    ),
+    20033: (
+        ('Strategic Advice', False, ((0, '+1 Dice Roll Effect'), (2, '+2 Dice Roll Effect'))),
+        ('Arcane Knowledge', False, ((0, 'Increase chance of obtaining Monster Cards by 6%'), (4, 'Increase chance of obtaining Monster Cards by 12%'))),
+    ),
+    20034: (
+        ('Mood Maker', True, ((0, "At the end of battle, decrease the assigned Combatant's Stress by 2"),)),
+        ('Arcane Knowledge', False, ((0, 'Increase chance of obtaining Monster Cards by 6%'), (2, 'Increase chance of obtaining Monster Cards by 12%'))),
+        ('Flexible Negotiation', False, ((0, '4% discount at Dellang Shop in Chaos/Sortie'), (4, '8% discount at Dellang Shop in Chaos/Sortie'))),
+    ),
+    20035: (
+        ('Thorough Preparation', False, ((0, 'On entering Chaos/Sortie, gain 1 Rare equipment'), (2, 'On entering Chaos/Sortie, gain 1 Legendary equipment'))),
+        ('Secure Loot', False, ((0, 'Increase Credit Gain Amount by 4%'), (4, 'Increase Credit Gain Amount by 8%'))),
+    ),
+    20036: (
+        ('Secure Loot', False, ((0, 'Increase Credit Gain Amount by 4%'), (2, 'Increase Credit Gain Amount by 8%'))),
+        ('Strategic Advice', False, ((0, '+1 Dice Roll Effect'), (4, '+2 Dice Roll Effect'))),
+    ),
+    20037: (
+        ('Mental Care', True, ((0, 'Decrease the number of Break Recovery Cards required by the assigned Combatant by 1 in Chaos/Sortie'),)),
+        ('Superior Scouting', False, ((0, 'Increase chance for a Rare Unidentified Area to appear by 6%'), (2, 'Increase chance for a Rare Unidentified Area to appear by 12%'))),
+        ('Thorough Preparation', False, ((0, 'On entering Chaos/Sortie, gain 1 Rare equipment'), (4, 'On entering Chaos/Sortie, gain 1 Legendary equipment'))),
+    ),
+    20038: (
+        ('Mood Maker', True, ((0, "At the end of battle, decrease the assigned Combatant's Stress by 2"),)),
+        ('Fundraising', False, ((0, '+30 Starting Credits when entering Chaos/Sortie'), (2, '+60 Starting Credits when entering Chaos/Sortie'))),
+        ('Thorough Preparation', False, ((0, 'On entering Chaos/Sortie, gain 1 Rare equipment'), (4, 'On entering Chaos/Sortie, gain 1 Legendary equipment'))),
+    ),
+    30044: (
+        ('Mental Care', True, ((0, 'Decrease the number of Break Recovery Cards required by the assigned Combatant by 1 in Chaos/Sortie'),)),
+        ('Fundraising', False, ((0, '+30 Starting Credits when entering Chaos/Sortie'), (2, '+60 Starting Credits when entering Chaos/Sortie'))),
+        ('Strategic Advice', False, ((0, '+1 Dice Roll Effect'), (4, '+2 Dice Roll Effect'))),
+    ),
+    30045: (
+        ('Exalted Conviction', True, ((0, "Increase Divine Epiphany rate of the assigned Combatant's cards by 20% during battle"),)),
+        ('Flexible Negotiation', False, ((0, '4% discount at Dellang Shop in Chaos/Sortie'), (2, '8% discount at Dellang Shop in Chaos/Sortie'))),
+        ('Secure Loot', False, ((0, 'Increase Credit Gain Amount by 4%'), (4, 'Increase Credit Gain Amount by 8%'))),
+    ),
+    30046: (
+        ('Mood Maker', True, ((0, "At the end of battle, decrease the assigned Combatant's Stress by 2"),)),
+        ('Strategic Advice', False, ((0, '+1 Dice Roll Effect'), (2, '+2 Dice Roll Effect'))),
+        ('Flexible Negotiation', False, ((0, '4% discount at Dellang Shop in Chaos/Sortie'), (4, '8% discount at Dellang Shop in Chaos/Sortie'))),
+    ),
+    30051: (
+        ('Mental Care', True, ((0, 'Decrease the number of Break Recovery Cards required by the assigned Combatant by 1 in Chaos/Sortie'),)),
+        ('Arcane Knowledge', False, ((0, 'Increase chance of obtaining Monster Cards by 6%'), (2, 'Increase chance of obtaining Monster Cards by 12%'))),
+        ('Secure Loot', False, ((0, 'Increase Credit Gain Amount by 4%'), (4, 'Increase Credit Gain Amount by 8%'))),
+    ),
+    30052: (
+        ('Mood Maker', True, ((0, "At the end of battle, decrease the assigned Combatant's Stress by 2"),)),
+        ('Thorough Preparation', False, ((0, 'On entering Chaos/Sortie, gain 1 Rare equipment'), (2, 'On entering Chaos/Sortie, gain 1 Legendary equipment'))),
+        ('Fundraising', False, ((0, '+30 Starting Credits when entering Chaos/Sortie'), (4, '+60 Starting Credits when entering Chaos/Sortie'))),
+    ),
+    30053: (
+        ('Exalted Conviction', True, ((0, "Increase Divine Epiphany rate of the assigned Combatant's cards by 20% during battle"),)),
+        ('Strategic Advice', False, ((0, '+1 Dice Roll Effect'), (2, '+2 Dice Roll Effect'))),
+        ('Fundraising', False, ((0, '+30 Starting Credits when entering Chaos/Sortie'), (4, '+60 Starting Credits when entering Chaos/Sortie'))),
+    ),
+    30054: (
+        ('Exalted Conviction', True, ((0, "Increase Divine Epiphany rate of the assigned Combatant's cards by 20% during battle"),)),
+        ('Secure Loot', False, ((0, 'Increase Credit Gain Amount by 4%'), (2, 'Increase Credit Gain Amount by 8%'))),
+        ('Superior Scouting', False, ((0, 'Increase chance for a Rare Unidentified Area to appear by 6%'), (4, 'Increase chance for a Rare Unidentified Area to appear by 12%'))),
+    ),
+    30076: (
+        ('Tactical Adjustment', True, ((0, "Increase the assigned Combatant's Damage Amount by 15% in Chaos/Sortie"),)),
+        ('Danger Intuition', False, ((0, 'Increase chance for an Invasion Monster to appear by 8%'), (2, 'Increase chance for an Invasion Monster to appear by 16%'))),
+        ('Thorough Preparation', False, ((0, 'On entering Chaos/Sortie, gain 1 Rare equipment'), (4, 'On entering Chaos/Sortie, gain 1 Legendary equipment'))),
+    ),
+    30085: (
+        ('Tactical Adjustment', True, ((0, "Increase the assigned Combatant's Shield and Recovery Amounts by 15% in Chaos/Sortie"),)),
+        ('Fundraising', False, ((0, '+30 Starting Credits when entering Chaos/Sortie'), (2, '+60 Starting Credits when entering Chaos/Sortie'))),
+        ('Charisma', False, ((0, 'Decrease Stress Gain Amount by 6%'), (4, 'Decrease Stress Gain Amount by 12%'))),
+    ),
+    30091: (
+        ('Mental Care', True, ((0, 'Decrease the number of Break Recovery Cards required by the assigned Combatant by 1 in Chaos/Sortie'),)),
+        ('Flexible Negotiation', False, ((0, '4% discount at Dellang Shop in Chaos/Sortie'), (2, '8% discount at Dellang Shop in Chaos/Sortie'))),
+        ('Superior Scouting', False, ((0, 'Increase chance for a Rare Unidentified Area to appear by 6%'), (4, 'Increase chance for a Rare Unidentified Area to appear by 12%'))),
+    ),
+    30092: (
+        ('Mood Maker', True, ((0, "At the end of battle, decrease the assigned Combatant's Stress by 2"),)),
+        ('Arcane Knowledge', False, ((0, 'Increase chance of obtaining Monster Cards by 6%'), (2, 'Increase chance of obtaining Monster Cards by 12%'))),
+        ('Strategic Advice', False, ((0, '+1 Dice Roll Effect'), (4, '+2 Dice Roll Effect'))),
+    ),
+    30094: (
+        ('Tactical Adjustment', True, ((0, "Increase the assigned Combatant's Damage Amount by 15% in Chaos/Sortie"),)),
+        ('Superior Scouting', False, ((0, 'Increase chance for a Rare Unidentified Area to appear by 6%'), (2, 'Increase chance for a Rare Unidentified Area to appear by 12%'))),
+        ('Fundraising', False, ((0, '+30 Starting Credits when entering Chaos/Sortie'), (4, '+60 Starting Credits when entering Chaos/Sortie'))),
+    ),
+    30095: (
+        ('Tactical Adjustment', True, ((0, "Increase the assigned Combatant's Shield and Recovery Amounts by 15% in Chaos/Sortie"),)),
+        ('Thorough Preparation', False, ((0, 'On entering Chaos/Sortie, gain 1 Rare equipment'), (2, 'On entering Chaos/Sortie, gain 1 Legendary equipment'))),
+        ('Secure Loot', False, ((0, 'Increase Credit Gain Amount by 4%'), (4, 'Increase Credit Gain Amount by 8%'))),
+    ),
+    30114: (
+        ('Mood Maker', True, ((0, "At the end of battle, decrease the assigned Combatant's Stress by 2"),)),
+        ('Secure Loot', False, ((0, 'Increase Credit Gain Amount by 4%'), (2, 'Increase Credit Gain Amount by 8%'))),
+        ('Superior Scouting', False, ((0, 'Increase chance for a Rare Unidentified Area to appear by 6%'), (4, 'Increase chance for a Rare Unidentified Area to appear by 12%'))),
+    ),
+    30116: (
+        ('Tactical Adjustment', True, ((0, "Increase the assigned Combatant's Damage Amount by 15% in Chaos/Sortie"),)),
+        ('Strategic Advice', False, ((0, '+1 Dice Roll Effect'), (2, '+2 Dice Roll Effect'))),
+        ('Flexible Negotiation', False, ((0, '4% discount at Dellang Shop in Chaos/Sortie'), (4, '8% discount at Dellang Shop in Chaos/Sortie'))),
+    ),
+    30118: (
+        ('Mental Care', True, ((0, 'Decrease the number of Break Recovery Cards required by the assigned Combatant by 1 in Chaos/Sortie'),)),
+        ('Charisma', False, ((0, 'Decrease Stress Gain Amount by 6%'), (2, 'Decrease Stress Gain Amount by 12%'))),
+        ('Arcane Knowledge', False, ((0, 'Increase chance of obtaining Monster Cards by 6%'), (4, 'Increase chance of obtaining Monster Cards by 12%'))),
+    ),
+    30135: (
+        ('Cycle and Coalescence', True, ((0, "In Safe Zones, grant a support Epiphany to the assigned Combatant's Mythic Card.\n[Cycle and Coalescence]: On Bind of the assigned Combatant's cards, 1 Vulnerable to the enemy with the highest HP (cannot stack)"),)),
+        ('Danger Intuition', False, ((0, 'Increase chance for an Invasion Monster to appear by 8%'), (2, 'Increase chance for an Invasion Monster to appear by 16%'))),
+        ('Arcane Knowledge', False, ((0, 'Increase chance of obtaining Monster Cards by 6%'), (4, 'Increase chance of obtaining Monster Cards by 12%'))),
+    ),
+}
+
+# {Card Skin res_id: (name, rarity, the combatant it is for)}
+# and {pack id: (name, {rarity: the chance a pull is one}, the
+# combatant its Super Rare is for)}. See game_client.card_skins.
+CARD_SKINS = {
+    9800001: ('Rock Star Instinct', 'COMMON', 1003),
+    9800002: ("Soldier's Vacation", 'COMMON', 1012),
+    9800003: ("Model Student's Excitement", 'COMMON', 1039),
+    9800004: ("Magician's Diversion", 'COMMON', 1049),
+    9800005: ("Rookie Agent's Spirit", 'COMMON', 1056),
+    9800101: ("Rabbit Mouse's Happiness", 'COMMON', 1033),
+    9800102: ("Vice-Captain's Rest", 'COMMON', 1041),
+    9800103: ("Fixer's Chatter", 'COMMON', 1043),
+    9800104: ("Glutton's Smile", 'COMMON', 1062),
+    9800105: ("Marshal's Discipline", 'COMMON', 30084),
+    9800106: ("Chrono Archon's Memories", 'COMMON', 30097),
+    9800107: ("Strategist's Leisure", 'COMMON', 30113),
+    9800108: ("Imp's Mischief", 'COMMON', 30117),
+    9800109: ("An Idol's Passion", 'COMMON', 1069),
+    9800110: ("A Mercenary's Day Off", 'COMMON', 30047),
+    9800111: ("Adventurer's Justice", 'COMMON', 1010),
+    9810001: ("North Star's Invitation", 'SUPER_RARE', 30134),
+    9810002: ('Your Own Guardian Angel', 'SUPER_RARE', 30075),
+    9820001: ("North Star's Invitation", 'RARE', 30134),
+    9820002: ('Your Own Guardian Angel', 'RARE', 30075),
+}
+CARD_SKIN_PACKS = {
+    'card_skin_pack_s001_1': ('Invitation Under the Night Sky', {'COMMON': 0.857, 'RARE': 0.13, 'SUPER_RARE': 0.013}, 30134),
+    'card_skin_pack_s001_2': ('Angel of the Night Sky', {'COMMON': 0.857, 'RARE': 0.13, 'SUPER_RARE': 0.013}, 30075),
+}

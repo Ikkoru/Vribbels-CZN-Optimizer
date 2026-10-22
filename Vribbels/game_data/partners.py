@@ -92,12 +92,13 @@ the `passive_desc` templates and `values`, the markers. A partner only
 the client knows gets an entry from it alone, its passive drawn from
 the client's lines.
 
-An entry between `# client block start` and `# client block end`, and a
-line marked `# client` -- here, in `PARTNER_CLASS_STATS` and in the two
-pairing tables -- are the client's: `docs/client_tables.py --ship`
-writes them, a patch's new partner and a new combatant's pairing among
-them, and rewrites them at the next (`client_sync`). Everything
-unmarked is the maintainer's, and never rewritten.
+An entry between `# client-based block start` and `# client-based block
+end`, and a line marked `# client-based` -- here, in
+`PARTNER_CLASS_STATS` and in the two pairing tables -- are the
+client's: `docs/client_tables.py --ship` writes them, a patch's new
+partner and a new combatant's pairing among them, and rewrites them at
+the next (`client_sync`). Everything unmarked is the maintainer's, and
+never rewritten.
 
 Unknown partners
 ================
@@ -1053,7 +1054,7 @@ PARTNERS = {
         "ego_desc": "Deal 350% Damage.",
     },
     20023: {
-        "name": "Blanche",  # client block start
+        "name": "Blanche",  # client-based block start
         "grade": 4.5,
         "class": "Vanguard",
         "passive_name": "Blood Detection",
@@ -1067,11 +1068,11 @@ PARTNERS = {
         },
         "ego_name": "Here's a shot!",
         "ego_cost": 3,
-        "ego_desc": "",
-        "from_client": True,  # client block end
+        "ego_desc": "Draw 1\nHeal 100% equal to that card's cost",
+        "from_client": True,  # client-based block end
     },
     20028: {
-        "name": "Capri",  # client block start
+        "name": "Capri",  # client-based block start
         "grade": 4.5,
         "class": "Ranger",
         "passive_name": "Super Cute Quantum Computer",
@@ -1085,11 +1086,11 @@ PARTNERS = {
         },
         "ego_name": "High-Powered Beam Shooter",
         "ego_cost": 2,
-        "ego_desc": "",
-        "from_client": True,  # client block end
+        "ego_desc": "150% Damage to all enemies\n1 Tenacity Damage\nIncrease Action Count by 3",
+        "from_client": True,  # client-based block end
     },
     30135: {
-        "name": "Sig",  # client block start
+        "name": "Sig",  # client-based block start
         "grade": 5,
         "class": "Striker",
         "passive_name": "Child of the Cycle",
@@ -1105,8 +1106,8 @@ PARTNERS = {
         },
         "ego_name": "Frail Dominion of Kyrken",
         "ego_cost": 3,
-        "ego_desc": "",
-        "from_client": True,  # client block end
+        "ego_desc": "2 Dominion Shard\nIncrease Damage Amount of the assigned Combatant's Justice Attack Cards by 50% for 2 turns",
+        "from_client": True,  # client-based block end
     },
 }
 
@@ -1267,7 +1268,7 @@ SIGNATURE_PARTNERS = {
     "Hugo": "Tina", "Kayron": "Bria", "Khalipe": "Zeta", "Luke": "Janet",
     "Magna": "Erica", "Mei Lin": "Marianne", "Orlea": "Noel",
     "Renoa": "Kiara", "Rin": "Scarlet", "Veronica": "Marin",
-    "Rossweisse": "Sig",  # client
+    "Rossweisse": "Sig",  # client-based
 }
 
 # PARTNER_EXCEPTIONS: a combatant with no signature partner -- 4-stars

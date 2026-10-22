@@ -246,7 +246,8 @@ def _partners(facts):
             desc, values = passive_template(fact.get("passive_lines") or [])
             _add("PARTNERS", rid, {**copy.deepcopy(DEFAULT_PARTNER), **known,
                                    "passive_desc": desc, "values": values,
-                                   "stats": stats, "ego_desc": "",
+                                   "stats": stats,
+                                   "ego_desc": fact.get("ego_desc") or "",
                                    "from_client": True})
         flat = fact.get("level_60")
         if isinstance(flat, dict) and "grade" in known and "class" in known:

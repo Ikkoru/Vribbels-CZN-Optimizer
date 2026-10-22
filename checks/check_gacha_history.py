@@ -1054,6 +1054,86 @@ def _card_skins_replayed(gh, root, failures):
             f"covers.")
 
 
+def _card_skin_luck(gh, folder, failures):
+    """The Card Skin Packs read as one pool with no pity: a Super Rare
+    where a 5-star stands, the pulls since the one before as its count,
+    a duplicate marked, the pack's rate-up its Super Rare's combatant,
+    and the luck a flat chance's -- alone, and beside a Rescue's in the
+    overall figure that says it holds them."""
+    from game_data import from_client
+    skins = sorted(from_client.CARD_SKINS.items())
+    by = {skin[1]: res_id for res_id, skin in skins}
+    pack, (_name, chances, featured) = sorted(
+        from_client.CARD_SKIN_PACKS.items())[0]
+    chance = chances["SUPER_RARE"]
+    # Geometric: one Super Rare at 77 pulls is beaten by every player
+    # who needed more, (1 - p)^77, and half of those who needed as many.
+    want = (1 - chance) ** 77 + chance * (1 - chance) ** 76 / 2
+    got = gh.luckier_than_flat([77], chance)
+    if got is None or abs(got - want) > 1e-9:
+        failures.append(f"one Super Rare at 77 pulls reads luckier than "
+                        f"{got}, not {want}: the flat chance's odds are the "
+                        f"negative binomial (`gacha_history._flat_odds`).")
+    # Two at 80 pulls: beaten by everyone with at most one in 80, and
+    # half of those whose second landed on the 80th.
+    q = 1 - chance
+    want = q ** 80 + 80 * chance * q ** 79 + 79 * chance ** 2 * q ** 78 / 2
+    two = gh.luckier_than_flat([30, 50], chance)
+    alone = gh.luckier_than_across([((gh.FLAT, chance), [30, 50])])
+    if two is None or alone is None or abs(two - want) > 1e-9 \
+            or abs(alone - want) > 1e-9:
+        failures.append(f"two Super Rares in 80 pulls read luckier than "
+                        f"{two} on their own and {alone} across pools, not "
+                        f"{want}.")
+    commons = [by["COMMON"]] * 9
+    # A Rescue's record beside them, with no rates to draw its luck from:
+    # the packs list after it.
+    store = {"kind": gh.STORE_KIND, "version": 1,
+             "records": [_record(1, BANNER, 900, [THREE])],
+             "skin_records": [
+                 {"id": "1", "card_skin_package_id": pack, "createAt": "1000",
+                  "reward": json.dumps(commons + [by["SUPER_RARE"]]),
+                  "dup": json.dumps([0] + [1] * 9)},
+                 {"id": "2", "card_skin_package_id": pack, "createAt": "2000",
+                  "reward": json.dumps([by["RARE"], by["SUPER_RARE"]]),
+                  "dup": "[0,1]"}],
+             "skin_read": "2026-10-22T00:00:00"}
+    store_dir = gh.folder_in(folder)
+    store_dir.mkdir(parents=True)
+    (store_dir / gh.CAPTURED).write_text(json.dumps(store), encoding="utf-8")
+    history = gh.load(folder)
+    pool = history.pools.get(gh.SKIN_POOL)
+    if pool is None or history.ordered()[-1] is not pool:
+        failures.append("the Card Skin Packs are not the history's last "
+                        "pool: the tab lists them under every Rescue.")
+        return
+    s = pool.stats
+    got = (s.pulls, s.fives, s.fours, s.five_pities, s.pity_now,
+           [p.outcome for p in pool.pulls].count(gh.DUPLICATE),
+           pool.pulls[-1].featured)
+    want = (12, 2, 1, [10, 2], 0, 10, featured)
+    if got != want:
+        failures.append(f"the Card Skin Packs read pulls, Super Rares, "
+                        f"Rares, their counts, since the last, duplicates "
+                        f"and the rate-up as {got}, not {want}: the first "
+                        f"Super Rare's count is whole -- a flat chance has "
+                        f"no partial cycle.")
+    if s.luckier_than is None or abs(
+            s.luckier_than - gh.luckier_than_flat([10, 2], chance)) > 1e-12:
+        failures.append(f"the Card Skin Packs' luck reads {s.luckier_than}: "
+                        f"the flat chance's over their Super Rares.")
+    o = history.overall
+    own = gh.luckier_than_flat([10, 2], chance)
+    if o.luck_with_prism is not None or o.luck_with_skins is None \
+            or abs(o.luck_with_skins - own) > 1e-12 \
+            or not o.skin_fastest or o.skin_fastest[0].count != 2:
+        failures.append(f"with only the Card Skin Packs, the overall luck "
+                        f"reads {o.luck_with_prism} with the Prism Module "
+                        f"and {o.luck_with_skins} with the packs, the "
+                        f"fastest Super Rare {o.skin_fastest}: only the "
+                        f"figures that say they hold the packs do.")
+
+
 # ------------------------------------------------------------ real data
 
 def _history_log(marker="gacha_history_list"):
@@ -1131,6 +1211,7 @@ def run():
         _replay(gh, tmp / "replay", failures)
         (tmp / "skins_replay").mkdir()
         _card_skins_replayed(gh, tmp / "skins_replay", failures)
+        _card_skin_luck(gh, tmp / "skin_luck", failures)
         _seasonal_on_load(gh, tmp / "seasonal", failures)
     return failures
 
@@ -1191,4 +1272,22 @@ FAULTS = [
     ("Card Skin records unguarded on write", "capture.manager:ADDON_TEMPLATE",
      '("skin_records", skin_before)):', '("skin_records", ())):',
      "a write that would drop a Card Skin record"),
+    ("the negative binomial's step wrong", "gacha_history:_flat_odds",
+     "log_p += math.log(t / (t + 1 - count)) + log_miss",
+     "log_p += log_miss", "two Super Rares in 80 pulls"),
+    ("the first Super Rare cut as partial", "gacha_history:_skin_pool",
+     "stats.first_partial = False", "stats.first_partial = True",
+     "the overall luck reads"),
+    ("a Super Rare not a 5-star", "gacha_history:SKIN_STARS",
+     '"SUPER_RARE": 5', '"SUPER_RARE": 4', "the Card Skin Packs read pulls"),
+    ("a duplicate pull not marked in the pool", "gacha_history:_skin_pool",
+     "outcome=DUPLICATE if i < len(dup) and dup[i] else None,",
+     "outcome=None,", "the Card Skin Packs read pulls"),
+    ("the Card Skin Packs listed first", "gacha_history:History.ordered",
+     "return known + [self.pools[p] for p in rest] + skins",
+     "return skins + known + [self.pools[p] for p in rest]",
+     "not the history's last pool"),
+    ("the packs counted with the Prism Module", "gacha_history:across_pools",
+     "[groups[e.pool] for e in others + prism if groups[e.pool]])",
+     "[g for g in groups.values() if g])", "the overall luck reads"),
 ]

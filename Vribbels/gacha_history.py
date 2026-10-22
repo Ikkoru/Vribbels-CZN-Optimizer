@@ -145,6 +145,22 @@ POOL_LABELS = {
 }
 POOL_ORDER = tuple(POOL_LABELS)
 
+# **The Card Skin Packs are one pool**, every pack's pulls together,
+# listed after every Rescue family: no pity, no 50/50, and each pull the
+# same chance of each rarity, which the game client gives
+# (`game_client.known_card_skins`). A Super Rare stands where a 5-star
+# does, a Rare where a 4-star does. Kept out of the Rescues' figures but
+# for the `Overall` ones that say they hold it.
+SKIN_POOL = "card_skins"
+SKIN_LABEL = "Card Skin Packs"
+SKIN_STARS = {"SUPER_RARE": 5, "RARE": 4, "COMMON": 3}
+# What a duplicate shows where a Rescue's 5-star shows its 50/50: the
+# game turns one into Remnants.
+DUPLICATE = "Duplicate"
+# The key `luckier_than_across` takes a pool with no pity under: (FLAT,
+# its chance a pull).
+FLAT = "flat"
+
 
 def pool_of(gacha_id):
     """The pity pool a banner's pulls count toward."""
@@ -190,7 +206,26 @@ def featured_of(gacha_id):
 def pool_label(pool):
     """The game's name for a pool; a family nobody has named reads as
     its own id, spaced and capitalised."""
+    if pool == SKIN_POOL:
+        return SKIN_LABEL
     return POOL_LABELS.get(pool) or pool.replace("_", " ").title()
+
+
+def skin_wearer(res_id):
+    """The combatant a Card Skin is for, by res_id, or None. The tab
+    names a skin by it: a skin's own name is twice a unit's length, and
+    the combatant and the rarity tell a pack's skins apart."""
+    import game_client
+    skin = game_client.known_card_skins()[0].get(res_id) or ()
+    return skin[2] if len(skin) > 2 else None
+
+
+def pack_featured(pack):
+    """The combatant a Card Skin Pack's Super Rare is for, or None: the
+    pack's rate-up, as a Rescue banner's is its featured unit."""
+    import game_client
+    held = game_client.known_card_skins()[1].get(pack) or ()
+    return held[2] if len(held) > 2 else None
 
 
 def pity_record_name(pool):
@@ -575,10 +610,62 @@ def luckier_than(pities, base):
     return above + same / 2
 
 
+# (chance, hits) -> [odds of the total pulls they took], for `_flat_odds`.
+_FLAT_ODDS = {}
+# Where a flat table stops: the odds left past it are under this.
+FLAT_TAIL = 1e-15
+
+
+def _flat_odds(chance, count):
+    """[P(`count` hits took exactly t pulls)], t = 0, 1, ..., at a flat
+    `chance` every pull and no pity: the negative binomial, cut where
+    what is left is under `FLAT_TAIL`. Built in logs, so a long history's
+    first odds are tiny rather than nothing; kept for the session."""
+    key = (chance, count)
+    if key not in _FLAT_ODDS:
+        if count <= 0 or not 0 < chance < 1:
+            return [1.0]
+        out = [0.0] * count
+        log_p, log_miss = count * math.log(chance), math.log1p(-chance)
+        t, held = count, 0.0
+        mean = count / chance
+        while held < 1 - FLAT_TAIL or t < mean:
+            p = math.exp(log_p)
+            out.append(p)
+            held += p
+            if t > 50 * mean + 1000:
+                break
+            log_p += math.log(t / (t + 1 - count)) + log_miss
+            t += 1
+        _FLAT_ODDS[key] = out
+    return _FLAT_ODDS[key]
+
+
+def _odds_table(base, count):
+    """The odds of the pulls `count` hits took: a scheduled pool's sum of
+    cycles, or a flat one's (`FLAT`, chance)."""
+    if isinstance(base, tuple) and base[0] == FLAT:
+        return _flat_odds(base[1], count)
+    return _sum_odds(base, count)
+
+
+def luckier_than_flat(pities, chance):
+    """`luckier_than` for a pool with no pity, every pull the same
+    `chance` of a hit -- a Card Skin Pack's Super Rare."""
+    if not pities or not chance:
+        return None
+    odds = _flat_odds(chance, len(pities))
+    took = sum(pities)
+    above = sum(odds[took + 1:])
+    same = odds[took] if took < len(odds) else 0.0
+    return above + same / 2
+
+
 def luckier_than_across(groups):
     """`luckier_than` over several pools at once.
 
-    `groups` is `(base, pities)` per pool. The share of players who
+    `groups` is `(base, pities)` per pool, `base` a scheduled pool's rate
+    or (`FLAT`, chance) for one with no pity. The share of players who
     needed more pulls IN TOTAL for as many 5-stars on each pool as this
     history got. **Not an average of the pools' own figures**: being a
     little unlucky on each adds up, so the whole can sit further out
@@ -587,7 +674,8 @@ def luckier_than_across(groups):
     Pools on one base rate are one sum of cycles. Different base rates
     are convolved, all but the last in full -- the last is read off its
     tail, which is what keeps two long histories from costing a full
-    product of their tables.
+    product of their tables. A flat pool goes last: its table is the
+    longest.
     """
     by_base = {}
     for base, pities in groups:
@@ -596,8 +684,10 @@ def luckier_than_across(groups):
     if not by_base:
         return None
     took = sum(sum(pities) for pities in by_base.values())
-    tables = [_sum_odds(base, len(pities))
-              for base, pities in sorted(by_base.items())]
+    flat = [item for item in by_base.items() if isinstance(item[0], tuple)]
+    tables = [_odds_table(base, len(pities)) for base, pities in sorted(
+        item for item in by_base.items() if item not in flat)] + [
+        _odds_table(base, len(pities)) for base, pities in flat]
     odds = [1.0]
     for table in tables[:-1]:
         odds = _convolve(odds, table)
@@ -709,6 +799,9 @@ class PoolStats:
         self.read_at = None
         self.first_at = None
         self.last_at = None
+        # A pool with no pity's chance of a 5-star a pull (the Card Skin
+        # Packs' Super Rare); None for a scheduled one.
+        self.chance = None
 
 
 class Pool:
@@ -731,9 +824,13 @@ class History:
         self.overall = Overall()
 
     def ordered(self):
+        """The Rescue families in the tab's order, then the Card Skin
+        Packs."""
         known = [self.pools[p] for p in POOL_ORDER if p in self.pools]
-        rest = sorted((p for p in self.pools if p not in POOL_ORDER))
-        return known + [self.pools[p] for p in rest]
+        rest = sorted((p for p in self.pools
+                       if p not in POOL_ORDER and p != SKIN_POOL))
+        skins = [self.pools[SKIN_POOL]] if SKIN_POOL in self.pools else []
+        return known + [self.pools[p] for p in rest] + skins
 
     @property
     def total(self):
@@ -755,13 +852,17 @@ class Overall:
     **The Observe Prism Module is kept apart**, because it spends its
     own currency and pays a 5-star three times as often: where it would
     dominate a figure, the figure is given without it, and the Module's
-    records are its own.
+    records are its own. **So are the Card Skin Packs** (`SKIN_POOL`),
+    which have no pity: one luck figure holds them beside every Rescue,
+    and their records are their own.
     """
 
     def __init__(self):
-        # `luckier_than` shares.
+        # `luckier_than` shares: the Combatant and Partner Rescues, then
+        # those and the Prism Module, then those and the Card Skin Packs.
         self.luck_without_prism = None
         self.luck_with_prism = None
+        self.luck_with_skins = None
         self.pulls_without_prism = 0
         # Every Combatant rate-up's 50/50s, reruns included.
         self.fifty_won = self.fifty_lost = 0
@@ -776,6 +877,8 @@ class Overall:
         self.streak = []
         self.prism_fastest, self.prism_slowest = [], []
         self.prism_streak = []
+        self.skin_fastest, self.skin_slowest = [], []
+        self.skin_streak = []
 
 
 # ------------------------------------------------------------ batches
@@ -1205,6 +1308,9 @@ def load(folder, now=None, shipped=None):
             "gacha_pity_") else None
         if pool and pool not in history.pools:
             history.pools[pool] = _work_out(pool, [], tiers, history)
+    skins = _skin_pool(captured)
+    if skins.pulls or skins.stats.read_at:
+        history.pools[SKIN_POOL] = skins
     for gacha_id, when in read.items():
         entry = history.pools.get(pool_of(gacha_id))
         if entry and (entry.stats.read_at is None
@@ -1372,6 +1478,87 @@ def _work_out(pool, batches, tiers, history):
     return entry
 
 
+def _skin_key(record):
+    """(second, skins): what a Card Skin Pack record and a pull kept off
+    its reply agree on, as the capture matches them."""
+    return _int(record.get("createAt")), tuple(_int_list(record.get("reward")))
+
+
+def _skin_pool(captured):
+    """The Card Skin Packs' pool (`SKIN_POOL`), off the records the
+    capture keeps and the pulls kept until a record covers them, oldest
+    first: worked out as `_work_out` works out a Rescue family, with a
+    Super Rare's pulls in place of a 5-star's pity.
+
+    **No cycle is cut short.** Each pull has the same chance whatever
+    came before it, so the pulls from the first record to the first
+    Super Rare count like any after. Luck and the expected averages need
+    one chance for every pack pulled on; packs that disagree leave them
+    unsaid."""
+    import game_client
+    skins, packs = game_client.known_card_skins()
+    records = [r for r in captured.get("skin_records") or []
+               if isinstance(r, dict)]
+    listed = {_skin_key(r) for r in records}
+    records += [r for r in captured.get("skin_pulls") or []
+                if isinstance(r, dict) and _skin_key(r) not in listed]
+    records.sort(key=lambda r: (_int(r.get("createAt")), _int(r.get("id"))))
+    entry = Pool(SKIN_POOL)
+    stats = entry.stats
+    stats.first_partial = False
+    stats.read_at = captured.get("skin_read") if isinstance(
+        captured.get("skin_read"), str) else None
+    pity = four = number = 0
+    chances = set()
+    for record in records:
+        pack = record.get("card_skin_package_id")
+        rates = (packs.get(pack) or (None, {}))[1]
+        chances.add((rates.get("SUPER_RARE"), rates.get("RARE")))
+        dup = _int_list(record.get("dup"))
+        for i, res_id in enumerate(_int_list(record.get("reward"))):
+            number += 1
+            pity += 1
+            four += 1
+            stars = SKIN_STARS.get((skins.get(res_id) or (None, None))[1])
+            if stars is None:
+                stats.unknown += 1
+            elif stars == 5:
+                stats.fives += 1
+                stats.five_pities.append(pity)
+                pity = 0
+            elif stars == 4:
+                stats.fours += 1
+                stats.four_pities.append(four)
+                four = 0
+            entry.pulls.append(Pull(
+                pool=SKIN_POOL, number=number, at=_int(record.get("createAt")),
+                res_id=res_id, stars=stars,
+                pity=stats.five_pities[-1] if stars == 5 else pity,
+                gacha_id=pack, featured=pack_featured(pack),
+                outcome=DUPLICATE if i < len(dup) and dup[i] else None,
+                source=record.get("from")))
+    stats.pulls = number
+    stats.pity_now, stats.four_now = pity, four
+    if records:
+        stats.first_at = _int(records[0].get("createAt"))
+        stats.last_at = _int(records[-1].get("createAt"))
+    if stats.five_pities:
+        stats.avg_pity = sum(stats.five_pities) / len(stats.five_pities)
+    if stats.four_pities:
+        stats.four_avg = sum(stats.four_pities) / len(stats.four_pities)
+    if len(chances) == 1:
+        five, rare = next(iter(chances))
+        if five:
+            stats.chance = five
+            stats.expected_pity = 1 / five
+            stats.luckier_than = luckier_than_flat(stats.five_pities, five)
+        # A Super Rare does not reset the Rares' count, as a 5-star does
+        # not reset a Rescue's 4-stars'.
+        if rare:
+            stats.four_expected = 1 / rare
+    return entry
+
+
 def _fifty_fifty(res_id, featured, guaranteed):
     """(outcome, guaranteed after) for one 5-star on a 50/50 banner.
 
@@ -1463,13 +1650,16 @@ def across_pools(history):
     """
     overall = Overall()
     pools = history.ordered()
-    others = [e for e in pools if e.pool != PRISM_POOL]
+    others = [e for e in pools if e.pool not in (PRISM_POOL, SKIN_POOL)]
     prism = [e for e in pools if e.pool == PRISM_POOL]
+    skins = [e for e in pools if e.pool == SKIN_POOL]
 
     groups = {e.pool: _luck_group(e, history) for e in pools}
     overall.luck_without_prism = luckier_than_across(
         [groups[e.pool] for e in others if groups[e.pool]])
     overall.luck_with_prism = luckier_than_across(
+        [groups[e.pool] for e in others + prism if groups[e.pool]])
+    overall.luck_with_skins = luckier_than_across(
         [g for g in groups.values() if g])
     overall.pulls_without_prism = sum(len(e.pulls) for e in others)
 
@@ -1502,7 +1692,8 @@ def across_pools(history):
 
     for entries, fast, slow, streak in (
             (others, "fastest", "slowest", "streak"),
-            (prism, "prism_fastest", "prism_slowest", "prism_streak")):
+            (prism, "prism_fastest", "prism_slowest", "prism_streak"),
+            (skins, "skin_fastest", "skin_slowest", "skin_streak")):
         fives = [(pull.pity, pull) for e in entries
                  for pull in _complete_fives(e)]
         setattr(overall, fast, _records(fives, fastest=True))
@@ -1519,9 +1710,12 @@ def _complete_fives(entry):
 
 def _luck_group(entry, history):
     """`(base, pities)` for `luckier_than_across`, or None where the
-    pool's luck cannot be drawn -- see `schedule_matches`."""
-    rates = _pool_rates(entry.pool, history.rates)
+    pool's luck cannot be drawn -- see `schedule_matches`. A pool with
+    no pity is keyed (`FLAT`, its chance)."""
     pities = [pull.pity for pull in _complete_fives(entry)]
+    if entry.stats.chance is not None:
+        return ((FLAT, entry.stats.chance), pities) if pities else None
+    rates = _pool_rates(entry.pool, history.rates)
     if not pities or not schedule_matches(rates):
         return None
     return base_rate(rates), pities

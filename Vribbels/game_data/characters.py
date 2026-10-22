@@ -62,11 +62,11 @@ attribute, level-60 stats, crit, node 50's and 60's stat, the steps to
 this table is the fallback for whatever it does not hold, and a
 combatant only the client knows gets an entry from it alone.
 
-An entry between `# client block start` and `# client block end`, and a
-value marked `# client`, are the client's: `docs/client_tables.py
---ship` writes them, a patch's new combatant among them, and rewrites
-them at the next (`client_sync`). Everything unmarked is the
-maintainer's, and never rewritten.
+An entry between `# client-based block start` and `# client-based block
+end`, and a value marked `# client-based`, are the client's:
+`docs/client_tables.py --ship` writes them, a patch's new combatant
+among them, and rewrites them at the next (`client_sync`). Everything
+unmarked is the maintainer's, and never rewritten.
 
 The server's own readings
 =========================

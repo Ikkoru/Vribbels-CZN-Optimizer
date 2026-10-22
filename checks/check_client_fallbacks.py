@@ -16,6 +16,9 @@ and a third its own; an item's name is held by `check_event_names`.
    a rates reply the account captured over the client's pools, and the
    client's over nothing. Without either, a Seasonal rerun counts on the
    rerun counter, its pulls on the wrong pity.
+4. **The partners' Exploration Passives and the Card Skin tables**
+   (`game_client.known_exploration_passives`, `known_card_skins`): this
+   machine's read over the shipped copy, which stands for the rest.
 
 Held on synthetic client facts, put in place with `game_client.use` and
 taken away after, and on probe entries put into the program's tables
@@ -28,6 +31,7 @@ NAME = "the game client's names go over the program's, its tables fill the rest"
 
 # Probe ids no table, client or shipped extract holds.
 PROBE_STAGE, TABLE_STAGE = 999999, 999998
+PROBE_PARTNER, PROBE_SKIN = 99999, 9899999
 PROBE_SPECIAL = "zero_orb_special_probe"
 TABLE_SPECIAL = "zero_orb_special_table_probe"
 
@@ -89,6 +93,31 @@ def run():
                 "pickup_combatant_rerun":
             out.append("a captured rates reply did not go over the client's "
                        "pools: the server's own list must win.")
+        from game_data import from_client
+        game_client.use(dict(facts, exploration_passives={
+            str(PROBE_PARTNER): [{"name": "Probe", "assigned": True,
+                                  "steps": [[0, "a"], [2, "b"]]}]},
+            card_skins={"skins": {str(PROBE_SKIN): ["Probe Skin", "RARE",
+                                                    1003]},
+                        "packs": {"probe_pack": ["Probe Pack",
+                                                 {"RARE": 0.5}, 1003]}}))
+        held = game_client.known_exploration_passives()
+        kept = set(from_client.EXPLORATION_PASSIVES) <= set(held)
+        if held.get(PROBE_PARTNER) != (("Probe", True, ((0, "a"), (2, "b"))),) \
+                or not kept:
+            out.append(f"the Exploration Passives read "
+                       f"{held.get(PROBE_PARTNER)!r} for a partner only this "
+                       f"client holds, the shipped ones "
+                       f"{'kept' if kept else 'dropped'}: the client's read "
+                       f"goes over the shipped table.")
+        skins, packs = game_client.known_card_skins()
+        if skins.get(PROBE_SKIN) != ("Probe Skin", "RARE", 1003) \
+                or packs.get("probe_pack") != ("Probe Pack", {"RARE": 0.5},
+                                               1003) \
+                or not set(from_client.CARD_SKINS) <= set(skins):
+            out.append("the card skins read leave out this client's skin or "
+                       "pack, or the shipped ones: the client's read goes "
+                       "over the shipped tables.")
     finally:
         ce.CHAOS_NAMES.pop(TABLE_STAGE, None)
         ce.ZERO_SPECIALS.pop(TABLE_SPECIAL, None)
@@ -127,4 +156,10 @@ FAULTS = [
      "game_client:known_general_units",
      "return set(units) if units else None", "return None",
      "was not taken as Seasonal"),
+    ("the client's Exploration Passives not read",
+     "game_client:known_exploration_passives",
+     "out[int(key)] = tuple(", "out[-1] = tuple(", "the Exploration Passives"),
+    ("the shipped Card Skins dropped", "game_client:known_card_skins",
+     'skins = dict(getattr(from_client, "CARD_SKINS", {}))', "skins = {}",
+     "the card skins read"),
 ]

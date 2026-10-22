@@ -260,6 +260,33 @@ def shipped_source(client):
             lines.append(f"    {ascii(word)}: [")
             lines += _rows(rarities[word])
             lines.append("    ],")
+    lines += ["}", "",
+              "# {partner res_id: ((name, acts on the assigned combatant "
+              "alone,",
+              "# ((limit break, its text from then on), ...)), ...)}, in the",
+              "# game's slot order. See game_client.exploration_passives.",
+              "EXPLORATION_PASSIVES = {"]
+    for res_id, passives in sorted(
+            game_client.exploration_passives(client).items()):
+        lines.append(f"    {res_id}: (")
+        lines += [f"        ({ascii(p['name'])}, {p['assigned']}, "
+                  f"{ascii(tuple(tuple(step) for step in p['steps']))}),"
+                  for p in passives]
+        lines.append("    ),")
+    skins = game_client.card_skins(client)
+    lines += ["}", "",
+              "# {Card Skin res_id: (name, rarity, the combatant it is for)}",
+              "# and {pack id: (name, {rarity: the chance a pull is one}, the",
+              "# combatant its Super Rare is for)}. See "
+              "game_client.card_skins.",
+              "CARD_SKINS = {"]
+    lines += [f"    {res_id}: {ascii(tuple(skin))},"
+              for res_id, skin in sorted(skins["skins"].items())]
+    lines += ["}", "CARD_SKIN_PACKS = {"]
+    lines += [f"    {ascii(pack)}: ({ascii(name)}, "
+              f"{ascii(dict(sorted(chances.items())))}, {featured!r}),"
+              for pack, (name, chances, featured)
+              in sorted(skins["packs"].items())]
     lines += ["}", ""]
     return "\n".join(lines)
 
@@ -486,7 +513,7 @@ def audit(client):
     disagree: the tables as typed, not with the client's facts laid over
     them (`game_data.client_overlay`), which would agree with anything.
     What `--ship` wrote from the client is left out (`client_sync`): an
-    entry it fills whole, and a value marked `# client`."""
+    entry it fills whole, and a value marked `# client-based`."""
     from game_data import client_sync
     from game_data.characters import table_stats_at_level
     from game_data.client_overlay import hand
@@ -600,6 +627,16 @@ def audit(client):
                texts.get(card.get("name")))
         differ(who, "ego_cost", ours.get("ego_cost"),
                int(card["cost"]) if card.get("cost") else None)
+        # The Ego card's figures, against its out-of-battle text
+        # (`game_client.ego_text`). The hand text may say more -- what a
+        # status the card applies does -- so only a figure of the
+        # client's that it lacks is a difference.
+        ego = (derived_partners.get(int(rid)) or {}).get("ego_desc")
+        lacking = sorted(set(_numbers(ego or "")) - set(
+            _numbers(ours.get("ego_desc") or "")))
+        if lacking and "ego_desc" not in marks:
+            out.append(f"{who}: the Ego card's {_figures(lacking)} are in "
+                       f"the client's text, not in ego_desc: {ego!r}")
         # The passive's plain stat lines and the level-60 flat stats, as
         # the program reads them laid over (`game_client.partners`).
         theirs = derived_partners.get(int(rid)) or {}
