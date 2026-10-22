@@ -77,6 +77,8 @@ VARIANTS = {
     # build's sets are in the stored archetypes; her fragment stats
     # join the averages at the next `--derive`.
     "Anika": {"new": True, "like": "Sereniel"},
+    # Likewise.
+    "Rossweisse": {"new": True, "like": "Sereniel"},
 }
 
 # The 2-piece a forced 4-piece is paired with where the inventory has no

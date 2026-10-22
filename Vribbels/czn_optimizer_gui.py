@@ -244,6 +244,10 @@ CLIENT_PARTS_AUDIT = (
 CLIENT_PARTS_LIMITS = (
     "The Checklist's maximums, for the snapshot loaded (the constants in "
     "ui/tabs/checklist_tab.py):")
+CLIENT_PARTS_PRESETS = (
+    "Combatants the shipped defaults give no Gear Score preset of their "
+    "own (default_settings/character_preset.json). Create one for each: "
+    "docs/preset_weights.md, *Keeping it in step*:")
 CLIENT_PARTS_LINES = 20
 # The tool, beside the source: absent from a frozen build.
 CLIENT_TOOL = Path(__file__).resolve().parent.parent / "docs" / \
@@ -273,12 +277,32 @@ def client_tool_lines(option, stdout, stderr, returncode):
     return lines
 
 
-def client_parts_text(build, shipped, audited, limits):
+def unpreset_combatants(defaults_dir):
+    """The combatants the shipped defaults give no Gear Score preset of
+    their own, by name: no assignment in `character_preset.json`, or one
+    to a preset `presets.json` lacks. Empty where either will not read:
+    the notice is a reminder, never a launch's failure."""
+    from game_data import CHARACTERS
+    try:
+        assigned = json.loads((Path(defaults_dir) / "character_preset.json")
+                              .read_text(encoding="utf-8"))["assignments"]
+        presets = json.loads((Path(defaults_dir) / "presets.json")
+                             .read_text(encoding="utf-8"))["presets"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return []
+    return sorted(c["name"] for rid, c in CHARACTERS.items()
+                  if isinstance(c, dict) and c.get("name")
+                  and assigned.get(str(rid)) not in presets)
+
+
+def client_parts_text(build, shipped, audited, limits, unpreset=()):
     """The notice a launch from source raises, or None where the client
-    and the program agree: what `--ship` wrote, what `--audit` lists,
-    and the Checklist's maximums for the snapshot loaded, a section
-    each. The audit names every id's maximum as `Checklist <line>`, so a
-    snapshot's own line it already holds is said once."""
+    and the program agree and every combatant ships a preset: what
+    `--ship` wrote, what `--audit` lists, the Checklist's maximums for
+    the snapshot loaded, and the combatants with no shipped preset
+    (`unpreset_combatants`), a section each. The audit names every id's
+    maximum as `Checklist <line>`, so a snapshot's own line it already
+    holds is said once."""
     heard = set(audited)
     sections = []
     if shipped:
@@ -288,6 +312,8 @@ def client_parts_text(build, shipped, audited, limits):
     limits = [line for line in limits if f"Checklist {line}" not in heard]
     if limits:
         sections.append((CLIENT_PARTS_LIMITS, limits))
+    if unpreset:
+        sections.append((CLIENT_PARTS_PRESETS, list(unpreset)))
     if not sections:
         return None
     text = []
@@ -1412,7 +1438,8 @@ class OptimizerGUI:
                     limits, None, attempts + 1))
                 return
             parts = (None, [], [])
-        text = client_parts_text(*parts, limits)
+        text = client_parts_text(*parts, limits,
+                                 unpreset_combatants(_defaults_dir()))
         if text:
             self._warn("The game client and the program part", text)
 

@@ -120,9 +120,44 @@
   ],
   "30117": [
    "Olga (high DoT)"
+  ],
+  "30134": [
+   "Rossweisse"
   ]
  },
  "optimizer_generic": [
+  {
+   "atk_def_split": 0,
+   "avg_add_buff_pct": 0,
+   "avg_card_dmg_pct": 100,
+   "avg_mult_buff_pct": 0,
+   "dot_pct": 0,
+   "element_override": null,
+   "extra_pct": 0,
+   "force_main": {
+    "slot4_hp": false,
+    "slot5_hp": false,
+    "slot6_ego": false,
+    "slot6_hp": false
+   },
+   "fracture_pct": 0,
+   "have_at_least": {
+    "ATK": 0,
+    "CDmg": 0,
+    "CRate": 0,
+    "DEF": 0,
+    "DoT%": 0,
+    "Ego": 0,
+    "Extra DMG%": 0,
+    "HP": 0
+   },
+   "max_flex_slots": 4,
+   "name_hint": "",
+   "optimize_for_level": null,
+   "set_effect_pcts": {},
+   "sets_selected": [],
+   "shielding_healing_weight": 0
+  },
   {
    "atk_def_split": 0,
    "avg_add_buff_pct": 0,
@@ -3663,6 +3698,79 @@
    "shielding_healing_weight": [
     0
    ]
+  },
+  "30134": {
+   "atk_def_split": [
+    0
+   ],
+   "avg_add_buff_pct": [
+    100
+   ],
+   "avg_card_dmg_pct": [
+    360
+   ],
+   "avg_mult_buff_pct": [
+    24
+   ],
+   "dot_pct": [
+    0
+   ],
+   "element_override": [
+    null
+   ],
+   "extra_pct": [
+    0
+   ],
+   "force_main": [
+    {
+     "slot4_hp": false,
+     "slot5_hp": false,
+     "slot6_ego": false,
+     "slot6_hp": false
+    }
+   ],
+   "fracture_pct": [
+    0
+   ],
+   "have_at_least": [
+    {
+     "ATK": 0,
+     "CDmg": 0,
+     "CRate": 0,
+     "DEF": 0,
+     "DoT%": 0,
+     "Ego": 0,
+     "Extra DMG%": 0,
+     "HP": 0
+    }
+   ],
+   "max_flex_slots": [
+    4
+   ],
+   "optimize_for_level": [
+    null
+   ],
+   "set_effect_pcts": [
+    {
+     "19": 100,
+     "28": 28,
+     "30": 100,
+     "31": 100,
+     "6": 20
+    }
+   ],
+   "sets_selected": [
+    [
+     9,
+     11,
+     19,
+     30,
+     31
+    ]
+   ],
+   "shielding_healing_weight": [
+    0
+   ]
   }
  },
  "presets": {
@@ -4900,6 +5008,21 @@
     "Flat ATK": 1.04,
     "Flat DEF": 0.11,
     "Flat HP": 0.021,
+    "HP%": 0.01
+   }
+  ],
+  "Rossweisse": [
+   {
+    "ATK%": 1.0,
+    "CDmg": 2.0,
+    "CRate": 1.73,
+    "DEF%": 0.05,
+    "DoT%": 0.05,
+    "Ego": 0.05,
+    "Extra DMG%": 0.0,
+    "Flat ATK": 0.977,
+    "Flat DEF": 0.119,
+    "Flat HP": 0.022,
     "HP%": 0.01
    }
   ],

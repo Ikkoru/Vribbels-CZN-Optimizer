@@ -260,6 +260,10 @@
    "CDmg": 25.0,
    "CRate": 20.0
   },
+  "Rossweisse": {
+   "ATK%": 12.0,
+   "CDmg": 25.0
+  },
   "Selena": {
    "ATK%": 12.0,
    "CDmg": 25.0

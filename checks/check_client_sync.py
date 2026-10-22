@@ -21,7 +21,8 @@ goes wrong goes wrong in the maintainer's own work:
    puts that to a player as a problem.
 6. **The launch from source ships when it should not**, a read of an
    unreadable build or an older client writing over a newer copy, or
-   its notice drops what the tools said.
+   its notice drops what the tools said, or the combatants the shipped
+   defaults give no preset of their own.
 7. **A partner's Ego text is read wrong** (`game_client.ego_text`): a
    figure off the wrong effect, a hit count lost, a battle count or a
    `#code#` left in the text a player sees, or a kind that names its
@@ -361,6 +362,34 @@ def _notice():
                    "twice.")
     if gui.client_parts_text(None, [], [], []) is not None:
         out.append("with nothing parting, a launch still raises the notice.")
+    reminder = gui.client_parts_text(None, [], [], [], ["Rossweisse"])
+    if not reminder or gui.CLIENT_PARTS_PRESETS not in reminder \
+            or "- Rossweisse" not in reminder:
+        out.append(f"a combatant with no shipped preset, alone, reads "
+                   f"{reminder!r}: the notice reminds the maintainer to "
+                   f"create one.")
+    import json
+    from game_data import CHARACTERS
+    named =[(rid, c["name"]) for rid, c in CHARACTERS.items()
+             if isinstance(c, dict) and c.get("name")][:3]
+    with tempfile.TemporaryDirectory() as tmp:
+        folder = Path(tmp)
+        (folder / "presets.json").write_text(json.dumps(
+            {"presets": {"Own": {}}}), encoding="utf-8")
+        (folder / "character_preset.json").write_text(json.dumps(
+            {"assignments": {str(named[0][0]): "Own",
+                             str(named[1][0]): "Gone"}}), encoding="utf-8")
+        missing = gui.unpreset_combatants(folder)
+        want = sorted(name for _rid, name in named[1:]) == \
+            sorted(set(missing) & {name for _rid, name in named})
+        if not want or named[0][1] in missing:
+            out.append(f"the combatants with no shipped preset read "
+                       f"{missing[:5]}...: one assigned a preset the file "
+                       f"holds is not among them, one assigned a missing "
+                       f"preset or none at all is (`unpreset_combatants`).")
+        if gui.unpreset_combatants(folder / "nowhere") != []:
+            out.append("shipped defaults that will not read name combatants "
+                       "with no preset.")
     return out
 
 
@@ -533,4 +562,9 @@ FAULTS = [
     ("the snapshot's maximums said twice",
      "czn_optimizer_gui:client_parts_text",
      'if f"Checklist {line}" not in heard]', "]", "is said twice"),
+    ("the preset reminder left out", "czn_optimizer_gui:client_parts_text",
+     "if unpreset:", "if False:", "reminds the maintainer to create one"),
+    ("a missing preset taken for one", "czn_optimizer_gui:unpreset_combatants",
+     "and assigned.get(str(rid)) not in presets)",
+     "and str(rid) not in assigned)", "one assigned a missing preset"),
 ]

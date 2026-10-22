@@ -494,7 +494,7 @@ class OptimizerTab(BaseTab):
         # 0-100; unconditional sets get no spinbox -- their bonuses
         # always apply).
         self.set_effect_pct_vars: dict = {}
-        self.max_flex_slots_var = tk.IntVar(value=6)
+        self.max_flex_slots_var = tk.IntVar(value=4)
         self.avg_card_dmg_pct_var = tk.IntVar(value=100)
         self.avg_mult_buff_pct_var = tk.IntVar(value=0)
         self.avg_add_buff_pct_var = tk.IntVar(value=0)
@@ -2339,8 +2339,8 @@ class OptimizerTab(BaseTab):
     def _apply_order_states(self):
         """Mark Order Mode's names: every one before the selected
         combatant dimmed and struck through, its MFs kept from it; the
-        selected one bold in the accent colour; the rest in their
-        element's colour. With none selected, every name is the rest."""
+        rest in their element's colour, the selected one bold. With none
+        selected, every name is the rest."""
         strike, bold = self._exclude_fonts()
         order = self._exclude_order_names
         current = self.selected_character.get()
@@ -2352,13 +2352,11 @@ class OptimizerTab(BaseTab):
                 continue
             if index < cut:
                 fg, font = self.colors["fg_dim"], strike
-            elif hero == current:
-                fg, font = self.colors["accent"], bold
             else:
                 fg = ATTRIBUTE_COLORS.get(
                     get_character_by_name(hero).get("attribute", "Unknown"),
                     self.colors["fg"])
-                font = ("Segoe UI", 9)
+                font = bold if hero == current else ("Segoe UI", 9)
             try:
                 label.configure(fg=fg, font=font)
             except tk.TclError:

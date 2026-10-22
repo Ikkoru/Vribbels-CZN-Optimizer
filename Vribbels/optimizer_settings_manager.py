@@ -51,7 +51,7 @@ File format (version 1)
                             "CRate": 0, "CDmg": 0,
                             "Extra DMG%": 0, "DoT%": 0},
           "sets_selected": [9, 11, 18],          # set IDs eligible
-          "max_flex_slots": 6,                   # 0-6 non-set pieces
+          "max_flex_slots": 4,                   # 0-6 non-set pieces
           "set_effect_pcts": {"9": 100},         # CONDITIONAL sets only, absent = 0
           "avg_card_dmg_pct": 100,               # Base Multiplier approximation
           "avg_mult_buff_pct": 0,
@@ -125,7 +125,7 @@ DEFAULT_CHARACTER_SETTINGS: dict = {
         "Extra DMG%": 0, "DoT%": 0,
     },
     "sets_selected": [],
-    "max_flex_slots": 6,
+    "max_flex_slots": 4,
     "set_effect_pcts": {},
     "avg_card_dmg_pct": 100,
     "avg_mult_buff_pct": 0,

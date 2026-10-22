@@ -22,6 +22,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Combatants: a partner's Exploration Passives, the ones it brings to Chaos and Sortie runs, list under its Ego card, at its limit break.
 - Rossweisse, Sig, Blanche and Capri show even where the game client cannot be read.
   - Rossweisse's Potential 7 is scored, and the Fill button fills its ATK.
+  - Rossweisse has a default Gear Score preset and Optimizer settings.
   - When you lack Rossweisse or she wears no partner, she is optimized with Sig, her release partner.
 - Optimizer: the Veiled Radiance and Snowflake of OFM sets count, by the Effect % you give them in Set Configuration.
 - A partner released after the program shows its Ego card's text, from the game client.
@@ -41,6 +42,9 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Combatants:
   - The Partner card's name, stars, class, level, Ego and stats share its first line, the level out of the top a partner reaches. The passive, the Ego skill and the Exploration Passives are labelled.
   - The list's Level columns read `LVL`, and the Equipped Memory Fragments cells are wider.
+- Optimizer:
+  - `Max Flex Slots` defaults to 4.
+  - Order Mode shows the selected combatant's name bold, in its element's colour.
 - Stats & Gacha History: Overall Gacha Stats' sections read Combatant & Partner banners, +Prism Module and +Card Skins.
 - Stats & Gacha History: a Seasonal rerun's pulls count with the release banners' even before the program has read any banner's rates.
 - Item, Chaos and Zero System names come from the game client first, so an id a patch gives to another item shows the new item's name. A Memory Fragment set keeps the program's own name, such as Snowflake of OFM.
