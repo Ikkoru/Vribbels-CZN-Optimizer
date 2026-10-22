@@ -2407,6 +2407,24 @@ class Addon:
             pulls.append(pulled)
             recorded = self._gacha_pulls_in(pulled)
         changed = bool(added) or pulls != store["skin_pulls"]
+        # Each skin's and pack's name as the client gave it when kept,
+        # the first one seen standing (`SKIN_NAMES`, `SKIN_PACK_NAMES`).
+        for row in list(held.values()) + pulls:
+            pack = row.get("card_skin_package_id")
+            if pack and pack not in store["skin_pack_names"] \\
+                    and SKIN_PACK_NAMES.get(pack):
+                store["skin_pack_names"][pack] = SKIN_PACK_NAMES[pack]
+                changed = True
+            reward = row.get("reward")
+            try:
+                skins = json.loads(reward) if isinstance(reward, str) else []
+            except ValueError:
+                skins = []
+            for skin in skins if isinstance(skins, list) else ():
+                if str(skin) not in store["skin_names"] \\
+                        and SKIN_NAMES.get(skin):
+                    store["skin_names"][str(skin)] = SKIN_NAMES[skin]
+                    changed = True
         if records is not None and asked[0] == "skin_history" \\
                 and not asked[2]:
             store["skin_read"] = datetime.now().isoformat(timespec="seconds")
@@ -2565,7 +2583,9 @@ class Addon:
             for key, empty in (("records", list), ("rates", dict),
                                ("pity", dict), ("read", dict),
                                ("pulls", list), ("reach", list),
-                               ("skin_records", list), ("skin_pulls", list)):
+                               ("skin_records", list), ("skin_pulls", list),
+                               ("skin_names", dict),
+                               ("skin_pack_names", dict)):
                 if not isinstance(data.get(key), empty):
                     data[key] = empty()
             return data
@@ -2579,7 +2599,8 @@ class Addon:
             return None
         return {"kind": GACHA_KIND, "version": 1, "records": [],
                 "rates": {}, "pity": {}, "read": {}, "pulls": [],
-                "reach": [], "skin_records": [], "skin_pulls": []}
+                "reach": [], "skin_records": [], "skin_pulls": [],
+                "skin_names": {}, "skin_pack_names": {}}
 
     def _write_gacha_store(self, store, before, skin_before=()):
         """Write the Gacha History through a checked copy.
@@ -5222,6 +5243,17 @@ class CaptureManager:
             import chaos_store
             import gacha_history
 
+            # Each Card Skin's and pack's name as the game client gives
+            # them now, which the Gacha History's file keeps beside the
+            # records a capture adds (`_merge_skins`): what each was
+            # called when pulled, whatever a later client calls it.
+            import game_client
+            card_skins, skin_packs = game_client.known_card_skins()
+            skin_names = {rid: skin[0] for rid, skin in card_skins.items()
+                          if skin and skin[0]}
+            skin_pack_names = {pack: held[0] for pack, held
+                               in skin_packs.items() if held and held[0]}
+
             # Generate standalone script using embedded template
             addon_code = f'''{ADDON_TEMPLATE}
 
@@ -5231,6 +5263,8 @@ DICT_PATH = {dict_path_str}
 CHAR_NAMES = {char_names}
 ITEM_NAMES = {item_names}
 SET_NAMES = {set_names}
+SKIN_NAMES = {skin_names}
+SKIN_PACK_NAMES = {skin_pack_names}
 SLOT_NAMES = {slot_names}
 KNOWN_UNIT_IDS = {known_unit_ids}
 REGION_ROUTES = {region_routes}

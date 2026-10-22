@@ -103,6 +103,12 @@ def run():
                                                  {"RARE": 0.5}, 1003]}}))
         held = game_client.known_exploration_passives()
         kept = set(from_client.EXPLORATION_PASSIVES) <= set(held)
+        from game_data.partners import get_partner_exploration
+        steps = [get_partner_exploration(PROBE_PARTNER, lb) for lb in (1, 2)]
+        if steps != [[("Probe", "a")], [("Probe", "b")]]:
+            out.append(f"a passive rising at limit break 2 reads {steps} at "
+                       f"limit breaks 1 and 2: each the words of the last "
+                       f"step it rose at by then (`get_partner_exploration`).")
         if held.get(PROBE_PARTNER) != (("Probe", True, ((0, "a"), (2, "b"))),) \
                 or not kept:
             out.append(f"the Exploration Passives read "
@@ -162,4 +168,8 @@ FAULTS = [
     ("the shipped Card Skins dropped", "game_client:known_card_skins",
      'skins = dict(getattr(from_client, "CARD_SKINS", {}))', "skins = {}",
      "the card skins read"),
+    ("a passive's step taken a limit break late",
+     "game_data.partners:get_partner_exploration",
+     "if rise <= (limit_break or 0)", "if rise < (limit_break or 0)",
+     "a passive rising at limit break 2"),
 ]

@@ -1,15 +1,16 @@
 """The game client's facts, laid over the hand tables.
 
 `game_data.client_overlay` writes the client's facts into `CHARACTERS`,
-`PARTNERS`, `PARTNER_CLASS_STATS` and the sets' names in `SETS` in
-place, and swaps the contents of the exp, Affinity and slot tables in
-`constants`. Five ways that goes wrong with nothing to show for it:
+`PARTNERS` and `PARTNER_CLASS_STATS` in place, and swaps the contents of
+the exp, Affinity and slot tables in `constants`; a set keeps the name
+`sets.py` gives it, the client's naming only a set it has no entry for.
+Five ways that goes wrong with nothing to show for it:
 
 1. **A fact lands on the wrong field, or a stale one stays.** Every
    later reader sees it as the table's own value. Held on synthetic
    facts: a changed figure, a combatant and a partner only the client
-   knows, a set's name and a placeholder for one, and a second `apply`
-   that drops them again.
+   knows, a set's name beside the typed one and a placeholder for one,
+   and a second `apply` that drops them again.
 2. **An overlay undoes someone else's change.** The tables are shared;
    `apply` may put back only what an overlay laid down.
 3. **A unit only the client knows breaks a reader**: a passive drawn
@@ -294,11 +295,11 @@ def _tables(overlay):
 
 
 def _set_names():
-    """Complaints from synthetic set names laid over. A set's name is
-    the client's over `sets.py`'s, which names a set only where the
-    client does not; a placeholder names nothing, so the next name down
-    shows; the client's spelling leads back to its set; and putting the
-    read away puts the typed name back."""
+    """Complaints from synthetic client set names. A set's name is
+    `sets.py`'s over the client's, which names a set only where
+    `sets.py` has no entry; a placeholder names nothing, so the set's
+    number shows; a name leads back to its set; and the client's names
+    leave `SETS` as typed."""
     import game_client
     from game_data import SETS
     from game_data.sets import set_name, set_named
@@ -318,10 +319,10 @@ def _set_names():
             str(lone): ["Client Only", 4, words, "", None],
             str(blank): ["???", 4, words, "", None]}})
         for what, got, wanted in (
-                ("a set the client names", set_name(first),
-                 "Client Spelling"),
+                ("a set sets.py and the client both name", set_name(first),
+                 before[first]),
                 ("the same set read off SETS", SETS[first]["name"],
-                 "Client Spelling"),
+                 before[first]),
                 ("a set the client names with a placeholder",
                  set_name(second), before[second]),
                 ("a set only sets.py names", set_name(probe), "Typed Only"),
@@ -330,23 +331,23 @@ def _set_names():
                 ("a set only the client names, with a placeholder",
                  set_name(blank), str(blank))):
             if got != wanted:
-                out.append(f"with the client's set names laid over, {what} "
-                           f"reads {got!r}, not {wanted!r}: a set's name is "
-                           f"the client's, sets.py's naming one only where "
-                           f"the client does not, and a placeholder names "
-                           f"nothing (`client_overlay._sets`, "
-                           f"`sets.set_name`).")
-        if set_named("Client Spelling") != first:
-            out.append("the client's spelling of a set does not lead back to "
-                       "it (`sets.set_named`): the Memory Fragments tab's "
-                       "Sets filter finds a set's tooltip and colours by the "
-                       "name it shows.")
+                out.append(f"with the client's set names read, {what} reads "
+                           f"{got!r}, not {wanted!r}: a set's name is "
+                           f"sets.py's, the client's naming one only where "
+                           f"sets.py has no entry, and a placeholder names "
+                           f"nothing (`sets.set_name`).")
+        if set_named(before[first]) != first or set_named("Client Only") \
+                != lone:
+            out.append("a set's name does not lead back to it "
+                       "(`sets.set_named`): the Memory Fragments tab's Sets "
+                       "filter finds a set's tooltip and colours by the name "
+                       "it shows.")
     finally:
         SETS.pop(probe, None)
         game_client.use(held)
     if {sid: SETS[sid]["name"] for sid in before} != before:
-        out.append("putting the client's read away left its set names in "
-                   "SETS rather than putting the typed ones back.")
+        out.append("the client's read left its set names in SETS: the "
+                   "typed ones stand.")
     return out
 
 
@@ -778,18 +779,9 @@ FAULTS = [
     ("a class's flat stats not laid", f"{OVERLAY}:_partners",
      '_set("PARTNER_CLASS_STATS", pair, None, seen[0])', "pass",
      "a class's level-60 flat stats"),
-    ("the program's set names over the client's", f"{OVERLAY}:apply",
-     '        _sets(source.get("set_effects"))', "        pass",
-     "a set the client names reads"),
-    ("a placeholder laid as a set's name", f"{OVERLAY}:_sets",
-     "and NAMING.search(name):", "and name:",
-     "a set the client names with a placeholder"),
-    ("the program's set name read past the client's",
-     "game_data.sets:set_name",
-     'own = (SETS.get(set_id) or {}).get("name")',
-     'from game_data.client_overlay import hand\n'
-     '    own = (hand("SETS").get(set_id) or {}).get("name")',
-     "a set the client names reads"),
+    ("the client's set name over the program's", "game_data.sets:set_name",
+     'own = (SETS.get(set_id) or {}).get("name")', "own = None",
+     "a set sets.py and the client both name reads"),
     ("a client-only set named by its placeholder", "game_data.sets:set_name",
      "return named if game_client.NAMING.search(named) else str(set_id)",
      "return named or str(set_id)",

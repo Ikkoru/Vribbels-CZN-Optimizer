@@ -34,15 +34,19 @@ The wording
 and the game's text is the fallback: a set without one, or one the
 program has no entry for, shows the game client's words
 (`game_client.known_set_effects`) until it gets one. `set_bonus` is
-the one accessor. `checks/check_set_wordings.py` holds every wording's
-figures to the game's, notes each set still on the game's words, and
-says whether a patch moved only a set's figures or reworded it.
+the one accessor. `checks/check_set_wordings.py` notes each set still
+on the game's words, and where a patch changed a set's text, says
+whether it moved only the figures (the wording wants new figures) or
+reworded the effect (the wording wants rewriting).
 
-**A set's name is the other way round: the game client's first.**
-`game_data.client_overlay` lays it over the `name` typed here, which
-names a set only where the client does not, and `set_name` names a set
-the program has no entry for. `docs/client_tables.py --audit` and
-`check_set_wordings` hold the typed names to the client's.
+**A set's name is the program's too**, and the game client's names a
+set only where there is no entry here (`set_name`): a shortening such
+as `Snowflake of OFM` is the maintainer's choice, so nothing holds the
+entries to the client's names or figures. What is reported is the
+CLIENT changing: `docs/client_tables.py --ship` and `--audit` name each
+set whose name, pieces, plain stat or wording a newer client changed
+from the copy the program shipped (`client_tables.set_changes`), and
+`check_set_wordings` holds the installed client to that copy.
 
 Stat-name vocabulary
 ====================
@@ -105,9 +109,8 @@ SETS = {
 }
 
 def set_name(set_id) -> str:
-    """A set's name: the game client's, which `client_overlay` lays over
-    the program's own entry, else that entry's, else its number -- which
-    says what to look for to identify it."""
+    """A set's name: the program's own entry's, else the game client's,
+    else its number -- which says what to look for to identify it."""
     own = (SETS.get(set_id) or {}).get("name")
     if own:
         return own

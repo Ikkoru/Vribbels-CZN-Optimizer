@@ -55,7 +55,8 @@ def _addon(folder):
     namespace = {}
     exec(compile(ADDON_TEMPLATE, "<ADDON_TEMPLATE>", "exec"), namespace)
     namespace.update(CHAR_NAMES={}, SET_NAMES={}, SLOT_NAMES={},
-                     ITEM_NAMES={}, KNOWN_UNIT_IDS=set(), REGION_ROUTES={},
+                     ITEM_NAMES={}, SKIN_NAMES={}, SKIN_PACK_NAMES={},
+                     KNOWN_UNIT_IDS=set(), REGION_ROUTES={},
                      CHAOS_FOLDER=chaos_store.FOLDER,
                      CHAOS_FILE=chaos_store.FILE, CHAOS_KIND=chaos_store.KIND,
                      CHAOS_OPEN=chaos_store.OPEN_FILE,

@@ -171,6 +171,14 @@ def _gear_col_padx(col):
     return (0, 4) if col == 0 else (0, 0)
 
 
+def _gear_slot_stop():
+    """`GEAR_TAB_SLOT` at the active scale: the text area as the cell
+    rounds its own parts. NOT px(GEAR_TAB_SLOT), which rounds the sum
+    once and lands a pixel past the text area at 150%, where the slot
+    name would end inside the inset. Pinned by `check_scale_runs`."""
+    return px(GEAR_CELL_W) - 2 * px(GEAR_CELL_BD) - 2 * px(GEAR_CELL_PADX)
+
+
 def _gear_cell_h(cell):
     """A gear cell's height: its top row, its substat rows and
     `GEAR_SET_ROWS` rows of set description, in the cell's own font.
@@ -266,16 +274,12 @@ def _node_words_tag(wire):
 # not divide evenly into, and drifts further the moment it moves.
 GEAR_TAB_GS = GEAR_TEXT_W // 2   # centre stop: GS and Potential
 # spacing: border edge -> first non-button element -- text, run ↔
-# The RIGHT inset, and the only lever on it: `padx` is symmetric,
-# so it sets the left and this stop decides how much further in the
-# widest STATED line ends. It moves with GEAR_TEXT_W -- both edges
-# step inward together when `padx` changes, so a padx of one less
-# needs a stop of one more to hold the slot name still.
-#
-# NOT tracked, unlike the left and top: the set description wraps,
-# so the rightmost ink in the cell is whichever wrapped line came
-# closest to the boundary, and that moves with the fragment.
-GEAR_TAB_SLOT = 382      # right stop: the slot name and its level
+# The RIGHT inset. `padx` is symmetric and sets both sides, so this
+# stop is the text area's own right edge: the slot name and its level
+# end `padx` from the border, as the main stat starts `padx` from the
+# left one. DERIVED, like the centre stop, so it moves with
+# GEAR_CELL_W. At a scale it is `_gear_slot_stop`.
+GEAR_TAB_SLOT = GEAR_TEXT_W      # right stop: the slot name and its level
 GEAR_TAB_QUALITY = 20    # right stop: a substat's roll-quality percent
 GEAR_TAB_SUB = 26        # left stop: where the substat text starts
 
@@ -1115,7 +1119,7 @@ class HeroesTab(BaseTab):
             # Columns. A right-aligned stop sits at the END of its column.
             cell.tag_configure(
                 "toprow",
-                tabs=(px(GEAR_TAB_GS), "center", px(GEAR_TAB_SLOT), "right"))
+                tabs=(px(GEAR_TAB_GS), "center", _gear_slot_stop(), "right"))
             cell.tag_configure(
                 "subrow",
                 tabs=(px(GEAR_TAB_QUALITY), "right", px(GEAR_TAB_SUB), "left"))
@@ -1729,6 +1733,11 @@ class HeroesTab(BaseTab):
             display_name = char_info.partner_name
             if display_name == "Unknown" or partner_data.get("name") == "Unknown":
                 display_name = f"#{char_info.partner_res_id}"
+            # The Exploration Passives, one a line, at the partner's own
+            # limit break, under everything else.
+            exploration = "".join(
+                f"\n{name}: {text}"
+                for name, text in passive_info["exploration"])
             return (
                 f"{display_name}  ({partner_grade}* {partner_class})\n"
                 f"Level: {char_info.partner_level}/{char_info.partner_max_level}  |  Ego: E{char_info.partner_limit_break}\n"
@@ -1737,6 +1746,7 @@ class HeroesTab(BaseTab):
                 f"{passive_info['passive_desc']}\n"
                 f"\n{passive_info['ego_name']} - {passive_info['ego_cost']} EP\n"
                 f"{passive_info['ego_desc']}"
+                + (f"\n{exploration}" if exploration else "")
             )
         elif char_info.partner_id:
             if char_info.partner_res_id:

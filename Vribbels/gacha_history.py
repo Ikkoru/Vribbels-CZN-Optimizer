@@ -822,6 +822,11 @@ class History:
         self.pity = {}
         self.batches = []
         self.overall = Overall()
+        # The Card Skin Packs' records, and each skin's and pack's name
+        # as the capture kept it -- what an export carries.
+        self.skin_records = []
+        self.skin_names = {}
+        self.skin_pack_names = {}
 
     def ordered(self):
         """The Rescue families in the tab's order, then the Card Skin
@@ -1177,9 +1182,34 @@ def _discard(path):
         pass
 
 
-def merge_import(folder, batches):
-    """Add imported batches to `imported.json`. Returns (added, known)
-    counted in PULLS: `known` were already imported."""
+def skin_pull_count(records):
+    """How many pulls Card Skin Pack records hold."""
+    return sum(len(_int_list(r.get("reward"))) for r in records
+               if isinstance(r, dict))
+
+
+def parse_skin_import(data):
+    """(records, {"skin_names": ..., "skin_pack_names": ...}): the Card
+    Skin Pack records a file holds -- this program's export, its
+    `imported.json`, or a `captured.json` from another install, its
+    pulls kept off their replies among them -- and the names kept for
+    them. Nothing where the file has none."""
+    if not isinstance(data, dict):
+        return [], {}
+    held = data.get("card_skins") if isinstance(data.get("card_skins"),
+                                                dict) else data
+    rows = [r for key in ("records", "skin_records", "skin_pulls")
+            for r in (held.get(key) or []) if isinstance(r, dict)
+            and r.get("card_skin_package_id") and _int_list(r.get("reward"))]
+    names = {field: dict(held.get(field) or {})
+             for field in ("skin_names", "skin_pack_names")}
+    return rows, names
+
+
+def merge_import(folder, batches, skins=(), skin_names=None):
+    """Add imported batches, and Card Skin Pack records with their kept
+    names, to `imported.json`. Returns (added, known) counted in PULLS,
+    the packs' among them: `known` were already imported."""
     path = folder_in(folder) if Path(folder).name != FOLDER else Path(folder)
     target = path / IMPORTED
     held, note = read_store(target)
@@ -1198,28 +1228,53 @@ def merge_import(folder, batches):
         have.add(_batch_key(batch))
         have.add(_same_content(batch))
         fresh.append(batch)
-    if fresh:
+    skins_before = [r for r in held.get("skin_records") or []
+                    if isinstance(r, dict)]
+    keys = {_skin_key(r) for r in skins_before}
+    new_skins = []
+    for row in skins:
+        if _skin_key(row) in keys:
+            known += len(_int_list(row.get("reward")))
+            continue
+        keys.add(_skin_key(row))
+        new_skins.append(row)
+    names = {field: dict(held.get(field) or {})
+             for field in ("skin_names", "skin_pack_names")}
+    for field, more in (skin_names or {}).items():
+        if field in names:
+            names[field].update({k: v for k, v in more.items()
+                                 if k not in names[field]})
+    if fresh or new_skins or any(
+            names[f] != (held.get(f) or {}) for f in names):
         merged = sorted(before + fresh,
                         key=lambda b: (b["createAt"], b["pool"]))
-        write_verified(target, {"kind": IMPORT_KIND, "version": VERSION,
-                                "batches": merged},
-                       "batches", before + fresh, _batch_key)
-    return sum(len(b["reward"]) for b in fresh), known
+        write_verified(target, dict(
+            {"kind": IMPORT_KIND, "version": VERSION, "batches": merged,
+             "skin_records": sorted(skins_before + new_skins,
+                                    key=_skin_key)}, **names),
+            "batches", before + fresh, _batch_key)
+    return (sum(len(b["reward"]) for b in fresh)
+            + sum(len(_int_list(r.get("reward"))) for r in new_skins), known)
 
 
 def export(history, path):
-    """Write every batch the history holds, and the rates it knows, to a
-    file this program can import again."""
+    """Write every batch the history holds, the rates it knows, and the
+    Card Skin Packs' records with the names kept for them, to a file
+    this program can import again."""
     data = {
         "kind": EXPORT_KIND,
         "version": VERSION,
         "exported": datetime.now().isoformat(timespec="seconds"),
         "batches": history.batches,
         "rates": history.rates,
+        "card_skins": {"records": history.skin_records,
+                       "skin_names": history.skin_names,
+                       "skin_pack_names": history.skin_pack_names},
     }
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=1, ensure_ascii=False)
-    return sum(len(b["reward"]) for b in history.batches)
+    return sum(len(b["reward"]) for b in history.batches) + sum(
+        len(_int_list(r.get("reward"))) for r in history.skin_records)
 
 
 # ------------------------------------------------------------- reading
@@ -1308,7 +1363,14 @@ def load(folder, now=None, shipped=None):
             "gacha_pity_") else None
         if pool and pool not in history.pools:
             history.pools[pool] = _work_out(pool, [], tiers, history)
-    skins = _skin_pool(captured)
+    history.skin_records = _skin_records(captured, imported)
+    for field in ("skin_names", "skin_pack_names"):
+        names = {}
+        for source in (imported, captured):
+            if isinstance(source.get(field), dict):
+                names.update(source[field])
+        setattr(history, field, names)
+    skins = _skin_pool(history.skin_records, captured.get("skin_read"))
     if skins.pulls or skins.stats.read_at:
         history.pools[SKIN_POOL] = skins
     for gacha_id, when in read.items():
@@ -1484,11 +1546,29 @@ def _skin_key(record):
     return _int(record.get("createAt")), tuple(_int_list(record.get("reward")))
 
 
-def _skin_pool(captured):
-    """The Card Skin Packs' pool (`SKIN_POOL`), off the records the
-    capture keeps and the pulls kept until a record covers them, oldest
-    first: worked out as `_work_out` works out a Rescue family, with a
-    Super Rare's pulls in place of a 5-star's pity.
+def _skin_records(captured, imported):
+    """Every Card Skin Pack record the history holds, oldest first: the
+    capture's records, its pulls no record covers yet, and the imported
+    ones neither covers -- matched by `id`, else by second and skins."""
+    records = [r for r in captured.get("skin_records") or []
+               if isinstance(r, dict)]
+    ids = {str(r.get("id")) for r in records if r.get("id")}
+    keys = {_skin_key(r) for r in records}
+    for row in (captured.get("skin_pulls") or []) + (
+            imported.get("skin_records") or []):
+        if isinstance(row, dict) and _skin_key(row) not in keys \
+                and not (row.get("id") and str(row["id"]) in ids):
+            records.append(row)
+            keys.add(_skin_key(row))
+    return sorted(records, key=lambda r: (_int(r.get("createAt")),
+                                          _int(r.get("id"))))
+
+
+def _skin_pool(records, read):
+    """The Card Skin Packs' pool (`SKIN_POOL`) off `records`, oldest
+    first (`_skin_records`), last read at `read`: worked out as
+    `_work_out` works out a Rescue family, with a Super Rare's pulls in
+    place of a 5-star's pity.
 
     **No cycle is cut short.** Each pull has the same chance whatever
     came before it, so the pulls from the first record to the first
@@ -1497,17 +1577,10 @@ def _skin_pool(captured):
     unsaid."""
     import game_client
     skins, packs = game_client.known_card_skins()
-    records = [r for r in captured.get("skin_records") or []
-               if isinstance(r, dict)]
-    listed = {_skin_key(r) for r in records}
-    records += [r for r in captured.get("skin_pulls") or []
-                if isinstance(r, dict) and _skin_key(r) not in listed]
-    records.sort(key=lambda r: (_int(r.get("createAt")), _int(r.get("id"))))
     entry = Pool(SKIN_POOL)
     stats = entry.stats
     stats.first_partial = False
-    stats.read_at = captured.get("skin_read") if isinstance(
-        captured.get("skin_read"), str) else None
+    stats.read_at = read if isinstance(read, str) else None
     pity = four = number = 0
     chances = set()
     for record in records:

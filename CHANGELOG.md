@@ -17,7 +17,9 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Rossweisse, when you lack her or she wears no partner, is optimized with Sig, her release partner. She, Sig, Blanche and Capri also show where the game client cannot be read.
 - Gacha History: Card Skin Pack pulls are kept beside the Rescue records, so they outlast the half year the game lists them for. Open the packs' history in game while capturing to keep the ones already made.
   - A Card Skin Packs row under the banners: your pulls, Super Rares under 5★ and Rares under 4★, the pulls since your last Super Rare, and your luck against the packs' flat 1.3% and 13%. Its pulls list each skin by the combatant it is for, and say which were duplicates.
-  - Overall Gacha Stats: the luck with the Card Skin Packs counted, beside the luck with the Prism Module, and the packs' fastest and slowest Super Rare and best streak beside the Prism Module's.
+  - Overall Gacha Stats: the luck with the Card Skin Packs counted, beside the luck with the Prism Module, and the packs' fastest and slowest Super Rare and best streak beside the Prism Module's, with where in game their history opens.
+  - Each skin's and pack's name is kept as the game gave it when pulled. Export JSON carries the packs' pulls, and Import JSON reads them back.
+- Combatants: a partner's Exploration Passives, the ones it brings to Chaos and Sortie runs, list under its Ego card, as they stand at its limit break.
 - Rossweisse's Potential 7 is scored, and the Fill button fills its ATK.
 - A partner released after the program shows its Ego card's text, from the game client.
 
@@ -34,7 +36,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Checklist: the Galactic Disaster Shop's whole-season estimate covers season 5. It counts both halves' Great Rift records and the story's rewards, the weekly Chaos progress at what its score tiers pay, 5,000 a week, and Celestial Bulwark's runs at what its own bosses and Rare Species pay.
 - Checklist: every row's maximum comes from the game client, so a patch that raises a cap, a pass's level or an Overclock's runs needs no program update. The Galactic Disaster Shop's pages open on the game's own dates.
 - Checklist: Excursions count down from your own daily Communication Passes, 3 plus one for each of the two town research nodes that add one, rather than a fixed 5.
-- Item, Chaos, Zero System and Memory Fragment set names come from the game client first, so an id a patch gives to another item shows the new item's name, and a renamed set shows its new name. The program's own names cover what the client does not name.
+- Item, Chaos and Zero System names come from the game client first, so an id a patch gives to another item shows the new item's name. The program's own names cover what the client does not name. A Memory Fragment set keeps the program's own name, such as Snowflake of OFM; the game's names only a set the program has no entry for.
 - Settings you never changed take each release's new defaults at launch, without Restore Defaults: Gear Score presets, Combatant presets, Combatant settings and the settings file. Ones you changed keep yours.
   - A launch that changes any backs your files up first, then says what it changed, with Undo.
   - Setup & Settings: Update unchanged settings to new defaults automatically turns it off.

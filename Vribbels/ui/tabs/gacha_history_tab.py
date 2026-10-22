@@ -172,6 +172,9 @@ PRISM_ONLY = "Prism Module"
 WITH_PRISM = "+Prism Module"
 WITH_SKINS = "+Card Skins"
 SKINS_ONLY = gh.SKIN_LABEL
+# Beside the Card Skin Packs' heading, as a standings title's note: what
+# to open in game to fill their records.
+SKINS_NOTE = "Shop > Lumina Theater > Probability Info > Pack Purchase History"
 HEADING_FONT = ("Segoe UI", 9, "bold")
 
 # Under it, the account's standings: three lists with a column per
@@ -228,6 +231,8 @@ ROW_TAG = "row"
 HEADING_TAG = "heading"
 TOP_TAG = "top"
 BOLD_TAG = "bold"
+# A noted heading's note, in a standings title's note's colour.
+NOTE_TAG = "note"
 # A `Beside` line's own stops, one tag per line.
 BESIDE_TAG = "beside%d"
 
@@ -254,6 +259,9 @@ TIE_TO_TIE = 8          # spacing: element and its label ↔ element and its lab
 # the first section's opening lines -- starts this far past the furthest
 # of them, and its own rows keep the sheet's figure-to-value gap.
 BESIDE_GAP = 16         # spacing: control group ↔ control group -- run, run ↔
+# A noted heading's note, past the heading as a standings title's note
+# sits past its title.
+NOTE_GAP = 14           # spacing: header subtext -- label, label ↔
 
 
 class Beside:
@@ -271,6 +279,19 @@ class Beside:
     @property
     def left(self):
         return self.parts[0]
+
+
+class Noted:
+    """A heading of the gacha sheet with a note beside it, in a
+    standings title's note's colour and gap: `NOTE_TAG`, `NOTE_GAP`."""
+
+    def __init__(self, heading, note):
+        self.heading, self.note = heading, note
+
+
+def _heading(part):
+    """Whether a sheet part is a heading, noted or not."""
+    return isinstance(part, (str, Noted))
 
 
 def _stars(stars):
@@ -569,6 +590,7 @@ class GachaHistoryTab(BaseTab):
         text.tag_configure(HEADING_TAG, spacing1=px(ROW_PITCH + HEADING_PAD))
         text.tag_configure(TOP_TAG, spacing1=px(0))
         text.tag_configure(BOLD_TAG, font=HEADING_FONT)
+        text.tag_configure(NOTE_TAG, foreground=self.colors["fg_dim"])
         return holder, text
 
     def _make_standings(self, parent, title, note, row, column, top,
@@ -1000,7 +1022,7 @@ class GachaHistoryTab(BaseTab):
             (streak,) + _standout(o.streak, streak=True),
             # The Prism Module's and the Card Skin Packs' records, side
             # by side in two equal halves, a Super Rare as a 5-star.
-            Beside(PRISM_ONLY, SKINS_ONLY, halves=True),
+            Beside(PRISM_ONLY, Noted(SKINS_ONLY, SKINS_NOTE), halves=True),
             Beside(("Fastest 5★",) + _standout(o.prism_fastest),
                    ("Fastest 5★",) + _standout(o.skin_fastest), halves=True),
             Beside(("Slowest 5★",) + _standout(o.prism_slowest),
@@ -1165,16 +1187,26 @@ class GachaHistoryTab(BaseTab):
         for n, row in enumerate(rows):
             end = "\n" if n < len(rows) - 1 else ""
             parts = row.parts if isinstance(row, Beside) else (row,)
-            heading = isinstance(parts[0], str)
-            tags = (TOP_TAG if n == 0 else HEADING_TAG if heading
-                    else ROW_TAG,) + ((BOLD_TAG,) if heading else ())
+            heading = _heading(parts[0])
+            line = (TOP_TAG if n == 0 else HEADING_TAG if heading
+                    else ROW_TAG,)
             if n in beside:
                 text.tag_configure(BESIDE_TAG % n, tabs=beside[n])
-                tags += (BESIDE_TAG % n,)
-            text.insert(tk.END, "\t".join(
-                field for part in parts
-                for field in ((part,) if isinstance(part, str) else part))
-                + end, tags)
+                line += (BESIDE_TAG % n,)
+            style = (BOLD_TAG,) if heading else ()
+            chunks = []
+            for part in parts:
+                if isinstance(part, Noted):
+                    chunks += [(part.heading, style), ("\t", ()),
+                               (part.note, (NOTE_TAG,))]
+                else:
+                    chunks.append((part if isinstance(part, str)
+                                   else "\t".join(part), style))
+                chunks.append(("\t", ()))
+            chunks[-1] = (end, ())
+            for chunk, own in chunks:
+                if chunk:
+                    text.insert(tk.END, chunk, line + own)
         text.configure(state=tk.DISABLED)
         # Measured, so no `px()`: the fonts carry the scale, and the
         # lines' `spacing1` is already in the count.
@@ -1203,12 +1235,11 @@ class GachaHistoryTab(BaseTab):
             return row.parts if isinstance(row, Beside) else (row,)
 
         def cut(part, pairs):
-            return part if isinstance(part, str) else part[:2 + 2 * pairs]
+            return part if _heading(part) else part[:2 + 2 * pairs]
 
         def most(rows_):
             return max([(len(part) - 2) // 2 for row in rows_
-                        for part in parts(row)
-                        if not isinstance(part, str)] + [1])
+                        for part in parts(row) if not _heading(part)] + [1])
 
         full = most([row for row in rows if not halved(row)])
         half = most([row for row in rows if halved(row)])
@@ -1286,9 +1317,15 @@ class GachaHistoryTab(BaseTab):
         lefts = [row.parts[0] if isinstance(row, Beside) else row
                  for row in rows]
         stops = cls._column_stops(
-            [row for row in lefts if not isinstance(row, str)], font)
+            [row for row in lefts if not _heading(row)], font)
+
+        def note_at(part, start):
+            # spacing: header subtext -- label, label ↔
+            return start + bold.measure(part.heading) + px(NOTE_GAP)
 
         def finish(part, start, local):
+            if isinstance(part, Noted):
+                return note_at(part, start) + font.measure(part.note)
             if isinstance(part, str):
                 return start + bold.measure(part)
             return ((local[len(part) - 2] if len(part) > 1 else start)
@@ -1297,21 +1334,30 @@ class GachaHistoryTab(BaseTab):
         ends = [finish(part, 0, stops) for part in lefts]
         beside = {}
         for run in cls._beside_runs(rows):
-            own = {n: [] if isinstance(rows[n].parts[0], str)
+            own = {n: [] if _heading(rows[n].parts[0])
                    else stops[:len(rows[n].parts[0]) - 1] for n in run}
             for k in range(1, max(len(rows[n].parts) for n in run)):
                 lines = [n for n in run if len(rows[n].parts) > k]
                 # spacing: heading ↔ element -- run, run ↔
                 start = max(ends[n] for n in lines) + px(BESIDE_GAP)
                 if k == 1 and room and rows[run[0]].halves:
-                    start = max(start, room // 2)
+                    # The middle, or as far short of it as a noted
+                    # heading needs to end inside the room.
+                    noted = [finish(rows[n].parts[k], 0, []) for n in lines
+                             if isinstance(rows[n].parts[k], Noted)]
+                    start = max(start, min([room // 2]
+                                           + [room - w for w in noted]))
                 local = cls._column_stops(
                     [rows[n].parts[k] for n in lines
-                     if not isinstance(rows[n].parts[k], str)], font, start)
+                     if not _heading(rows[n].parts[k])], font, start)
                 for n in lines:
                     part = rows[n].parts[k]
-                    own[n] += [start] if isinstance(part, str) \
-                        else [start] + local[:len(part) - 1]
+                    if isinstance(part, Noted):
+                        own[n] += [start, note_at(part, start)]
+                    elif isinstance(part, str):
+                        own[n].append(start)
+                    else:
+                        own[n] += [start] + local[:len(part) - 1]
                     ends[n] = finish(part, start, local)
             for n in run:
                 beside[n] = tuple(own[n])
@@ -1361,19 +1407,21 @@ class GachaHistoryTab(BaseTab):
             with open(path, encoding="utf-8") as f:
                 data = json.load(f)
             batches, skipped = gh.parse_import(data, name)
+            skins, skin_names = gh.parse_skin_import(data)
         except (OSError, ValueError) as e:
             # ImportRejected is a ValueError, and says what it expected.
             messagebox.showerror("Import JSON", "%s: %s" % (name, e))
             return
         before = gh.load(self._folder()).total
         try:
-            gh.merge_import(self._folder(), batches)
+            gh.merge_import(self._folder(), batches, skins, skin_names)
         except (gh.StoreError, OSError) as e:
             messagebox.showerror("Import JSON", str(e))
             return
         self.refresh()
         after = self.history.total if self.history is not None else before
-        read = sum(len(b["reward"]) for b in batches)
+        read = sum(len(b["reward"]) for b in batches) + gh.skin_pull_count(
+            skins)
         text = "Read %s pulls from %s. %s of them were new to the history." \
             % (format(read, ","), name, format(max(0, after - before), ","))
         if skipped:

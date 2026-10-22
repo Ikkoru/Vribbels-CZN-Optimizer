@@ -13,7 +13,11 @@ The levers that keep such a gap whole:
 * `px_inset` -- an inset inside a widget, rounding its half down so the
   pad beside it can round its own up;
 * a default checkbox's side inset, set through `px_inset`, and the pads
-  `pad_between` and `pad_beside_label` give it neighbours.
+  `pad_between` and `pad_beside_label` give it neighbours;
+* an Equipped Memory Fragments cell's slot stop (`_gear_slot_stop`),
+  which is its text area as the cell rounds its own parts: the stop
+  scaled whole lands a pixel past that area at 150%, and the slot name
+  ends inside the cell's inset.
 
 Each is held here to the gap it promises, at every scale offered.
 """
@@ -79,6 +83,23 @@ def _checkbox_inset(checkbox, scale):
         root.destroy()
 
 
+def _gear_slot_stop(scaling, scale):
+    """The slot name's stop is the cell's text area: the cell
+    `px(GEAR_CELL_W)` wide (`check_tabs_build` holds that), less its
+    border and `padx`, each through `px` as the `tk.Text` call takes
+    them."""
+    from ui.tabs import heroes_tab as h
+    px = scaling.px
+    want = px(h.GEAR_CELL_W) - 2 * px(h.GEAR_CELL_BD) \
+        - 2 * px(h.GEAR_CELL_PADX)
+    got = h._gear_slot_stop()
+    if got != want:
+        return [f"At {scale} a gear cell's slot stop is {got}, not its text "
+                f"area's {want}: the slot name ends {want - got} px from "
+                f"where the cell's inset begins (`_gear_slot_stop`)."]
+    return []
+
+
 def run():
     add_source_to_path()
     try:
@@ -96,6 +117,15 @@ def run():
             scaling.set_scale(scale)
             failures.extend(_arithmetic(scaling, checkbox, scale))
             failures.extend(_checkbox_inset(checkbox, scale))
+            failures.extend(_gear_slot_stop(scaling, scale))
     finally:
         scaling.set_scale(scaling.DEFAULT_SCALE)
     return failures
+
+
+# What this check must catch, for `checks/faults.py`.
+FAULTS = [
+    ("the gear slot stop scaled whole", "ui.tabs.heroes_tab:_gear_slot_stop",
+     "return px(GEAR_CELL_W) - 2 * px(GEAR_CELL_BD) - 2 * px(GEAR_CELL_PADX)",
+     "return px(GEAR_TAB_SLOT)", "a gear cell's slot stop"),
+]

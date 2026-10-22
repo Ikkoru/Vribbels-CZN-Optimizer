@@ -1266,6 +1266,14 @@ EGO_OWNER = re.compile(r"#(?:match_comb_char|own_char)#")
 EGO_COUNTER = re.compile(r"\(?#(?:final_ectc|result_vt_mul)_\d+(?:_\d+)?#\)?")
 EGO_ASSIGNED = "the assigned Combatant"
 EGO_PERCENT = ("result_damage", "result_coeff_ev")
+# Three kinds name what they read: `ecdv<N>_<M>` the Nth effect's
+# `eff_condition_value_<M>`, `cs_tv_max_<status>` a status's most
+# stacks (`overlay_value_max`), and `skill_eff_ev_<effect>` an effect by
+# its own id, which can sit in a combatant's card table.
+EGO_CONDITION = re.compile(r"#ecdv(\d+)_(\d+)#")
+EGO_STATUS_MAX = re.compile(r"#cs_tv_max_([A-Za-z0-9_]+?)#")
+EGO_NAMED = re.compile(r"#skill_eff_ev_([A-Za-z0-9_]+?)#")
+EFFECT_TABLE = re.compile(r"^card\([^)]+\)@skill_eff$")
 # What is left of any other kind: a figure this does not read.
 EGO_UNREAD = re.compile(r"#[^#\s<>]+#")
 # The statuses an Ego card applies, and their effects: the partners'
@@ -1313,18 +1321,53 @@ def _hits(raw, links, effects):
     return "".join(out) + raw[at:]
 
 
-def ego_text(card, texts, effects, statuses, status_effects):
+def _named_effects(client, wanted):
+    """{effect id: row} for the effects in `wanted`, out of every card
+    table: only read where an Ego text names one (`EGO_NAMED`)."""
+    found = {}
+    for path in client.archive.files:
+        name = path[3:-3] if path.startswith("db/") and path.endswith(".db") \
+            else ""
+        if wanted - set(found) and EFFECT_TABLE.fullmatch(name):
+            found.update({r["id"]: r for r in client.rows(name)
+                          if r.get("id") in wanted})
+    return found
+
+
+def ego_text(card, texts, effects, statuses, status_effects, named=None):
     """A partner's Ego card text as the game shows it out of battle,
-    every figure read off its effects (`EGO_FIGURE`, `_hits`); None
-    where the card has no text or holds a figure this does not read.
-    `card@desc_outgame` is that text where the card has one; without,
-    `card@desc` is, the assigned combatant named and the battle's counts
-    taken out."""
+    every figure read off its effects (`EGO_FIGURE`, `_hits`, and the
+    kinds that name their source, `named` the effects `EGO_NAMED`
+    names); None where the card has no text or holds a figure this does
+    not read. `card@desc_outgame` is that text where the card has one;
+    without, `card@desc` is, the assigned combatant named and the
+    battle's counts taken out."""
     raw = texts.get(card.get("desc_outgame")) or texts.get(card.get("desc"))
     if not raw:
         return None
     links = _ids(card.get("link_skill_eff_id"))
     raw = _hits(raw, links, effects)
+
+    def condition(match):
+        n = int(match.group(1))
+        effect = effects.get(links[n]) if n < len(links) else None
+        value = _figure((effect or {}).get(
+            "eff_condition_value_%s" % match.group(2)))
+        return match.group() if value is None else str(value)
+
+    def most(match):
+        value = _figure((statuses.get(match.group(1)) or {}).get(
+            "overlay_value_max"))
+        return match.group() if value is None else str(value)
+
+    def by_id(match):
+        value = _figure(((named or {}).get(match.group(1)) or {}).get(
+            "eff_value"))
+        return match.group() if value is None else str(value)
+
+    raw = EGO_CONDITION.sub(condition, raw)
+    raw = EGO_STATUS_MAX.sub(most, raw)
+    raw = EGO_NAMED.sub(by_id, raw)
     unread = []
 
     def figure(match):
@@ -1374,6 +1417,10 @@ def partners(client):
     cards = {r["id"]: r for r in client.rows("card(partner)@card")}
     card_effects = {r["id"]: r for r in client.rows("card(partner)@skill_eff")}
     statuses, status_effects = _statuses(client)
+    named = _named_effects(client, {
+        match.group(1) for card in cards.values()
+        for key in ("desc", "desc_outgame")
+        for match in EGO_NAMED.finditer(texts.get(card.get(key)) or "")})
     stats = _passive_stats(client)
     classes = {**CLASS_NAMES, **class_names(client)}
     lines = {}
@@ -1409,7 +1456,7 @@ def partners(client):
             "ego_name": passage(texts.get(card.get("name"))) or None,
             "ego_cost": _figure(card.get("cost")),
             "ego_desc": ego_text(card, texts, card_effects, statuses,
-                                 status_effects),
+                                 status_effects, named),
             "level_60": {stat: (_figure(row.get(f"default_{stat}_add")) or 0)
                          + flat[stat] + promoted[stat]
                          for stat in ("atk", "def", "hp")},

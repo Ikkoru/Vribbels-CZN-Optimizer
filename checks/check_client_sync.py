@@ -24,7 +24,10 @@ goes wrong goes wrong in the maintainer's own work:
    its notice drops what the tools said.
 7. **A partner's Ego text is read wrong** (`game_client.ego_text`): a
    figure off the wrong effect, a hit count lost, a battle count or a
-   `#code#` left in the text a player sees.
+   `#code#` left in the text a player sees, or a kind that names its
+   source -- an effect's condition, a status's most stacks, an effect
+   by id out of a combatant's card table -- not read, and the partner
+   left with no text.
 
 Held on synthetic tables in a temporary folder: no installed client and
 no real table is touched.
@@ -395,6 +398,36 @@ def _ego_texts():
     if got != "Out of battle 2":
         out.append(f"a card with an out-of-battle text reads {got!r}: that "
                    f"text is the one the game shows outside a fight.")
+    texts["card@desc@p"] = ("+#ecdv0_0#% for each card, up to "
+                            "#cs_tv_max_cs1# stacks<br>#skill_eff_ev_x9#% more")
+    got = game_client.ego_text(
+        card, texts, dict(effects, e0=dict(effects["e0"],
+                                           eff_condition_value_0="15")),
+        {"cs1": dict(statuses["cs1"], overlay_value_max="5")},
+        status_effects, named={"x9": {"eff_value": "30"}})
+    if got != "+15% for each card, up to 5 stacks\n30% more":
+        out.append(f"an Ego card naming its figures' sources reads {got!r}: "
+                   f"`ecdv<N>_<M>` the Nth effect's eff_condition_value_<M>, "
+                   f"`cs_tv_max_<status>` the status's overlay_value_max, "
+                   f"`skill_eff_ev_<id>` that effect's eff_value.")
+
+    class _Archive:
+        files = ["db/card@skill_eff.db", "db/card(c1)@skill_eff.db",
+                 "db/card@desc.db"]
+
+    class _Client:
+        archive = _Archive()
+
+        def rows(self, name):
+            return {"card@skill_eff": [{"id": "x1", "eff_value": "1"}],
+                    "card(c1)@skill_eff": [{"id": "x9", "eff_value": "30"},
+                                           {"id": "x8", "eff_value": "2"}]
+                    }.get(name, [])
+    found = game_client._named_effects(_Client(), {"x9"})
+    if found != {"x9": {"id": "x9", "eff_value": "30"}}:
+        out.append(f"the effects an Ego text names by id read {found!r}: "
+                   f"each out of whichever card table holds it, a "
+                   f"combatant's own among them (`_named_effects`).")
     texts["card@desc@p"] = "+#ecdv0_0#% for each card"
     got = game_client.ego_text(card, texts, effects, statuses, status_effects)
     if got is not None:
@@ -436,6 +469,18 @@ FAULTS = [
     ("the out-of-battle text passed over", "game_client:ego_text",
      'raw = texts.get(card.get("desc_outgame")) or texts.get(card.get("desc"))',
      'raw = texts.get(card.get("desc"))', "out-of-battle text"),
+    ("an effect's condition not read", "game_client:ego_text",
+     "raw = EGO_CONDITION.sub(condition, raw)", "pass",
+     "naming its figures' sources"),
+    ("a status's most stacks not read", "game_client:ego_text",
+     "raw = EGO_STATUS_MAX.sub(most, raw)", "pass",
+     "naming its figures' sources"),
+    ("an effect named by id not read", "game_client:ego_text",
+     "raw = EGO_NAMED.sub(by_id, raw)", "pass", "naming its figures' sources"),
+    ("a combatant's card table passed over", "game_client:_named_effects",
+     "if wanted - set(found) and EFFECT_TABLE.fullmatch(name):",
+     'if wanted - set(found) and name == "card@skill_eff":',
+     "the effects an Ego text names by id"),
     ("the client's Ego text not written", "game_data.client_sync:partner_entry",
      'entry["ego_desc"] = stated.get("ego_desc", "")', 'entry["ego_desc"] = ""',
      "a partner entry's ego_desc"),

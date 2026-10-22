@@ -945,6 +945,16 @@ def _card_skins(gh, root, failures):
             f"a Card Skin Pack pull was kept as {got}, not {want}: the "
             f"reply's skins in `index` order, the one not new marked, at "
             f"the reply's second -- the record the game will make of it.")
+    import game_client
+    skins, packs = game_client.known_card_skins()
+    names = {str(r): skins[r][0] for r in (9800001, 9800004) if r in skins}
+    if (store.get("skin_names") or {}) != names or (
+            store.get("skin_pack_names") or {}).get(SKIN_PACK) != (
+                packs.get(SKIN_PACK) or ("?",))[0]:
+        failures.append(
+            f"a Card Skin Pack pull kept the names {store.get('skin_names')} "
+            f"and {store.get('skin_pack_names')}: each skin's and pack's, "
+            f"as the client gave them when kept (`SKIN_NAMES`).")
     _send(addon, _skin_ask(7, "history", last_db_id=0),
           {"res": "ok", "qid": 7, "result": True, "next_page_exists": False,
            "card_skin_gacha_history_list": [SKIN_RECORD]})
@@ -1122,6 +1132,25 @@ def _card_skin_luck(gh, folder, failures):
             s.luckier_than - gh.luckier_than_flat([10, 2], chance)) > 1e-12:
         failures.append(f"the Card Skin Packs' luck reads {s.luckier_than}: "
                         f"the flat chance's over their Super Rares.")
+    # Exported and imported into an empty history, the packs' pulls come
+    # back whole, with their names; imported again, nothing is new.
+    export = folder / "export.json"
+    gh.export(history, export)
+    data = json.loads(export.read_text(encoding="utf-8"))
+    batches, _skipped = gh.parse_import(data, export.name)
+    skins, names = gh.parse_skin_import(data)
+    other = folder / "other"
+    added, _known = gh.merge_import(other, batches, skins, names)
+    again, known = gh.merge_import(other, batches, skins, names)
+    moved = gh.load(other).pools.get(gh.SKIN_POOL)
+    if moved is None or [p.res_id for p in moved.pulls] != [
+            p.res_id for p in pool.pulls] or again or not known:
+        failures.append(
+            f"the Card Skin Packs' {len(pool.pulls)} pulls exported and "
+            f"imported come back as "
+            f"{len(moved.pulls) if moved else 'no pool'}, a second import "
+            f"adding {again}: an export carries them, an import keeps them "
+            f"once (`export`, `parse_skin_import`, `merge_import`).")
     o = history.overall
     own = gh.luckier_than_flat([10, 2], chance)
     if o.luck_with_prism is not None or o.luck_with_skins is None \
@@ -1290,4 +1319,13 @@ FAULTS = [
     ("the packs counted with the Prism Module", "gacha_history:across_pools",
      "[groups[e.pool] for e in others + prism if groups[e.pool]])",
      "[g for g in groups.values() if g])", "the overall luck reads"),
+    ("a skin's name not kept", "capture.manager:ADDON_TEMPLATE",
+     'store["skin_names"][str(skin)] = SKIN_NAMES[skin]', "pass",
+     "a Card Skin Pack pull kept the names"),
+    ("the packs left out of an export", "gacha_history:export",
+     '"card_skins": {"records": history.skin_records,',
+     '"card_skins": {"records": [],', "exported and imported come back"),
+    ("the packs left out of an import", "gacha_history:merge_import",
+     "        new_skins.append(row)", "        pass",
+     "exported and imported come back"),
 ]

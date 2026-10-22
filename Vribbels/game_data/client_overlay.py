@@ -340,22 +340,6 @@ def _fragments(held):
             _set("STATS", stat, None, tuple(info[:3]) + bounds)
 
 
-def _sets(effects):
-    """Each set's name as the client gives it (`game_client.set_effects`),
-    over the name of the program's entry for it. A set the program has
-    no entry for gets none here: `sets.set_name` names it from the
-    client directly, and without a model the optimizer cannot weigh it.
-    A placeholder (`game_client.NAMING`) is no name."""
-    from game_client import NAMING
-    for key, effect in (effects or {}).items():
-        set_id = int(key) if str(key).isdigit() else None
-        name = effect[0] if isinstance(effect, (list, tuple)) and effect \
-            else None
-        if isinstance(SETS.get(set_id), dict) and isinstance(name, str) \
-                and NAMING.search(name):
-            _set("SETS", set_id, "name", name)
-
-
 def _rebuild_by_name():
     CHARACTERS_BY_NAME.clear()
     CHARACTERS_BY_NAME.update({data["name"]: data
@@ -375,13 +359,11 @@ def apply(facts=None):
                     "exp_tables": getattr(from_client, "EXP_TABLES", {}),
                     "affinity": getattr(from_client, "AFFINITY", {}),
                     "fragment_stats": getattr(from_client, "FRAGMENT_STATS",
-                                              {}),
-                    "set_effects": getattr(from_client, "SET_EFFECTS", {})},
+                                              {})},
                    facts or {}):
         _combatants(source.get("combatants") or {})
         _partners(source.get("partners") or {})
         _exp(source.get("exp_tables"))
         _affinity(source.get("affinity"))
         _fragments(source.get("fragment_stats"))
-        _sets(source.get("set_effects"))
     _rebuild_by_name()

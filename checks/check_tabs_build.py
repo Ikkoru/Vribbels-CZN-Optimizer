@@ -3794,7 +3794,6 @@ def _sheet_complaints(label, text, holder):
             out.append(f"{label} line {n} {line!r} carries pitch tags "
                        f"{pitch}, not [{want!r}]: every line takes one, "
                        f"the first {TOP_TAG!r}.")
-        font = bold if heading else normal
         fields = line.split("\t")
         # A line setting two sections side by side carries stops of its
         # own, on a tag of its own.
@@ -3802,11 +3801,16 @@ def _sheet_complaints(label, text, holder):
                 if str(v).isdigit()] for t in tags
                if str(text.tag_cget(t, "tabs"))]
         starts = [0] + (own[0] if own else stops)
+        at = 0
         for i, field in enumerate(fields):
             if i + 1 < len(fields) and i + 1 >= len(starts):
                 out.append(f"{label} line {n} {line!r} has more fields "
                            f"than the sheet has stops, {stops}")
                 break
+            # Each field in the font its own text is in: a heading's note
+            # is not bold.
+            font = bold if BOLD_TAG in text.tag_names(f"{n}.{at}") else normal
+            at += len(field) + 1
             end = starts[i] + font.measure(field)
             limit = starts[i + 1] if i + 1 < len(fields) else width
             if end > limit:
@@ -3839,8 +3843,8 @@ def _gacha_overall_fits(tab, gh):
     """
     from datetime import datetime
     from ui.tabs.gacha_history_tab import (
-        OVERALL_TITLE, PRISM_ONLY, SKINS_ONLY, WITH_PRISM, WITH_SKINS,
-        WITHOUT_PRISM)
+        OVERALL_TITLE, PRISM_ONLY, SKINS_NOTE, SKINS_ONLY, WITH_PRISM,
+        WITH_SKINS, WITHOUT_PRISM)
 
     out = []
     pulls = [pull for pool in tab.history.ordered() for pull in pool.pulls]
@@ -3878,21 +3882,29 @@ def _gacha_overall_fits(tab, gh):
     # The wider sections sit beside the first, on its heading's line, and
     # the Card Skin Packs' records beside the Prism Module's.
     if headings != ["\t".join((WITHOUT_PRISM, WITH_PRISM, WITH_SKINS)),
-                    PRISM_ONLY + "\t" + SKINS_ONLY]:
+                    "\t".join((PRISM_ONLY, SKINS_ONLY, SKINS_NOTE))]:
         out.append(f"the {OVERALL_TITLE} sheet's headings read {headings}")
-    # The two halves share the room: the second starts at its middle, the
-    # first stop of the line's own (`BESIDE_TAG`).
-    from ui.tabs.gacha_history_tab import BESIDE_TAG
+    # The two halves share the room: the second starts at its middle, or
+    # as far short of it as its noted heading needs to end inside the
+    # room -- the first stop of the line's own (`BESIDE_TAG`).
+    import tkinter.font as tkfont
+    from ui.scaling import px
+    from ui.tabs.gacha_history_tab import BESIDE_TAG, HEADING_FONT, NOTE_GAP
     line = next((n for n in range(1, int(text.index("end").split(".")[0]))
                  if text.get(f"{n}.0", f"{n}.end").startswith(
                      PRISM_ONLY + "\t")), None)
     stops = text.tk.splitlist(text.tag_cget(BESIDE_TAG % (line - 1), "tabs")) \
         if line else ()
-    half = tab._banners_width() // 2
-    if not stops or int(float(str(stops[0]))) < half:
+    room = tab._banners_width()
+    noted = (tkfont.Font(font=HEADING_FONT).measure(SKINS_ONLY)
+             + px(NOTE_GAP) + tkfont.nametofont("TkDefaultFont").measure(
+                 SKINS_NOTE))
+    want = min(room // 2, room - noted)
+    if not stops or int(float(str(stops[0]))) < want:
         out.append(f"the {SKINS_ONLY} records start at "
-                   f"{stops[0] if stops else None}px, short of the middle "
-                   f"of the sheet's {2 * half}px: the two halves share it.")
+                   f"{stops[0] if stops else None}px, short of {want}: the "
+                   f"middle of the sheet's {room}px, or as far short of it "
+                   f"as their noted heading needs -- the two halves share it.")
     # The spacing audit finds this panel by its exact title and these
     # rows by their words. A rename the registry does not follow leaves
     # those rows reading nothing, and only an audit would say so.

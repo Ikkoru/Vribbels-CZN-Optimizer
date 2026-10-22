@@ -53,9 +53,15 @@ client, and the ones either side lacks:
 the tables are typed by hand, and a patch that rebalances one changes
 nothing there. It writes nothing; a disagreement is for the maintainer
 to settle, since the hand-typed figure can be the newer one. What
-`--ship` wrote is left out, being the client's. A name the maintainer
-chose over the client's is listed in `INTENDED` and left out, until
-either side's spelling moves.
+`--ship` wrote is left out, being the client's.
+
+**What the program's own tables decide is never held to the client**:
+a Memory Fragment set's name, pieces, model and wording, a partner's
+Ego text, the names of the Rescue pools and shops. Those differ on
+purpose. What is reported is the CLIENT changing them: `--ship` keeps
+the client's own words for them in `from_client.py` (`SET_EFFECTS`,
+`EGO_TEXTS`, `CLIENT_NAMES`), and both `--ship`, before it writes, and
+`--audit` name each one a newer client changed (`client_changes`).
 
 `--archive` keeps the installed build's every table and its English
 text in `Vribbels/client_archive/` (`Vribbels/client_archive.py`),
@@ -108,8 +114,9 @@ def _tsv(columns, rows):
         yield "\t".join(row[c].translate(clean) for c in columns)
 
 
-def shipped_source(client):
-    """The text of `from_client.py` for what `client` holds."""
+def shipped_source(client, partners=None):
+    """The text of `from_client.py` for what `client` holds; `partners`
+    its `game_client.partners`, where already read."""
     names = game_client.event_names(client)
     totals = game_client.event_totals(client)
     items = game_client.item_names(client)
@@ -287,6 +294,20 @@ def shipped_source(client):
               f"{ascii(dict(sorted(chances.items())))}, {featured!r}),"
               for pack, (name, chances, featured)
               in sorted(skins["packs"].items())]
+    words = client_words(client, partners)
+    lines += ["}", "",
+              "# The client's own words for what the program's tables "
+              "decide, kept to",
+              "# tell when a newer client changes them: {partner res_id: "
+              "its Ego text}",
+              "# and {what: the client's name}. See "
+              "docs/client_tables.client_words.",
+              "EGO_TEXTS = {"]
+    lines += [f"    {res_id}: {ascii(text)},"
+              for res_id, text in sorted(words["ego"].items())]
+    lines += ["}", "CLIENT_NAMES = {"]
+    lines += [f"    {ascii(what)}: {ascii(name)},"
+              for what, name in sorted(words["names"].items())]
     lines += ["}", ""]
     return "\n".join(lines)
 
@@ -295,15 +316,20 @@ def ship(client):
     """Bring the program's own copy of the client's facts level with
     `client`: `from_client.py`, and the marked lines of `game_data`'s
     tables, a unit they lack added (`game_data.client_sync`). Returns
-    lines saying what changed. Nothing is written where a table would
-    come out wrong (`client_sync.SyncError`, raised)."""
+    lines saying what changed, and what `client` changed of what the
+    program's own tables decide (`client_changes`) -- said here, against
+    the copy it replaces, since the audit after it reads the new one.
+    Nothing is written where a table would come out wrong
+    (`client_sync.SyncError`, raised)."""
     from game_data import client_sync, from_client
+    partners = game_client.partners(client)
     said, changed = client_sync.sync(
         {"combatants": game_client.combatants(client),
-         "partners": game_client.partners(client),
+         "partners": partners,
          "recommended": game_client.recommended_partners(client)},
         write=False)
-    source = shipped_source(client)
+    said += client_changes(client, partners)
+    source = shipped_source(client, partners)
     client_sync.write_out(changed)
     held = SHIPPED.read_text(encoding="utf-8") if SHIPPED.exists() else ""
     if source != held:
@@ -439,24 +465,6 @@ POOL_TYPES = {
     "card_factor": "gacha_type_card_factor",
     "partner_reform": "gacha_type_partner_reform",
     "first_select": "gacha_type_first_select",
-}
-
-# The program's own words where the maintainer chose them over the
-# client's, as (what, the program's, the client's). The audit leaves a
-# pair out while both sides read as they do here, so a patch renaming
-# either shows it again.
-INTENDED = {
-    ("rescue pool pickup_combatant", "Combatant Rate-Up Rescue",
-     "Combatant Rate Up Event"),
-    ("rescue pool pickup_supporter", "Partner Rate-Up Rescue",
-     "Partner Pickup Event"),
-    ("rescue pool pickup_supporter_rerun", "Normal Partner Rate-Up Rescue",
-     "Partner Pickup Event"),
-    ("rescue pool partner_reform", "Partner Special Rescue",
-     chr(0x2605) + "5 Partner Special Rescue"),
-    ("rescue pool first_select", "Special Rescue Request",
-     "Special Signal Selective Rescue"),
-    ("shop shop_assault/none", "Sortie - Chaos Analysis Lab", "Sortie Shop"),
 }
 
 # The client's words for what `game_data` spells its own way: the
@@ -627,16 +635,6 @@ def audit(client):
                texts.get(card.get("name")))
         differ(who, "ego_cost", ours.get("ego_cost"),
                int(card["cost"]) if card.get("cost") else None)
-        # The Ego card's figures, against its out-of-battle text
-        # (`game_client.ego_text`). The hand text may say more -- what a
-        # status the card applies does -- so only a figure of the
-        # client's that it lacks is a difference.
-        ego = (derived_partners.get(int(rid)) or {}).get("ego_desc")
-        lacking = sorted(set(_numbers(ego or "")) - set(
-            _numbers(ours.get("ego_desc") or "")))
-        if lacking and "ego_desc" not in marks:
-            out.append(f"{who}: the Ego card's {_figures(lacking)} are in "
-                       f"the client's text, not in ego_desc: {ego!r}")
         # The passive's plain stat lines and the level-60 flat stats, as
         # the program reads them laid over (`game_client.partners`).
         theirs = derived_partners.get(int(rid)) or {}
@@ -703,12 +701,11 @@ def audit(client):
             differ(f"item {rid}", "name", name, theirs[rid])
 
     # The client's names for a Chaos and a Zero System special go over
-    # the program's own, which name what no client read holds; a
+    # the program's own, which name what no client read holds. A
     # rescue's pool keeps the program's label (the maintainer's, from
-    # the Probabilities notices), `INTENDED` naming where it parts on
-    # purpose.
+    # the Probabilities notices), so only the client renaming it is said
+    # (`client_changes`).
     import chaos_estimate
-    import gacha_history
     for stage, (name, season) in sorted(game_client.chaos_names(client).items()):
         held = chaos_estimate.CHAOS_NAMES.get(stage)
         if held is None:
@@ -725,18 +722,11 @@ def audit(client):
         else:
             differ(f"Zero System special {special}", "name",
                    chaos_estimate.ZERO_SPECIALS[special], name)
-    types = {r["id"]: texts.get(r.get("name"))
-             for r in client.rows("gacha_type@gacha_type")}
-    for pool, label in gacha_history.POOL_LABELS.items():
-        theirs = types.get(POOL_TYPES.get(pool))
-        if theirs and (f"rescue pool {pool}", label, theirs) not in INTENDED:
-            differ(f"rescue pool {pool}", "label", label, theirs)
 
     effects = game_client.set_effects(client)
     out += set_problems(effects)
     out += unlisted_sets(effects)
-    from game_data import from_client
-    out += set_changes(from_client.SET_EFFECTS, effects)
+    out += client_changes(client, derived_partners)
     out += potential_7_problems(client)
     out += node_51_problems(client)
     out += limit_problems(client)
@@ -925,23 +915,92 @@ def item_problems(client):
             if art.icon:
                 _differ_into(out, f"item {res_id}", "icon",
                              Path(art.icon).stem, icons.get(str(res_id)))
+    # A shop's name is the program's; only one the client no longer has
+    # is said here, and one it renames by `client_changes`.
+    names = shop_names(client)
+    for (cat, sub), ours in sorted(shop_stock.SHOPS.items()):
+        if f"shop {cat}/{sub}" not in names:
+            out.append(f"shop {cat}/{sub} {ours!r}: not in the client")
+    return out
+
+
+def shop_names(client):
+    """{`shop <category>/<sub>`: the client's name for it} for every shop
+    `shop_stock.SHOPS` names, its category's and sub-category's names
+    joined; a shop the client has neither row for is left out."""
+    import shop_stock
     texts = client.text()
     cats = {r["id"]: r for r in client.rows("shop_category@shop_category")}
     subs = {r["id"]: r
             for r in client.rows("shop_category@shop_sub_category")}
-    for (cat, sub), ours in sorted(shop_stock.SHOPS.items()):
-        names = [_plain(game_client.clean(texts.get(row.get(column))))
-                 for row, column in ((cats.get(cat), "main_category_name"),
-                                     (subs.get(sub), "sub_category_name"))
-                 if row]
-        theirs = " - ".join(n for n in names if n)
-        if not names:
-            out.append(f"shop {cat}/{sub} {ours!r}: not in the client")
-        elif not any(name and name in _plain(ours) for name in names) \
-                and (f"shop {cat}/{sub}", ours, theirs) not in INTENDED:
-            out.append(f"shop {cat}/{sub}: {ours!r} here, {theirs!r} in the "
-                       f"client (the program's name shows)")
+    out = {}
+    for cat, sub in shop_stock.SHOPS:
+        rows = [(row, column) for row, column in (
+            (cats.get(cat), "main_category_name"),
+            (subs.get(sub), "sub_category_name")) if row]
+        if rows:
+            out[f"shop {cat}/{sub}"] = " - ".join(
+                name for name in (_plain(game_client.clean(texts.get(
+                    row.get(column)))) for row, column in rows) if name)
     return out
+
+
+def client_words(client, partners=None):
+    """{"ego": {partner res_id: its Ego text}, "names": {what: the
+    client's name}}: the client's own words for what the program's
+    tables decide -- the partners' Ego texts (`game_client.ego_text`),
+    and the names of the Rescue pools and shops the program names its
+    own way. The sets' are `SET_EFFECTS`. What `--ship` keeps, and what
+    a newer client is held to (`word_changes`)."""
+    texts = client.text()
+    partners = game_client.partners(client) if partners is None else partners
+    types = {r["id"]: game_client.clean(texts.get(r.get("name")))
+             for r in client.rows("gacha_type@gacha_type")}
+    names = {f"rescue pool {pool}": types[kind]
+             for pool, kind in POOL_TYPES.items() if types.get(kind)}
+    names.update(shop_names(client))
+    return {"ego": {rid: fact["ego_desc"] for rid, fact in partners.items()
+                    if fact.get("ego_desc")},
+            "names": names}
+
+
+def word_changes(before, after):
+    """Lines naming each Ego text and name `after` gives otherwise than
+    `before` (both as `client_words` gives them, `before` the copy the
+    program shipped). The program's own stands: a partner whose entry
+    `--ship` writes takes the new text by itself, so only a hand entry's
+    is said."""
+    from game_data import client_sync
+    from game_data.client_overlay import hand
+    partners = hand("PARTNERS")
+    out = []
+    old, new = before.get("ego") or {}, after.get("ego") or {}
+    for rid in sorted(set(old) & set(new)):
+        ours = partners.get(rid) or {}
+        if old[rid] != new[rid] and isinstance(ours, dict) \
+                and not ours.get(client_sync.FROM_CLIENT):
+            out.append(f"partner {rid} {ours.get('name')}: the client's Ego "
+                       f"text moved from {old[rid]!r} to {new[rid]!r} "
+                       f"(ego_desc stands)")
+    old, new = before.get("names") or {}, after.get("names") or {}
+    for what in sorted(set(old) & set(new)):
+        if old[what] != new[what]:
+            out.append(f"{what}: the client renamed it {old[what]!r} to "
+                       f"{new[what]!r} (the program's name stands)")
+    return out
+
+
+def client_changes(client, partners=None):
+    """Lines naming everything the program's tables decide that `client`
+    gives otherwise than the copy the program shipped: its sets
+    (`set_changes`), the partners' Ego texts and the pools' and shops'
+    names (`word_changes`). Empty for the build the copy came from."""
+    from game_data import from_client
+    shipped = {"ego": getattr(from_client, "EGO_TEXTS", {}),
+               "names": getattr(from_client, "CLIENT_NAMES", {})}
+    return (set_changes(from_client.SET_EFFECTS,
+                        game_client.set_effects(client))
+            + word_changes(shipped, client_words(client, partners)))
 
 
 def _differ_into(out, who, field, ours, theirs):
@@ -959,53 +1018,17 @@ SET_STATS = {"S_ATK_INC_RATE_OUT": "ATK%", "S_DEF_INC_RATE_OUT": "DEF%",
              "S_CRI_INC_ADD": "Crit Rate"}
 
 
-# The game's words for a limit that carry no figure, and how the
-# maintainer's wordings state the same limit: as a `max N`.
-LIMIT_PHRASES = (("cannot stack", "max 1"),)
-
-
 def set_problems(effects, typed=None):
-    """Lines saying where `game_data/sets.py` and `effects`, the
-    client's sets as `game_client.set_effects` gives them, disagree: a
-    name, a piece count, a plain stat or its figure, the figures in the
-    maintainer's own wording against the game's, and a set the client
-    lacks (`unlisted_sets` names the ones `sets.py` lacks). The wording
-    itself is the maintainer's, and not compared.
-
-    `typed` is the table held to `effects`: by default `sets.py` as
-    typed, not `SETS` with the client's names laid over it, which would
-    agree with any name."""
-    from game_data.client_overlay import hand
-    out = []
-    for set_id, ours in sorted((typed or hand("SETS")).items()):
-        who = f"set {set_id} {ours.get('name')}"
-        theirs = effects.get(set_id)
-        if theirs is None:
-            out.append(f"{who}: not in the client")
-            continue
-        name, pieces, words, stat, value = theirs
-        if _plain(ours.get("name")) != name:
-            out.append(f"{who}: named {name!r} in the client")
-        if ours.get("pieces") != pieces:
-            out.append(f"{who}: {ours.get('pieces')} pieces here, {pieces} "
-                       f"in the client")
-        if stat and (SET_STATS.get(stat), value) != (ours.get("stat"),
-                                                    ours.get("value")):
-            out.append(f"{who}: {ours.get('stat')} {ours.get('value')} "
-                       f"here, {SET_STATS.get(stat, stat)} {value} in the "
-                       f"client")
-        # Which figures, not how often: a short wording states a figure
-        # once where the game's repeats it.
-        bonus = ours.get("bonus")
-        stated = words
-        for theirs_, ours_ in LIMIT_PHRASES:
-            stated = stated.replace(theirs_, ours_)
-        here, there = set(_numbers(bonus)), set(_numbers(stated))
-        if bonus and here != there:
-            out.append(f"{who}: its wording states "
-                       f"{_figures(sorted(here))}, the game's "
-                       f"{_figures(sorted(there))}: {words!r}")
-    return out
+    """Lines naming each set of `game_data/sets.py` (or `typed`) that
+    `effects`, the client's sets as `game_client.set_effects` gives
+    them, lacks; `unlisted_sets` names the ones `sets.py` lacks. An
+    entry's name, pieces, model and wording are the maintainer's and go
+    over the client's, so none is held to it: `set_changes` says where a
+    client changes them."""
+    from game_data import SETS
+    return [f"set {set_id} {ours.get('name')}: not in the client"
+            for set_id, ours in sorted((typed or SETS).items())
+            if set_id not in effects]
 
 
 def unlisted_sets(effects):
@@ -1018,16 +1041,30 @@ def unlisted_sets(effects):
 
 
 def set_changes(before, after):
-    """Lines naming each set whose effect `after` words differently
-    from `before` (both as `game_client.set_effects` gives them), and
-    whether only its figures moved -- then the maintainer's wording
-    wants new figures -- or its words did, and it wants rewording."""
+    """Lines naming each set `after` gives otherwise than `before`
+    (both as `game_client.set_effects` gives them, `before` the copy the
+    program shipped): a new name, piece count or plain stat, or new words
+    -- and whether only their figures moved, when the maintainer's
+    wording wants new figures, or the words did, when it wants
+    rewording. The program's entry stands either way."""
+    from game_data import SETS
     out = []
     for set_id in sorted(set(before) & set(after)):
-        old, new = before[set_id][2], after[set_id][2]
+        was, now = before[set_id], after[set_id]
+        who = f"set {set_id} {(SETS.get(set_id) or {}).get('name') or now[0]}"
+        if was[0] != now[0]:
+            out.append(f"{who}: the client renamed it {was[0]!r} to "
+                       f"{now[0]!r} (the program's name stands)")
+        if was[1] != now[1]:
+            out.append(f"{who}: the client's pieces moved from {was[1]} to "
+                       f"{now[1]}")
+        if tuple(was[3:5]) != tuple(now[3:5]):
+            out.append(f"{who}: the client's plain stat moved from "
+                       f"{SET_STATS.get(was[3], was[3])} {was[4]} to "
+                       f"{SET_STATS.get(now[3], now[3])} {now[4]}")
+        old, new = was[2], now[2]
         if old == new:
             continue
-        who = f"set {set_id} {after[set_id][0]}"
         if NUMBER.sub("#", old) == NUMBER.sub("#", new):
             out.append(f"{who}: only its figures moved, "
                        f"{_figures(_numbers(old))} to "

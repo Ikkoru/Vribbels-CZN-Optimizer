@@ -147,7 +147,6 @@ DEFAULT_PARTNER = {
 
 # Unified partner card data: res_id -> all partner information
 # Contains: name, grade, class, passive_name, passive_desc, values, stats, ego_name, ego_cost, ego_desc
-# Note: Values marked with # EST are estimated (linear interpolation) - update when real data is available
 PARTNERS = {
     20015: {
         "name": "Douglas",
@@ -619,7 +618,7 @@ PARTNERS = {
         "values": {
             "ATK%": (16, 18, 20, 22, 24),
             "CritCost1%": (9, 12, 14, 16, 18),
-            "HandgunDMG%": (50, 88, 125, 163, 200), # EST
+            "HandgunDMG%": (50, 88, 125, 163, 200),
         },
         "stats": {
             "ATK%": (16, 18, 20, 22, 24),
@@ -801,8 +800,8 @@ PARTNERS = {
         "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nWhen the assigned Combatant's card moves from Graveyard to hand, gain 1 Repairs Complete!.\nRepairs Complete!: +{RepairsDMG%}% Damage Amount to the assigned Combatant's Attack Cards (max 1 stack)\nIncrease Damage Amount of the assigned Combatant's Attack Cards by {RavagedDMG%}% when used against targets in a Ravage state.",
         "values": {
             "ATK%": (16, 18, 20, 22, 24),
-            "RepairsDMG%": (40, 50, 60, 70, 80),   # EST past the first
-            "RavagedDMG%": (20, 25, 30, 35, 40),   # EST past the first
+            "RepairsDMG%": (40, 50, 60, 70, 80),
+            "RavagedDMG%": (20, 25, 30, 35, 40),
         },
         "stats": {
             "ATK%": (16, 18, 20, 22, 24),
@@ -1357,9 +1356,25 @@ def format_passive_description(res_id: int, limit_break: int) -> str:
     return desc
 
 
+def get_partner_exploration(res_id: int, limit_break) -> list:
+    """[(name, text)]: a partner's Exploration Passives in the game's
+    slot order, each in the words it has at `limit_break` -- the last
+    step it rose at by then (`game_client.known_exploration_passives`).
+    Empty for a partner the client gives none."""
+    import game_client
+    held = game_client.known_exploration_passives().get(res_id) or ()
+    out = []
+    for name, _assigned, steps in held:
+        at = [text for rise, text in steps if rise <= (limit_break or 0)]
+        if at:
+            out.append((name, at[-1]))
+    return out
+
+
 def get_partner_passive_info(res_id: int, limit_break: int) -> dict:
     """Get full passive information for display.
-    Returns dict with passive_name, formatted description, ego_name, ego_cost, ego_desc."""
+    Returns dict with passive_name, formatted description, ego_name,
+    ego_cost, ego_desc, and the Exploration Passives (`exploration`)."""
     partner = get_partner(res_id)
 
     return {
@@ -1368,4 +1383,5 @@ def get_partner_passive_info(res_id: int, limit_break: int) -> dict:
         "ego_name": partner.get("ego_name", "Unknown"),
         "ego_cost": partner.get("ego_cost", 0),
         "ego_desc": partner.get("ego_desc", "Unknown effect."),
+        "exploration": get_partner_exploration(res_id, limit_break),
     }
