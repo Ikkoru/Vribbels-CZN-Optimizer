@@ -17,7 +17,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Rossweisse, when you lack her or she wears no partner, is optimized with Sig, her release partner. She, Sig, Blanche and Capri also show where the game client cannot be read.
 - Gacha History: Card Skin Pack pulls are kept beside the Rescue records, so they outlast the half year the game lists them for. Open the packs' history in game while capturing to keep the ones already made.
   - A Card Skin Packs row under the banners: your pulls, Super Rares under 5★ and Rares under 4★, the pulls since your last Super Rare, and your luck against the packs' flat 1.3% and 13%. Its pulls list each skin by the combatant it is for, and say which were duplicates.
-  - Overall Gacha Stats: the luck with the Card Skin Packs counted, beside the luck with the Prism Module, and the packs' fastest and slowest Super Rare and best streak beside the Prism Module's, with where in game their history opens.
+  - Overall Gacha Stats: the luck with the Card Skin Packs counted, beside the luck with the Prism Module. The packs' fastest and slowest Super Rare and best streak sit beside the Prism Module's, with where in game their history opens.
   - Each skin's and pack's name is kept as the game gave it when pulled. Export JSON carries the packs' pulls, and Import JSON reads them back.
 - Combatants: a partner's Exploration Passives, the ones it brings to Chaos and Sortie runs, list under its Ego card, as they stand at its limit break.
 - Rossweisse's Potential 7 is scored, and the Fill button fills its ATK.
@@ -51,7 +51,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Tiphera's fifth Potential node raises DEF% and her sixth Crit Rate, not the other way round.
 - Items show the name the game shows. Every season's Memory of Light, the Memory Fragment set packages and several other packages showed another item's name, and two stickers each other's.
 - Combatants: a combatant wearing no Memory Fragments shows its stats on the Character card, not dashes.
-- A Memory Fragment set released after the program, such as Veiled Radiance, is listed in the Memory Fragments tab's Sets filter, so its fragments are no longer hidden while any set is unticked. The Character card shows it by name, not as Flex.
+- A Memory Fragment set released after the program, such as Veiled Radiance, is listed in the Memory Fragments tab's Sets filter, and its fragments show while any set is unticked. The Character card shows it by name, not as Flex.
 - Capture: a Chaos run carried across captures, or played partly on another device, is recorded as one run instead of not at all. Fights no capture saw keep it out of the season estimate's Rare Species rates.
 - Capture Log: a Galactic Disaster clear that earns first-clear rewards shows all of them. Their Relic of a Frozen Civilization, Units and Traces of Memory were left out, and the run's own pay was shown a second time instead.
 - Checklist:

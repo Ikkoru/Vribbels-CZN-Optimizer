@@ -231,7 +231,7 @@ What the client cannot say, read off captures:
 
 ## The town
 
-`characters.town_data` (kept) carries the town's standing -- `happiness`, `population`, `politics`, `tourist` -- and `town_research_level_map`, research id to level, which the Checklist reads for the day's Communication Passes (`excursions.daily_passes`). Its `day_changeable_data` is read by the Checklist. `characters.town_calamity` (kept) is the live calamity: `calamity_id`, `remain_day_count`, the projects it struck. **`town_calamity/enter_calamity` answers with the four standings again, and `damaged`**, and they are not the login's: in the one capture holding both, three of the four were lower and politics unchanged. Nothing keeps that reply.
+`characters.town_data` (kept) carries the town's standing, as `happiness`, `population`, `politics` and `tourist`. It also carries `town_research_level_map`, research id to level, which the Checklist reads for the day's Communication Passes (`excursions.daily_passes`). Its `day_changeable_data` is read by the Checklist. `characters.town_calamity` (kept) is the live calamity: `calamity_id`, `remain_day_count`, the projects it struck. **`town_calamity/enter_calamity` answers with the four standings again, and `damaged`**, and they are not the login's: in the one capture holding both, three of the four were lower and politics unchanged. Nothing keeps that reply.
 
 ## Event mini-games
 
