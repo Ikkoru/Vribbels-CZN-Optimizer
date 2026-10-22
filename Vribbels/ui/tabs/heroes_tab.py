@@ -165,6 +165,12 @@ def _gear_row_pady(row):
     return (2, 2) if row < GEAR_ROWS - 1 else (2, 0)
 
 
+def _gear_col_padx(col):
+    """A column of cells' (left, right) pad, at 100%. Only the left
+    column has one, on its right: the gap between the two columns."""
+    return (0, 4) if col == 0 else (0, 0)
+
+
 def _gear_cell_h(cell):
     """A gear cell's height: its top row, its substat rows and
     `GEAR_SET_ROWS` rows of set description, in the cell's own font.
@@ -1082,7 +1088,7 @@ class HeroesTab(BaseTab):
             # trailing space inside the frame, which left the bottom row
             # of cells short of the panel's bottom edge. Rows above keep
             # both halves, so the gap BETWEEN rows is unchanged.
-            cell.grid(row=row, column=col, padx=px((0, 4 if col == 0 else 0)),
+            cell.grid(row=row, column=col, padx=px(_gear_col_padx(col)),
                       pady=px(_gear_row_pady(row)), sticky="nsew")
 
             # Colours. `rarity` is the only one re-set per render -- it
@@ -1782,9 +1788,10 @@ class HeroesTab(BaseTab):
 
         Their pixel size goes on the GRID rather than the widgets: a
         Text sizes in characters, so it is told to ask for nothing and
-        left to fill the cell the grid reserves. A row's minsize carries
-        its cells' pads, and the cells are equal because every row is
-        given the same height besides them.
+        left to fill the cell the grid reserves. Grid counts a cell's
+        pads INSIDE its row and column, so each minsize carries its
+        cells' pads, and the cells are equal because every row and
+        column is given the same size besides them.
 
         Called when the panel is built and again after a load, and the
         two must agree -- a fresh install has no data and so never
@@ -1799,8 +1806,9 @@ class HeroesTab(BaseTab):
         for cell in cells:
             cell.configure(width=1, height=1)
         for column in (0, 1):
-            gear_grid.grid_columnconfigure(column, minsize=int(cell_w),
-                                           weight=0)
+            gear_grid.grid_columnconfigure(
+                column, minsize=int(cell_w) + sum(px(_gear_col_padx(column))),
+                weight=0)
         for row in range(GEAR_ROWS):
             gear_grid.grid_rowconfigure(
                 row, minsize=cell_h + sum(px(_gear_row_pady(row))),

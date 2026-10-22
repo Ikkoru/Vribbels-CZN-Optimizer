@@ -1160,6 +1160,49 @@ def _hero_columns_line_up(tab):
     return out
 
 
+def _gear_cells_take_the_stated_width(tab):
+    """Every Equipped Memory Fragments cell is `GEAR_CELL_W` wide.
+
+    The width goes on the grid's columns as a `minsize`, and grid counts
+    a cell's own `padx` INSIDE its column: the left column's trailing
+    pad, the gap between the two, comes off its cell unless the minsize
+    carries it, and the left cells come out that much narrower than the
+    right with nothing to say so. Mapped at alpha 0 at the default
+    window size, like `_order_mode_ranks_the_roster`.
+
+    Returns a list of complaints.
+    """
+    import time
+    import tkinter as tk
+    from ui.scaling import px, WINDOW_H, WINDOW_W
+    from ui.tabs.heroes_tab import GEAR_CELL_W
+    from ui.utils.presettle import _drain
+    cells = dict(getattr(tab, "gear_cells", None) or {})
+    if not cells:
+        return []
+    root, notebook = tab.frame.winfo_toplevel(), tab.frame.master
+    try:
+        root.attributes("-alpha", 0.0)
+        if str(tab.frame) not in notebook.tabs():
+            notebook.add(tab.frame, text="Combatants")
+        notebook.pack(fill=tk.BOTH, expand=True)
+        notebook.select(tab.frame)
+        root.geometry("%dx%d" % (px(WINDOW_W), px(WINDOW_H)))
+        root.deiconify()
+        _drain(root, time.monotonic() + 30)
+        widths = {slot: cell.winfo_width() for slot, cell in cells.items()}
+    finally:
+        root.withdraw()
+    want = int(px(GEAR_CELL_W))
+    off = {slot: w for slot, w in sorted(widths.items()) if w != want}
+    if off:
+        return [f"gear cells by slot are {off} px wide, not GEAR_CELL_W's "
+                f"{want}. A cell's padx is counted inside its grid "
+                f"column, so the column's minsize has to carry it "
+                f"(`_pin_gear_cells`)."]
+    return []
+
+
 def _optimizer_lists_missing_when_shown(tab):
     """The Optimizer's combatant list takes the Combatants tab's `Show
     missing characters`: off, only combatants the capture knows; on,
@@ -6187,6 +6230,8 @@ def run():
             failures.extend(
                 _hero_columns_line_up(built["HeroesTab"]))
             failures.extend(
+                _gear_cells_take_the_stated_width(built["HeroesTab"]))
+            failures.extend(
                 _node_lines_carry_the_games_words(built["HeroesTab"]))
             failures.extend(
                 _an_unequipped_combatant_shows_its_stats(built["HeroesTab"]))
@@ -6323,6 +6368,10 @@ FAULTS = [
      "ui.tabs.heroes_tab:HeroesTab.show_hero_details",
      "if char_info is not None:\n            stats =",
      "if gear:\n            stats =", "wearing no Memory Fragments"),
+    ("the gap between gear cells taken off the left column",
+     "ui.tabs.heroes_tab:HeroesTab._pin_gear_cells",
+     "int(cell_w) + sum(px(_gear_col_padx(column)))", "int(cell_w)",
+     "not GEAR_CELL_W's"),
     ("a set only the client names taken for flex",
      "ui.tabs.heroes_tab:HeroesTab._format_sets_text",
      "pieces = set_pieces(sid)",
