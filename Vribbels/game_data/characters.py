@@ -610,7 +610,7 @@ CHARACTERS = {
         "node_60": "CDmg",
     },
     30134: {
-        "name": "Rossweisse",  # client block start
+        "name": "Rossweisse",
         "grade": 5,
         "attribute": "Justice",
         "class": "Striker",
@@ -621,7 +621,6 @@ CHARACTERS = {
         "base_crit_dmg": 125.0,
         "node_50": "CRate",
         "node_60": "CDmg",
-        "from_client": True,  # client block end
     },
 }
 
