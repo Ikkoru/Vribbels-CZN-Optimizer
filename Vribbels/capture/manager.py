@@ -226,6 +226,19 @@ CHAOS_GAVE_UP = "GIVEUP"
 RUN_HOLDS_DROPS = ("simulation/enter_savedata_stage",)
 # The fights that are not a boss's, as a map's `spot_list` types them.
 CHAOS_NON_BOSS = ("SPOT_TYPE_BATTLE", "SPOT_TYPE_ELITE")
+# The replies that carry a Chaos stage in progress: what a run this
+# capture did not see enter is picked up from (`_resume_chaos`). A run
+# taken up again asks for its stage before anything else.
+CHAOS_RESUMES = ("world/get_stage_info", "stage/enter_spot")
+# The doors a Chaos stage names in its `chaos_info`, each with the `via`
+# its run is filed under. A Sortie's stage carries a `chaos_info` too,
+# naming `assault_info`: it is no Chaos run, and is never taken up.
+CHAOS_DOORS = (("disaster_info", "disaster"), ("zero_info", "zero_orb"),
+               ("embody_info", "chaos"))
+# A map's spots that can hold a fight: an Unidentified Area can start
+# one. What was cleared on these while no capture watched is noted.
+CHAOS_FIGHT_SPOTS = ("SPOT_TYPE_BATTLE", "SPOT_TYPE_ELITE",
+                     "SPOT_TYPE_BOSS", "SPOT_TYPE_UNKNOWN")
 # The schedule groups a run's season is named by and its part dated
 # from: the Galactic Disaster's own window, and the Sortie rotations
 # inside it, the first of which is the preseason. The Checklist dates
@@ -279,6 +292,18 @@ def _zero_effects(effs, prefixes=None):
                         if isinstance(e, dict) else None,
                         [v for _k, v in sorted(opts.items()) if v != -1]])
     return out
+
+
+def _chaos_stage(data):
+    """The Chaos stage a reply carries, or None: a spot's entry has it as
+    `stage_info`, the ask for a stage one level down, as
+    `stage_info.stage`. Only a stage naming a Chaos (`chaos_info`)."""
+    stage = data.get("stage_info") if isinstance(data, dict) else None
+    if isinstance(stage, dict) and isinstance(stage.get("stage"), dict):
+        stage = stage["stage"]
+    if isinstance(stage, dict) and isinstance(stage.get("chaos_info"), dict):
+        return stage
+    return None
 
 
 def _chaos_setup(data):
@@ -504,6 +529,10 @@ class Addon:
         self.chaos_run = None
         self.chaos_spot = (None, None, "")
         self.chaos_map = []
+        # The run's `used_spot_event` as its stage last stated it: grows
+        # as the run goes on, so a run taken up again holds the one kept
+        # as its start (`_resume_chaos`).
+        self.chaos_events = []
         # The fight last counted, as (battle id, seed): see `_chaos_fight`.
         self.chaos_fight_key = None
         # The base stat readings of every battle entered, from their own
@@ -2210,8 +2239,12 @@ class Addon:
         `gacha_history.py` does the reading.
 
         Records are kept exactly as the wire sent them, keyed by the `id`
-        the game gives each one.
+        the game gives each one. The Card Skin Packs' go beside them:
+        `_merge_skins`.
         """
+        if asked and asked[0].startswith("skin_"):
+            self._merge_skins(asked, data)
+            return
         records = data.get("gacha_history_list")
         records = records if isinstance(records, list) else None
         rates = None
@@ -2337,6 +2370,89 @@ class Addon:
                 "prism": json.dumps(prism, separators=(",", ":")),
                 "createAt": str(at), "from": "pull"}
 
+    def _merge_skins(self, asked, data):
+        """Fold a Card Skin Pack records page, or a pull's reply, into
+        the Gacha History's file, beside the Rescue records and kept the
+        same way: the game's records by their `id`, newest first, only
+        ever added to, and a pull kept off its own reply until a page
+        lists it (`skin_records`, `skin_pulls`). The game erases these
+        as it does the Rescue records. One list holds every pack's, so
+        its first page is what `skin_read` dates."""
+        records = data.get("card_skin_gacha_history_list")
+        records = records if isinstance(records, list) else None
+        pulled = (self._skin_pull_record(asked[1], data)
+                  if asked[0] == "skin_gacha_run" else None)
+        if records is None and pulled is None:
+            return
+        store = self._read_gacha_store()
+        if store is None:
+            return
+        held = {}
+        for row in store["skin_records"]:
+            if isinstance(row, dict) and row.get("id") not in (None, ""):
+                held[str(row["id"])] = row
+        before = list(held.values())
+        added = 0
+        for row in records or ():
+            if (isinstance(row, dict) and row.get("id") not in (None, "")
+                    and str(row["id"]) not in held):
+                held[str(row["id"])] = row
+                added += self._gacha_pulls_in(row)
+        listed = {self._gacha_key(row) for row in held.values()}
+        pulls = [row for row in store["skin_pulls"] if isinstance(row, dict)
+                 and self._gacha_key(row) not in listed]
+        recorded = 0
+        if pulled is not None and self._gacha_key(pulled) not in (
+                listed | {self._gacha_key(row) for row in pulls}):
+            pulls.append(pulled)
+            recorded = self._gacha_pulls_in(pulled)
+        changed = bool(added) or pulls != store["skin_pulls"]
+        if records is not None and asked[0] == "skin_history" \\
+                and not asked[2]:
+            store["skin_read"] = datetime.now().isoformat(timespec="seconds")
+            changed = True
+        if not changed:
+            return
+        store["skin_records"] = sorted(
+            held.values(), reverse=True,
+            key=lambda r: (self._gacha_int(r.get("createAt")),
+                           self._gacha_int(r.get("id"))))
+        store["skin_pulls"] = pulls
+        if not self._write_gacha_store(store, [], before):
+            return
+        if added:
+            total = sum(self._gacha_pulls_in(r)
+                        for r in store["skin_records"])
+            self.log_callback("[GACHA] Card Skin records: +%d pulls, %d kept"
+                              % (added, total))
+        if recorded:
+            self.log_callback("[GACHA] Card Skin pulls recorded: +%d"
+                              % recorded)
+        self.log_callback(GACHA_MARKER)
+
+    def _skin_pull_record(self, package, data):
+        """A Card Skin Pack pull's reply as a record in the game's own
+        shape, less the `id` only the records give; None where it is not
+        one. `reward_list` gives the record's order by `index`, and a
+        skin that is not new is what the record's `dup` marks."""
+        pulled = data.get("reward_list")
+        at = data.get("service_server_time")
+        if not (isinstance(pulled, list) and pulled
+                and isinstance(at, int) and package):
+            return None
+        skins, dup = [], []
+        for row in sorted(pulled, key=lambda r: self._gacha_int(
+                r.get("index")) if isinstance(r, dict) else 0):
+            if not (isinstance(row, dict)
+                    and isinstance(row.get("card_skin_id"), int)):
+                return None
+            skins.append(row["card_skin_id"])
+            dup.append(0 if row.get("is_new") else 1)
+        return {"card_skin_package_id": package, "count": len(skins),
+                "reward": json.dumps(skins, separators=(",", ":")),
+                "dup": json.dumps(dup, separators=(",", ":")),
+                "createAt": str(at), "from": "pull"}
+
     def _gacha_key(self, record):
         """(second, units): what one record and a pull's reply agree on."""
         reward = record.get("reward")
@@ -2448,7 +2564,8 @@ class Addon:
                 continue
             for key, empty in (("records", list), ("rates", dict),
                                ("pity", dict), ("read", dict),
-                               ("pulls", list), ("reach", list)):
+                               ("pulls", list), ("reach", list),
+                               ("skin_records", list), ("skin_pulls", list)):
                 if not isinstance(data.get(key), empty):
                     data[key] = empty()
             return data
@@ -2462,13 +2579,14 @@ class Addon:
             return None
         return {"kind": GACHA_KIND, "version": 1, "records": [],
                 "rates": {}, "pity": {}, "read": {}, "pulls": [],
-                "reach": []}
+                "reach": [], "skin_records": [], "skin_pulls": []}
 
-    def _write_gacha_store(self, store, before):
+    def _write_gacha_store(self, store, before, skin_before=()):
         """Write the Gacha History through a checked copy.
 
         The copy is written and read back, and must equal what was meant
-        and still hold every record `before` held, unchanged. Only then
+        and still hold every Rescue record `before` held and every Card
+        Skin Pack record `skin_before` held, unchanged. Only then
         does the file become `<name>.bak` -- which replaces the older
         backup, and is how the older one goes -- and the copy take its
         place. A failure before that leaves the file exactly as it was.
@@ -2495,11 +2613,14 @@ class Addon:
             return False
         problems = [] if back == store else ["it does not read back as "
                                              "what was written"]
-        kept = {}
-        if isinstance(back, dict) and isinstance(back.get("records"), list):
-            kept = {str(r.get("id")): r for r in back["records"]
-                    if isinstance(r, dict)}
-        lost = [row for row in before if kept.get(str(row.get("id"))) != row]
+        lost = []
+        for field, held in (("records", before),
+                            ("skin_records", skin_before)):
+            rows = back.get(field) if isinstance(back, dict) else None
+            kept = {str(r.get("id")): r for r in rows
+                    if isinstance(r, dict)} if isinstance(rows, list) else {}
+            lost += [row for row in held
+                     if kept.get(str(row.get("id"))) != row]
         if lost:
             problems.append("%d records went missing or changed" % len(lost))
         if problems:
@@ -3941,6 +4062,17 @@ class Addon:
 
         **Filed into its own file** as it clears, with every run before
         it: `_write_chaos_store`.
+
+        **A run spans captures.** While open it is kept beside that file
+        (`_save_open_chaos`), so a capture that ends partway leaves it
+        for the next, which takes it up when the run's stage arrives
+        (`_resume_chaos`) -- or opens one from the stage alone, marked
+        `started_elsewhere`, when no capture saw it enter. Each time it
+        is taken up is in `resumed`, every spot entered in `entered`
+        (by area), and what the map shows cleared while no capture
+        watched in `unseen`. The clear's own restatement of what the run
+        paid goes in `restated`: what `chaos_estimate.recovery` checks
+        the payouts seen against.
         """
         if asked in CHAOS_OPENS:
             self.chaos_run = {"opened": data.get("service_server_time"),
@@ -3953,21 +4085,44 @@ class Addon:
             self.chaos_spot = (None, None, "")
             self.chaos_map = []
             self.chaos_fight_key = None
+            stage = _chaos_stage(data)
+            self.chaos_events = list((stage or {}).get("used_spot_event")
+                                     or ())
+            self._save_open_chaos()
             return
+        if self.chaos_run is None and asked in CHAOS_RESUMES:
+            self._resume_chaos(data)
         run = self.chaos_run
         if run is None:
             return
         if asked == CHAOS_ENTERS:
             info = data.get("spot_info")
+            stage = data.get("stage_info")
+            stage = stage if isinstance(stage, dict) else {}
             if isinstance(info, dict):
                 spot = str(info.get("spot_type") or "?").replace(
                     "SPOT_TYPE_", "")
                 self.chaos_spot = (info.get("floor"), spot, "")
+                area = str(stage.get("curr_area_id"))
+                run.setdefault("entered", {}).setdefault(area, []).append(
+                    info.get("spot_id"))
+                # The floor the map gives the spot, against the one the
+                # run counts: a later area's map starts again, and what
+                # its floors add is what an unseen spot is placed by.
+                listed = next((s.get("floor") for s in stage.get("spot_list")
+                               or () if isinstance(s, dict)
+                               and info.get("spot_id") is not None
+                               and s.get("id") == info.get("spot_id")), None)
+                if isinstance(listed, int) and isinstance(info.get("floor"),
+                                                          int):
+                    run.setdefault("offsets", {})[area] = (info["floor"]
+                                                           - listed)
+            if stage.get("used_spot_event"):
+                self.chaos_events = list(stage["used_spot_event"])
             # The map as it stands: each area's floors arrive whole
             # when the area opens, so this is what a loss is measured
             # against.
-            stage = data.get("stage_info")
-            spots = stage.get("spot_list") if isinstance(stage, dict) else None
+            spots = stage.get("spot_list")
             if isinstance(spots, list):
                 self.chaos_map = [(spot.get("floor"), spot.get("type"))
                                   for spot in spots if isinstance(spot, dict)]
@@ -4005,7 +4160,18 @@ class Addon:
             ret = data.get("return_info")
             if isinstance(ret, dict) and ret.get("result") == CHAOS_GAVE_UP:
                 run["gave_up"] = True
+            # What the clear says the run paid in the season's currency,
+            # drop by drop: the payouts seen are checked against it, and
+            # it is the only word of one taken while no capture watched.
+            if isinstance(ret, dict) and isinstance(
+                    ret.get("confirm_drop_item"), list):
+                run["restated"] = [
+                    item["amount"] for item in ret["confirm_drop_item"]
+                    if isinstance(item, dict)
+                    and item.get("group") == CHAOS_PAID_GROUP
+                    and isinstance(item.get("amount"), int)]
             self.chaos_run = None
+            self._drop_open_chaos()
             # By the second it cleared, which a replay of the same
             # capture reproduces: a run read twice is one run.
             kept = [old for old in self.chaos_runs
@@ -4017,6 +4183,135 @@ class Addon:
             # the app to read again, and the Checklist's estimate reads
             # the runs.
             self._save_pending = True
+            return
+        # Kept as it stands after every step, for a capture that ends
+        # before the run does.
+        if asked in (CHAOS_ENTERS, CHAOS_RESOLVES, CHAOS_FIGHTS, CHAOS_PAYS):
+            self._save_open_chaos()
+
+    def _open_chaos_path(self):
+        return self.output_dir / CHAOS_FOLDER / CHAOS_OPEN
+
+    def _save_open_chaos(self):
+        """Keep the run in progress in its own file: what a later capture
+        takes it up from. Written whole each time, through a copy that
+        then takes the file's place, so a capture killed mid-write
+        leaves the last one. Nothing where the runs' file is not to be
+        written this session."""
+        if self.chaos_run is None or not self._chaos_writable:
+            return
+        path = self._open_chaos_path()
+        tmp = path.with_name(path.name + ".tmp")
+        held = {"kind": CHAOS_KIND, "run": self.chaos_run,
+                "events": self.chaos_events, "spot": list(self.chaos_spot),
+                "map": self.chaos_map}
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp.write_text(json.dumps(held, separators=(",", ":")),
+                           encoding="utf-8")
+            os.replace(tmp, path)
+        except (OSError, TypeError, ValueError):
+            self._gacha_discard(tmp)
+
+    def _drop_open_chaos(self):
+        """The run is filed: nothing is left to take up."""
+        try:
+            self._open_chaos_path().unlink()
+        except OSError:
+            pass
+
+    def _read_open_chaos(self):
+        """The run a capture before this one left open, or None."""
+        try:
+            held = json.loads(self._open_chaos_path().read_text(
+                encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        return held if isinstance(held, dict) and isinstance(
+            held.get("run"), dict) else None
+
+    def _resume_chaos(self, data):
+        """Take up a run whose entry this capture did not see, from the
+        stage a reply carries.
+
+        **The run a capture before left open, where it is this one**:
+        its stage's `used_spot_event` -- every event the run has met, a
+        list that only grows -- must begin with the one kept, and the
+        difficulty must agree. A run left open and then cleared on
+        another device holds neither, and a new one is opened instead,
+        `started_elsewhere`, from the stage alone. Only a Chaos door's
+        stage is taken up (`CHAOS_DOORS`).
+
+        **What was cleared meanwhile is noted** off the map: each spot
+        that can hold a fight (`CHAOS_FIGHT_SPOTS`), cleared or being
+        played, that the run never entered, as `[area, floor on the
+        map, spot, being played]` in `unseen`. The map lists the current
+        area alone, so an area played through elsewhere shows as the
+        jump in `resumed`, not here. The spot being played becomes the
+        one at hand, so the fight that finishes it is filed there --
+        unless the reply is that spot's own entry, which the capture
+        watches from its start."""
+        stage = _chaos_stage(data)
+        if stage is None:
+            return
+        via = next((door for key, door in CHAOS_DOORS
+                    if isinstance(stage["chaos_info"].get(key), dict)), None)
+        if via is None:
+            return
+        events = list(stage.get("used_spot_event") or ())
+        setup = _chaos_setup({"playing_stage_info": {
+            "chaos_info": stage.get("chaos_info"),
+            "ingame_content_config_id": None},
+            "zero_system_effs": data.get("zero_system_effs")})
+        held = self._read_open_chaos() or {}
+        run = held.get("run")
+        kept = held.get("events") or []
+        if not (run and kept and events[:len(kept)] == kept
+                and run.get("difficulty") == setup.get("difficulty")):
+            run = {"opened": None, "started_elsewhere": True,
+                   "client": self.client_version, "via": via,
+                   "delegated": None, "fought": {}, "marked": {},
+                   "marked_at": {}, "paid": []}
+            run.update({key: value for key, value in setup.items()
+                        if value not in (None, [], {})})
+            self.chaos_map = []
+        else:
+            self.chaos_map = [tuple(pair) for pair in held.get("map") or ()]
+        run.setdefault("resumed", []).append(data.get("service_server_time"))
+        area = str(stage.get("curr_area_id"))
+        entered = set((run.get("entered") or {}).get(area) or ())
+        entering = data.get("spot_info")
+        if isinstance(entering, dict) and entering.get("spot_id") is not None:
+            entered.add(entering["spot_id"])
+        playing = stage.get("playing_spot_id")
+        unseen = run.setdefault("unseen", [])
+        self.chaos_spot = (None, None, "")
+        for spot in stage.get("spot_list") or ():
+            # The map's start, on floor -1, is never entered, and the
+            # spot on floor 0 opens every run with an event: no capture
+            # has seen a fight begin on either.
+            if (not isinstance(spot, dict) or spot.get("id") in entered
+                    or not isinstance(spot.get("floor"), int)
+                    or spot["floor"] < 1):
+                continue
+            busy = spot.get("id") == playing
+            if spot.get("type") in CHAOS_FIGHT_SPOTS and (
+                    spot.get("clear") == 1 or busy):
+                kind = str(spot.get("type")).replace("SPOT_TYPE_", "")
+                row = [stage.get("curr_area_id"), spot.get("floor"), kind,
+                       busy]
+                if row not in unseen:
+                    unseen.append(row)
+                if busy:
+                    offset = (run.get("offsets") or {}).get(area)
+                    floor = spot.get("floor")
+                    self.chaos_spot = (floor + offset if isinstance(
+                        floor, int) and isinstance(offset, int) else floor,
+                        kind, "")
+        self.chaos_run = run
+        self.chaos_events = events
+        self.chaos_fight_key = None
+        self._save_open_chaos()
 
     def _chaos_fight(self, run, fight):
         """Count one fight of the run in progress -- once, by its battle
@@ -4398,6 +4693,14 @@ class Addon:
                 if banner:
                     self.gacha_requests[qid] = (
                         inner_cmd, str(banner), params.get("last_db_id"))
+
+            elif entry.get("cmd") == "card_skin" and inner_cmd in (
+                    "history", "gacha_run"):
+                # A pull names its pack; a records page none, the one
+                # list holding every pack's. See `_merge_skins`.
+                self.gacha_requests[qid] = (
+                    "skin_" + inner_cmd, str(params.get("id") or ""),
+                    params.get("last_db_id"))
 
             elif inner_cmd == "reward_combatant_trial":
                 # **The only place the two ids appear together.** A
@@ -4938,6 +5241,7 @@ GACHA_REACH_KEEP = {gacha_history.REACH_KEEP!r}
 CHAOS_FOLDER = {chaos_store.FOLDER!r}
 CHAOS_FILE = {chaos_store.FILE!r}
 CHAOS_KIND = {chaos_store.KIND!r}
+CHAOS_OPEN = {chaos_store.OPEN_FILE!r}
 BASE_FOLDER = {base_stats_store.FOLDER!r}
 BASE_FILE = {base_stats_store.FILE!r}
 BASE_KIND = {base_stats_store.KIND!r}

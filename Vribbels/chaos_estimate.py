@@ -241,6 +241,77 @@ def payouts(run):
     return out
 
 
+def payout_kinds(runs, season):
+    """{amount: {(spot, mark), ...}}: what each amount was seen paying
+    for in the season's runs -- a boss (`BOSS`, "") or a marked fight
+    (its spot, its mark). What `recovery` reads an unseen payout by."""
+    kinds = collections.defaultdict(set)
+    for run in readable(runs):
+        if run.get("season") != season:
+            continue
+        for _floor, spot, mark, amount in payouts(run):
+            kinds[amount].add((BOSS, "") if spot == BOSS else (spot, mark))
+    return dict(kinds)
+
+
+# A spot `unseen` holds that can be a fight with a mark: a boss is
+# placed by its amount alone.
+UNSEEN_FIGHTS = ("BATTLE", "ELITE", "UNKNOWN")
+
+
+def recovery(run, kinds):
+    """(recovered, unknown) for a run some of which no capture saw.
+
+    **The clear restates what the run paid** (`restated`), so every
+    amount it holds and no capture saw was taken while none watched.
+    Each is read by `kinds` (`payout_kinds`): one paid only at bosses
+    goes on an unseen boss, placed on its floor; one paid only on a
+    mark is that mark's, on a fight no capture saw. `recovered` is
+    those as payouts, `(floor or None, spot, mark, amount)`.
+
+    `unknown` says what stays unknown, in words: an amount nothing
+    explains or that could be either, and each fight no capture saw
+    that no recovered payout accounts for -- one can carry a mark
+    that pays nothing (`b1`), so its marks are not known, and its run
+    is partial for the mark rates (`is_partial`). A run whose clear
+    restated nothing recovers nothing."""
+    recovered, unknown = [], []
+    restated = run.get("restated")
+    unseen = [tuple(row) for row in run.get("unseen") or ()
+              if isinstance(row, (list, tuple)) and len(row) >= 3]
+    bosses = [row for row in unseen if row[2] == BOSS]
+    fights = [row for row in unseen if row[2] in UNSEEN_FIGHTS]
+    if isinstance(restated, list):
+        seen = collections.Counter(amount for *_rest, amount in payouts(run))
+        for amount in restated:
+            if seen[amount]:
+                seen[amount] -= 1
+                continue
+            options = kinds.get(amount) or set()
+            marks = sorted(option for option in options if option[0] != BOSS)
+            if (BOSS, "") in options and not marks and bosses:
+                row = bosses.pop(0)
+                recovered.append((row[1], BOSS, "", amount))
+            elif marks and (BOSS, "") not in options and fights:
+                spot, mark = marks[0]
+                fights.pop(0)
+                recovered.append((None, spot, mark, amount))
+            else:
+                unknown.append("%d unexplained" % amount)
+    if fights:
+        unknown.append("%d fight(s) unseen (%s)" % (len(fights), ", ".join(
+            "%s %s" % (row[1], row[2].lower()) for row in fights)))
+    return recovered, unknown
+
+
+def is_partial(run):
+    """Whether a run's fights are not all known: some were fought while
+    no capture watched and nothing accounts for them (`recovery`). Its
+    marks are then not all counted, and a mark's rate leaves it out."""
+    return any(isinstance(row, (list, tuple)) and len(row) >= 3
+               and row[2] in UNSEEN_FIGHTS for row in run.get("unseen") or ())
+
+
 def is_full(run):
     """Whether a run counts as a whole one: cleared, or lost where a
     boss had already paid and no non-boss fight was left on the map.
@@ -402,7 +473,8 @@ def mark_rates(live, runs, shipped=SHIPPED, stale=0, since=None):
     after = released_at() if since is None else since
     counted = [run for run in runs
                if run["closed"] >= after and is_current(run)
-               and is_full(run) and not in_rate_event(run["closed"])]
+               and is_full(run) and not is_partial(run)
+               and not in_rate_event(run["closed"])]
     if len(counted) < RATE_RUNS:
         return rates, None
     marked = collections.Counter()

@@ -64,7 +64,7 @@ def addon_tables():
     return dict(CHAR_NAMES={}, SET_NAMES={}, SLOT_NAMES={}, ITEM_NAMES={},
                 KNOWN_UNIT_IDS=set(), REGION_ROUTES={},
                 CHAOS_FOLDER=chaos_store.FOLDER, CHAOS_FILE=chaos_store.FILE,
-                CHAOS_KIND=chaos_store.KIND,
+                CHAOS_KIND=chaos_store.KIND, CHAOS_OPEN=chaos_store.OPEN_FILE,
                 BASE_FOLDER=base_stats_store.FOLDER,
                 BASE_FILE=base_stats_store.FILE,
                 BASE_KIND=base_stats_store.KIND)

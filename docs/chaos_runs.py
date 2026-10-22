@@ -14,6 +14,14 @@ see `Addon._note_chaos` in `Vribbels/capture/manager.py`. A run is
 keyed by the second it cleared, which all three give alike, so a run
 several hold is one row, whose `log` names the debug log.
 
+**A run can span captures**, and the logs replay in order into one
+folder, so a run one leaves open is taken up by the next, as the
+capture does. What was played while no capture watched -- on another
+device, or between two captures -- is in `gaps`: what the clear's own
+restatement recovers, placed by the amounts the season's runs were
+seen paying, and what stays unknown, which makes the run partial and
+leaves it out of the mark rates.
+
 **Only the live season's own Chaos is averaged for what it pays.** A
 past season's Chaos -- entered through the Zero System -- pays the live
 season's currency too, but less, so the means, the report and the
@@ -66,11 +74,12 @@ The columns this script owns:
 | `mode`    | `delegated`, played by the Delegation Module down one path, or `ordinary` |
 | `client`  | the game client and data patch it ran on: `cznlive 1.464 r688`  |
 | `total`   | what the run paid in the season's currency                      |
-| `payouts` | every payout in order, `floor:spot:amount`, `+mark` for a mark  |
+| `payouts` | every payout in order, `floor:spot:amount`, `+mark` for a mark; one no capture saw, which the clear restated, after them with `~` (`?` for a floor unknown) |
 | `marked`  | the fights carrying a mark, paid or not: `k5:2 e:1`             |
 | `marked_at` | the same by the spot each was met on: `battle.k5:1 elite.k5:1` |
 | `fought`  | the fights, by spot: `battle:11 elite:4 boss:3`; `unknown` is a fight a `?` encounter offered, `break_in` a hidden mini-boss |
 | `lost`    | where a lost run was lost: `floor:spot:non-boss fights left`, `+mark` for a mark |
+| `gaps`    | how much of the run a capture saw: empty for all of it; else `started elsewhere` and `resumed N`, what the clear's restatement `recovered`, and `partial:` what stays unknown -- `chaos_estimate.recovery` |
 | `SPOT_*`  | the payouts at each kind of spot, `+` between them              |
 | `log`     | the capture it was read from                                    |
 
@@ -190,7 +199,7 @@ CURRENCY = {3920001: "s01", 3920002: "s02", 3920006: "s03", 3920031: "s04",
 # is the maintainer's and is carried over by `date`.
 OWNED = ["date", "season", "part", "chaos", "door", "difficulty",
          "special", "options", "rolled", "amplified", "mode", "client",
-         "total", "payouts", "marked", "marked_at", "fought", "lost"]
+         "total", "payouts", "marked", "marked_at", "fought", "lost", "gaps"]
 # The effect ids a run's rolled bonus and penalties come as, whichever
 # door it was entered by.
 ROLLED = (("zero_orb_bonus_", "b"), ("zero_orb_penalty_", "p"))
@@ -221,6 +230,10 @@ def paint(text, code):
 # The maintainer's column the summary reads: see the module docstring.
 MISSED = "missed"
 SPOT_COLUMN = "SPOT_TYPE_"
+# What a payout no capture saw carries in `payouts` and the `SPOT_*`
+# cells: the clear restated it (`gaps_of`). Read back by nothing that
+# measures a payout -- it is placed by those, not seen.
+RECOVERED = "~"
 
 # The marks by the game's names; one missing here is new, and flagged.
 MARKS = {"k5": "Rare Species", "e": "Aether Eater", "b1": "Senectus"}
@@ -273,39 +286,39 @@ def stamp(name):
 
 
 def logs(since=""):
-    """(name, lines) for every debug log started at `since` or later.
+    """(name, lines) for every debug log started at `since` or later,
+    oldest first: a run one log leaves open is taken up by the next.
 
-    Loose logs first, then the archive -- and the archive only when
+    The archive, then the loose logs -- and the archive only when
     `since` is older than every loose log. Compaction archives the
-    oldest logs and leaves the newest loose, so when `since` is loose
-    nothing archived can be as new, and walking the archive (a solid
-    stream, decompressed end to end) would find nothing to read.
+    oldest logs and leaves the newest loose, so the archive holds
+    nothing newer than a loose log, and when `since` is loose walking
+    it (a solid stream, decompressed end to end) would find nothing to
+    read.
     """
     loose = sorted(glob.glob("snapshots/websocket_debug_*.jsonl.gz"))
+    archive = "snapshots/archived_captures.tar.xz"
+    if os.path.exists(archive) and not (since and loose
+                                        and since >= stamp(loose[0])):
+        print(paint("   opening the archive...", QUIET), flush=True)
+        with tarfile.open(archive) as tf:
+            for member in tf:
+                if ("websocket_debug" not in member.name
+                        or stamp(member.name) < since):
+                    continue
+                handle = tf.extractfile(member)
+                if handle is None:
+                    continue
+                raw = handle.read()
+                if member.name.endswith(".gz"):
+                    raw = gzip.decompress(raw)
+                yield os.path.basename(member.name), io.StringIO(
+                    raw.decode("utf-8", "replace")).readlines()
     for path in loose:
         if stamp(path) >= since:
             with gzip.open(path, "rt", encoding="utf-8",
                            errors="replace") as fh:
                 yield os.path.basename(path), list(fh)
-    archive = "snapshots/archived_captures.tar.xz"
-    if not os.path.exists(archive):
-        return
-    if since and loose and since >= stamp(loose[0]):
-        return
-    print(paint("   opening the archive...", QUIET), flush=True)
-    with tarfile.open(archive) as tf:
-        for member in tf:
-            if ("websocket_debug" not in member.name
-                    or stamp(member.name) < since):
-                continue
-            handle = tf.extractfile(member)
-            if handle is None:
-                continue
-            raw = handle.read()
-            if member.name.endswith(".gz"):
-                raw = gzip.decompress(raw)
-            yield os.path.basename(member.name), io.StringIO(
-                raw.decode("utf-8", "replace")).readlines()
 
 
 def fresh_addon(work):
@@ -408,9 +421,12 @@ def token(floor, spot, mark, amount):
 
 
 def payouts_of(cell):
-    """(floor, spot, amount, mark) per payout in a `payouts` cell."""
+    """(floor, spot, amount, mark) per payout in a `payouts` cell, one
+    no capture saw (`RECOVERED`) left out."""
     out = []
     for part in (cell or "").split():
+        if part.endswith(RECOVERED):
+            continue
         where, _, mark = part.partition("+")
         pieces = where.split(":")
         if len(pieces) != 3 or not pieces[2].isdigit():
@@ -543,11 +559,36 @@ def run_of_row(row):
             "marked": counts_of(row.get("marked"))}
 
 
-def row_of(run, source, parts):
-    """One run as {column: cell}, over the columns this script owns."""
+def gaps_of(run, recovered, unknown):
+    """The `gaps` cell: how much of a run a capture saw. Empty for one
+    seen whole; else whether it was taken up again and how often, or
+    entered while no capture watched, then what the clear's restatement
+    `recovered` (`chaos_estimate.recovery`) and what stays unknown, the
+    run then `partial`."""
+    said = []
+    if run.get("started_elsewhere"):
+        said.append("started elsewhere")
+    resumed = [when for when in run.get("resumed") or () if when]
+    if resumed:
+        said.append("resumed %d" % len(resumed))
+    if recovered:
+        said.append("recovered " + " ".join(
+            token("?" if floor is None else floor, spot, mark, amount)
+            for floor, spot, mark, amount in recovered))
+    if unknown:
+        said.append("partial: " + "; ".join(unknown))
+    return ", ".join(said)
+
+
+def row_of(run, source, parts, kinds=None):
+    """One run as {column: cell}, over the columns this script owns.
+    `kinds` is {season: `chaos_estimate.payout_kinds`}, which places a
+    payout no capture saw (`gaps_of`); without it nothing is placed."""
     currency = currency_of(run)
     season = short(run.get("season")) or CURRENCY.get(currency, "?")
     paid = [p for p in run.get("paid") or () if p[3] == currency]
+    recovered, unknown = chaos_estimate.recovery(
+        run, (kinds or {}).get(run.get("season")) or {})
     part = part_of(run["closed"], run.get("season"), parts)
     # The capture's own stamp, for a season no longer live.
     if part == "?" and isinstance(run.get("part"), int):
@@ -571,9 +612,14 @@ def row_of(run, source, parts):
         "mode": ("delegated" if run.get("delegated") else "ordinary")
                 if "delegated" in run else "?",
         "client": run.get("client") or "?",
-        "total": str(sum(amount for *_rest, amount in paid)),
-        "payouts": " ".join(token(floor, spot, mark, amount)
-                            for floor, spot, mark, _item, amount in paid),
+        "total": str(sum(amount for *_rest, amount in paid)
+                     + sum(amount for *_rest, amount in recovered)),
+        # A payout the clear restated and no capture saw carries `~`.
+        "payouts": " ".join(
+            [token(floor, spot, mark, amount)
+             for floor, spot, mark, _item, amount in paid]
+            + [token("?" if floor is None else floor, spot, mark, amount)
+               + RECOVERED for floor, spot, mark, amount in recovered]),
         "marked": " ".join("%s:%d" % item for item in
                            sorted((run.get("marked") or {}).items())),
         "marked_at": " ".join(
@@ -583,11 +629,14 @@ def row_of(run, source, parts):
         "fought": " ".join("%s:%d" % (spot.lower(), n) for spot, n in
                            sorted((run.get("fought") or {}).items())),
         "lost": lost_token(run.get("lost")),
+        "gaps": gaps_of(run, recovered, unknown),
         "log": source,
     }
     by_spot = collections.defaultdict(list)
     for _floor, spot, _mark, _item, amount in paid:
         by_spot[SPOT_COLUMN + str(spot)].append(str(amount))
+    for _floor, spot, _mark, amount in recovered:
+        by_spot[SPOT_COLUMN + str(spot)].append(str(amount) + RECOVERED)
     for column, amounts in by_spot.items():
         row[column] = "+".join(amounts)
     return row
@@ -614,8 +663,12 @@ def merge(rows, found, parts, theirs, full):
     maintainer's columns `theirs` kept. `full` rebuilds every row from
     what was found."""
     kept = {} if full else dict(rows)
+    found = list(found)
+    every = [run for run, _source in found]
+    kinds = {season: chaos_estimate.payout_kinds(every, season)
+             for season in {run.get("season") for run in every}}
     for run, source in found:
-        row = row_of(run, source, parts)
+        row = row_of(run, source, parts, kinds)
         old = rows.get(row["date"], {})
         # A row a log was replayed into stays as it is against the
         # capture's own record of the same run: the replay runs today's
@@ -885,7 +938,10 @@ def _whole_runs(rows):
         row = rows[date]
         when = datetime.datetime.strptime(date, "%Y-%m-%d %H:%M").replace(
             tzinfo=datetime.UTC).timestamp()
+        # A partial run's fights are not all known, so neither are its
+        # marks (`chaos_estimate.is_partial`).
         if (chaos_estimate.is_full(run_of_row(row))
+                and "partial" not in (row.get("gaps") or "")
                 and not chaos_estimate.in_rate_event(when)):
             out.append(row)
     return out
@@ -1111,17 +1167,23 @@ def main():
     # hold is one run, and the log, read second, names it.
     found = {run["closed"]: (run, name) for name, run in held}
     seen = 0
-    for name, lines in logs(since):
-        seen += 1
-        work = Path(tempfile.mkdtemp(prefix="chaos_"))
-        try:
-            got = runs_in(lines, fresh_addon(work))
-        finally:
-            shutil.rmtree(work, ignore_errors=True)
-        print(paint("   %s: %d run(s)" % (name, len(got)),
-                    QUIET if not got else GOOD), flush=True)
-        for run in got:
-            found[run["closed"]] = (run, name)
+    # **One folder for every log, in order**, each through a fresh addon
+    # as a restart does: a run one capture leaves open is taken up by
+    # the next from what the first kept there (`Addon._resume_chaos`).
+    work = Path(tempfile.mkdtemp(prefix="chaos_"))
+    try:
+        filed = set()
+        for name, lines in logs(since):
+            seen += 1
+            got = [run for run in runs_in(lines, fresh_addon(work))
+                   if run.get("closed") not in filed]
+            filed.update(run.get("closed") for run in got)
+            print(paint("   %s: %d run(s)" % (name, len(got)),
+                        QUIET if not got else GOOD), flush=True)
+            for run in got:
+                found[run["closed"]] = (run, name)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
 
     kept = merge(rows, found.values(), parts, theirs, full)
     new = len({row_of(run, s, parts)["date"] for run, s in found.values()}

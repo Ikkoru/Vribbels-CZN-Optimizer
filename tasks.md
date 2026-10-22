@@ -12,8 +12,7 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
 ### 1b) Needs maintainer assistance figuring out
 
-- **B2 — A Chaos run started on another device is filed nowhere.** A run opens only on the request that enters it (`CHAOS_OPENS` in `capture/manager.py`), so one entered on the phone and finished on the PC leaves no row in `docs/chaos_runs.tsv` and no entry in the runs' file. The 2026-10-21 14:04 capture holds one: resumed at 14:05 (`disaster/enter_disaster`, then `world/world_info` with `enter_stage: true`), lost on floor 27 of 28, its clear paying 192 Relic of a Frozen Civilization. The clear restates the whole run; the fights and payouts before the resume were never seen.
-  - **The maintainer's call:** file such a run, marked resumed so that its partial fights stay out of the mark rates and only its clear counts, or keep leaving it out.
+*N/A*
 
 ---
 
@@ -30,7 +29,7 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
   - what the close and the `battle_end` say;
   - whether anything the capture keeps moves: stage limits, rewards, the Checklist's counts, the standings.
 
-  Seen already, in the Tower and in a Chaos run: `clear_stage` answered `FAIL`. The Chaos run also sent a `battle_end` saying `BATTLE_RESULT_TYPE_STAGE_FAILED`.
+  Seen already, in the Tower and in a Chaos run: `clear_stage` answered `FAIL`. The Chaos run also sent a `battle_end` saying `BATTLE_RESULT_TYPE_STAGE_FAILED`. So did a lost Nebula Distortion fight (`disaster/enter_disaster_penalty_stage`), with `finished_condition` `default1`; its close said `FAIL` with state `finish` and `curr_floor` 0, carried no `disaster_boss_penalty_result`, and paid nothing.
 
 - **I37 — Anika's and Arabella's level curves.** The client puts both Strikers on another class's level-61/62 gains: Anika on Vanguard grade 4's (`c_lv_vanguard_sr`), Arabella on Ranger grade 5's (`c_lv_ranger_ssr`), `level_curve` in `characters.py`. No reading has either past level 60: the 2026-10-12 capture's one Anika battle, a Chaos run, states her at 60, and Arabella is in none of its battles. With capture on, a plain battle with either at level 61 or 62; `check_base_stats_on_wire` then holds the server's base to the curve.
 
@@ -49,9 +48,15 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
      - **At the 11-11 and 12-02 patches**, re-read that and update the entry: the client lists a part's story and achievements with the patch that opens it, so build 126 holds chapter 1's alone, and the entry takes it three times for the story. The Great Rift terms are season 4's until the client lists season 5's; its weekly tiers' table still names season 4's currency.
      - `chaos_estimate.SHIPPED["disaster_s05"]` is off its first cleared run, at 0 amplification nodes: bosses 144 on floors 17 and 28, 60 on floor 31, the Rare Species 48. Its mark rates rest on that one run; refresh the entry from `python docs/chaos_runs.py` as runs come in (I41 first, which decides what the figures mean).
 
-- **I41 — The season estimate and the Environment Variables' amplification.** Each `Memory Resonance Amplification` node of a season's tree adds 1% to what its Chaos pays in the season's currency, rounded up: `ceil(base * (100 + n) / 100)`, which every captured payout fits (`docs/chaos_runs.py`, the `amplified` column). Season 5's tree holds 13 in build 126, and its circle layout names 16 more node numbers with no rows yet, presumably part 2's: 29 if they are all amplification. Season 4 had 25 of its 34 nodes so.
+- **I41 — The season estimate and the Environment Variables' amplification.** Each `Memory Resonance Amplification` node of a season's tree adds 1% to what its Chaos pays in the season's currency, rounded up: `ceil(base * (100 + n) / 100)`, which every captured payout fits but one (`docs/chaos_runs.py`, the `amplified` column). Season 5's tree holds 13 in build 126, and its circle layout names 16 more node numbers with no rows yet, presumably part 2's: 29 if they are all amplification. Season 4 had 25 of its 34 nodes so.
+  - **The third boss is not amplified.** Season 5's floor-31 boss paid 60 at 0 nodes and at 5, where the floor-17 and floor-28 bosses paid 144 and then 152, and the Rare Species 48 and then 51. Season 4's floor-37 boss paid 60 at 25 nodes too.
   - `SHIPPED["disaster_s04"]` holds the payouts at the maintainer's own 19 and 25 nodes (172 and 180 a boss over a base of 144); season 5's holds the base. A player's own payouts already overrule the shipped amounts part by part (`settle`), so the estimate follows their nodes once seen, and the parts not played yet stand at the shipped figures.
   - **The maintainer's call:** keep the shipped figures as payouts, or ship every season's at base and apply the account's own nodes, read off the login (`zero_orb` replies carry `disaster_skilltree_node_entities`, which the capture does not keep yet) or assumed whole once a part opens them.
+  - **Being weighed by the maintainer:** the nodes change only what a run pays, and the currency that unlocks them is what runs pay, so on a few assumptions the account's currency could be worked out at any point of the season, and with it when each node is bought.
+
+- **I42 — The Card Skin Packs in the Stats & Gacha History tab.** The capture keeps their records and pulls (`docs/gacha_history.md`, *Card Skin Packs*); the app shows nothing of them yet. Their luck is a binomial count: no pity, a Super Rare at 1.3% and a Rare at 13% each pull.
+  - **Needs:** the client's `card_skin`, `card_skin_package` and `card_skin_pool` tables read and shipped as the other client facts are (`game_client`, `docs/client_tables.py --ship`): each skin's rarity, and each pack's name and rates. Kept apart from `across_pools`, whose figures are the Rescues'.
+  - **The maintainer's call:** where they show. One row per pack in the Banners list (5★ the Super Rares, 4★ the Rares, the pity and 50/50 columns blank, its pulls in the list beside it), or a panel of their own.
 
 - **I31 — The Chaos estimate's loose end.** Built as the maintainer specified:
 
@@ -119,6 +124,12 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
   - The deck model and the card catalogue are UI-free (`Vribbels/decks/`), so T20 adds damage to the same model.
   - **Once the feature is complete, a cleanup pass:** remove from `plan.md` and the docs whatever turned out not to be needed, move the reference material into `docs/`, and archive the plan.
+
+- **T26 — A tab for the paid packages.** The Shop's Starshine Package (`shop_package_event`) and Protos Supply (`shop_package`): what each period sells, at what price and limit, what each package holds, and what the account bought. The maintainer's basis for what to make: `https://docs.google.com/spreadsheets/d/1hlWGKlHVD9BSMX55wGJMYnZ9FxEeYZaUJs43Wqn52H8/edit?gid=0#gid=0` (it needs a sign-in to read). Every package seen so far is in `docs/items_shops.tsv`.
+  - **Each banner period's packages are new items**, three tiers at prices 98, 328 and 648 with the same contents as the period before's (10 Signal Amplification Anchors; 20 and 2,480 Crystals; 30, 6,480 Crystals and 3 Multidimensional Alignment Material), plus extras some periods add. Their products are new ids too, and each names its period in `link_shop_schedule_id` (`pick_up_261021`).
+  - **On the wire:** the shelf, `shop_res_data[shop]`, lists each product's item (`product_link_item_id`), price (`price_count`, `price_type` `CASH`), limit and period, but only while it is on sale. The purchase record, `shop_list[product id]` (`count`, `total_count`, `reset_time`), stays after the product leaves: the account's from 2026-01 on are all still there. So a past purchase's item and price are known only from a capture made while it was listed, which the capture archive holds back to 2026-09-08.
+  - **In the client:** what a package holds (`reward_box_fixed`, its item's `multiple_link`), and the payment event points a product pays (`shop_product_point`).
+  - **A past package can carry today's name.** Imp's Mischief II and III (4501086, 4501087) were named by the text ids of 4501094 and 4501095, which build 126 rewrote for the Nightmare Carnival Chests, so the client now names those two as the chests too. A period's packages are named right by the client build of their period (`client_archive`).
 
 ---
 

@@ -27,6 +27,11 @@ FOLDER = "chaos_runs"
 FILE = "runs.json.gz"
 KIND = "vribbels chaos runs"
 BACKUP = ".bak"
+# The run in progress, beside the file, while one is open: a capture
+# that ends partway leaves it for the next to pick up, so a run played
+# across captures -- and on another device between them -- is one run
+# (`Addon._resume_chaos`). Gone once the run clears.
+OPEN_FILE = "open.json"
 
 # (path, size, modified) -> runs, so a tab redrawing reads the file
 # once per change rather than once per redraw.

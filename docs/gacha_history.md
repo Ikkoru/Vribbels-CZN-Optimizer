@@ -1,6 +1,6 @@
 # Gacha History
 
-Read before touching `Vribbels/gacha_history.py`, `ui/tabs/gacha_history_tab.py`, or the addon's `_merge_gacha` in `capture/manager.py`.
+Read before touching `Vribbels/gacha_history.py`, `ui/tabs/gacha_history_tab.py`, or the addon's `_merge_gacha` and `_merge_skins` in `capture/manager.py`.
 
 **The game lists about half a year of pulls and then drops them for good.** A longer history exists only if someone read it while it was still listed, so everything here is built around keeping what was read and never losing it.
 
@@ -34,7 +34,7 @@ A pity record carries `pity_ssr_count` (pulls since the last 5-star) and `pity_s
 
 | File | Written by | Holds |
 | ---- | ---------- | ----- |
-| `captured.json` | the capture addon | the records as the wire sent them, keyed by `id`; each banner's rates and when they were seen; the pity records; when each banner's first page was last read; the pulls kept off their replies; how far back each read of the records reached (`reach`) |
+| `captured.json` | the capture addon | the records as the wire sent them, keyed by `id`; each banner's rates and when they were seen; the pity records; when each banner's first page was last read; the pulls kept off their replies; how far back each read of the records reached (`reach`); the Card Skin Packs' records and pulls, beside them (`skin_records`, `skin_pulls`, `skin_read`) |
 | `imported.json` | the Import JSON button | batches read out of other files, each marked with the file it came from |
 
 **One writer per file** is what makes an import mid-capture safe: neither process can write over what the other just wrote.
@@ -125,6 +125,19 @@ The Overall Gacha Stats sheet under the Banners list is `across_pools`, into `Ov
 A pull with no banner is dated back to one -- `dated_banner`, over `RELEASE_BANNERS` and `RERUN_BANNERS`. A release banner changes over at 02:00 UTC, on the day one closes and the next opens, and a pull gets a banner only where exactly one release of its kind was open and no rerun ran beside it. Where two releases overlapped, the pull stays unknown; where a rerun was open too, it could be the rerun's, whose pity is kept apart, and the tab says how many such pulls there are. Only imports need this: the game's own records name their banner.
 
 **The game's own records win wherever they cover the same pulls.** An import is matched to them by record `id`, by category and second, or by second and every unit in the batch -- the last because only the units can say that two batches filed under different categories are one.
+
+## Card Skin Packs
+
+A Card Skin Pack is a gacha of its own, with no pity, and the game erases its records like the Rescue records, so the addon keeps them in the same file (`_merge_skins`). The app shows nothing of them yet.
+
+| Command | Reply | What it is |
+| ------- | ----- | ---------- |
+| `card_skin/history {"last_db_id": <cursor>}` | `card_skin_gacha_history_list`, `next_page_exists` | one page of records, newest first: every pack's in one list |
+| `card_skin/gacha_run {"id": <pack>, "count": n}` | `reward_list`, `add_result.card_skins` | the skins pulled, each with its `index`, `is_new`, and for a duplicate the item it became (`dup_item_id`, `dup_item_count`); each skin's rarity |
+
+A record is `{"id", "user_id", "card_skin_package_id", "count", "reward", "dup", "createAt"}`, `reward` and `dup` JSON TEXT as in a Rescue record. `dup` is 1 for a skin already owned, which the game turns into Remnant of a Shining Moment x1 for a Common, Remnant of a Brilliant Moment x2 for a Rare and x10 for a Super Rare. `captured.json` keeps the records as `skin_records`, a pull off its own reply as `skin_pulls` until a page lists it -- matched by second and skins, as a Rescue pull is -- and when the first page was last read as `skin_read`. A pull costs one Lumina Lens a skin.
+
+**The rates are the client's.** `card_skin_package` gives each pack its common and special pools' shares out of 10,000, 8570 and 1430, and `card_skin_pool` each skin's weight in its pool: the pack's own Super Rare 130 and Rare 1300, sixteen Commons 1 each. So every pull is a Super Rare at 1.3% and a Rare at 13% whatever came before it, the Probabilities notice's figures, and a pack's luck is a binomial count. `card_skin` gives each skin's rarity, pack and duplicate conversion.
 
 ## Not yet confirmed
 

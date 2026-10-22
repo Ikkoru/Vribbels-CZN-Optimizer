@@ -416,6 +416,7 @@ def run():
     failures.extend(_what_the_entry_says(Addon))
     failures.extend(_the_table_keeps_a_replayed_row())
     failures.extend(_the_table_names_the_rolls())
+    failures.extend(_a_run_spans_captures(Addon))
     failures.extend(_new_season(Addon))
     _the_file(Addon, failures)
     return failures
@@ -584,6 +585,191 @@ def _tool():
     return tool
 
 
+# A first area as a stage's `spot_list` lists it: (spot id, floor, type).
+# Floor -1 is the map's start and floor 0 the event every run opens
+# with: neither holds a fight, cleared or not.
+SPAN_MAP = ((7, -1, "UNKNOWN"), (8, 0, "UNKNOWN"), (1, 1, "BATTLE"),
+            (2, 2, "ELITE"), (3, 3, "BOSS"), (4, 4, "BATTLE"))
+
+
+def _span_stage(events, cleared=(), playing=None):
+    """The run's stage as a reply carries it: the events met so far, the
+    map with what is cleared, and the spot being played."""
+    return {"stage": {
+        "curr_area_id": 0, "used_spot_event": list(events),
+        "playing_spot_id": playing,
+        "chaos_info": DISASTER_ENTRY["playing_stage_info"]["chaos_info"],
+        "spot_list": [{"id": sid, "floor": floor, "type": "SPOT_TYPE_" + kind,
+                       "clear": 1 if sid in cleared else 0}
+                      for sid, floor, kind in SPAN_MAP]}}
+
+
+def _a_run_spans_captures(Addon):
+    """A run one capture leaves open is taken up by the next, and what
+    was played between the two is told apart from what the captures saw.
+
+    The 2026-10-21 run, cut down: entered and fought into on the PC, the
+    capture ending; an Elite and the boss played on another device, the
+    boss's win completed only once the PC took the run up again; a
+    Rare Species after; the clear restating 144 and 48 where the
+    captures saw the 48 alone. The run is one, `resumed` once, its
+    `unseen` the Elite and the boss being played, `restated` the clear's
+    -- and `chaos_estimate.recovery` places the 144 on the boss and
+    leaves the Elite's marks unknown. A run left open whose events the
+    next stage does not begin with is another run: not taken up.
+    Returns complaints."""
+    import chaos_estimate as ce
+    out = []
+    folder = Path(tempfile.mkdtemp(prefix="capture_chaos_"))
+    first = _new(Addon, folder)
+    _setup(first)
+    steps = _Steps(first, 1100)
+    steps.step("disaster/enter_disaster_chaos_stage",
+               service_server_time=1790460000, stage_info=_span_stage(["e0"]),
+               **DISASTER_ENTRY)
+    steps.step("stage/enter_spot",
+               spot_info={"floor": 1, "spot_type": "SPOT_TYPE_BATTLE",
+                          "spot_id": 1},
+               stage_info=_span_stage(["e0", "e1"])["stage"])
+    steps.step("battle/battle_start", snapshot={"cache": {"battle_init_wt": {
+        "battle_res_id": "base_00160", "floor": 1}}})
+    if not (folder / "chaos_runs" / "open.json").exists():
+        out.append("a run in progress left no open.json beside the runs' "
+                   "file: a capture that ends partway leaves the next "
+                   "nothing to take up (`Addon._save_open_chaos`).")
+    second = _new(Addon, folder)
+    _setup(second)
+    steps = _Steps(second, 1200)
+    steps.step("world/get_stage_info", service_server_time=1790461000,
+               stage_info=_span_stage(["e0", "e1", "e2", "e3"],
+                                      cleared=(7, 8, 1, 2), playing=3))
+    steps.step("stage/enter_spot",
+               spot_info={"floor": 4, "spot_type": "SPOT_TYPE_BATTLE",
+                          "spot_id": 4},
+               stage_info=_span_stage(["e0", "e1", "e2", "e3", "e4"],
+                                      cleared=(1, 2, 3))["stage"])
+    steps.step("battle/battle_start", snapshot={"cache": {"battle_init_wt": {
+        "battle_res_id": "base_00161", "floor": 4, "keyword_tag": [5]}}})
+    steps.step("spot_reward/get_drop_item", drop_item_result=[
+        {"id": CURRENCY, "amount": 48, "group": "disaster_material"}])
+    steps.step("stage/clear_stage", service_server_time=1790461600,
+               stage_id=100000, return_info={
+                   "result": "CLEAR", "confirm_drop_item": [
+                       {"id": 2000001, "amount": 2000, "group": "common_gold"},
+                       {"id": CURRENCY, "amount": 144,
+                        "group": "disaster_material"},
+                       {"id": CURRENCY, "amount": 48,
+                        "group": "disaster_material"}]})
+    run_ = second.chaos_runs[-1] if second.chaos_runs else {}
+    want = {"opened": 1790460000, "started_elsewhere": None,
+            "resumed": [1790461000],
+            "unseen": [[0, 2, "ELITE", False], [0, 3, "BOSS", True]],
+            "restated": [144, 48],
+            "paid": [[4, "BATTLE", "k5", CURRENCY, 48]]}
+    got = {key: run_.get(key) for key in want}
+    if got != want:
+        out.append(f"a run taken up by the next capture reads {got}, not "
+                   f"{want}: one run, from its own entry, the Elite and the "
+                   f"boss played meanwhile unseen, the clear's restatement "
+                   f"kept (`Addon._resume_chaos`).")
+    if not run_:
+        return out
+    if (folder / "chaos_runs" / "open.json").exists():
+        out.append("open.json is still there after its run cleared: the "
+                   "next capture would take a filed run up again.")
+    kinds = {144: {("BOSS", "")}, 48: {("BATTLE", "k5")}}
+    found = ce.recovery(run_, kinds)
+    if found != ([(3, "BOSS", "", 144)], ["1 fight(s) unseen (2 elite)"]) \
+            or not ce.is_partial(run_):
+        out.append(f"chaos_estimate.recovery reads {found} for it, partial "
+                   f"{ce.is_partial(run_)}: the 144 only bosses pay is the "
+                   f"unseen boss's, on floor 3, and the Elite no capture saw "
+                   f"leaves the run's marks unknown.")
+    both = ce.recovery(run_, {144: {("BOSS", ""), ("ELITE", "k5")}})
+    if both[0] or "144 unexplained" not in both[1]:
+        out.append(f"an amount both a boss and a mark pay reads {both}: "
+                   f"placed on either, it could be the other's.")
+    row = _tool().row_of(run_, "x", {}, {run_.get("season"): kinds})
+    if (row["total"], row["gaps"]) != (
+            "192", "resumed 1, recovered 3:boss:144, partial: 1 fight(s) "
+                   "unseen (2 elite)") \
+            or not row["payouts"].endswith("3:boss:144~"):
+        out.append(f"docs/chaos_runs.py writes the run as total "
+                   f"{row['total']!r}, payouts {row['payouts']!r}, gaps "
+                   f"{row['gaps']!r}: the recovered 144 counts, marked `~`.")
+
+    # **Another run's leftovers are not taken up.** A run left open, then
+    # finished elsewhere; the next stage the capture sees is a new run's,
+    # whose events do not begin with the kept ones.
+    folder = Path(tempfile.mkdtemp(prefix="capture_chaos_"))
+    left = _new(Addon, folder)
+    _setup(left)
+    steps = _Steps(left, 1300)
+    steps.step("disaster/enter_disaster_chaos_stage",
+               service_server_time=1790462000, stage_info=_span_stage(["x0"]),
+               **DISASTER_ENTRY)
+    later = _new(Addon, folder)
+    _setup(later)
+    steps = _Steps(later, 1400)
+    steps.step("world/get_stage_info", service_server_time=1790463000,
+               stage_info=_span_stage(["y0", "y1"], cleared=(7, 8, 1),
+                                      playing=2))
+    steps.step("stage/clear_stage", service_server_time=1790463600,
+               stage_id=100000, return_info={"result": "CLEAR"})
+    other = later.chaos_runs[-1] if later.chaos_runs else {}
+    if (other.get("opened"), other.get("started_elsewhere"),
+            other.get("unseen")) != (None, True,
+                                     [[0, 1, "BATTLE", False],
+                                      [0, 2, "ELITE", True]]):
+        out.append(f"a stage whose events do not begin with the run left "
+                   f"open reads opened {other.get('opened')!r}, started "
+                   f"elsewhere {other.get('started_elsewhere')!r}, unseen "
+                   f"{other.get('unseen')!r}: it is another run, opened from "
+                   f"the stage alone, every fight on its map unseen -- not "
+                   f"the start on floor -1 or the opening event on floor 0.")
+
+    # **A Sortie is no Chaos run.** Its stage carries a `chaos_info` too,
+    # naming `assault_info` where a Chaos names its door.
+    folder = Path(tempfile.mkdtemp(prefix="capture_chaos_"))
+    sortie = _new(Addon, folder)
+    _setup(sortie)
+    steps = _Steps(sortie, 1500)
+    stage = _span_stage(["s0", "s1"], cleared=(8, 1), playing=2)
+    stage["stage"]["chaos_info"] = {"chaos_id": "chaos_assault_00001",
+                                    "assault_info": {}}
+    steps.step("world/get_stage_info", service_server_time=1790464000,
+               stage_info=stage)
+    steps.step("stage/clear_stage", service_server_time=1790464600,
+               stage_id=200000057, return_info={"result": "CLEAR"})
+    if sortie.chaos_runs or (folder / "chaos_runs" / "open.json").exists():
+        out.append(f"a Sortie's stage was taken up as a Chaos run started "
+                   f"elsewhere ({len(sortie.chaos_runs)} filed): only a stage "
+                   f"naming a Chaos door is (`CHAOS_DOORS`).")
+
+    # **The spot a resuming reply enters is watched whole**: a capture
+    # begun mid-run, whose first word of it is the next spot's entry.
+    folder = Path(tempfile.mkdtemp(prefix="capture_chaos_"))
+    joined = _new(Addon, folder)
+    _setup(joined)
+    steps = _Steps(joined, 1600)
+    steps.step("stage/enter_spot", service_server_time=1790465000,
+               spot_info={"floor": 2, "spot_type": "SPOT_TYPE_ELITE",
+                          "spot_id": 2},
+               stage_info=_span_stage(["z0", "z1", "z2"], cleared=(8, 1),
+                                      playing=2)["stage"])
+    steps.step("battle/battle_start", snapshot={"cache": {"battle_init_wt": {
+        "battle_res_id": "base_00162", "floor": 2}}})
+    steps.step("stage/clear_stage", service_server_time=1790465600,
+               stage_id=100000, return_info={"result": "CLEAR"})
+    caught = joined.chaos_runs[-1] if joined.chaos_runs else {}
+    got = (caught.get("unseen"), caught.get("entered"), caught.get("fought"))
+    if got != ([[0, 1, "BATTLE", False]], {"0": [2]}, {"ELITE": 1}):
+        out.append(f"a run taken up on a spot's own entry reads unseen, "
+                   f"entered, fought {got}: the Elite it enters is seen and "
+                   f"fought, the battle before it the one fight unseen.")
+    return out
+
+
 def _the_table_names_the_rolls():
     """`docs/chaos_runs.py`'s `rolled` names the bonus and penalties a
     run rolled, from its effects, whichever door -- a Galactic Disaster
@@ -717,6 +903,38 @@ def _what_the_entry_says(Addon):
 
 # What this check must catch, for `checks/faults.py`.
 FAULTS = [
+    ("a run left by its capture not taken up",
+     "capture.manager:ADDON_TEMPLATE",
+     "        if self.chaos_run is None and asked in CHAOS_RESUMES:\n"
+     "            self._resume_chaos(data)",
+     "        pass", "a run taken up by the next capture reads"),
+    ("a run in progress kept only as it entered",
+     "capture.manager:ADDON_TEMPLATE",
+     "if asked in (CHAOS_ENTERS, CHAOS_RESOLVES, CHAOS_FIGHTS, CHAOS_PAYS):",
+     "if False:", "a run taken up by the next capture reads"),
+    ("another run's leftovers taken up", "capture.manager:ADDON_TEMPLATE",
+     "        if not (run and kept and events[:len(kept)] == kept",
+     "        if not (run and kept",
+     "a stage whose events do not begin with the run left open"),
+    ("the clear's restatement not kept", "capture.manager:ADDON_TEMPLATE",
+     'run["restated"] = [', 'run["restated_not"] = [',
+     "a run taken up by the next capture reads"),
+    ("a Sortie taken up as a Chaos run", "capture.manager:ADDON_TEMPLATE",
+     "        if via is None:\n            return\n",
+     "        if via is None:\n            via = \"chaos\"\n",
+     "a Sortie's stage was taken up"),
+    ("the spot a resuming reply enters noted unseen",
+     "capture.manager:ADDON_TEMPLATE",
+     '            entered.add(entering["spot_id"])',
+     "            pass", "a run taken up on a spot's own entry"),
+    ("the opening floors noted unseen", "capture.manager:ADDON_TEMPLATE",
+     '                    or spot["floor"] < 1):',
+     '                    or spot["floor"] < 0):',
+     "a stage whose events do not begin with the run left open"),
+    ("an amount both pay placed on a boss", "chaos_estimate:recovery",
+     'if (BOSS, "") in options and not marks and bosses:',
+     'if (BOSS, "") in options and bosses:',
+     "an amount both a boss and a mark pay"),
     ("a Galactic Disaster run's difficulty read a level up",
      "capture.manager:ADDON_TEMPLATE",
      'or disaster.get("disaster_list_id")),',

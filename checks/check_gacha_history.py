@@ -17,6 +17,8 @@ So this holds:
 * both copies of the checked-copy write -- the app's and the addon's --
   including a copy that fails its check, which must leave the file
   untouched;
+* the Card Skin Packs' records and pulls, kept beside the Rescue
+  records the same way;
 * and, where the maintainer's captures carry a history, the whole path:
   the real log replayed through the real addon must rebuild every pool's
   pity to the game's own counter.
@@ -898,16 +900,171 @@ def _pulls_and_reach(gh, root, failures):
         failures.append("a banner with a gap is not drawn orange")
 
 
+def _skin_ask(qid, cmd, **params):
+    return {"cmd": "card_skin", "qid": qid, "params": dict(cmd=cmd, **params)}
+
+
+# A Card Skin Pack pull's reply and the record the game makes of it, as
+# `websocket_debug_20261021_140402` has them, cut down: the record lists
+# the skins in the reply's `index` order, `dup` marking the one not new.
+SKIN_PACK = "card_skin_pack_s001_2"
+SKIN_PULL = {"res": "ok", "service_server_time": 1792591054, "reward_list": [
+    {"index": 0, "card_skin_id": 9800001, "is_new": 1},
+    {"index": 2, "card_skin_id": 9800004, "is_new": 1},
+    {"index": 1, "card_skin_id": 9800001, "is_new": 0,
+     "dup_item_id": 2000056, "dup_item_count": 1}]}
+SKIN_RECORD = {"id": "91334", "user_id": "1",
+               "card_skin_package_id": SKIN_PACK, "count": 3,
+               "reward": "[9800001,9800001,9800004]", "dup": "[0,1,0]",
+               "createAt": "1792591054"}
+
+
+def _card_skins(gh, root, failures):
+    """The Card Skin Packs' records are kept beside the Rescue records,
+    and the same way: a pull off its own reply until its record comes,
+    the records by their `id`, a page with nothing new writing nothing,
+    and a copy that would lose one refused. The game erases these as it
+    does the Rescue records, and lists every pack's in one list."""
+    from capture.manager import GACHA_MARKER
+
+    log = []
+    addon, namespace = _build_addon(root, log)
+    path = gh.folder_in(root) / gh.CAPTURED
+    _send(addon, _ask(5, "history", id=BANNER, last_db_id=0),
+          _page(5, [_record(22, BANNER, 1200, [THREE])], False))
+    _send(addon, _skin_ask(6, "gacha_run", id=SKIN_PACK, count=3),
+          dict(SKIN_PULL, qid=6))
+    store = json.loads(path.read_text(encoding="utf-8")) \
+        if path.exists() else {}
+    want = [{key: SKIN_RECORD[key] for key in (
+        "card_skin_package_id", "count", "reward", "dup", "createAt")}]
+    got = [{key: row.get(key) for key in want[0]}
+           for row in store.get("skin_pulls", [])]
+    if got != want:
+        failures.append(
+            f"a Card Skin Pack pull was kept as {got}, not {want}: the "
+            f"reply's skins in `index` order, the one not new marked, at "
+            f"the reply's second -- the record the game will make of it.")
+    _send(addon, _skin_ask(7, "history", last_db_id=0),
+          {"res": "ok", "qid": 7, "result": True, "next_page_exists": False,
+           "card_skin_gacha_history_list": [SKIN_RECORD]})
+    store = json.loads(path.read_text(encoding="utf-8"))
+    if (store.get("skin_records"), store.get("skin_pulls"),
+            bool(store.get("skin_read"))) != ([SKIN_RECORD], [], True):
+        failures.append(
+            f"after a Card Skin records page the file holds records "
+            f"{store.get('skin_records')}, pulls {store.get('skin_pulls')}, "
+            f"read {store.get('skin_read')!r}: the record kept as sent, the "
+            f"pull it covers gone, the first page dated.")
+    if [r.get("id") for r in store.get("records", [])] != ["22"]:
+        failures.append("a Card Skin page changed the Rescue records: "
+                        f"{store.get('records')}")
+
+    # A rewrite of the same text shows only in what the write says.
+    held = path.read_text(encoding="utf-8")
+    markers = log.count(GACHA_MARKER)
+    _send(addon, _skin_ask(8, "history", last_db_id=91334),
+          {"res": "ok", "qid": 8, "result": True, "next_page_exists": False,
+           "card_skin_gacha_history_list": [SKIN_RECORD]})
+    if path.read_text(encoding="utf-8") != held \
+            or log.count(GACHA_MARKER) != markers:
+        failures.append("a Card Skin page with nothing new rewrote the "
+                        "file, turning its backup over for nothing.")
+
+    real_json = namespace["json"]
+
+    class _Dropping:
+        def __getattr__(self, name):
+            return getattr(real_json, name)
+
+        @staticmethod
+        def load(f):
+            data = real_json.load(f)
+            if isinstance(data, dict) and data.get("skin_records"):
+                data["skin_records"] = data["skin_records"][1:]
+            return data
+
+    namespace["json"] = _Dropping()
+    try:
+        older = dict(SKIN_RECORD, id="91000", createAt="1792500000")
+        _send(addon, _skin_ask(9, "history", last_db_id=91334),
+              {"res": "ok", "qid": 9, "result": True,
+               "next_page_exists": False,
+               "card_skin_gacha_history_list": [older]})
+    finally:
+        namespace["json"] = real_json
+    if path.read_text(encoding="utf-8") != held:
+        failures.append(
+            "a copy that lost a Card Skin record on its way to disk "
+            "replaced the file anyway: the read-back check holds the Card "
+            "Skin records as it does the Rescue ones.")
+    # The guard behind it: a store that has itself lost a record held
+    # before, which reads back as written.
+    if addon._write_gacha_store(dict(json.loads(held), skin_records=[]), [],
+                                [SKIN_RECORD]) \
+            or path.read_text(encoding="utf-8") != held:
+        failures.append(
+            "a write that would drop a Card Skin record held before went "
+            "through: `_write_gacha_store` holds `skin_before` as it holds "
+            "`before`.")
+
+
+def _card_skins_replayed(gh, root, failures):
+    """The newest capture holding a Card Skin records page, its Card
+    Skin frames replayed through the real addon: every record kept, and
+    no pull left that a record covers. Those frames alone -- the
+    requests, and the replies carrying records or a pull's skins: the
+    whole capture through the addon takes most of a minute, its login
+    replies most of that, and they name card skins too."""
+    log_path = _history_log("card_skin_gacha_history_list")
+    if log_path is None:
+        note("no debug log carries a Card Skin records page, so the real "
+             "records were not replayed")
+        return
+    addon, _namespace = _build_addon(root, [])
+    seen = set()
+    with gzip.open(log_path, "rt", encoding="utf-8") as f:
+        for line in f:
+            if not ("card_skin" in line if '"client_to_server"' in line
+                    else "card_skin_gacha_history_list" in line
+                    or "card_skin_id" in line):
+                continue
+            frame = json.loads(line)
+            for reply in frame["data"] if isinstance(frame["data"], list) \
+                    else [frame["data"]]:
+                if isinstance(reply, dict):
+                    seen |= {str(r.get("id")) for r in reply.get(
+                        "card_skin_gacha_history_list") or ()
+                        if isinstance(r, dict)}
+            addon.websocket_message(_Flow(_Message(
+                json.dumps(frame["data"]),
+                frame.get("direction") == "client_to_server")))
+    path = gh.folder_in(root) / gh.CAPTURED
+    store = json.loads(path.read_text(encoding="utf-8")) \
+        if path.exists() else {}
+    kept = {str(r.get("id")) for r in store.get("skin_records", [])}
+    covered = {(r.get("createAt"), r.get("reward"))
+               for r in store.get("skin_records", [])}
+    left = [r for r in store.get("skin_pulls", [])
+            if (r.get("createAt"), r.get("reward")) in covered]
+    if not seen or kept != seen or left:
+        failures.append(
+            f"{log_path.name} replayed keeps Card Skin records {sorted(kept)} "
+            f"of {sorted(seen)}, with {len(left)} pull(s) left that a record "
+            f"covers.")
+
+
 # ------------------------------------------------------------ real data
 
-def _history_log():
-    """The newest loose debug log that carries a history page, or None."""
+def _history_log(marker="gacha_history_list"):
+    """The newest loose debug log that carries `marker` -- a history
+    page by default -- or None."""
     logs = sorted((SOURCE_ROOT / "snapshots").glob(
         "websocket_debug_*.jsonl.gz"), reverse=True)
     for path in logs:
         try:
             with gzip.open(path, "rt", encoding="utf-8") as f:
-                if "gacha_history_list" in f.read():
+                if marker in f.read():
                     return path
         except (OSError, EOFError, ValueError):
             continue
@@ -968,8 +1125,12 @@ def run():
         _addon(gh, tmp / "addon", failures)
         (tmp / "pulls").mkdir()
         _pulls_and_reach(gh, tmp / "pulls", failures)
+        (tmp / "skins").mkdir()
+        _card_skins(gh, tmp / "skins", failures)
         (tmp / "replay").mkdir()
         _replay(gh, tmp / "replay", failures)
+        (tmp / "skins_replay").mkdir()
+        _card_skins_replayed(gh, tmp / "skins_replay", failures)
         _seasonal_on_load(gh, tmp / "seasonal", failures)
     return failures
 
@@ -997,3 +1158,37 @@ def _seasonal_on_load(gh, folder, failures):
             f"loaded, the two reruns' pulls are filed {pools}, not "
             f"{want}. Sereniel is in no Normal Rescue's list and Narja "
             f"is, which is what the rates say and the pity follows.")
+
+
+# What this check must catch, for `checks/faults.py`.
+FAULTS = [
+    ("a Card Skin request not followed", "capture.manager:ADDON_TEMPLATE",
+     '"history", "gacha_run"):', '"history_not", "gacha_run_not"):',
+     "a Card Skin Pack pull was kept as"),
+    ("a Card Skin records page not kept", "capture.manager:ADDON_TEMPLATE",
+     'records = data.get("card_skin_gacha_history_list")',
+     'records = data.get("card_skin_history_not")',
+     "after a Card Skin records page the file holds"),
+    ("a Card Skin pull not kept off its reply",
+     "capture.manager:ADDON_TEMPLATE",
+     'if asked[0] == "skin_gacha_run" else None)', "if False else None)",
+     "a Card Skin Pack pull was kept as"),
+    ("a pull's skins kept in the reply's order",
+     "capture.manager:ADDON_TEMPLATE",
+     "for row in sorted(pulled, key=lambda r: self._gacha_int(",
+     "for row in sorted(pulled, key=lambda r: 0 * self._gacha_int(",
+     "a Card Skin Pack pull was kept as"),
+    ("a duplicate not marked", "capture.manager:ADDON_TEMPLATE",
+     'dup.append(0 if row.get("is_new") else 1)', "dup.append(0)",
+     "a Card Skin Pack pull was kept as"),
+    ("a pull kept after its record came", "capture.manager:ADDON_TEMPLATE",
+     "                 and self._gacha_key(row) not in listed]",
+     "                 ]", "after a Card Skin records page the file holds"),
+    ("a Card Skin page with nothing new written",
+     "capture.manager:ADDON_TEMPLATE",
+     'changed = bool(added) or pulls != store["skin_pulls"]',
+     "changed = True", "a Card Skin page with nothing new rewrote"),
+    ("Card Skin records unguarded on write", "capture.manager:ADDON_TEMPLATE",
+     '("skin_records", skin_before)):', '("skin_records", ())):',
+     "a write that would drop a Card Skin record"),
+]

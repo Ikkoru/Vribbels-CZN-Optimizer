@@ -55,3 +55,38 @@ Sortie	Chaos Analysis Lab		3210002	Multidimensional Alignment Material	1600	10	A
 Sortie	Chaos Analysis Lab		3210001	Traces of Memory	15	-	-		assault_shop_product_8	Traces of Memory x1
 Sortie	Chaos Analysis Lab		3200002	Core of Memory	160	-	-		assault_shop_product_9	Core of Memory x1
 Sortie	Chaos Analysis Lab		3200001	Particles of Memory	8	-	-		assault_shop_product_10	Particles of Memory x1
+Shop	Starshine Package	pick_up_260819	4501080	Covert Exchange Ⅰ	98 cash	2	Account	Starshine Package (shop_package_event) costs cash: price_count as the wire states it, price_type CASH. Each banner period, the shop subtype (link_shop_schedule_id), sells new packages; the rows with none are always on sale	package_cash_0051_15	Signal Amplification Anchor x10
+Shop	Starshine Package	pick_up_260819	4501081	Covert Exchange Ⅱ	328 cash	2	Account		package_cash_0052_50	Signal Amplification Anchor x20, Crystals x2480
+Shop	Starshine Package	pick_up_260819	4501082	Covert Exchange Ⅲ	648 cash	1	Account		package_cash_0053_100	Signal Amplification Anchor x30, Crystals x6480, Multidimensional Alignment Material x3
+Shop	Starshine Package	pick_up_260909	4501085	Imp's Mischief I	98 cash	2	Account		package_cash_0054_15	Signal Amplification Anchor x10
+Shop	Starshine Package	pick_up_260909	4501086	Imp's Mischief II	328 cash	2	Account	Build 126 names it Nightmare Carnival Chest I: its name is the text id of 4501094, which that patch rewrote	package_cash_0055_50	Signal Amplification Anchor x20, Crystals x2480
+Shop	Starshine Package	pick_up_260909	4501087	Imp's Mischief III	648 cash	1	Account	Build 126 names it Nightmare Carnival Chest II: its name is the text id of 4501095, which that patch rewrote	package_cash_0056_100	Signal Amplification Anchor x30, Crystals x6480, Multidimensional Alignment Material x3
+Shop	Starshine Package	pick_up_260930	4501090	Vacation with a Guardian Angel Ⅰ	98 cash	2	Account		package_cash_0057_15	Signal Amplification Anchor x10
+Shop	Starshine Package	pick_up_260930	4501091	Vacation with a Guardian Angel Ⅱ	328 cash	2	Account		package_cash_0058_50	Signal Amplification Anchor x20, Crystals x2480
+Shop	Starshine Package	pick_up_260930	4501092	Vacation with a Guardian Angel Ⅲ	648 cash	1	Account		package_cash_0059_100	Signal Amplification Anchor x30, Crystals x6480, Multidimensional Alignment Material x3
+Shop	Starshine Package	pick_up_261021	4501094	Nightmare Carnival Chest I	98 cash	2	Account		package_cash_0060_15	Signal Amplification Anchor x10
+Shop	Starshine Package	pick_up_261021	4501095	Nightmare Carnival Chest II	328 cash	2	Account		package_cash_0061_50	Signal Amplification Anchor x20, Crystals x2480
+Shop	Starshine Package	pick_up_261021	4501096	Nightmare Carnival Chest III	648 cash	2	Account		package_cash_0062_100	Signal Amplification Anchor x30, Crystals x6480, Multidimensional Alignment Material x3
+Shop	Starshine Package	pick_up_261021	4501102	Normal Rescue Support Special	48 cash	1	Account		package_cash_0066_8	Rescue Anchor x10
+Shop	Starshine Package	pick_up_261021	4501103	Lumina Theater Commemorative Chest	128 cash	2	Account		package_cash_0067_20	Crystals x1700, Lumina Lens x10
+Shop	Starshine Package		4501006	New Captain Support Kit I	1200 cash	1	Account		package_cash_0001	Signal Amplification Anchor x1, Crystals x100
+Shop	Starshine Package		4501007	New Captain Support Kit II	5900 cash	1	Account		package_cash_0002	Crystals x300, Crystals x150, Rescue Anchor x2
+Shop	Starshine Package		4501008	Emergency Rescue Operation I	9900 cash	2	Account		package_cash_0003	Signal Amplification Anchor x5
+Shop	Starshine Package		4501009	Emergency Rescue Operation II	19000 cash	2	Account		package_cash_0004	Signal Amplification Anchor x10
+Shop	Starshine Package		4501010	Emergency Rescue Operation III	37000 cash	2	Account		package_cash_0005	Signal Amplification Anchor x10, Rescue Anchor x10
+Shop	Starshine Package		4501011	Large Scale Rescue Operation I	65000 cash	2	Account		package_cash_0006	Crystals x3280, Signal Amplification Anchor x15
+Shop	Starshine Package		4501012	Large Scale Rescue Operation II	119000 cash	2	Account		package_cash_0007	Crystals x6480, Signal Amplification Anchor x30
+Shop	Protos Supply	Agent Rescue Support	4501027	Regular Rescue Operation I	37000 cash	2	Monthly	Protos Supply (shop_package) costs cash or Crystals; its sub-categories are the shop subtype	package_crystal_0011_30	Signal Amplification Anchor x10, Crystals x1200
+Shop	Protos Supply	Agent Rescue Support	4501001	Regular Rescue Operation II	19000 cash	2	Monthly		package_crystal_0001	Rescue Anchor x10
+Shop	Protos Supply		4501028	Crystal Supply Kit	19000 cash	2	Weekly		package_crystal_0012_15	Crystals x980, Crystals x300
+Shop	Protos Supply	Agent Rescue Support	4501040	Weekly Rescue Support Kit	19000 cash	2	Weekly		package_crystal_0013_15	Signal Amplification Anchor x5, Crystals x600
+Shop	Protos Supply	Protos Growth Support	4501013	Combatant Rapid Growth Kit	590 Crystals	1	Weekly		package_crystal_0006	Universal Tactical Certificate x80, Premium Battle Memory x40, Unit x85000
+Shop	Protos Supply	Protos Growth Support	4501014	Partner Rapid Growth Kit	590 Crystals	1	Weekly		package_crystal_0007	Universal Support Certificate x70, Premium Support Data x30, Unit x85000
+Shop	Protos Supply	Protos Growth Support	4501015	Potential Activation Kit	890 Crystals	1	Weekly		package_crystal_0008	Potential Disk x90, Tear of God x2, Unit x80000
+Shop	Protos Supply	Protos Growth Support	4501016	Deluxe Gift Set	400 Crystals	3	Weekly		package_crystal_0009	Sweet Choconilla x2, Exquisite Slice of Cake x1, Wing Step A-50 x1
+Shop	Protos Supply	Protos Growth Support	4501002	Combatant Promotion Kit	12000 cash	1	Monthly		package_crystal_0002	Universal Tactical Certificate x40, Premium Battle Memory x60, Unit x150000
+Shop	Protos Supply	Protos Growth Support	4501003	Partner Promotion Kit	12000 cash	1	Monthly		package_crystal_0003	Universal Support Certificate x40, Premium Support Data x45, Unit x150000
+Shop	Protos Supply	Protos Growth Support	4501004	Aether Supply Kit	5900 cash	1	Weekly		package_crystal_0004	Tear of God x2, Unit x60000
+Shop	Protos Supply	Chaos Support	4501055	Core Support Kit	19000 cash	3	Monthly		package_crystal_0014_30	Crystals x980, Core of Potential x2
+Shop	Protos Supply	Protos Growth Support	4501005	Agent Growth Kit	5900 cash	1	Weekly		package_crystal_0005	Advanced Battle Memory x40, Advanced Support Data x30, Unit x120000
+Shop	Protos Supply	Chaos Support	4501056	Command Delegation Package	5900 cash	5	Weekly		package_crystal_0015_5	Crystals x300, Command Delegation Module x3

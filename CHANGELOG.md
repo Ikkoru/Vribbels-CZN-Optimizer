@@ -15,8 +15,11 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Checklist: an event the program cannot read has a `Finished?` box.
 - Checklist: a shop product priced in another currency than its shop's shows its price beside its count, in the shop's colour: the Prism Module shop's Lumina Lens, at 3 Prism Lens.
 - Rossweisse, when you lack her or she wears no partner, is optimized with Sig, her release partner. She, Sig, Blanche and Capri also show where the game client cannot be read.
+- Gacha History: Card Skin Pack pulls are kept beside the Rescue records, so they outlast the half year the game lists them for. Open the packs' history in game while capturing to keep the ones already made. The tab does not show them yet.
 
 ### Changed
+
+- Checklist: until the Great Rift opens with the season's second part, the Seasonal Accumulated Score shows the days left until then, uncoloured.
 
 - Combatants and partners take their names, classes, stats and plain passive bonuses from the game client, so a patch that rebalances one needs no program update. One released after the program shows with the game's figures instead of as Unknown.
 - When a patch leaves the game client unreadable, names and figures come from the last time it was read.
@@ -39,6 +42,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Items show the name the game shows. Every season's Memory of Light, the Memory Fragment set packages and several other packages showed another item's name, and two stickers each other's.
 - Combatants: a combatant wearing no Memory Fragments shows its stats on the Character card, not dashes.
 - A Memory Fragment set released after the program, such as Veiled Radiance, is listed in the Memory Fragments tab's Sets filter, so its fragments are no longer hidden while any set is unticked. The Character card shows it by name, not as Flex.
+- Capture: a Chaos run carried across captures, or played partly on another device, is recorded as one run instead of not at all. Fights no capture saw keep it out of the season estimate's Rare Species rates.
 - Capture Log: a Galactic Disaster clear that earns first-clear rewards shows all of them. Their Relic of a Frozen Civilization, Units and Traces of Memory were left out, and the run's own pay was shown a second time instead.
 - Checklist:
   - The Nightmare Carnival's events and this season's Virtual Tactical Simulations show their names, not their ids.
