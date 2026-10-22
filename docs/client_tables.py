@@ -294,6 +294,15 @@ def shipped_source(client, partners=None):
               f"{ascii(dict(sorted(chances.items())))}, {featured!r}),"
               for pack, (name, chances, featured)
               in sorted(skins["packs"].items())]
+    lines += ["}", "",
+              "# {season: (amplification nodes by the end of each part, "
+              "...)}. See",
+              "# game_client.season_nodes; chaos_estimate.season_nodes "
+              "reads it.",
+              "SEASON_NODES = {"]
+    lines += [f"    {ascii(season)}: {ascii(tuple(counts))},"
+              for season, counts in sorted(
+                  game_client.season_nodes(client).items())]
     words = client_words(client, partners)
     lines += ["}", "",
               "# The client's own words for what the program's tables "

@@ -76,7 +76,7 @@ GAMERES = Path("bin") / "appdata" / "cznlive" / "gameres"
 # reader that changes what it reads raises this: every install then
 # reads its client again once, rather than at the next patch.
 CACHE_FILE = "game_client.json"
-CACHE_FORMAT = 18
+CACHE_FORMAT = 19
 
 # The manifest layout this reads. A different version is a different
 # layout until shown otherwise.
@@ -1586,6 +1586,62 @@ def card_skins(client):
     return {"skins": skins, "packs": packs}
 
 
+# A Galactic Disaster season's skill tree, the Environment Variables:
+# its nodes (`@zero_orb_season_node`, `disaster_s04_skilltree_<n>`, each
+# at a `node_num` on screen), each node's levels (`@zero_orb_season_
+# skill`) and their Zero System effects. **A layout per season part**
+# (`@zero_orb_season_circle`, `ds_s04_skilltree_circle_1` to `_3`; season
+# 2's first is `disaster_s02_skilltree_circle`) lists every node number
+# on screen by then, so a part's nodes are those its layout lists and the
+# one before did not. A number with no node row is one shown locked,
+# opening with a later part: season 5's one layout lists all 35, and
+# `_uk` names the lines drawn to those. A Memory Resonance Amplification
+# node's effect is `AMPLIFY_GROUP`'s, 1% of the season's currency a node.
+SEASON_NODES_TABLE = "zero_orb_season_skilltree@zero_orb_season_node"
+SEASON_SKILLS_TABLE = "zero_orb_season_skilltree@zero_orb_season_skill"
+SEASON_LAYOUTS_TABLE = "zero_orb_season_skilltree@zero_orb_season_circle"
+ZERO_EFFECTS_TABLE = "zero_system_eff@zero_system_eff"
+AMPLIFY_GROUP = "ZERO_ITEM_GET_INCREASE__AREA_VALUE_ID"
+SEASON_LAYOUT = re.compile(r"(?:ds|disaster)_s(\d+)_skilltree_circle(?:_(\d+))?")
+
+
+def season_nodes(client):
+    """{season: [amplification nodes by the end of each part, part 1
+    first]}: each season's tree, a part's count taking in the parts
+    before it and only the nodes the client has rows for."""
+    amplify = {r["id"] for r in client.rows(ZERO_EFFECTS_TABLE)
+               if r.get("zero_eff") == AMPLIFY_GROUP}
+    amplifies = {r["id"] for r in client.rows(SEASON_SKILLS_TABLE)
+                 if set(_ids(r.get("link_zero_system_eff_id"))) & amplify}
+    nodes = {}
+    for row in client.rows(SEASON_NODES_TABLE):
+        season = row.get("id", "").partition("_skilltree_")[0]
+        number = str(row.get("node_num") or "").rpartition("_")[2]
+        if season and number.isdigit():
+            nodes.setdefault(season, {})[int(number)] = bool(
+                set(_ids(row.get("link_zero_orb_season_skill_id")))
+                & amplifies)
+    layouts = {}
+    for row in client.rows(SEASON_LAYOUTS_TABLE):
+        match = SEASON_LAYOUT.fullmatch(row.get("id") or "")
+        if not match:
+            continue
+        listed = {int(n) for key, cell in row.items()
+                  if key.endswith("node_num_list") for n in _ids(cell)
+                  if n.isdigit()}
+        layouts.setdefault("disaster_s%s" % match.group(1), {})[
+            int(match.group(2) or 1)] = listed
+    out = {}
+    for season, parts in layouts.items():
+        held, shown, counts = nodes.get(season) or {}, set(), []
+        for part in sorted(parts):
+            shown |= parts[part]
+            counts.append(sum(1 for number in shown if held.get(number)))
+        if counts and counts[-1]:
+            out[season] = counts
+    return out
+
+
 def zero_specials(client):
     """{Zero System special option id: the game's name for it}."""
     texts = client.text()
@@ -1785,6 +1841,7 @@ def read_facts(install):
         "exploration_passives": {str(res_id): passives for res_id, passives
                                  in exploration_passives(client).items()},
         "card_skins": card_skins(client),
+        "season_nodes": season_nodes(client),
     }
 
 
@@ -2136,6 +2193,20 @@ def known_card_skins():
                 and isinstance(pack[1], dict):
             packs[key] = (pack[0], dict(pack[1]), pack[2])
     return skins, packs
+
+
+def known_season_nodes():
+    """{season: (amplification nodes by the end of each part, ...)}: the
+    shipped table, with what this machine's client says over it, season
+    by season. See `season_nodes`."""
+    from game_data import from_client
+    out = {season: tuple(counts) for season, counts
+           in getattr(from_client, "SEASON_NODES", {}).items()}
+    for season, counts in ((_facts or {}).get("season_nodes") or {}).items():
+        if isinstance(counts, list) and counts and all(
+                isinstance(n, int) for n in counts):
+            out[str(season)] = tuple(counts)
+    return out
 
 
 def known_general_units():

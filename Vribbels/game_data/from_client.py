@@ -3434,6 +3434,15 @@ CARD_SKIN_PACKS = {
     'card_skin_pack_s001_2': ('Angel of the Night Sky', {'COMMON': 0.857, 'RARE': 0.13, 'SUPER_RARE': 0.013}, 30075),
 }
 
+# {season: (amplification nodes by the end of each part, ...)}. See
+# game_client.season_nodes; chaos_estimate.season_nodes reads it.
+SEASON_NODES = {
+    'disaster_s02': (15, 25),
+    'disaster_s03': (13, 19, 25),
+    'disaster_s04': (13, 19, 25),
+    'disaster_s05': (13,),
+}
+
 # The client's own words for what the program's tables decide, kept to
 # tell when a newer client changes them: {partner res_id: its Ego text}
 # and {what: the client's name}. See docs/client_tables.client_words.

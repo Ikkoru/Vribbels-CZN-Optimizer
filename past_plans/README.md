@@ -9,6 +9,7 @@ An archive: each file is the record of a decision, dated and tagged as it was ta
 | Why the spacing work took the shape it did, and what is left of it | `UI_unionization.md` and `_extra` |
 | Why the capture archive is one rebuilt file, and what it cost to prove | `capture_archiving.md` |
 | What the Galactic Disaster's shop is read from, and what the wire never says | `seasonal_shop.md` |
+| Why the season estimate ships Chaos payouts at base, and the amplification ramp it leaves out | `chaos_amplification.md` |
 | Why shared game facts overlay rather than merge, and what counts as news | `shared_game_facts.md` |
 | What the server showed of Potential 7, and the decisions that shaped it | `potential_7.md` |
 | How a patch is captured, and what the 2026-09-30 one settled | `patch_2026_09_30.md` |

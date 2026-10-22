@@ -16,9 +16,10 @@ and a third its own; an item's name is held by `check_event_names`.
    a rates reply the account captured over the client's pools, and the
    client's over nothing. Without either, a Seasonal rerun counts on the
    rerun counter, its pulls on the wrong pity.
-4. **The partners' Exploration Passives and the Card Skin tables**
-   (`game_client.known_exploration_passives`, `known_card_skins`): this
-   machine's read over the shipped copy, which stands for the rest.
+4. **The partners' Exploration Passives, the Card Skin tables and the
+   season trees' node counts** (`game_client.known_exploration_passives`,
+   `known_card_skins`, `known_season_nodes`): this machine's read over
+   the shipped copy, which stands for the rest.
 
 Held on synthetic client facts, put in place with `game_client.use` and
 taken away after, and on probe entries put into the program's tables
@@ -33,6 +34,7 @@ NAME = "the game client's names go over the program's, its tables fill the rest"
 PROBE_STAGE, TABLE_STAGE = 999999, 999998
 PROBE_PARTNER, PROBE_SKIN = 99999, 9899999
 PROBE_SPECIAL = "zero_orb_special_probe"
+PROBE_SEASON = "disaster_s99"
 TABLE_SPECIAL = "zero_orb_special_table_probe"
 
 
@@ -100,7 +102,8 @@ def run():
             card_skins={"skins": {str(PROBE_SKIN): ["Probe Skin", "RARE",
                                                     1003]},
                         "packs": {"probe_pack": ["Probe Pack",
-                                                 {"RARE": 0.5}, 1003]}}))
+                                                 {"RARE": 0.5}, 1003]}},
+            season_nodes={PROBE_SEASON: [4, 9]}))
         held = game_client.known_exploration_passives()
         kept = set(from_client.EXPLORATION_PASSIVES) <= set(held)
         from game_data.partners import get_partner_exploration
@@ -124,6 +127,12 @@ def run():
             out.append("the card skins read leave out this client's skin or "
                        "pack, or the shipped ones: the client's read goes "
                        "over the shipped tables.")
+        trees = game_client.known_season_nodes()
+        if trees.get(PROBE_SEASON) != (4, 9) or not set(
+                getattr(from_client, "SEASON_NODES", {})) <= set(trees):
+            out.append(f"the season trees read {trees!r}: this client's "
+                       f"{PROBE_SEASON} over the shipped trees, which stand "
+                       f"for the rest.")
     finally:
         ce.CHAOS_NAMES.pop(TABLE_STAGE, None)
         ce.ZERO_SPECIALS.pop(TABLE_SPECIAL, None)
@@ -168,6 +177,8 @@ FAULTS = [
     ("the shipped Card Skins dropped", "game_client:known_card_skins",
      'skins = dict(getattr(from_client, "CARD_SKINS", {}))', "skins = {}",
      "the card skins read"),
+    ("this client's season tree not read", "game_client:known_season_nodes",
+     "out[str(season)] = tuple(counts)", "pass", "the season trees read"),
     ("a passive's step taken a limit break late",
      "game_data.partners:get_partner_exploration",
      "if rise <= (limit_break or 0)", "if rise < (limit_break or 0)",

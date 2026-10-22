@@ -35,6 +35,8 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Memory Fragments: Potential's average and middle 80% weigh each new substat by how often the game draws it.
 - Checklist: the Seasonal Shop is the Galactic Disaster Shop, the game's name for it.
 - Checklist: the Galactic Disaster Shop's whole-season estimate covers season 5. It counts both halves' Great Rift records and the story's rewards, the weekly Chaos progress at what its score tiers pay, 5,000 a week, and Celestial Bulwark's runs at what its own bosses and Rare Species pay.
+  - Each part's runs count the Memory Resonance Amplification nodes its skill tree holds, read from the game client, so the estimate follows a part's whole tree from the day it opens. Your own runs count at the nodes each was made with.
+  - A season the program has no figures for counts your own Rare Species and Aether Eater rates once you have 30 whole runs of it.
 - Checklist: every row's maximum comes from the game client, so a patch that raises a cap, a pass's level or an Overclock's runs needs no program update. The Galactic Disaster Shop's pages open on the game's own dates.
 - Checklist: Excursions count down from your own daily Communication Passes, 3 plus one for each of the two town research nodes that add one, rather than a fixed 5.
 - Item, Chaos and Zero System names come from the game client first, so an id a patch gives to another item shows the new item's name. The program's own names cover what the client does not name. A Memory Fragment set keeps the program's own name, such as Snowflake of OFM; the game's names only a set the program has no entry for.

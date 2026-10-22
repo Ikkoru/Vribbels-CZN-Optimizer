@@ -70,7 +70,7 @@ The columns this script owns:
 | `special` | a Zero System map's special options, by `chaos_estimate.ZERO_SPECIALS` where named, else the game client's name (`zero_special_name`) |
 | `options` | a Zero System map's bonus and penalty options: `b001 p112` |
 | `rolled`  | the bonus and penalties the run rolled, any door, as effects: `ELITE_ADD:p008 CREDIT_DOWN:p016` |
-| `amplified` | how many of the season's `Memory Resonance Amplification` nodes were in force: each pays +1% of the season's currency (`AMPLIFY_GROUP`); `?` for a run filed before runs kept their effects |
+| `amplified` | how many of the season's `Memory Resonance Amplification` nodes were in force: each pays +1% of the season's currency (`chaos_estimate.run_nodes`); `?` for a run filed before runs kept their effects |
 | `mode`    | `delegated`, played by the Delegation Module down one path, or `ordinary` |
 | `client`  | the game client and data patch it ran on: `cznlive 1.464 r688`  |
 | `total`   | what the run paid in the season's currency                      |
@@ -105,7 +105,8 @@ in order, the split into a before and an after that fits best, kept
 only if shuffling the runs rarely fits as well (`shifts`). A run inside
 one of `chaos_estimate.RATE_EVENTS` -- something that raised the rates
 for a while -- is left out. Last, the figures `chaos_estimate.SHIPPED`
-wants, for the release step to copy.
+wants, for the release step to copy: at base, each payout read back at
+its run's own `amplified` nodes.
 
 **A rate a run is not a rate a fight, and a map's own mix of fights can
 move the first alone.** Season 5's Chaos -- and any Chaos given its
@@ -206,13 +207,12 @@ ROLLED = (("zero_orb_bonus_", "b"), ("zero_orb_penalty_", "p"))
 # **A season's skill tree raises what its Chaos pays.** The Environment
 # Variables tree, bought with Memory of Light, holds small nodes called
 # Memory Resonance Amplification, each `Increase <the season's
-# currency> Gain Amount by 1%`: an effect of this group, the % its
-# second option and the currency its third (the client's
+# currency> Gain Amount by 1%`: an effect of `game_client.AMPLIFY_GROUP`,
+# the % its second option and the currency its third (the client's
 # `zero_orb_season_skilltree` and `zero_system_eff` tables). A season's
 # own nodes are `zero_season_s<N>_skill_...`, and only they raise its
-# currency, so a run counts its own season's alone.
-AMPLIFY_GROUP = "ZERO_ITEM_GET_INCREASE__AREA_VALUE_ID"
-SEASON_SKILL = re.compile(r"zero_season_s(\d+)_skill_")
+# currency, so a run counts its own season's alone
+# (`chaos_estimate.run_nodes`).
 
 # Colour for a terminal; none where the output goes to a file or a pipe,
 # or NO_COLOR is set.
@@ -254,6 +254,7 @@ SHIFT_TRIALS = 999
 from capture.manager import CaptureManager                    # noqa: E402
 import chaos_estimate                                          # noqa: E402
 import chaos_store                                             # noqa: E402
+import game_client                                             # noqa: E402
 
 # Each Chaos's season, by name, for telling the live season's own
 # Chaos from a past one: `current`.
@@ -518,17 +519,12 @@ def rolled_of(run):
 
 def amplified_of(run, season):
     """How many of `season`'s amplification nodes a run had in force,
-    as the `amplified` column writes it (`AMPLIFY_GROUP`); `?` for a run
-    filed before runs kept their effects."""
-    if "effects" not in run:
-        return "?"
-    number = int(season[1:]) if str(season)[1:].isdigit() else None
-    held = 0
-    for group, eid, _values in run.get("effects") or ():
-        own = SEASON_SKILL.match(str(eid))
-        if group == AMPLIFY_GROUP and own and int(own.group(1)) == number:
-            held += 1
-    return str(held)
+    as the `amplified` column writes it (`chaos_estimate.run_nodes`);
+    `?` for a run filed before runs kept their effects, 0 for a season
+    the row cannot name."""
+    number = int(season[1:]) if str(season)[1:].isdigit() else -1
+    held = chaos_estimate.run_nodes(run, number)
+    return "?" if held is None else str(held)
 
 
 def rolled_counts(cell):
@@ -885,28 +881,49 @@ def _reference(rows, row):
     """({boss floor: amount}, {mark: amount}) to price a lost run's
     `missed` by: its part's bosses as the latest cleared run of that
     season part paid them, and each mark as last paid -- the shipped
-    figures where no run has."""
-    entry = chaos_estimate.shipped_entry("disaster_" + row["season"])
-    marks = {mark: amount for mark, (amount, _rate)
-             in (entry.get("marks") or {}).items()}
+    figures where no run has. Each is taken to the lost run's own nodes
+    (`chaos_estimate.amplified`): a shipped figure from base, a run's
+    from base at that run's nodes (`base_of`), the `flat` bosses as
+    they are."""
+    season = "disaster_" + row["season"]
+    entry = chaos_estimate.shipped_entry(season)
+    nodes = _nodes(row)
+    flat = chaos_estimate.flat_floors(season)
+
+    def at(amount, was, floor=None):
+        if floor in flat:
+            return amount
+        return chaos_estimate.amplified(
+            chaos_estimate.base_of(amount, was), nodes)
+
+    marks = {mark: at(amount, 0)
+             for mark, (amount, _rate) in (entry.get("marks") or {}).items()}
     found = re.match(r"part (\d+)$", row.get("part") or "")
-    bosses = (chaos_estimate.shipped_bosses(entry, int(found.group(1)))
-              if found else {})
+    bosses = {floor: at(amount, 0, floor)
+              for floor, amount in (chaos_estimate.shipped_bosses(
+                  entry, int(found.group(1))) if found else {}).items()}
     for date in sorted(rows):
         other = rows[date]
         for _floor, spot, amount, mark in payouts_of(other["payouts"]):
             if mark and spot != "boss":
-                marks[mark] = amount
+                marks[mark] = at(amount, _nodes(other))
         if (other is row or other.get("lost")
                 or (other["season"], other["part"], other.get("chaos"))
                 != (row["season"], row["part"], row.get("chaos"))):
             continue
-        table = {int(floor): amount for floor, spot, amount, _mark
+        table = {int(floor): at(amount, _nodes(other), int(floor))
+                 for floor, spot, amount, _mark
                  in payouts_of(other["payouts"])
                  if spot == "boss" and floor.isdigit()}
         if table:
             bosses = table
     return bosses, marks
+
+
+def _nodes(row):
+    """A row's `amplified` nodes as a number, 0 where it says `?`."""
+    cell = str(row.get("amplified") or "")
+    return int(cell) if cell.isdigit() else 0
 
 
 def fill_missed(rows):
@@ -1108,9 +1125,12 @@ def spot_rates(runs, met_in):
 
 
 def shipped_figures(rows):
-    """Print, per season, what `chaos_estimate.SHIPPED` wants: each
-    part's bosses as its latest cleared run paid them, each mark's
-    amount as last paid, and each mark per whole run."""
+    """Print, per season, what `chaos_estimate.SHIPPED` wants, at base:
+    each part's bosses as its latest cleared run paid them, each mark's
+    amount as last paid, each read back to base at its run's own nodes
+    (`chaos_estimate.base_of`, the season's `flat` bosses as paid); each
+    mark per whole run; and the most nodes a part's runs had, beside
+    the shipped `nodes` to compare."""
     by_season = collections.defaultdict(dict)
     for date, row in rows.items():
         if row["season"] != "?":
@@ -1118,18 +1138,25 @@ def shipped_figures(rows):
     print(paint("   For chaos_estimate.SHIPPED:", HEADING))
     for season in sorted(by_season):
         members = by_season[season]
-        bosses, amounts = {}, {}
+        flat = chaos_estimate.flat_floors("disaster_" + season)
+        bosses, amounts, most = {}, {}, {}
         for date in sorted(members):
             row = members[date]
+            nodes = _nodes(row)
             for _floor, spot, amount, mark in payouts_of(row["payouts"]):
                 if mark and spot != "boss":
-                    amounts[mark] = amount
+                    amounts[mark] = chaos_estimate.base_of(amount, nodes)
             found = re.match(r"part (\d+)$", row["part"] or "")
-            table = {int(floor): amount for floor, spot, amount, _mark
+            table = {int(floor): amount if int(floor) in flat
+                     else chaos_estimate.base_of(amount, nodes)
+                     for floor, spot, amount, _mark
                      in payouts_of(row["payouts"])
                      if spot == "boss" and floor.isdigit()}
-            if found and table and not row.get("lost"):
-                bosses[int(found.group(1))] = table
+            if found:
+                part = int(found.group(1))
+                most[part] = max(most.get(part, 0), nodes)
+                if table and not row.get("lost"):
+                    bosses[part] = table
         whole = _whole_runs(members)
         counted = collections.Counter()
         for row in whole:
@@ -1138,8 +1165,12 @@ def shipped_figures(rows):
         marks = {mark: (amounts.get(mark, 0),
                         round(counted[mark] / len(whole), 2) if whole else 0)
                  for mark in sorted(set(amounts) | set(counted))}
+        tree = game_client.known_season_nodes().get("disaster_" + season)
         print('       "disaster_%s": {' % season)
         print('           "bosses": %s,' % dict(sorted(bosses.items())))
+        print('           "flat": %s,' % (tuple(sorted(flat)),))
+        print('           "nodes": %s,  # the client\'s tree; runs had at '
+              'most %s' % (tuple(tree or ()), dict(sorted(most.items()))))
         print('           "marks": %s,  # %d whole run(s)' % (marks,
                                                               len(whole)))
         print('       },')
