@@ -126,7 +126,7 @@ HERO_STAT_DISPLAY = {
 # description wraps to it, so it decides how many rows a description
 # takes rather than the other way round. The height is the font's
 # (`_gear_cell_h`).
-GEAR_CELL_W = 396
+GEAR_CELL_W = 407
 
 # Rows of set description a cell holds: the longest in the game wraps to
 # three. A longer one clips rather than growing the cell.
@@ -461,15 +461,15 @@ def _char_panel_w(content_px):
 # well: it also takes the leftover width. Excursion and Sortie sit to
 # its right and are fixed, which is why the stretch column can be in
 # the middle.
-HERO_COL_PX = [67, 17, 58, 59, 32, 42, 26, 45, 24, 66, 32, 140, 55, 36]
+HERO_COL_PX = [67, 17, 58, 59, 25, 42, 26, 45, 25, 66, 25, 130, 55, 36]
 
 # Treeview column ids, and the heading each shows. The id IS the sort
 # key, so a heading click needs no lookup table.
 HERO_COL_IDS = ("name", "grade", "attribute", "class", "level", "nodes",
                 "ego", "affinity", "gs", "partner", "partner_level",
                 "preset", "excursion", "sortie")
-HERO_COL_TITLES = ("Combatant", "★", "Attribute", "Class", "Level",
-                   "Nodes", "Ego", "Affinity", "GS", "Partner", "Level",
+HERO_COL_TITLES = ("Combatant", "★", "Attribute", "Class", "LVL",
+                   "Nodes", "Ego", "Affinity", "GS", "Partner", "LVL",
                    "Preset", "Excursion", "Sortie")
 
 # What the Excursion column reads where the capture has not carried the

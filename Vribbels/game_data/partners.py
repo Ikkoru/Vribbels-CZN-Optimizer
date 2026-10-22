@@ -574,6 +574,24 @@ PARTNERS = {
         "ego_cost": 2,
         "ego_desc": "+40% Damage of the next Attack card used by the assigned Combatant for the total cost of all cards in the hand (Max 10).",
     },
+    20021: {
+        "name": "Bria",
+        "grade": 5,
+        "class": "Psionic",
+        "passive_name": "Check the instructions",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nWhen the assigned Combatant creates a card, gain Risk Factor Report\nRisk Factor Report: Increase Damage Amount of the assigned Combatant's Attack Cards by {RiskReportDMG%}% for 1 turn (max 3 stacks)\nWhen the assigned Combatant creates a Status Ailment card for the first time (includes cards that have been changed from Status Ailment cards), +{StatusDMG%}% Damage Amount to Attack Cards for 1 turn.",
+        "values": {
+            "ATK%": (16, 18, 20, 22, 24),
+            "RiskReportDMG%": (10, 13, 15, 18, 20),
+            "StatusDMG%": (25, 32, 38, 44, 50),
+        },
+        "stats": {
+            "ATK%": (16, 18, 20, 22, 24),
+        },
+        "ego_name": "Capable Secretary",
+        "ego_cost": 3,
+        "ego_desc": "Exhaust all Status Ailment Cards (including those that were originally Status Ailment) and Curse Cards from Discard Pile.\nIncrease Damage Amount of the assigned Combatant's Attack Cards by 10% for each card Exhausted for 1 turn.",
+    },
     30054: {
         "name": "Erica",
         "grade": 5,
@@ -630,6 +648,24 @@ PARTNERS = {
         "ego_name": "Lumina Explosion",
         "ego_cost": 3,
         "ego_desc": "200% Damage. +20% Damage by the number of cards in Graveyard.",
+    },
+    20037: {
+        "name": "Marianne",
+        "grade": 5,
+        "class": "Striker",
+        "passive_name": "Eyes on the Target",
+        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nIncrease Damage Amount dealt by the assigned Combatant to targets in a Ravage state by {RavagedDMG%}%.\nAlways apply the assigned Combatant's Basic Cards as Weakness Damage, and +{WeakDMG%}% Weakness Damage Amount",
+        "values": {
+            "ATK%": (16, 18, 20, 22, 24),
+            "RavagedDMG%": (15, 19, 23, 27, 30),
+            "WeakDMG%": (5, 10, 15, 20, 25),
+        },
+        "stats": {
+            "ATK%": (16, 18, 20, 22, 24),
+        },
+        "ego_name": "Blood Stalker",
+        "ego_cost": 3,
+        "ego_desc": "Deal 350% Damage.",
     },
     30051: {
         "name": "Marin",
@@ -1017,41 +1053,28 @@ PARTNERS = {
         "ego_cost": 2,
         "ego_desc": "300% Damage\n2 Sensory Deprivation\n\nSensory Deprivation: Increase Damage Amount taken from the assigned Combatant's DoT effects by 20%\nAt the end of the turn, decrease Sensory Deprivation by 1",
     },
-    20021: {
-        "name": "Bria",
-        "grade": 5,
-        "class": "Psionic",
-        "passive_name": "Check the instructions",
-        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nWhen the assigned Combatant creates a card, gain Risk Factor Report\nRisk Factor Report: Increase Damage Amount of the assigned Combatant's Attack Cards by {RiskReportDMG%}% for 1 turn (max 3 stacks)\nWhen the assigned Combatant creates a Status Ailment card for the first time (includes cards that have been changed from Status Ailment cards), +{StatusDMG%}% Damage Amount to Attack Cards for 1 turn.",
-        "values": {
-            "ATK%": (16, 18, 20, 22, 24),
-            "RiskReportDMG%": (10, 13, 15, 18, 20),
-            "StatusDMG%": (25, 32, 38, 44, 50),
-        },
-        "stats": {
-            "ATK%": (16, 18, 20, 22, 24),
-        },
-        "ego_name": "Capable Secretary",
-        "ego_cost": 3,
-        "ego_desc": "Exhaust all Status Ailment Cards (including those that were originally Status Ailment) and Curse Cards from Discard Pile.\nIncrease Damage Amount of the assigned Combatant's Attack Cards by 10% for each card Exhausted for 1 turn.",
-    },
-    20037: {
-        "name": "Marianne",
+    30135: {
+        "name": "Sig",
         "grade": 5,
         "class": "Striker",
-        "passive_name": "Eyes on the Target",
-        "passive_desc": "Increase the assigned Combatant's Attack by {ATK%}%.\nIncrease Damage Amount dealt by the assigned Combatant to targets in a Ravage state by {RavagedDMG%}%.\nAlways apply the assigned Combatant's Basic Cards as Weakness Damage, and +{WeakDMG%}% Weakness Damage Amount",
+        "passive_name": "Child of the Cycle",
+        "passive_desc": "Increase the assigned Combatant's Attack by {v1}%.\nWhen a Justice Card of the assigned Combatant is polarized, +{v2}% to Critical Chance (cannot stack).\nWhen the assigned Combatant's Bind card is stacked, gain 1 Memory of a Past Life.\nMemory of a Past Life: +{v3}% Critical Damage to the assigned Combatant and an additional +{v4}% Critical Damage to the assigned Combatant's Unique Attack Cards (cannot stack)",
         "values": {
-            "ATK%": (16, 18, 20, 22, 24),
-            "RavagedDMG%": (15, 19, 23, 27, 30),
-            "WeakDMG%": (5, 10, 15, 20, 25),
+            "v1": (16, 18, 20, 22, 24),
+            "v2": (10, 13, 15, 18, 20),
+            "v3": (15, 19, 23, 27, 30),
+            "v4": (15, 19, 23, 27, 30),
         },
         "stats": {
             "ATK%": (16, 18, 20, 22, 24),
         },
-        "ego_name": "Blood Stalker",
+        "stats_conditional": {
+            "CRate": (10, 13, 15, 18, 20),  # After Justice card is polarized (max 1 stack)
+            "CDmg": (15, 19, 23, 27, 30),  # After Bind card is stacked (max 1 stack)
+        },
+        "ego_name": "Frail Dominion of Kyrken",
         "ego_cost": 3,
-        "ego_desc": "Deal 350% Damage.",
+        "ego_desc": "2 Dominion Shard\nIncrease Damage Amount of the assigned Combatant's Justice Attack Cards by 50% for 2 turns",
     },
     20023: {
         "name": "Blanche",  # client-based block start
@@ -1087,26 +1110,6 @@ PARTNERS = {
         "ego_name": "High-Powered Beam Shooter",
         "ego_cost": 2,
         "ego_desc": "150% Damage to all enemies\n1 Tenacity Damage\nIncrease Action Count by 3",
-        "from_client": True,  # client-based block end
-    },
-    30135: {
-        "name": "Sig",  # client-based block start
-        "grade": 5,
-        "class": "Striker",
-        "passive_name": "Child of the Cycle",
-        "passive_desc": "Increase the assigned Combatant's Attack by {v1}%.\nWhen a Justice Card of the assigned Combatant is polarized, +{v2}% to Critical Chance (cannot stack).\nWhen the assigned Combatant's Bind card is stacked, gain 1 Memory of a Past Life.\nMemory of a Past Life: +{v3}% Critical Damage to the assigned Combatant and an additional +{v4}% Critical Damage to the assigned Combatant's Unique Attack Cards (cannot stack)",
-        "values": {
-            "v1": (16, 18, 20, 22, 24),
-            "v2": (10, 13, 15, 18, 20),
-            "v3": (15, 19, 23, 27, 30),
-            "v4": (15, 19, 23, 27, 30),
-        },
-        "stats": {
-            "ATK%": (16, 18, 20, 22, 24),
-        },
-        "ego_name": "Frail Dominion of Kyrken",
-        "ego_cost": 3,
-        "ego_desc": "2 Dominion Shard\nIncrease Damage Amount of the assigned Combatant's Justice Attack Cards by 50% for 2 turns",
         "from_client": True,  # client-based block end
     },
 }
@@ -1255,6 +1258,11 @@ def get_partner_passive_stats(res_id: int, limit_break: int,
 #
 # SIGNATURE_PARTNERS: the partner a 5-star combatant was released with.
 SIGNATURE_PARTNERS = {
+    # Base-game 5-stars were never released with a partner; the pairing
+    # each is implied to have.
+    "Hugo": "Tina", "Kayron": "Bria", "Khalipe": "Zeta", "Luke": "Janet",
+    "Magna": "Erica", "Mei Lin": "Marianne", "Orlea": "Noel",
+    "Renoa": "Kiara", "Rin": "Scarlet", "Veronica": "Marin",
     # Haru is the first 5-star combatant with an official signature
     # partner, and every 5-star since has had one.
     # ADD A NEWLY-RELEASED 5-STAR COMBATANT HERE, with its partner.
@@ -1263,12 +1271,7 @@ SIGNATURE_PARTNERS = {
     "Heidemarie": "Sylvia", "Hilde": "Eunie", "Narja": "Gaya",
     "Nine": "Alcea", "Olga": "Emilie", "Rita": "Ivy", "Sereniel": "Peko",
     "Tenebria": "Aria", "Tiphera": "Tiana", "Yuki": "Westmacott",
-    # Base-game 5-stars were never released with a partner; the pairing
-    # each is implied to have.
-    "Hugo": "Tina", "Kayron": "Bria", "Khalipe": "Zeta", "Luke": "Janet",
-    "Magna": "Erica", "Mei Lin": "Marianne", "Orlea": "Noel",
-    "Renoa": "Kiara", "Rin": "Scarlet", "Veronica": "Marin",
-    "Rossweisse": "Sig",  # client-based
+    "Rossweisse": "Sig",
 }
 
 # PARTNER_EXCEPTIONS: a combatant with no signature partner -- 4-stars

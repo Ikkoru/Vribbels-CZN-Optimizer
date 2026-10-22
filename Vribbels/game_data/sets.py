@@ -100,6 +100,8 @@ SETS = {
  27: {"name": "Starlight and Dreams", "pieces": 4, "bonus": "Increase ally Counterattack and Extra Attack DMG by 5% when Shield is gained through an ability (max 25%)", "type": "conditional", "stat": "DMG multi", "value": 25},
  28: {"name": "Battlefield Evolution", "pieces": 4, "bonus": "On Extra Attack / Attack Card created in Draw Pile / Draw via Attack Card: +10% Critical Damage (each source max 1 time). When 3 stacks are reached add an additional +5% Critical Damage", "type": "conditional", "stat": "Crit DMG", "value": 35},
  29: {"name": "Sanguine Thorn", "pieces": 4, "bonus": "When Fracture via card, +25% Critical Damage for 1 turn (max 25%, max 2 stacks). When 10+ Fractures via cards, +15% Critical Damage to DoTs (max 15%)", "type": "conditional", "stat": "Crit DMG", "value": 40},
+ 30: {"name": "Veiled Radiance", "pieces": 4, "bonus": "When a Justice Attribute card is stacked, +8% Critical Chance to Attack Cards (max 2 stacks)", "type": "conditional", "stat": "Crit Rate", "value": 16},
+ 31: {"name": "Snowflake of OFM", "pieces": 4, "bonus": "When Bind card stacked, 1 Powder Snow (1 per Combatant). Increase ally Attack Card DMG by 10% per Powder Snow. If Justice Attribute, increase by additional 5% (max 2 stacks). 2 stacks: ally Justice Attack Cards +15% Critical Damage", "type": "conditional", "stat": "Crit DMG", "value": 15},
 }
 
 def set_name(set_id) -> str:
