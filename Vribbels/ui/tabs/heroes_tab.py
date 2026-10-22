@@ -126,7 +126,7 @@ HERO_STAT_DISPLAY = {
 # description wraps to it, so it decides how many rows a description
 # takes rather than the other way round. The height is the font's
 # (`_gear_cell_h`).
-GEAR_CELL_W = 407
+GEAR_CELL_W = 405
 
 # Rows of set description a cell holds: the longest in the game wraps to
 # three. A longer one clips rather than growing the cell.

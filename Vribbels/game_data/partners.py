@@ -478,7 +478,7 @@ PARTNERS = {
         },
         "ego_name": "Innos's Guardian",
         "ego_cost": 4,
-        "ego_desc": "100% shield. At the end of the turn, retain 50% of Shield.",
+        "ego_desc": "100% shield\n50% Shield Retention for 1 turn (cannot stack)",
     },
     20006: {
         "name": "Nyx",
@@ -791,7 +791,7 @@ PARTNERS = {
         },
         "ego_name": "Moonlit Leisure",
         "ego_cost": 3,
-        "ego_desc": "200% Damage to all enemies.\n 1 Fierce Winds.",
+        "ego_desc": "200% Damage to all enemies\n2 Fierce Winds",
     },
     30076: {
         "name": "Peko",
