@@ -2,8 +2,8 @@
 SettingsManager: persistent key-value store for user preferences.
 
 Stores at <base_dir>/settings/settings.json as a flat JSON object. Used
-for state that doesn't fit into the per-preset / per-character /
-per-checkpoint stores: e.g., "which character was selected last", which
+for state that doesn't fit into the per-preset / per-character
+stores: e.g., "which character was selected last", which
 might later expand to window geometry, last open tab, etc.
 
 Reads are in-memory; writes go through an atomic tmp-then-rename to disk

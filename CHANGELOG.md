@@ -27,6 +27,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 - Checklist: until the Great Rift opens with the season's second part, the Seasonal Accumulated Score shows the days left until then, uncoloured.
 - Overall Gacha Stats: the sections read Combatant & Partner banners, +Prism Module and +Card Skins.
+- Combatants: the Partner card's name, stars, class, level, Ego and stats share its first line, the level out of the top a partner reaches. The passive, the Ego skill and the Exploration Passives are labelled.
 
 - Combatants and partners take their names, classes, stats and plain passive bonuses from the game client, so a patch that rebalances one needs no program update. One released after the program shows with the game's figures instead of as Unknown.
 - When a patch leaves the game client unreadable, names and figures come from the last time it was read.

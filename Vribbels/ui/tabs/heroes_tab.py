@@ -53,9 +53,8 @@ Partner card has three states: known partner → full card; unknown res_id
 Conventions
 ===========
 
-- `hero_data_list` entries carry name, display fields, `res_id` and
-  `exp`. The last two come from `CharacterInfo` and drive the
-  right-click level-checkpoint flow.
+- `hero_data_list` entries carry the name, each column's display
+  value and the number it sorts by.
 - **`DEFAULT_PRESET_LABEL` is a UI string only, never persisted.**
   `CharacterPresetManager` stores `None` for "use default"; the
   translation happens at the dropdown boundary.
@@ -81,7 +80,7 @@ from ui.utils.type_ahead import attach, find
 from game_data.characters import CHARACTERS
 from game_data import (
     EQUIPMENT_SLOTS, set_bonus, STATS, RARITY_COLORS, RARITY_BG_COLORS,
-    RARITY_STARTING_SUBSTATS, ATTRIBUTE_COLORS,
+    RARITY_STARTING_SUBSTATS, ATTRIBUTE_COLORS, PARTNER_EXP_TABLE,
     get_character_by_name, get_partner, get_partner_stats,
     get_partner_passive_info, get_potential_stat, get_potential_stat_bonus,
     get_potential_node_does, POTENTIAL_NODES, POTENTIAL_MAX_TOTAL,
@@ -975,11 +974,6 @@ class HeroesTab(BaseTab):
         partner_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True,
                            padx=(px_after(2, 2), px(0)))
         self._partner_frame = partner_frame  # fixed-size target
-        # Right-click on the partner pane (the LabelFrame OR the Text widget
-        # inside) opens the "Add confirmed level" dialog for the currently
-        # equipped partner. Same flow as for characters; the partner res_id
-        # and exp come from char_info.partner_res_id / char_info.partner_exp,
-        # populated by the optimizer when the snapshot is parsed.
         # Use a Text widget for the Partner pane (allows proper word-wrap of
         # the multi-line description). Wrap it in a sub-frame alongside a
         # vertical Scrollbar so long descriptions get an actual visible
@@ -1006,8 +1000,6 @@ class HeroesTab(BaseTab):
         partner_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         self.hero_partner_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self.hero_partner_text.config(state=tk.DISABLED)
-        # Right-click on the Text widget (where the partner description
-        # actually renders) routes to the same handler as the parent frame.
 
         gear_outer_frame = ttk.LabelFrame(
             hero_detail_container, text="Equipped Memory Fragments", padding=px(0),
@@ -1325,7 +1317,6 @@ class HeroesTab(BaseTab):
                 ego = char_info.limit_break
                 affinity = char_info.friendship_index
                 res_id = char_info.res_id
-                exp = char_info.exp
                 # Partner column: name + level. Unknown equipped partners
                 # show "#res_id" (matching the detail card's fallback);
                 # no partner -> "-". Pure attribute access on the already-
@@ -1350,7 +1341,6 @@ class HeroesTab(BaseTab):
                 ego = 0
                 affinity = 0
                 res_id = 0
-                exp = 0
                 partner_str = "-"
                 partner_name_part = "-"
                 partner_level_part = ""
@@ -1391,12 +1381,6 @@ class HeroesTab(BaseTab):
                 # The NUMBER, so the column sorts 10 after 3 rather than
                 # before it.
                 "sortie_done": (sortie.get(res_id) or (None,))[0],
-                # res_id / exp drive the right-click "Add confirmed level"
-                # checkpoint flow. They're 0 when char_info is missing (no
-                # captured data for this hero) -- the right-click handler
-                # treats 0 res_id as "can't record" and aborts cleanly.
-                "res_id": res_id,
-                "exp": exp,
             })
 
         # Sort heroes
@@ -1738,15 +1722,25 @@ class HeroesTab(BaseTab):
             exploration = "".join(
                 f"\n{name}: {text}"
                 for name, text in passive_info["exploration"])
+            # The level against the top any partner reaches, the exp
+            # table's last row (the client's where it was read), not
+            # against the cap the partner's promotion sets.
+            top = PARTNER_EXP_TABLE[-1][1] if PARTNER_EXP_TABLE else 60
+            head = "  |  ".join((
+                display_name,
+                f"{partner_grade:g}★ {partner_class}",
+                f"LVL: {char_info.partner_level}/{top}",
+                f"Ego: E{char_info.partner_limit_break}",
+                f"Stats: ATK+{partner_stats['atk']}, "
+                f"DEF+{partner_stats['def']}, HP+{partner_stats['hp']}"))
             return (
-                f"{display_name}  ({partner_grade}* {partner_class})\n"
-                f"Level: {char_info.partner_level}/{char_info.partner_max_level}  |  Ego: E{char_info.partner_limit_break}\n"
-                f"Stats: ATK+{partner_stats['atk']}, DEF+{partner_stats['def']}, HP+{partner_stats['hp']}\n"
-                f"\n{passive_info['passive_name']}\n"
+                f"{head}\n"
+                f"\n{passive_info['passive_name']}  [Passive]\n"
                 f"{passive_info['passive_desc']}\n"
-                f"\n{passive_info['ego_name']} - {passive_info['ego_cost']} EP\n"
+                f"\n{passive_info['ego_name']} - {passive_info['ego_cost']} EP  [Ego Skill]\n"
                 f"{passive_info['ego_desc']}"
-                + (f"\n{exploration}" if exploration else "")
+                + (f"\n\n[Exploration Passives]{exploration}"
+                   if exploration else "")
             )
         elif char_info.partner_id:
             if char_info.partner_res_id:

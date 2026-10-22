@@ -15,7 +15,8 @@ threads give ~zero speedup.
 
 Worker-side correctness note: workers import game_data fresh on spawn
 and therefore DON'T see runtime mutations the parent applied (e.g.
-level-data exp-table checkpoints). That's fine by construction: the
+this machine's game-client read laid over game_data, `game_client.use`:
+a worker has the shipped extract alone). That's fine by construction: the
 per-run ctx carries every character-derived number already resolved
 PARENT-side (base stats at the effective level, partner, affection,
 potential) -- core.evaluate_combo only touches ctx, the fragments, and

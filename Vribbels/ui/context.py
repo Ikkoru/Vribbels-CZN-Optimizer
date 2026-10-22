@@ -76,9 +76,6 @@ class AppContext:
     optimizer_tab: Optional['OptimizerTab'] = None
     preset_manager: Optional['PresetManager'] = None
     character_preset_manager: Optional['CharacterPresetManager'] = None
-    # User-confirmed (exp, level) checkpoints — augments the built-in
-    # exp tables in constants.py via apply_to_constants(). Initialized at
-    # program startup; the right-click "Add confirmed level" flow in the
     # General-purpose persistent key-value store for user preferences
     # that don't fit into the other managers' shapes.
     settings_manager: Optional['SettingsManager'] = None
