@@ -297,21 +297,22 @@ def derive_preset(ref, stored, preset, max_rolls=None):
 
 def _has_set(vector, sid):
     from game_data import SETS
-    from game_data.sets import SET_STAT_NAME_MAP
-    stat = SET_STAT_NAME_MAP.get(SETS[sid].get("stat", ""))
-    return vector.get(stat, 0) >= SETS[sid].get("value", 0) * 0.5
+    from game_data.sets import SET_STAT_NAME_MAP, set_effects
+    return any(vector.get(SET_STAT_NAME_MAP.get(stat), 0) >= value * 0.5
+               for stat, value in set_effects(SETS[sid])
+               if SET_STAT_NAME_MAP.get(stat))
 
 
 def synthetic_sets(sid, shares):
     from game_data import SETS
-    from game_data.sets import SET_STAT_NAME_MAP
+    from game_data.sets import SET_STAT_NAME_MAP, set_effects
     out = defaultdict(float)
     for set_id, share in ((sid, shares.get(sid, 0.0)),
                           (PAIRED_TWO_PIECE, 1.0)):
         info = SETS[set_id]
-        value = info.get("value", 0) * (
-            share if info["type"] == "conditional" else 1.0)
-        out[SET_STAT_NAME_MAP.get(info.get("stat", ""))] += value
+        for stat, value in set_effects(info):
+            out[SET_STAT_NAME_MAP.get(stat)] += value * (
+                share if info["type"] == "conditional" else 1.0)
     return dict(out)
 
 

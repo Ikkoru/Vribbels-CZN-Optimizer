@@ -250,7 +250,7 @@ Final_Card_Multiplier_Shield_Heal =
 
 ## 5. Set effects in optimizer math
 
-`sets.py` marks each set with `type` and a numeric `value`.
+`sets.py` marks each set with `type` and a numeric `value`. A set with more than one bonus lists them as `effects`, each its own `stat` and `value`, in place of the one pair; every bonus lands as one set's would, all under the set's `type` and, where conditional, its one effect share (`sets.set_effects`).
 
 | `type`          | Where the value lands                                                                                                                                                                                        |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

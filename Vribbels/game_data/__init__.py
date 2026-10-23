@@ -41,6 +41,7 @@ from .sets import (
     SET_STAT_NAME_MAP,
     SET_CARD_MULT_STATS,
     set_bonus,
+    set_effects,
 )
 
 from .constants import (
@@ -111,6 +112,7 @@ __all__ = [
     'SET_STAT_NAME_MAP',
     'SET_CARD_MULT_STATS',
     'set_bonus',
+    'set_effects',
 
     # Constants
     'CHARACTER_EXP_TABLE',

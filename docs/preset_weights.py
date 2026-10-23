@@ -129,7 +129,7 @@ def mf_vector(gear):
 def set_vector(gear, shares):
     """What a build's sets add, routed as `compute_build_stats` does."""
     from game_data import SETS
-    from game_data.sets import SET_STAT_NAME_MAP
+    from game_data.sets import SET_STAT_NAME_MAP, set_effects
     out = defaultdict(float)
     counts = defaultdict(int)
     for piece in gear:
@@ -138,17 +138,16 @@ def set_vector(gear, shares):
         info = SETS.get(sid)
         if not info or n < info["pieces"]:
             continue
-        stat = info.get("stat", "")
-        if info["type"] == "unconditional":
-            value = info.get("value", 0)
-        elif info["type"] == "conditional" and stat in ("Crit DMG",
-                                                        "Crit Rate"):
-            value = info.get("value", 0) * shares.get(sid, 0.0)
-        else:
-            continue
-        name = SET_STAT_NAME_MAP.get(stat)
-        if name in ("ATK%", "DEF%", "HP%", "CDmg", "CRate"):
-            out[name] += value
+        for stat, value in set_effects(info):
+            if info["type"] == "conditional":
+                if stat not in ("Crit DMG", "Crit Rate"):
+                    continue
+                value *= shares.get(sid, 0.0)
+            elif info["type"] != "unconditional":
+                continue
+            name = SET_STAT_NAME_MAP.get(stat)
+            if name in ("ATK%", "DEF%", "HP%", "CDmg", "CRate"):
+                out[name] += value
     return dict(out)
 
 

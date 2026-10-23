@@ -586,8 +586,9 @@ def _check_sets(problems: list[str]) -> None:
     attributes = tuple(ATTRIBUTE_COLORS)
     stat_names = tuple(SET_STAT_NAME_MAP) + tuple(SET_CARD_MULT_STATS)
     # `bonus` is optional: without it the game client's words show
-    # (`sets.set_bonus`), and the checks note the set.
-    required = ("name", "pieces", "type", "stat", "value")
+    # (`sets.set_bonus`), and the checks note the set. `effects` stands
+    # in for `stat` and `value` on a set of several bonuses.
+    required = ("name", "pieces", "type")
     names: dict = {}
 
     for key, data in SETS.items():
@@ -617,15 +618,39 @@ def _check_sets(problems: list[str]) -> None:
         if "type" in data and data["type"] not in SETS_TYPES:
             rep.add(key, label, f"type '{data['type']}' is not one of "
                                 f"{', '.join(SETS_TYPES)}")
-        if "value" in data and not _is_number(data["value"]):
-            rep.add(key, label, f"value {data['value']!r} is not a number")
         if "bonus" in data and not (isinstance(data["bonus"], str)
                                     and data["bonus"].strip()):
             rep.add(key, label, f"bonus {data['bonus']!r} is not a wording "
                                 f"-- leave the key out for the game's own")
 
-        stat = data.get("stat")
-        if "stat" in data:
+        if "effects" in data:
+            if "stat" in data or "value" in data:
+                rep.add(key, label, "both 'effects' and 'stat'/'value': "
+                                    "'effects' is read and the pair ignored")
+            effects = data["effects"]
+            if not (isinstance(effects, list) and effects and all(
+                    isinstance(e, dict) for e in effects)):
+                rep.add(key, label, f"effects {effects!r} is not a list of "
+                                    f"{{'stat', 'value'}} entries")
+                effects = []
+        else:
+            for field in ("stat", "value"):
+                if field not in data:
+                    rep.add(key, label, f"missing '{field}'")
+            effects = [data]
+        for effect in effects:
+            if "value" in effect and not _is_number(effect["value"]):
+                rep.add(key, label,
+                        f"value {effect['value']!r} is not a number")
+            elif "value" not in effect and effect is not data:
+                rep.add(key, label, f"an effect is missing 'value': "
+                                    f"{effect!r}")
+            if "stat" not in effect:
+                if effect is not data:
+                    rep.add(key, label, f"an effect is missing 'stat': "
+                                        f"{effect!r}")
+                continue
+            stat = effect.get("stat")
             if stat not in stat_names:
                 rep.add(key, label, f"stat '{stat}' is not one of "
                                     f"{', '.join(stat_names)} -- it is "

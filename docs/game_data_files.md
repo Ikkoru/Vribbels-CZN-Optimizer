@@ -38,9 +38,9 @@ And deliberately spelled differently from everywhere else: a set's `stat` field 
 
 Only the names in that module's docstring table reach the formulas — the five in `SET_STAT_NAME_MAP` (`game_data/sets.py`) plus `DMG multi` and `DMG add`, which feed the damage card multiplier and apply to CONDITIONAL sets only. Anything else is silently ignored while the set still counts for set-locking, so a typo costs a bonus with no visible error.
 
-Where each value lands: `game_formulas.md` §5.
+A set of several bonuses lists them as `effects`, each a `stat` and a `value`, in place of the one pair; the launch-time check reads every one (`sets.set_effects`). Where each value lands: `game_formulas.md` §5.
 
-**A set's `bonus` is the maintainer's own short wording, and optional**: without one the game client's words show, and `check_set_wordings` notes the set. Every wording's figures are held to the game's, so a patch that moves a set's figures fails the check until the wording follows (the `sets.py` docstring, *The wording*). **A set's `name` is the fallback**: the client's is laid over it (`client_overlay`), and the same check fails where the two part, so the typed one follows a rename.
+**A set's `bonus` is the maintainer's own short wording, and optional**: without one the game client's words show, and `check_set_wordings` notes the set. **A set's `name` is the program's too**, the client's naming only a set with no entry. Neither is held to the client; a newer client changing a set's text, name, pieces or plain stat is reported instead (the `sets.py` docstring, *The wording*).
 
 ## The item tables in `constants.py`
 

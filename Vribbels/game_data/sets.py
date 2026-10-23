@@ -17,6 +17,13 @@ Entry shape
                                    # No formula reads it.
     }
 
+**A set with several bonuses** lists them as `effects` in place of
+`stat` and `value`: ``"effects": [{"stat": "DMG multi", "value": 30},
+{"stat": "Crit DMG", "value": 15}]``. Each lands as a set of one bonus
+would, all under the set's `type` and, where conditional, its one
+effect share. `set_effects` is the one accessor: every formula reads a
+set's bonuses through it.
+
 - **`unconditional`** — always active once the set is complete. `stat`
   and `value` say where to add the bonus, typically a Final stat.
 - **`conditional`** — triggers only under the in-game condition
@@ -265,10 +272,27 @@ SETS = {
         "pieces": 4,
         "bonus": "When Bind card stacked, 1 Powder Snow (1 per Combatant). Increase ally Attack Card DMG by 10% per Powder Snow. If Justice Attribute, increase by additional 5% (max 2 stacks). 2 stacks: ally Justice Attack Cards +15% Critical Damage",
         "type": "conditional",
-        "stat": "Crit DMG",
-        "value": 15
+        # For a Justice wearer: (10% + 5%) a Powder Snow at its 2 stacks,
+        # and the 2-stack Critical Damage, which only Justice cards get.
+        "effects": [{"stat": "DMG multi", "value": 30},
+                    {"stat": "Crit DMG", "value": 15}],
     },
 }
+
+
+def set_effects(info) -> list:
+    """[(stat, value), ...]: a set entry's bonuses, its `effects` where
+    it lists them, else its one `stat` and `value`; empty for a set with
+    none, such as one only the game client knows."""
+    if not isinstance(info, dict):
+        return []
+    if "effects" in info:
+        return [(e.get("stat", ""), e.get("value", 0))
+                for e in info.get("effects") or () if isinstance(e, dict)]
+    if "stat" in info:
+        return [(info.get("stat", ""), info.get("value", 0))]
+    return []
+
 
 def set_name(set_id) -> str:
     """A set's name: the program's own entry's, else the game client's,

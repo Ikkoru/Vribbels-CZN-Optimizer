@@ -24,7 +24,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - Rossweisse's Potential 7 is scored, and the Fill button fills its ATK.
   - Rossweisse has a default Gear Score preset and Optimizer settings.
   - When you lack Rossweisse or she wears no partner, she is optimized with Sig, her release partner.
-- Optimizer: the Veiled Radiance and Snowflake of OFM sets count, by the Effect % you give them in Set Configuration.
+- Optimizer: the Veiled Radiance and Snowflake of OFM sets count, by the Effect % you give them in Set Configuration. Snowflake of OFM counts both its Powder Snow damage and its Critical Damage.
 - A partner released after the program shows its Ego card's text, from the game client.
 
 ### Changed

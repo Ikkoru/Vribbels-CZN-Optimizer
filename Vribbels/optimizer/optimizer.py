@@ -62,7 +62,7 @@ from game_data import (
     get_level_from_exp, get_partner_level_from_exp,
     get_friendship_bonus, parse_potential_node_ids,
     get_partner_stats, get_partner_passive_stats, get_potential_stat_bonus,
-    SETS, SLOT_ORDER, SLOT_MAIN_STATS, ALL_STAT_NAMES
+    SETS, SLOT_ORDER, SLOT_MAIN_STATS, ALL_STAT_NAMES, set_effects
 )
 # Direct module-path import to avoid relying on game_data/__init__.py
 # re-exporting it.
@@ -947,36 +947,36 @@ class GearOptimizer:
             if count < si["pieces"]:
                 continue
             stype = si["type"]
-            raw = si.get("stat", "")
-            val = si.get("value", 0)
             share = set_effect_shares.get(set_id, 0.0)
-            if stype == "unconditional":
-                eff = val
-            elif stype == "conditional" and raw in ("Crit DMG", "Crit Rate"):
-                eff = val * share
-            elif stype == "conditional" and raw == "DMG multi":
-                set_dmg_multi += val * share
-                continue
-            elif stype == "conditional" and raw == "DMG add":
-                set_dmg_add += val * share
-                continue
-            else:
-                continue
-            ps_name = SET_STAT_NAME_MAP.get(raw)
-            if ps_name == "ATK%":
-                set_atk_pct += eff
-            elif ps_name == "DEF%":
-                set_def_pct += eff
-            elif ps_name == "HP%":
-                set_hp_pct += eff
-            elif ps_name == "CDmg":
-                set_cdmg += eff
-                if stype == "conditional":
-                    set_cdmg_cond += eff
-            elif ps_name == "CRate":
-                set_crate += eff
-                if stype == "conditional":
-                    set_crate_cond += eff
+            for raw, val in set_effects(si):
+                if stype == "unconditional":
+                    eff = val
+                elif stype == "conditional" and raw in ("Crit DMG",
+                                                        "Crit Rate"):
+                    eff = val * share
+                elif stype == "conditional" and raw == "DMG multi":
+                    set_dmg_multi += val * share
+                    continue
+                elif stype == "conditional" and raw == "DMG add":
+                    set_dmg_add += val * share
+                    continue
+                else:
+                    continue
+                ps_name = SET_STAT_NAME_MAP.get(raw)
+                if ps_name == "ATK%":
+                    set_atk_pct += eff
+                elif ps_name == "DEF%":
+                    set_def_pct += eff
+                elif ps_name == "HP%":
+                    set_hp_pct += eff
+                elif ps_name == "CDmg":
+                    set_cdmg += eff
+                    if stype == "conditional":
+                        set_cdmg_cond += eff
+                elif ps_name == "CRate":
+                    set_crate += eff
+                    if stype == "conditional":
+                        set_crate_cond += eff
 
         # ----- Potential % + flat-crit, partner passive % -----
         pot_atk_pct = potential.get("ATK%", 0)

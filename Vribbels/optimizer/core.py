@@ -65,7 +65,7 @@ stats) is therefore unchanged.
 
 import math
 
-from game_data import SETS, SLOT_ORDER, SET_STAT_NAME_MAP
+from game_data import SETS, SLOT_ORDER, SET_STAT_NAME_MAP, set_effects
 # The Gear Score's own weighted substat sum. The substat tiebreaker
 # prices a build through it rather than through a second reading of the
 # same substats, so a preset's weights mean one thing across the app.
@@ -269,33 +269,33 @@ def compute_build_stats(gear: list, cs: dict,
         if count < set_info["pieces"]:
             continue
         stype = set_info["type"]
-        raw_stat = set_info.get("stat", "")
-        value = set_info.get("value", 0)
+        for raw_stat, value in set_effects(set_info):
+            if stype == "unconditional":
+                effective = value
+            elif stype == "conditional" and raw_stat in ("Crit DMG",
+                                                         "Crit Rate"):
+                effective = value * shares.get(set_id, 0.0)
+            else:
+                # Conditional DMG multi / DMG add: handled by the
+                # optimizer score function (flows through card_mult, not
+                # Final stats).
+                continue
 
-        if stype == "unconditional":
-            effective = value
-        elif stype == "conditional" and raw_stat in ("Crit DMG", "Crit Rate"):
-            effective = value * shares.get(set_id, 0.0)
-        else:
-            # Conditional DMG multi / DMG add: handled by the optimizer
-            # score function (flows through card_mult, not Final stats).
-            continue
-
-        program_stat = SET_STAT_NAME_MAP.get(raw_stat)
-        if program_stat == "ATK%":
-            mf_atk_pct += effective
-        elif program_stat == "DEF%":
-            mf_def_pct += effective
-        elif program_stat == "HP%":
-            mf_hp_pct += effective
-        elif program_stat == "CDmg":
-            crit_dmg += effective
-            if stype == "conditional":
-                cond_cdmg += effective
-        elif program_stat == "CRate":
-            crit_rate += effective
-            if stype == "conditional":
-                cond_crate += effective
+            program_stat = SET_STAT_NAME_MAP.get(raw_stat)
+            if program_stat == "ATK%":
+                mf_atk_pct += effective
+            elif program_stat == "DEF%":
+                mf_def_pct += effective
+            elif program_stat == "HP%":
+                mf_hp_pct += effective
+            elif program_stat == "CDmg":
+                crit_dmg += effective
+                if stype == "conditional":
+                    cond_cdmg += effective
+            elif program_stat == "CRate":
+                crit_rate += effective
+                if stype == "conditional":
+                    cond_crate += effective
 
     # Potential-node % bonuses (these go into the inner multiplier
     # alongside Memory Fragment %).
@@ -640,12 +640,11 @@ def damage_card_multiplier(gear: list, sp: dict) -> float:
                 continue
             if count < set_info["pieces"]:
                 continue
-            raw_stat = set_info.get("stat", "")
-            value = set_info.get("value", 0)
-            if raw_stat == "DMG multi":
-                set_dmg_multi_total += value * share
-            elif raw_stat == "DMG add":
-                set_dmg_add_total += value * share
+            for raw_stat, value in set_effects(set_info):
+                if raw_stat == "DMG multi":
+                    set_dmg_multi_total += value * share
+                elif raw_stat == "DMG add":
+                    set_dmg_add_total += value * share
 
     mult_buffs_dmg = sp["avg_mult_buff"] + set_dmg_multi_total / 100.0
     add_buffs_dmg = sp["avg_add_buff"] + set_dmg_add_total / 100.0
