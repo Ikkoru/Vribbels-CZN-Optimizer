@@ -265,7 +265,8 @@ SETS = {
         "bonus": "When a Justice Attribute card is stacked, +8% Critical Chance to Attack Cards (max 2 stacks)",
         "type": "conditional",
         "stat": "Crit Rate",
-        "value": 16
+        "value": 16,
+        "elements": ["Justice"]
     },
     31: {
         "name": "Snowflake of OFM",
@@ -276,6 +277,7 @@ SETS = {
         # and the 2-stack Critical Damage, which only Justice cards get.
         "effects": [{"stat": "DMG multi", "value": 30},
                     {"stat": "Crit DMG", "value": 15}],
+        "elements": ["Justice"]
     },
 }
 
