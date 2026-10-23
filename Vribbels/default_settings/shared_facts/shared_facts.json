@@ -596,6 +596,95 @@
      "total_ssr_rate_up_pool_pct": 1428.95
     }
    },
+   "gacha_pickup_combatant_30134": {
+    "pools": {
+     "r_pool_ids": [
+      "general_r_s_20010",
+      "general_r_s_20012",
+      "general_r_s_20013",
+      "general_r_s_20015",
+      "general_r_s_20016",
+      "general_r_s_20026"
+     ],
+     "sr_combatant_pool_ids": [
+      "pickup_c_18_sr_c_1050",
+      "pickup_c_18_sr_c_1005",
+      "pickup_c_18_sr_c_1021",
+      "pickup_c_18_sr_c_1028",
+      "pickup_c_18_sr_c_1009",
+      "pickup_c_18_sr_c_1017",
+      "pickup_c_18_sr_c_1039",
+      "pickup_c_18_sr_c_1003",
+      "pickup_c_18_sr_c_1049",
+      "pickup_c_18_sr_c_1012"
+     ],
+     "sr_pool_ids": [],
+     "sr_rate_up_success_pool_ids": [
+      "pickup_c_18_rateup_sr_c_1040",
+      "pickup_c_18_rateup_sr_c_1056"
+     ],
+     "sr_supporter_pool_ids": [
+      "general_sr_s_20001",
+      "general_sr_s_20003",
+      "general_sr_s_20007",
+      "general_sr_s_20024",
+      "general_sr_s_20025",
+      "general_sr_s_20027",
+      "general_sr_s_20035",
+      "general_sr_s_20036",
+      "general_sr_s_20032",
+      "general_sr_s_20033",
+      "general_sr_s_20011"
+     ],
+     "ssr_pool_ids": [
+      "general_ssr_c_1004",
+      "general_ssr_c_1008",
+      "general_ssr_c_1010",
+      "general_ssr_c_1018",
+      "general_ssr_c_1024",
+      "general_ssr_c_1027",
+      "general_ssr_c_1033",
+      "general_ssr_c_1041",
+      "general_ssr_c_1043",
+      "general_ssr_c_1064",
+      "general_ssr_c_1062",
+      "general_ssr_c_1057",
+      "general_ssr_c_1060",
+      "general_ssr_c_1052",
+      "general_ssr_c_30047",
+      "general_ssr_c_30084",
+      "general_ssr_c_30097",
+      "general_ssr_c_1061",
+      "general_ssr_c_1055",
+      "general_ssr_c_1069",
+      "general_ssr_c_30048",
+      "general_ssr_c_30113",
+      "general_ssr_c_30117"
+     ],
+     "ssr_rate_up_success_pool_ids": [
+      "pickup_c_18_rateup_ssr_c_30134"
+     ]
+    },
+    "rates": {
+     "r_ratio": 93000,
+     "sr_combatant_ratio": 1500,
+     "sr_rate_up_success_ratio": 3000,
+     "sr_ratio": 0,
+     "sr_supporter_ratio": 1500,
+     "ssr_rate_up_success_ratio": 500,
+     "ssr_ratio": 500,
+     "total_ratio": 100000
+    },
+    "total_rate_info": {
+     "total_r_pool_pct": 84873.45,
+     "total_sr_combatant_pool_pct": 2163.86,
+     "total_sr_pool_pct": 0,
+     "total_sr_rate_up_pool_pct": 8655.42,
+     "total_sr_supporter_pool_pct": 2163.86,
+     "total_ssr_pool_pct": 714.48,
+     "total_ssr_rate_up_pool_pct": 1428.95
+    }
+   },
    "gacha_pickup_supporter_20002_1": {
     "pools": {
      "r_pool_ids": [
@@ -1039,6 +1128,26 @@
      "read_at": 1790720979
     }
    },
+   "30007": {
+    "60": {
+     "base": [
+      392,
+      186,
+      313
+     ],
+     "read_at": 1792592279
+    }
+   },
+   "30018": {
+    "60": {
+     "base": [
+      392,
+      186,
+      313
+     ],
+     "read_at": 1792592279
+    }
+   },
    "30047": {
     "61": {
      "base": [
@@ -1128,6 +1237,16 @@
      ],
      "read_at": 1790777585
     }
+   },
+   "90008": {
+    "60": {
+     "base": [
+      467,
+      155,
+      376
+     ],
+     "read_at": 1792592279
+    }
    }
   },
   "offensive_fields": {
@@ -1137,8 +1256,8 @@
      "read_at": 1790721440
     },
     "remnants_boss_penalty_006": {
-     "players": 47800,
-     "read_at": 1791767642
+     "players": 63500,
+     "read_at": 1792617888
     }
    }
   },
@@ -1257,6 +1376,16 @@
       95
      ],
      "read_at": 1790819871
+    }
+   },
+   "20026": {
+    "60": {
+     "flat": [
+      5,
+      36,
+      85
+     ],
+     "read_at": 1792592279
     }
    },
    "20027": {
@@ -1440,6 +1569,24 @@
      ],
      "read_at": 1790809682
     }
+   },
+   "30135": {
+    "20": {
+     "flat": [
+      67,
+      1,
+      44
+     ],
+     "read_at": 1792593890
+    },
+    "60": {
+     "flat": [
+      155,
+      5,
+      144
+     ],
+     "read_at": 1792592279
+    }
    }
   },
   "rift_tops": {
@@ -1493,13 +1640,25 @@
      "top_score": 65084
     },
     "assault_1_s8": {
-     "players": 15703,
-     "read_at": 1791408834,
-     "top_score": 64568
+     "players": 27669,
+     "read_at": 1792617880,
+     "top_score": 65016
+    },
+    "assault_1_s9": {
+     "players": 3788,
+     "read_at": 1792617879,
+     "top_score": 61472
     }
    }
   },
   "trial_slots": {
+   "event_combatant_trial_18_1": [
+    "combatant_trial_1040",
+    "combatant_trial_1056"
+   ],
+   "event_combatant_trial_18_2": [
+    "combatant_trial_30134"
+   ],
    "event_combatant_trial_3": [
     "combatant_trial_30075",
     "combatant_trial_1005",
