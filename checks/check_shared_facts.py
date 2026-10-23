@@ -203,6 +203,31 @@ def _fold_rules(sf):
             f"that says something new wins in either order, and one that "
             f"says the same changes nothing -- or every build rewrites "
             f"the shipped file for a new timestamp.")
+    # A permanent banner's pools taking in a patch's units: replaced,
+    # and what joined said. Pools that lost a unit, or rates that moved
+    # beside grown pools, are still refused.
+    pools = RATES["pools"]
+    grown = dict(RATES, pools=dict(pools, sr_pool_ids=["general_sr_c_1012"]))
+    start, _a, _r, _d = sf.fold(sf.empty(), {sf.RATES: {"gacha_g": RATES}})
+    held_g, added_g, refused_g, _d = sf.fold(start, {
+        sf.RATES: {"gacha_g": grown}})
+    if held_g[sf.RATES]["gacha_g"]["pools"]["sr_pool_ids"] != [
+            "general_sr_c_1012"] or refused_g \
+            or not any("general_sr_c_1012" in line for line in added_g):
+        out.append(f"a banner whose pools only grew folds to "
+                   f"{held_g[sf.RATES]['gacha_g']['pools']}, added "
+                   f"{added_g}, refused {refused_g}: it is replaced and "
+                   f"what joined is said (`_pools_grew`).")
+    for what, reading in (
+            ("a pool that lost a unit, beside one that gained",
+             dict(grown, pools=dict(grown["pools"],
+                                    ssr_rate_up_success_pool_ids=[]))),
+            ("rates moved beside grown pools", dict(
+                grown, rates={"total_ratio": 1}))):
+        _h, _a, refused_x, _d = sf.fold(start, {sf.RATES: {"gacha_g": reading}})
+        if len(refused_x) != 1:
+            out.append(f"{what} was folded in: only pools that grew and "
+                       f"nothing else replace held rates.")
     # Fewer players later: folded -- a ban is real -- but listed apart,
     # since a wrong server or a doctored file reads the same.
     fewer = dict(field, players=18000, read_at=400)
@@ -631,3 +656,16 @@ def run():
                  _bundled_where_read, _regions_agree, _readers, _readings):
         failures.extend(part(sf))
     return failures
+
+
+# What this check must catch, for `checks/faults.py`.
+FAULTS = [
+    ("grown pools refused", "shared_facts:fold",
+     "elif grew:", "elif False:", "only grew folds to"),
+    ("a shrunk pool taken for grown", "shared_facts:_pools_grew",
+     "if not set(before) <= set(ids):", "if False:",
+     "a pool that lost a unit"),
+    ("moved rates taken for grown", "shared_facts:_pools_grew",
+     "if any(held.get(table) != reading.get(table) for table in RATE_TABLES):",
+     "if False:", "rates moved beside grown pools"),
+]

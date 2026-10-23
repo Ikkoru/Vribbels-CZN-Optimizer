@@ -580,6 +580,24 @@ def _change(kind, before, reading):
     return ", ".join(parts), down
 
 
+def _pools_grew(held, reading):
+    """The ids `reading`'s pools add to `held`'s, where that is all it
+    changes: the same rates and totals, every pool held still there with
+    every id it held. None otherwise, and where nothing was added."""
+    if any(held.get(table) != reading.get(table) for table in RATE_TABLES):
+        return None
+    old, new = held.get(RATE_POOLS) or {}, reading.get(RATE_POOLS) or {}
+    joined = []
+    for pool, ids in new.items():
+        before = old.get(pool, [])
+        if not set(before) <= set(ids):
+            return None
+        joined += [i for i in ids if i not in before]
+    if any(pool not in new for pool in old):
+        return None
+    return joined or None
+
+
 def fold(into, facts):
     """`facts` folded into `into`: (the result, [what it added],
     [what it refused], [what went down]).
@@ -590,7 +608,11 @@ def fold(into, facts):
     the one to ship, and of a combatant's base or a partner's flat
     stats, which a patch moves. **A banner already held with DIFFERENT
     rates is refused rather than replaced**: the same banner read two
-    ways is a question for the maintainer, not an update. Folding the
+    ways is a question for the maintainer, not an update. The one
+    exception is a banner whose pools only GREW (`_pools_grew`): a
+    permanent banner takes in each patch's new units, the Normal
+    Rescues' list of 5-stars among them, which tells a Seasonal rerun
+    from a Normal one. It is replaced, and what joined is said. Folding the
     same facts twice changes nothing the second time, and nothing held
     is ever dropped -- `lost` holds a fold to that.
 
@@ -607,9 +629,14 @@ def fold(into, facts):
     added, refused, down = [], [], []
     for banner, entry in facts[RATES].items():
         held = out[RATES].get(banner)
+        grew = _pools_grew(held, entry) if held is not None else None
         if held is None:
             out[RATES][banner] = entry
             added.append("rates of %s" % banner)
+        elif grew:
+            out[RATES][banner] = entry
+            added.append("rates of %s, its pools gaining %s"
+                         % (banner, ", ".join(grew)))
         elif held != entry:
             refused.append("rates of %s differ from the ones held" % banner)
     for key, ids in facts[SLOTS].items():
