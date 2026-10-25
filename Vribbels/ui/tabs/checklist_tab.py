@@ -71,9 +71,9 @@ retires the answer and asks again. See `_mark_finished`.
 
 **Under the columns, Expiring Items lists what the game will delete**:
 every item held on a clock, soonest first, each line blinking orange
-inside a week and red inside two days. It hangs from the foot of the
-tab and fills the room the tallest column leaves, a column at a time,
-left to right. See `EXPIRING_HEADING`.
+inside a week and red inside two days. It starts under the tallest
+column and fills the room down to the window's foot, a column at a
+time, left to right. See `EXPIRING_HEADING`.
 
 The columns are built the way the Materials tab's are: content in the
 EVEN grid columns with an empty expanding one between each pair, so the
@@ -3172,10 +3172,13 @@ CHAOS_CAP = 4
 CHAOS_WEEKLY_GRANT = 4
 SORTIE_WEEKLY_GRANT = 3
 
-# The period item the two module rows count copies of, and the two
-# windows they count it in. ROLLING, from the moment the tab is drawn
-# -- not to the game's next reset. A copy expires on the stamp it
-# carries, fourteen days after it was acquired, and no reset moves it.
+# The two windows the module rows count the Time-Limited Command
+# Delegation Modules' copies in, every length of module together
+# (`period_items.module_expiries`; a length the program has not met is
+# counted too, and named for the maintainer to approve). ROLLING, from
+# the moment the tab is drawn -- not to the game's next reset. A copy
+# expires on the stamp it carries, its days after it was acquired, and
+# no reset moves it.
 #
 # `(span in seconds, row key, words, unit, what the words divide by,
 # blinks, steady)`. A row reads two segments: the words, taking (how
@@ -3192,7 +3195,6 @@ SORTIE_WEEKLY_GRANT = 3
 # `steady`: orange for the seven-day row, its copies days away. Inside a
 # day it is the 24-hour row that blinks, and the seven-day row holds
 # still.
-MODULE_ITEM = 3920026           # Time-Limited Command Delegation Module
 MODULE_WINDOWS = (
     (24 * 3600, "modules_soon", "%d%s!", "h", 3600,
      ((None, 24, SOON),), TODO),
@@ -3204,19 +3206,20 @@ MODULE_WINDOWS = (
 # block of its own along the foot of the tab. `period_items.expiring`
 # finds them, every way a snapshot can say one is held. One line an
 # item -- its name without the time-limited marker, how many are held,
-# how long the soonest copy has -- soonest first, top to bottom, and on
-# into the next column once the room under the tallest column above
-# runs out. See `ChecklistTab._fill_expiring`.
+# how long the soonest copy has -- soonest first, top to bottom from
+# under the tallest column, and on into the next column once the room
+# down to the window's foot runs out. See `ChecklistTab._fill_expiring`.
 #
-# An item a row above already counts is left out: the 14-day
-# Delegation Module's copies are the Weekly column's module rows.
+# An item a row above already counts is left out: every Delegation
+# Module is the Weekly column's module rows (`period_items.module_items`).
 EXPIRING_HEADING = "Expiring Items"
 EXPIRING_KEY_PREFIX = "expiring:"
-EXPIRING_LISTED_ELSEWHERE = frozenset({MODULE_ITEM})
 # The whole line blinks as its soonest copy runs out: red inside two
-# days, orange inside a week, plain before that. (seconds under which,
-# the state), read top down.
+# days, orange inside a week. (seconds under which, the state), read
+# top down. Before that only its countdown is coloured, the yellow
+# every countdown on the tab takes while it has days to run (`LATER`).
 EXPIRING_STATES = ((2 * 24 * 3600, SOON), (7 * 24 * 3600, WARN_BLINK))
+EXPIRING_LATER = LATER
 # What the block says holding none, dim. A snapshot with no inventory
 # at all reads `NO_DATA` instead: nothing held and nothing read are
 # different answers.
@@ -3569,16 +3572,23 @@ TEXT_INSET = 2
 # countdown against the next column's names. Each column is as wide as
 # its own lines, so the columns sit left-aligned at this distance
 # rather than spread across the tab.
-EXPIRING_COLUMN_GAP = 8  # spacing: element and its label ↔ element and its label -- run, run ↔
-# The least room between the tallest column's last row and the Expiring
-# Items heading. A FLOOR: the block hangs from the foot of the tab, so
-# the gap is this plus whatever its rows leave unfilled, and a column
-# grows into the next only once this much is all that is left.
-EXPIRING_CLEARANCE = 2  # spacing: minimum -- panel ↕ unrelated label -- frame, heading ↕
-# The block against the window's bottom edge, the columns' own side
-# pad being the left. The whole rule's distance: no container around
-# the block pads the tab's foot, where the columns' 2 sits inside one.
-EXPIRING_BOTTOM = 4  # spacing: content frame -> content frame -- frame, frame ↕
+EXPIRING_COLUMN_GAP = 16  # spacing: control group ↔ control group -- run, run ↔
+# The tallest column's last row against the Expiring Items heading
+# under it: the 16 that sets a block apart from the rows around it on
+# this tab (`BLOCK_PAD`), the heading opening a block of its own. On
+# top of the columns' own bottom pad.
+#
+# **Two levers, as the tab's block division has**: a column ending on
+# a shop product needs two more, the checkbox's ink reaching lower in
+# its line than a row of words does (`BLOCK_PAD_FROM_BOX`).
+EXPIRING_GAP = 5  # spacing: exception -- label row -> label row -- run, heading ↕
+EXPIRING_GAP_FROM_BOX = 7  # spacing: exception -- label row -> label row -- checkbox, heading ↕
+# The least room between the block's last line and the window's foot,
+# which is where a column stops and the next begins. A FLOOR: the lines
+# come whole, so the room left is this plus whatever the last one did
+# not fit into. The whole rule's distance, no container around the
+# block padding the tab's foot.
+EXPIRING_BOTTOM = 4  # spacing: minimum -- content frame -> content frame -- frame, frame ↕
 
 # What a shop heading's total is tagged with, plus the heading's key.
 # Each heading gets a tab stop of its OWN -- the stop is a tag option
@@ -3779,9 +3789,10 @@ def _column_geometry(font, title, rows, overhead, reserve=None):
 def expiring_rows(raw, now):
     """[(row key, segments)] for the Expiring Items block, soonest first
     and by name among equals: each item's bare name, how many are held,
-    and how long its soonest copy has, all three in the line's one state
-    (`EXPIRING_STATES`). An item nothing dates reads `NO_DATA` for its
-    time, plain, after the dated ones.
+    and how long its soonest copy has. Inside a week all three take the
+    line's blink (`EXPIRING_STATES`); before that the countdown alone is
+    yellow (`EXPIRING_LATER`). An item nothing dates reads `NO_DATA` for
+    its time, plain, after the dated ones.
 
     Where nothing is held, one row keyed `EXPIRING_KEY_PREFIX` alone,
     saying `EXPIRING_NONE`; `NO_DATA` where the snapshot holds no
@@ -3789,10 +3800,11 @@ def expiring_rows(raw, now):
     """
     if not (raw or {}).get("inventory"):
         return [(EXPIRING_KEY_PREFIX, ((NO_DATA, UNKNOWN),))]
+    modules = period_items.module_items(raw["inventory"], item_name)
     lines = []
     for res_id, (count, end) in period_items.expiring(
             raw, now, item_name).items():
-        if res_id in EXPIRING_LISTED_ELSEWHERE:
+        if res_id in modules:
             continue
         name = period_items.bare_name(item_name(res_id)) or str(res_id)
         left = None if end is None else end - now
@@ -3800,9 +3812,11 @@ def expiring_rows(raw, now):
             (state for under, state in EXPIRING_STATES if left < under),
             UNKNOWN)
         words = NO_DATA if left is None else countdown_words(left)
+        late = EXPIRING_LATER if left is not None and state is UNKNOWN \
+            else state
         lines.append(((left is None, left or 0, name.casefold(), res_id),
                       EXPIRING_KEY_PREFIX + str(res_id),
-                      ((name, state), (str(count), state), (words, state))))
+                      ((name, state), (str(count), state), (words, late))))
     if not lines:
         return [(EXPIRING_KEY_PREFIX, ((EXPIRING_NONE, MUTED),))]
     return [(key, segments) for _order, key, segments in sorted(lines)]
@@ -3986,9 +4000,11 @@ class ChecklistTab(BaseTab):
         # `checks/check_tabs_build.py` holds it there.
         columns = ttk.Frame(self.frame)
 
+        # As tall as the tallest column and no taller: the Expiring
+        # Items block starts under it.
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: tab list -> first element -- tab, frame ↕
-        columns.pack(fill=tk.BOTH, expand=True, padx=px(COLUMNS_PADX),
+        columns.pack(fill=tk.X, padx=px(COLUMNS_PADX),
                      pady=px(COLUMNS_PADY))
 
         # Content in the EVEN grid columns, an empty expanding one
@@ -4022,15 +4038,13 @@ class ChecklistTab(BaseTab):
             column.grid(row=0, column=2 * index, sticky="nsew")
             self._column_frames.append(column)
 
-        # **Expiring Items, along the foot of the tab.** Built once and
+        # **Expiring Items, under the tallest column.** Built once and
         # rewritten in place, never rebuilt: it embeds no widget, so a
         # rewrite touches nothing a refresh could flash. Created after
         # the columns, which have to stay the tab's first child, and
-        # PACKED before them, which is a separate order: pack hands each
-        # widget its requested height in turn, so the block has its own
-        # and the columns expand into what is left. Its height is
-        # fitted to that leftover (`_expiring_fit`), and never asks for
-        # more than the room under the tallest column but one line.
+        # packed after them, so they keep their height and the block
+        # takes what is left: its columns are fitted to the room down
+        # to the window's foot (`_expiring_fit`).
         block = ttk.Frame(self.frame)
         # The heading centred over the block's lines, the block being
         # as wide as they are -- or as the heading, where it is wider.
@@ -4051,13 +4065,14 @@ class ChecklistTab(BaseTab):
         for state in BLINKING:
             text.tag_configure(state, foreground=self._blink_ink(state))
         text.tag_configure(MUTED, foreground=self.colors["fg_dim"])
+        text.tag_configure(EXPIRING_LATER, foreground=self.colors["yellow"])
         text.config(state=tk.DISABLED)
         self._expiring_holder, self._expiring_text = holder, text
         # spacing: content frame -> content frame -- frame, frame ↔
-        block.pack(side=tk.BOTTOM, anchor=tk.W, before=columns,
-                   padx=px((COLUMNS_PADX, 0)),
-                   # spacing: content frame -> content frame -- frame, frame ↕
-                   pady=px((0, EXPIRING_BOTTOM)))
+        block.pack(anchor=tk.W, padx=px((COLUMNS_PADX, 0)),
+                   # spacing: exception -- label row -> label row -- run, heading ↕
+                   # spacing: minimum -- content frame -> content frame -- frame, frame ↕
+                   pady=px((EXPIRING_GAP, EXPIRING_BOTTOM)))
         self._expiring = block
 
         # The event names are fitted to the tab's width, and the
@@ -4874,12 +4889,17 @@ class ChecklistTab(BaseTab):
         """
         rows = [(key, tuple(segments)) for key, segments in readings.items()
                 if str(key).startswith(EXPIRING_KEY_PREFIX)]
-        per_column = self._expiring_fit()
+        tallest, gap = self._tallest_column()
+        per_column = self._expiring_fit(tallest, gap)
         font = tkfont.Font(font=ROW_FONT)
         lines, stops, width = expiring_layout(font, rows, per_column)
-        drawn = (tuple(rows), per_column, stops, width)
+        drawn = (tuple(rows), per_column, stops, width, gap)
         if drawn == self._expiring_drawn:
             return
+        if gap != (self._expiring_drawn or (None,) * 5)[4]:
+            # spacing: exception -- label row -> label row -- checkbox, heading ↕
+            # spacing: minimum -- content frame -> content frame -- frame, frame ↕
+            self._expiring.pack_configure(pady=px((gap, EXPIRING_BOTTOM)))
         self._expiring_drawn = drawn
         # Every line's own height and pitch, as `_block_height` adds a
         # column's up: `spacing1` is drawn above the first line too.
@@ -4899,13 +4919,26 @@ class ChecklistTab(BaseTab):
                                 ("row",) + ((state,) if state else ()))
         text.config(state=tk.DISABLED)
 
-    def _expiring_fit(self):
+    def _tallest_column(self):
+        """(how tall the tallest column stands, the gap the Expiring
+        Items block keeps under it): `EXPIRING_GAP_FROM_BOX` where that
+        column ends on a shop product, `EXPIRING_GAP` where it ends on
+        words. The first tallest, left to right, where two tie."""
+        tallest, last = 0, None
+        for frame, (title, *_rest) in zip(self._column_frames, COLUMNS):
+            tall = self._column_height(frame)
+            if tall > tallest:
+                rows = (self.column_texts.get(title) or (None, ()))[1]
+                tallest, last = tall, rows[-1][0] if rows else None
+        boxed = last is not None and _is_shop(last)
+        return tallest, EXPIRING_GAP_FROM_BOX if boxed else EXPIRING_GAP
+
+    def _expiring_fit(self, tallest, gap):
         """How many Expiring Items lines a column holds: the room the
-        tallest column leaves above the window's foot, less the block's
-        heading, pads and `EXPIRING_CLEARANCE`, in whole lines. At least
-        one, so a column grown to the foot of the tab still leaves the
-        block a line -- clipping that column's foot, where nothing at
-        all would say an item is about to go.
+        tallest column (`tallest` high, the block `gap` under it) leaves
+        above the window's foot, less the block's heading and pads, in
+        whole lines. At least one: where there is not even that, the
+        block is cut off at the foot rather than sized to nothing.
 
         Off the tab's own height once it has been laid out. Before, off
         a page that has: every page of the notebook is as tall as the
@@ -4921,12 +4954,13 @@ class ChecklistTab(BaseTab):
         if height <= 1:
             height = px(WINDOW_H)
         self._fitted_height = height
-        tallest = max([self._column_height(frame)
-                       for frame in self._column_frames] or [0])
-        # spacing: minimum -- panel ↕ unrelated label -- frame, heading ↕
+        # Each pad scaled on its own, as the geometry calls scale them:
+        # scaled as one sum it can round a pixel away from what is laid
+        # out, and a line's fit turns on the last pixel.
+        pads = sum(px(pad) for pad in (*COLUMNS_PADY, gap, HEADING_GAP,
+                                       EXPIRING_BOTTOM))
         room = (height - tallest - self._expiring_head.winfo_reqheight()
-                - px(COLUMNS_PADY[0] + COLUMNS_PADY[1] + EXPIRING_CLEARANCE
-                     + HEADING_GAP + EXPIRING_BOTTOM))
+                - pads)
         pitch = tkfont.Font(font=ROW_FONT).metrics("linespace") \
             + px(ROW_PITCH)
         return max(1, room // pitch)
@@ -5407,8 +5441,8 @@ def _readings(raw, now=None, tracked=None):
     """
     now = time.time() if now is None else now
     amounts = item_amounts.held(raw)
-    expiries = period_items.held(raw.get("inventory") or {}).get(
-        MODULE_ITEM, ())
+    expiries = period_items.module_expiries(raw.get("inventory") or {},
+                                            item_name)
 
     out = {}
 

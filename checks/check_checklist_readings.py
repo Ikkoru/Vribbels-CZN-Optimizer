@@ -83,7 +83,7 @@ def _run():
         is_countdown, countdown_words, LATER, SOON, WARN, WARN_BLINK,
         PASS_DAILY_COUNT, PERIOD_LENGTHS,
         _period_band, _period_left, _period_words, _heading_colour,
-        DONE, GREAT_RIFT_TARGET, MODULE_ITEM,
+        DONE, GREAT_RIFT_TARGET,
         MODULE_WINDOWS, NO_DATA,
         SORTIE_CAP, SORTIE_CURRENCY, TODO, UNKNOWN, _readings,
         CHAOS_CAP, CHAOS_WEEKLY_GRANT, SORTIE_WEEKLY_GRANT,
@@ -853,6 +853,23 @@ def _run():
         failures.append(
             f"a copy expiring exactly 24 hours out reads "
             f"{out['modules_soon'][0]!r}. `within` includes the boundary.")
+
+    # **Every length of module counts together**: a 7-day copy due in
+    # six hours and a 21-day one due in three days, beside the 14-day
+    # one, read as the 14-day ones alone would.
+    raw = _snapshot(expiries=(week + DAY,))
+    raw["inventory"]["period_items"] += [
+        {"res_id": 3920025, "value": [{"count": 1, "end_time": now + 6 * HOUR}]},
+        {"res_id": 3920027, "value": [{"count": 1, "end_time": now + 3 * DAY}]}]
+    out = _readings(raw, now)
+    if (out["modules_soon"] != [("6h!", SOON), ("1", SOON)]
+            or out["modules_week"] != [("3d!", WARN_BLINK),
+                                       ("2", WARN_BLINK)]):
+        failures.append(
+            f"a 7-day module due in 6 hours and a 21-day one due in 3 days "
+            f"read {out['modules_soon']!r} and {out['modules_week']!r}, not "
+            f"as the same copies of the 14-day module would: every length "
+            f"counts in the module rows.")
 
     # Nothing held: the window's own bound stands in for a longest that
     # does not exist, and both rows are GREEN -- there is nothing to use.
@@ -2602,11 +2619,19 @@ def _run():
                 f"NAMED_MATERIALS calls {got!r}. A row pointed at the "
                 f"wrong id reads 0, the same as an empty stock.")
 
-    if MODULE_ITEM not in PERIOD_ITEMS:
+    import game_client
+    import period_items
+    for res_id in period_items.MODULE_ITEMS:
+        if res_id not in game_client.known_period_items():
+            failures.append(
+                f"the Checklist counts copies of {res_id} as a Delegation "
+                f"Module, which the client's period table does not list. "
+                f"Only a period item has copies to count, so it would add "
+                f"nothing to the module rows, ever.")
+    if not set(period_items.MODULE_ITEMS) & set(PERIOD_ITEMS):
         failures.append(
-            f"the Checklist counts copies of {MODULE_ITEM}, which is not "
-            f"in PERIOD_ITEMS. Only a period item has copies to count, so "
-            f"both module rows would read 0 forever.")
+            "no Delegation Module the rows count is in PERIOD_ITEMS, which "
+            "is where the Materials tab takes the module's art from")
 
     failures.extend(_expiring(now))
     return failures
@@ -2617,8 +2642,8 @@ def _expiring(now):
     and how its columns stand side by side."""
     from ui.scaling import px
     from ui.tabs.checklist_tab import (
-        EXPIRING_COLUMN_GAP, EXPIRING_KEY_PREFIX, EXPIRING_NONE,
-        LABEL_TO_VALUE, MODULE_ITEM, MUTED, NO_DATA, SEGMENT_GAP, SOON,
+        EXPIRING_COLUMN_GAP, EXPIRING_KEY_PREFIX, EXPIRING_LATER,
+        EXPIRING_NONE, LABEL_TO_VALUE, MUTED, NO_DATA, SEGMENT_GAP, SOON,
         TEXT_INSET, UNKNOWN, WARN_BLINK, countdown_words, expiring_layout,
         expiring_rows)
     failures = []
@@ -2629,32 +2654,42 @@ def _expiring(now):
 
     month = now + 30 * DAY
     raw = {"inventory": {"period_items": [
-        copies(MODULE_ITEM, (1, now + HOUR), (1, now + 3 * DAY)),
+        copies(3920026, (1, now + HOUR), (1, now + 3 * DAY)),
+        copies(3920025, (1, now + 2 * HOUR)),           # the 7-day module
+        copies(3920027, (1, now + 9 * DAY)),            # the 21-day module
         copies(3920039, (8, month), (9, month)),       # Abyssal Core
         copies(3920040, (3, now + 5 * DAY)),            # Colorless Core
         copies(3920043, (1, now + 36 * HOUR)),          # Core of Potential
         copies(3920045, (1, month)),                    # Core of the Reverse
     ]}}
     rows = expiring_rows(raw, now)
+    # (name, count, countdown, the name's state, the countdown's state)
     want = [
-        ("Core of Potential", "1", countdown_words(36 * HOUR), SOON),
-        ("Colorless Core", "3", countdown_words(5 * DAY), WARN_BLINK),
-        ("Abyssal Core", "17", countdown_words(30 * DAY), UNKNOWN),
-        ("Core of the Reverse", "1", countdown_words(30 * DAY), UNKNOWN),
+        ("Core of Potential", "1", countdown_words(36 * HOUR), SOON, SOON),
+        ("Colorless Core", "3", countdown_words(5 * DAY), WARN_BLINK,
+         WARN_BLINK),
+        ("Abyssal Core", "17", countdown_words(30 * DAY), UNKNOWN,
+         EXPIRING_LATER),
+        ("Core of the Reverse", "1", countdown_words(30 * DAY), UNKNOWN,
+         EXPIRING_LATER),
     ]
-    got = [tuple(words for words, _state in segments) + (segments[0][1],)
-           for _key, segments in rows]
+    got = [tuple(words for words, _state in segments)
+           + (segments[0][1], segments[-1][1]) for _key, segments in rows]
     if got != want:
         failures.append(
             f"Expiring Items read {got}, not {want}: soonest first and by "
             f"name among equals, the marker off each name, every copy "
             f"counted, the whole line red inside two days and orange "
-            f"inside a week -- and the 14-day Delegation Module left to "
-            f"the Weekly rows that already count it.")
+            f"inside a week, only the countdown yellow before that -- and "
+            f"every Delegation Module left to the Weekly rows that "
+            f"already count it.")
+    blinking = [segments for _key, segments in rows
+                if segments[-1][1] in (SOON, WARN_BLINK)]
     if any(len({state for _w, state in segments}) != 1
-           for _key, segments in rows):
-        failures.append("an Expiring Items line is drawn in more than one "
-                        "state: the whole line blinks, not its countdown")
+           for segments in blinking):
+        failures.append("a blinking Expiring Items line is drawn in more "
+                        "than one state: the whole line blinks, not its "
+                        "countdown")
 
     empty = expiring_rows({"inventory": {"items": []}}, now)
     if empty != [(EXPIRING_KEY_PREFIX, ((EXPIRING_NONE, MUTED),))]:
@@ -2734,13 +2769,25 @@ FAULTS = [
      "its shop's middle stops"),
     ("an item a row already counts listed again",
      "ui.tabs.checklist_tab:expiring_rows",
-     "if res_id in EXPIRING_LISTED_ELSEWHERE:", "if False:",
+     "if res_id in modules:", "if False:",
      "left to the Weekly rows"),
     ("only an expiring line's countdown blinking",
      "ui.tabs.checklist_tab:expiring_rows",
-     "((name, state), (str(count), state), (words, state))",
-     "((name, UNKNOWN), (str(count), UNKNOWN), (words, state))",
+     "((name, state), (str(count), state), (words, late))",
+     "((name, UNKNOWN), (str(count), UNKNOWN), (words, late))",
      "the whole line blinks"),
+    ("a far expiry's countdown left uncoloured",
+     "ui.tabs.checklist_tab:expiring_rows",
+     "late = EXPIRING_LATER if left is not None and state is UNKNOWN \\\n"
+     "            else state",
+     "late = state", "only the countdown yellow"),
+    ("the 7- and 21-day modules left out of the module rows",
+     "ui.tabs.checklist_tab:_readings",
+     "expiries = period_items.module_expiries(raw.get(\"inventory\") or {},\n"
+     "                                            item_name)",
+     "expiries = period_items.held(raw.get(\"inventory\") or {}).get(\n"
+     "        3920026, ())",
+     "every length counts in the module rows"),
     ("Expiring Items' columns run together",
      "ui.tabs.checklist_tab:expiring_layout",
      "start = end + px(EXPIRING_COLUMN_GAP)", "start = end",

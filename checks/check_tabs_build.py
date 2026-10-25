@@ -3006,14 +3006,14 @@ def _the_checklist_fits_its_window(tab):
 
 
 def _expiring_items_fit_under_the_columns(tab):
-    """The Expiring Items block has to sit under the columns, inside the
-    window, with every line it reserves drawn.
+    """The Expiring Items block has to start just under the tallest
+    column and end inside the window, with every line it reserves drawn.
 
     Its height is WORKED OUT rather than asked of Tk -- the room the
     tallest column leaves, in whole lines (`_expiring_fit`) -- so a
-    formula wrong about a column's height or a line's pitch puts the
-    block over the foot of the tallest column, or runs it off the
-    window's, and nothing on screen says which line went missing.
+    formula wrong about a column's height or a line's pitch runs the
+    block off the window's foot, where pack cuts it short and nothing on
+    screen says which line went missing.
 
     Measured at the default window, mapped at alpha 0 like
     `_the_checklist_fits_its_window`, holding every Time-Limited item a
@@ -3025,7 +3025,7 @@ def _expiring_items_fit_under_the_columns(tab):
     import time
     import tkinter as tk
     from ui.scaling import px, WINDOW_H, WINDOW_W
-    from ui.tabs.checklist_tab import EXPIRING_CLEARANCE
+    from ui.tabs.checklist_tab import COLUMNS_PADY, EXPIRING_BOTTOM
 
     raw = tab.optimizer.raw_data
     if not isinstance(raw, dict):
@@ -3071,9 +3071,7 @@ def _expiring_items_fit_under_the_columns(tab):
                 f"inside a block reserved for {holder.cget('height')}px; "
                 f"the lines at its foot are clipped without a word.")
         # The height each column's rows RESERVE, not the one it was
-        # given: a block that took too much squeezes the column above,
-        # and pack then hands its rows less than they asked for -- so
-        # the column's allocated foot always clears the block, clipped.
+        # given: the column's own foot, wherever pack put it.
         tallest = max(
             (frame.winfo_rooty() + frame.winfo_children()[-1].winfo_y()
              + int(frame.winfo_children()[-1].cget("height"))
@@ -3081,17 +3079,22 @@ def _expiring_items_fit_under_the_columns(tab):
              if len(frame.winfo_children()) > 1),
             default=0)
         head = tab._expiring_head.winfo_rooty()
-        if head - tallest < px(EXPIRING_CLEARANCE):
+        under = px(COLUMNS_PADY[1]) + px(tab._tallest_column()[1])
+        if head - tallest != under:
             out.append(
                 f"the Expiring Items heading starts {head - tallest}px "
-                f"under the foot of the tallest column, where at least "
-                f"{px(EXPIRING_CLEARANCE)} was left for it: the block was "
-                f"sized for more room than the columns leave.")
+                f"under the foot of the tallest column, not the {under} "
+                f"its pads put it at: the block is meant to start under "
+                f"the lowest column, not hang from the window's foot.")
+        # What the block ASKS for, not what it was given: pack cuts a
+        # block too tall for the room down to the room.
         foot = tab.frame.winfo_rooty() + tab.frame.winfo_height()
-        bottom = tab._expiring.winfo_rooty() + tab._expiring.winfo_height()
+        bottom = (tab._expiring.winfo_rooty()
+                  + tab._expiring.winfo_reqheight() + px(EXPIRING_BOTTOM))
         if bottom > foot:
-            out.append(f"the Expiring Items block runs {bottom - foot}px "
-                       f"past the foot of the tab")
+            out.append(f"the Expiring Items block asks for {bottom - foot}px "
+                       f"more than the room down to the foot of the tab, "
+                       f"which cuts its last lines off")
     finally:
         if kept is None:
             raw.pop("inventory", None)
@@ -6515,7 +6518,12 @@ FAULTS = [
      "ui.tabs.checklist_tab:ChecklistTab._expiring_fit",
      "room = (height - tallest - self._expiring_head.winfo_reqheight()",
      "room = (height - self._expiring_head.winfo_reqheight()",
-     "under the foot of the tallest column"),
+     "more than the room down to the foot"),
+    ("Expiring Items hung from the window's foot",
+     "ui.tabs.checklist_tab:ChecklistTab.setup_ui",
+     "block.pack(anchor=tk.W, padx=px((COLUMNS_PADX, 0)),",
+     "block.pack(side=tk.BOTTOM, anchor=tk.W, padx=px((COLUMNS_PADX, 0)),",
+     "not hang from the window's foot"),
     ("Expiring Items' block a line short of its lines",
      "ui.tabs.checklist_tab:ChecklistTab._fill_expiring",
      "height=len(lines) * pitch)", "height=(len(lines) - 1) * pitch)",

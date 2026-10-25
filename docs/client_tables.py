@@ -625,6 +625,7 @@ def audit(client):
     out += level_problems(client)
     out += fragment_problems(client)
     out += item_problems(client)
+    out += module_problems(client)
 
     partner = {r["id"]: r for r in client.rows("partner_base@char_partner")}
     cards = {r["id"]: r for r in client.rows("card(partner)@card")}
@@ -900,6 +901,29 @@ def fragment_problems(client):
             out.append(f"substat {names.get(stat, stat)}: drawn new at "
                        f"weight {ours.get(stat)} here (SUBSTAT_DRAW), "
                        f"{held['draws'].get(stat)} in the client")
+    return out
+
+
+def module_problems(client):
+    """A Time-Limited Command Delegation Module the client holds that
+    `period_items.MODULE_ITEMS` does not name. It is counted in the
+    Checklist's module rows and the Materials tab's icons all the same
+    (`period_items.module_items`); the line asks the maintainer to
+    approve that by naming it there, or to treat it otherwise."""
+    import period_items
+    names = game_client.item_names(client)
+    rules = game_client.period_items(client)
+    out = []
+    for res_id, rule in sorted(rules.items()):
+        if (res_id not in period_items.MODULE_ITEMS
+                and rule[0] != period_items.NOT_A_MODULE_CLOCK
+                and period_items.MODULE_NAME.search(names.get(res_id, ""))):
+            out.append(
+                f"item {res_id} {names[res_id]!r}: a Delegation Module the "
+                f"program does not know ({rule[0]}, {rule[1]} days), "
+                f"counted with the others in the Checklist's Delegation "
+                f"Module rows and the Materials tab -- add it to "
+                f"period_items.MODULE_ITEMS to keep that")
     return out
 
 

@@ -44,7 +44,8 @@ its icons, so one needing more room takes it on the left.
 
 **The reserved column carries one item per row and no words.** Its
 last four rows all draw the Command Delegation Module, each showing
-the copies expiring inside its own window -- a period item's copies
+the copies expiring inside its own window, every length of module
+together (`period_items.module_expiries`) -- a period item's copies
 are listed with their expiries rather than counted, so no single
 number would say what is worth using today.
 
@@ -417,12 +418,14 @@ TICK_FLOOR = 60
 TICK_CEILING = 3600
 
 # Under them, the Command Delegation Module split by how soon a copy
-# expires. **The windows do not overlap**: a copy is counted in the
-# first it falls inside and no other, so the four rows sum to what is
-# held rather than each containing the ones above it.
+# expires, every length of module counted together. **The windows do
+# not overlap**: a copy is counted in the first it falls inside and no
+# other, so the four rows sum to what is held rather than each
+# containing the ones above it.
 #
 # (hours, caption), the last taking everything past the one before it.
-# The caption is drawn over the icon's top-left corner.
+# The caption is drawn over the icon's top-left corner, on the 14-day
+# module's art: `MODULE_ITEM` names the art, not what is counted.
 MODULE_ITEM = 3920026
 MODULE_BUCKETS = (
     (24, "<24h!"),
@@ -613,10 +616,11 @@ class MaterialsTab(BaseTab):
         # The last counts drawn, so the checkbox can redraw the figures
         # without a snapshot being reloaded under it.
         self._quantities = {}
-        # Every copy's expiry, by res_id. Period items carry no amount
-        # -- their copies are listed -- so the counts on the reserved
-        # column come from here rather than from the item list.
-        self._expiries = {}
+        # Every Delegation Module copy's expiry, every length together.
+        # Period items carry no amount -- their copies are listed -- so
+        # the counts on the reserved column come from here rather than
+        # from the item list.
+        self._module_expiries = []
         # One instance for the whole tab, which is how every other tab
         # uses it: the hover state belongs to the pointer, not to a
         # widget.
@@ -1186,7 +1190,7 @@ class MaterialsTab(BaseTab):
         # Period items carry no amount at all -- their copies are
         # LISTED, each with its own expiry -- so they come through
         # `period_items` rather than either source above.
-        self._expiries = period_items.held(
+        self._module_expiries = period_items.module_expiries(
             self.optimizer.raw_data.get("inventory", {}))
         self._render_icons(quantities)
 
@@ -1239,7 +1243,7 @@ class MaterialsTab(BaseTab):
         in two of the module's windows or in none.
         """
         now = time.time()
-        counts = _module_buckets(self._expiries.get(MODULE_ITEM, ()), now)
+        counts = _module_buckets(self._module_expiries, now)
         for (label, _hours, caption), held in zip(self.module_labels, counts):
             urgent = MODULE_URGENT.get(caption) if held else None
             self._draw_icon(label, MODULE_ITEM, held, caption,

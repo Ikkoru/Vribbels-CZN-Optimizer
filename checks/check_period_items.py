@@ -103,6 +103,58 @@ def run():
             f"Delegation Module rows count the list's length.")
 
     failures.extend(_expiring(pi))
+    failures.extend(_modules(pi))
+    return failures
+
+
+def _modules(pi):
+    """Every length of Time-Limited Command Delegation Module counts
+    together, a length the program has not met among them -- and one
+    the shipped client table holds that nobody approved fails here, the
+    maintainer's cue to name it in `MODULE_ITEMS` or decide otherwise."""
+    failures = []
+    names = {7: "Time-Limited Command Delegation Module - 7 Days",
+             21: "Time-Limited Command Delegation Module - 21 Days"}
+    unmet = 999999910
+    inventory = {"period_items": [
+        {"res_id": 3920025, "value": [{"count": 1, "end_time": 100}]},
+        {"res_id": 3920026, "value": [{"count": 2, "end_time": 300}]},
+        {"res_id": 3920027, "value": [{"count": 1, "end_time": 200}]},
+        {"res_id": unmet, "value": [{"count": 1, "end_time": 400}]},
+        {"res_id": 3920039, "value": [{"count": 5, "end_time": 50}]}]}
+    name_of = {3920025: names[7], 3920026: "Time-Limited Command "
+               "Delegation Module - 14 Days", 3920027: names[21],
+               unmet: "Time-Limited Command Delegation Module - 30 Days",
+               3920039: "Abyssal Core (Time-Limited)",
+               2000052: "Command Delegation Module"}.get
+    got = pi.module_expiries(inventory, name_of)
+    if got != [100, 200, 300, 300, 400]:
+        failures.append(
+            f"the Delegation Module copies read {got}, not [100, 200, 300, "
+            f"300, 400]: the 7-, 14- and 21-day modules and one of a length "
+            f"the program has not met, counted together, and nothing else.")
+    if pi.new_modules(inventory, name_of) != {unmet}:
+        failures.append(
+            f"the modules nobody approved read "
+            f"{sorted(pi.new_modules(inventory, name_of))}, not [{unmet}]")
+    if 2000052 in pi.module_items(inventory, name_of):
+        failures.append(
+            "2000052, a subscription's Command Delegation Module, was "
+            "counted as a Time-Limited module: it folds into the currency "
+            "the Chaos Delegation row reads")
+
+    shipped = pi.new_modules()
+    if shipped:
+        from game_data.constants import item_names
+        named = item_names()
+        failures.append(
+            f"the shipped client table holds Delegation Module(s) the "
+            f"program has not been told about: "
+            f"{', '.join(f'{rid} {named.get(rid)!r}' for rid in sorted(shipped))}"
+            f". They are counted with the others in the Checklist's "
+            f"Delegation Module rows and the Materials tab. Add them to "
+            f"period_items.MODULE_ITEMS to keep that, or treat them "
+            f"otherwise.")
     return failures
 
 
@@ -204,4 +256,19 @@ FAULTS = [
      "or not (res_id in rules or res_id in own",
      "or not (res_id in rules",
      "whose record carries an expiry"),
+    ("a module length the program has not met left out",
+     "period_items:module_items",
+     "return frozenset(MODULE_ITEMS) | frozenset(",
+     "return frozenset(MODULE_ITEMS) or frozenset(",
+     "has not met, counted together"),
+    ("a subscription's module counted",
+     "period_items:module_items",
+     "if (rules.get(res_id) or (\"\",))[0] != NOT_A_MODULE_CLOCK",
+     "if True",
+     "subscription's Command Delegation Module"),
+    ("an unapproved module in the shipped table",
+     "period_items:MODULE_ITEMS",
+     "MODULE_ITEMS = (3920025, 3920026, 3920027)",
+     "MODULE_ITEMS = (3920026,)",
+     "has not been told about"),
 ]

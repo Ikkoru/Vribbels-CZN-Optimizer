@@ -55,6 +55,23 @@ EXPIRY_FIELDS = ("end_time", "expire_time")
 TIME_LIMITED = re.compile(
     r"[(\[]\s*time[- ]limited\s*[)\]]|^\s*time[- ]limited\b", re.I)
 
+# The Time-Limited Command Delegation Modules, every length the game has
+# sold: 7, 14 and 21 days. The Checklist's Delegation Module rows and
+# the Materials tab's module icons count their copies together.
+#
+# **A module not named here is counted with them all the same** -- any
+# period item named like one, on a clock other than a subscription's
+# (`module_items`) -- and named for the maintainer to approve, by adding
+# it here, or to treat otherwise: `docs/client_tables.py --audit`, which
+# a launch from source shows, for one the client holds, and
+# `checks/check_period_items.py` for one the shipped table holds.
+MODULE_ITEMS = (3920025, 3920026, 3920027)
+MODULE_NAME = re.compile(r"\bdelegation module\b", re.I)
+# The clock a period item named like a module is NOT one on: 2000052 is
+# a subscription's grant of the Command Delegation Module currency the
+# Checklist's Chaos Delegation row reads, folded into that currency.
+NOT_A_MODULE_CLOCK = "SUBSCRIPTION"
+
 
 def held(inventory):
     """{res_id: [expiry, ...]} for every period item in a snapshot, one
@@ -73,6 +90,43 @@ def held(inventory):
         for end, count in _copies(entry):
             out.setdefault(res_id, []).extend([end] * count)
     return {res_id: sorted(times) for res_id, times in out.items()}
+
+
+def module_items(inventory=None, name_of=None):
+    """Every res_id counted as a Time-Limited Command Delegation Module:
+    `MODULE_ITEMS`, and any other period item whose name says it is one
+    (`MODULE_NAME`), off the client's period table or held as copies in
+    `inventory`, unless the table puts it on `NOT_A_MODULE_CLOCK`.
+
+    `name_of` maps a res_id to its name,
+    `game_data.constants.item_names` by default."""
+    if name_of is None:
+        name_of = item_names().get
+    rules = game_client.known_period_items()
+    candidates = set(rules)
+    for entry in (inventory or {}).get("period_items") or []:
+        res_id = _res_id(entry.get("res_id")) \
+            if isinstance(entry, dict) else None
+        if res_id is not None:
+            candidates.add(res_id)
+    return frozenset(MODULE_ITEMS) | frozenset(
+        res_id for res_id in candidates
+        if (rules.get(res_id) or ("",))[0] != NOT_A_MODULE_CLOCK
+        and MODULE_NAME.search(name_of(res_id) or ""))
+
+
+def new_modules(inventory=None, name_of=None):
+    """The modules `module_items` counts and `MODULE_ITEMS` does not
+    name: the ones the maintainer has not approved yet."""
+    return module_items(inventory, name_of) - frozenset(MODULE_ITEMS)
+
+
+def module_expiries(inventory, name_of=None):
+    """Every Delegation Module copy's expiry, every length together,
+    soonest first: what the module rows and icons count."""
+    copies = held(inventory)
+    return sorted(end for res_id in module_items(inventory, name_of)
+                  for end in copies.get(res_id, ()))
 
 
 def expiring(raw, now=None, name_of=None):

@@ -4128,6 +4128,8 @@ EXCEPTION_ENTRIES = {
     # The Expiring Items block takes the columns' heading gap and pitch.
     "Checklist: Expiring Items heading -> its first row": "exception",
     "Checklist: Expiring Items row -> row": "exception",
+    # And the block division above it, the 16 the tab's blocks keep.
+    "Checklist: tallest column -> Expiring Items": "exception",
     # A section's heading stands four further from the row above it
     # than rows do from one another. Marked at `HEADING_PAD`.
     "Overall Gacha Stats: row -> heading": "exception",
@@ -4904,27 +4906,42 @@ def _lowest_checklist_text(app):
     return max(texts, key=lambda text: sa.box_of(text).bottom)
 
 
-def _ink_above_capital(above, label):
-    """Resolver: the lowest ink in a Text -> a Label's first CAPITAL.
+def _last_line_to_capital(above, label):
+    """Resolver: a Text's last line -> a Label's first CAPITAL.
 
-    The Text's own ink rather than a line's capital: the column that
-    reaches lowest usually ends on a shop product, whose label is its
-    checkbox and has no capital to read. A descender on a last line of
-    words reads the gap a few pixels short, which for a FLOOR errs the
-    safe way."""
+    The last line's own reference: its first capital's baseline where
+    it has one, its ink where it has none -- a shop product, whose label
+    is its checkbox, the box's edge being where the rules read a widget.
+    The note says which, since the two sit at different depths in a
+    line and the lever is one."""
     def resolve(cap, app):
         text, heading = above(app), label(app)
-        upper = sa.painted_extent_v(cap, sa.box_of(text),
-                                    {_widget_fill(text)})
+        fill = {_widget_fill(text)}
+        last = int(text.index("end-1c").split(".")[0])
+        while last > 1 and not text.get(f"{last}.0", f"{last}.end").strip() \
+                and not text.dump(f"{last}.0", f"{last}.end", window=True):
+            last -= 1
+        caps = _capital_band(text, last)
+        if caps is not None:
+            upper, said = sa.painted_extent_v(cap, caps, fill), "its capital"
+        else:
+            info = text.dlineinfo(f"{last}.0")
+            if info is None:
+                return None, "the column's last line is not on screen"
+            box = sa.box_of(text)
+            band = sa.Box(left=box.left, top=box.top + info[1],
+                          right=box.right, bottom=box.top + info[1] + info[3])
+            upper, said = sa.painted_extent_v(cap, band, fill), "its ink"
         if upper is None:
-            return None, "the column above painted nothing"
+            return None, "the column's last line painted nothing"
         band = _label_capital_box(cap, heading)
         if band is None:
             return None, "no capital in the heading to measure to"
         lower = sa.painted_extent_v(cap, band)
         if lower is None:
             return None, "the heading's capital painted nothing"
-        return sa.gap_between(upper[1], lower[0]), ""
+        return (sa.gap_between(upper[1], lower[0]),
+                f"from {_line_name(text, last)}, at {said}")
     return resolve
 
 
@@ -5048,8 +5065,8 @@ CHECKLIST_ENTRIES = [
      RULE_CONTENT_FRAME, _box_from_window_edge(_checklist_column(0)), "h"),
     ("Checklist", "Checklist: last column -> window edge", 4,
      RULE_CONTENT_FRAME, _box_to_window_edge(_checklist_column(-1)), "h"),
-    # **Expiring Items**, along the foot of the tab. Its heading and
-    # its rows take the columns' own levers, so these read the same
+    # **Expiring Items**, under the tallest column. Its heading and its
+    # rows take the columns' own levers, so these read the same
     # distances as the two entries at the top of the list.
     ("Checklist", "Checklist: Expiring Items heading -> its first row", 12,
      RULE_PANEL_UNRELATED_LABEL,
@@ -5060,18 +5077,20 @@ CHECKLIST_ENTRIES = [
      _text_line_pitch(_expiring_part("_expiring_text"),
                       label="Expiring Items",
                       kinds=_checklist_pitch_tags("row")), "v"),
-    # A FLOOR: the block hangs from the foot of the window, so this is
-    # `EXPIRING_CLEARANCE` plus whatever its rows leave unfilled, and
-    # only where a column runs to the room's end is it the lever alone.
-    # No exact twin: the rows come in whole lines, so no layout puts
-    # the lever on screen by itself.
-    ("Checklist", "Checklist: tallest column -> Expiring Items", 10,
-     RULE_PANEL_UNRELATED_LABEL,
-     _ink_above_capital(_lowest_checklist_text,
-                        _expiring_part("_expiring_head")), "v"),
+    # The block division the tab sets a shop or the Events list apart
+    # with, here between the columns and the block: marked at
+    # `EXPIRING_GAP`.
+    ("Checklist", "Checklist: tallest column -> Expiring Items", 16,
+     RULE_LABEL_ROW_PITCH,
+     _last_line_to_capital(_lowest_checklist_text,
+                           _expiring_part("_expiring_head")), "v"),
     ("Checklist", "Checklist: window edge -> Expiring Items", 4,
      RULE_CONTENT_FRAME, _box_from_window_edge(_expiring_part("_expiring")),
      "h"),
+    # A FLOOR: the lines come whole, so the room under the last is
+    # `EXPIRING_BOTTOM` plus whatever it did not fit into -- and with
+    # few items, the whole of the tab's foot. No exact twin: no layout
+    # puts the lever on screen by itself.
     ("Checklist", "Checklist: Expiring Items -> window bottom", 4,
      RULE_CONTENT_FRAME, _box_to_window_bottom(_expiring_part("_expiring")),
      "v"),
@@ -5366,10 +5385,9 @@ MINIMUM_GAPS = {
     # A wrap moves whole words, so the gap is the wrap's margin plus
     # whatever the next word did not fit into.
     PRESET_WRAP_GAP,
-    # The Expiring Items block hangs from the foot of the window, so
-    # its room under the tallest column is the clearance plus whatever
-    # its whole lines leave unfilled.
-    "Checklist: tallest column -> Expiring Items",
+    # The Expiring Items block's lines come whole, so the room under the
+    # last is the floor plus whatever it did not fit into.
+    "Checklist: Expiring Items -> window bottom",
 }
 
 
@@ -5709,8 +5727,8 @@ def register_all():
     sa.track(
         name=EXPIRING_COLUMN_GAP_NAME,
         tab="Checklist",
-        rule=RULE_PAIR_GAP,
-        target=8,
+        rule=RULE_CONTROL_GROUP,
+        target=16,
         resolve=_text_column_gap(_expiring_part("_expiring_text"), None,
                                  index=2),
         axis="h",

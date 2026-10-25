@@ -10,13 +10,14 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 ### Added
 
-- Checklist: Expiring Items, along the foot of the tab. Every time-limited item you hold, soonest to expire first: how many, and the time left on the soonest.
+- Checklist: Expiring Items, under the columns. Every time-limited item you hold, soonest to expire first: how many, and the time left on the soonest.
   - A line blinks orange inside a week and red inside two days.
-  - The 14-day Command Delegation Module stays in the Weekly column's rows.
+  - Command Delegation Modules stay in the Weekly column's rows.
 
 ### Fixed
 
 - Time-limited items gained while capturing are counted straight away, not at the next login.
+- Checklist and Materials: the Delegation Module counts include the 7-day and 21-day modules, not only the 14-day one.
 
 ## [2.6.0] - Rossweisse, Card Skin Packs, Season 5
 
