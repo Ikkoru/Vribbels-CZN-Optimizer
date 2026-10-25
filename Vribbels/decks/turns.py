@@ -82,6 +82,9 @@ PILES = ("CARD_PLACE_DECK", "CARD_PLACE_DECK_DISCARD")
 # Who holds an effect: the card, a status on the card itself, a status
 # on other cards, or a status on a unit.
 CARD, SELF, OTHERS, UNIT = "card", "self", "others", "unit"
+# A status put on every ally ("for each ally") is held once per Combatant
+# of the team (plan D88); the user sets the card's AP where fewer use it.
+ALLIES, TEAM = "TARGET_UNIT_CHAR_ALL", 3
 
 # When an effect fires, as the path to it decides: on play (or while a
 # status holds, or at the next turn's start once played, which comes to
@@ -255,7 +258,7 @@ def _holder(effect):
             or effect.get("target_card_set_list_card_place", "CARD_PLACE_NONE") \
             != "CARD_PLACE_NONE":
         return OTHERS, max(1, _number(effect.get("eff_card_target_count"), 1))
-    return UNIT, 1
+    return UNIT, TEAM if effect.get("target_unit_type") == ALLIES else 1
 
 
 # A status that lasts a number of uses takes it from the effect that puts
@@ -404,6 +407,9 @@ class _Reader:
             for status_id in _list(effect.get("link_cs_id")):
                 status = self.catalogue.statuses.get(status_id, {})
                 held, n = _holder(effect)
+                if effect.get("target_unit_type") == ALLIES:
+                    self.notes.append(f"its status goes on every ally: counted for each of "
+                                      f"the team's {TEAM} Combatants")
                 self.walk(_list(status.get("link_skill_eff_id")), held,
                           n * count * _uses(effect, status), here, here_why,
                           lasting or status.get("term_type_1") in LASTING)
