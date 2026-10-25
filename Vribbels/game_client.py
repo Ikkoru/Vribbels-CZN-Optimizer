@@ -76,7 +76,7 @@ GAMERES = Path("bin") / "appdata" / "cznlive" / "gameres"
 # reader that changes what it reads raises this: every install then
 # reads its client again once, rather than at the next patch.
 CACHE_FILE = "game_client.json"
-CACHE_FORMAT = 19
+CACHE_FORMAT = 20
 
 # The manifest layout this reads. A different version is a different
 # layout until shown otherwise.
@@ -171,6 +171,14 @@ ITEM_NAME = re.compile(r"item@name@(\d+)")
 # The client can name an unreleased item `???`, which is no name to put
 # over one the program has.
 NAMING = re.compile(r"\w")
+
+# Every item the game deletes after a while, one row each: how its
+# clock runs (`type`), its days where they are fixed (`period`, -1 for
+# none), and the schedule it lasts until where it lasts until one --
+# `schedule_type` naming the kind, `multiple_link` the schedule's id.
+# What its row says when there is none of either.
+PERIOD_TABLE = "item_period@item_period"
+PERIOD_NONE = ("", "NONE", "-1")
 
 # Where an event's rewards are listed. A mission row per reward, by the
 # event's id; a step track's ladder, by its one mission's id; and the
@@ -1107,6 +1115,31 @@ def item_rarities(client):
     return out
 
 
+def period_items(client):
+    """{item res_id: (how its clock runs, its days or None, the schedule
+    it lasts until or None)} for every item the game deletes after a
+    while.
+
+    The clocks the client has used: `IMMEDIATELY`, a fixed number of
+    days from the pickup (the Time-Limited Command Delegation Modules);
+    `SCHEDULE_LINK`, until a schedule ends (a Galactic Disaster season's
+    Time-Limited cores, until `disaster_s05`); `SUBSCRIPTION`, as long
+    as a subscription runs. Only the first two say when."""
+    out = {}
+    for row in client.rows(PERIOD_TABLE):
+        rid = _figure(row.get("id"))
+        kind = str(row.get("type") or "")
+        if not isinstance(rid, int) or kind in PERIOD_NONE:
+            continue
+        days = _figure(row.get("period"))
+        link = str(row.get("multiple_link") or "")
+        linked = str(row.get("schedule_type") or "") not in PERIOD_NONE
+        out[rid] = (kind,
+                    days if isinstance(days, int) and days > 0 else None,
+                    link if linked and link not in PERIOD_NONE else None)
+    return out
+
+
 def item_names(client):
     """{item res_id: English name} for every item the client names, a
     placeholder (`NAMING`) not being a name.
@@ -1857,6 +1890,8 @@ def read_facts(install):
         "fragment_stats": fragment_stats(client),
         "item_rarities": {str(res_id): word for res_id, word
                           in item_rarities(client).items()},
+        "period_items": {str(res_id): list(rule) for res_id, rule
+                         in period_items(client).items()},
         "exploration_passives": {str(res_id): passives for res_id, passives
                                  in exploration_passives(client).items()},
         "card_skins": card_skins(client),
@@ -2151,6 +2186,20 @@ def known_item_rarities():
                 out[int(res_id)] = word
         _rarities = out
     return _rarities
+
+
+def known_period_items():
+    """{item res_id: (how its clock runs, its days or None, the schedule
+    it lasts until or None)}: the shipped table, with what this
+    machine's client says over it. See `period_items`."""
+    from game_data import from_client
+    out = {res_id: tuple(rule) for res_id, rule
+           in getattr(from_client, "ITEM_PERIODS", {}).items()}
+    for res_id, rule in ((_facts or {}).get("period_items") or {}).items():
+        if (str(res_id).isdigit() and isinstance(rule, (list, tuple))
+                and len(rule) == 3 and isinstance(rule[0], str)):
+            out[int(res_id)] = tuple(rule)
+    return out
 
 
 def known_chaos_names():

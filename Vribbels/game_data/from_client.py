@@ -3189,6 +3189,36 @@ ITEM_RARITIES = {
     ],
 }
 
+# {item res_id: (how its clock runs, its days or None, the
+# schedule it lasts until or None)} for every item the game
+# deletes after a while. See game_client.period_items.
+ITEM_PERIODS = {
+    2000050: ('SUBSCRIPTION', None, None),
+    2000051: ('SUBSCRIPTION', None, None),
+    2000052: ('SUBSCRIPTION', None, None),
+    3920008: ('SUBSCRIPTION', None, None),
+    3920009: ('SUBSCRIPTION', None, None),
+    3920011: ('SUBSCRIPTION', None, None),
+    3920012: ('SUBSCRIPTION', None, None),
+    3920025: ('IMMEDIATELY', 7, None),
+    3920026: ('IMMEDIATELY', 14, None),
+    3920027: ('IMMEDIATELY', 21, None),
+    3920033: ('SCHEDULE_LINK', None, 'disaster_s05'),
+    3920034: ('SCHEDULE_LINK', None, 'disaster_s05'),
+    3920035: ('SCHEDULE_LINK', None, 'disaster_s05'),
+    3920036: ('SCHEDULE_LINK', None, 'disaster_s05'),
+    3920037: ('SCHEDULE_LINK', None, 'disaster_s05'),
+    3920038: ('SCHEDULE_LINK', None, 'disaster_s05'),
+    3920039: ('SCHEDULE_LINK', None, 'disaster_s05'),
+    3920040: ('SCHEDULE_LINK', None, 'disaster_s05'),
+    3920041: ('SCHEDULE_LINK', None, 'disaster_s05'),
+    3920042: ('SCHEDULE_LINK', None, 'disaster_s05'),
+    3920043: ('SCHEDULE_LINK', None, 'disaster_s05'),
+    3920044: ('SCHEDULE_LINK', None, 'disaster_s05'),
+    3920045: ('SCHEDULE_LINK', None, 'disaster_s05'),
+    3920046: ('SCHEDULE_LINK', None, 'disaster_s05'),
+}
+
 # {partner res_id: ((name, acts on the assigned combatant alone,
 # ((limit break, its text from then on), ...)), ...)}, in the
 # game's slot order. See game_client.exploration_passives.

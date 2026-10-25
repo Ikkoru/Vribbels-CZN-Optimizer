@@ -883,7 +883,100 @@ def run():
                 f"before it reported wrote {said!r} as well -- one reward, "
                 f"printed twice. Compare the total with the last receipt.")
 
+    _period_items(failures)
     return failures
+
+
+# A Galactic Disaster season's Time-Limited Abyssal Core, as a debug
+# capture sent it: two copies, one per way they arrived, each with its
+# own count, both ending with the season.
+PERIOD_ID = 3920039
+PERIOD_END = 1797984000
+
+
+def _period_doc(shop, system):
+    return {"res_id": PERIOD_ID, "version": 5, "value": [
+        {"id": "disaster_s05_05", "type": "SHOP", "count": shop,
+         "end_time": PERIOD_END, "schedule_id": "disaster_s05"},
+        {"id": str(PERIOD_ID), "type": "SYSTEM", "count": system,
+         "end_time": PERIOD_END, "schedule_id": "disaster_s05"}]}
+
+
+def _period_held(addon):
+    """How many Abyssal Cores the cache holds: the copies' counts."""
+    for row in (addon.inventory_data or {}).get("period_items") or []:
+        if isinstance(row, dict) and row.get("res_id") == PERIOD_ID:
+            return sum(copy.get("count", 1) for copy in row.get("value") or [])
+    return None
+
+
+def _period_items(failures):
+    """**A period item's gain rides a `result` envelope of its own
+    group**, `period_items`, its record listing copies where the other
+    two state an amount. A mission claim paid 3 Abyssal Cores this way
+    beside the currency it also paid; the capture wrote the currency and
+    dropped the cores, so the snapshot read 14 where the game said 17
+    until the next login."""
+    login = {
+        "res": "ok", "qid": 8,
+        "piece_items": [{"id": 1, "char_res_id": 0}],
+        "items": [],
+        "period_items": [_period_doc(8, 6)],
+    }
+    roster = {"res": "ok", "qid": 4,
+              "characters": [{"res_id": 1003, "friendship_exp": 0}],
+              "currencies": {str(CURRENCY_ID): {"res_id": CURRENCY_ID,
+                                                "amount": 2602}}}
+    log = []
+    with tempfile.TemporaryDirectory() as tmp:
+        addon = _build_addon(Path(tmp), log)
+        addon.websocket_message(_Flow(_Message(json.dumps([login, roster]))))
+        log.clear()
+        addon._save_pending = False
+        addon.websocket_message(_Flow(_Message(json.dumps({
+            "res": "ok", "qid": 100,
+            "result": {
+                "currency": {str(CURRENCY_ID): {
+                    "doc": {"res_id": CURRENCY_ID, "amount": 2622},
+                    "diff": 20}},
+                "period_items": {str(PERIOD_ID): {
+                    "doc": _period_doc(8, 9), "diff": 3}}}}))))
+        if _period_held(addon) != 17:
+            failures.append(
+                f"after a mission claim paying 3 Abyssal Cores the cache "
+                f"held {_period_held(addon)}, not 17: the reply's "
+                f"`result.period_items` was not applied, and the snapshot "
+                f"keeps the login's count until the next login.")
+        named = [line for line in log if "+3" in str(line)]
+        if not named:
+            failures.append(
+                f"the Abyssal Cores' gain wrote no receipt; the log said "
+                f"{log!r}. The count moved, so the Capture Log says so.")
+
+        # **And a `result` carrying ONLY period items is an envelope.**
+        # The guard that keeps `result` honest asked for `items` or
+        # `currency`, so one paying nothing else was thrown away whole.
+        log.clear()
+        addon.websocket_message(_Flow(_Message(json.dumps({
+            "res": "ok", "qid": 101,
+            "result": {"period_items": {str(PERIOD_ID): {
+                "doc": _period_doc(8, 10), "diff": 1}}}}))))
+        if _period_held(addon) != 18:
+            failures.append(
+                f"a `result` holding only `period_items` left the cache at "
+                f"{_period_held(addon)}, not 18: the shape test took it "
+                f"for no envelope.")
+
+        # A restatement moves nothing and says nothing.
+        log.clear()
+        addon.websocket_message(_Flow(_Message(json.dumps({
+            "res": "ok", "qid": 102,
+            "result": {"period_items": {str(PERIOD_ID): {
+                "doc": _period_doc(8, 10), "diff": 1}}}}))))
+        if [line for line in log if "Received" in str(line)]:
+            failures.append(
+                f"the same period record restated wrote {log!r}: the count "
+                f"did not move, so there was no gain to report.")
 
 
 # What this check must catch, for `checks/faults.py`.
@@ -893,4 +986,14 @@ FAULTS = [
      "stated |= self._apply_totals(envelope, judged=judged)",
      "stated |= self._apply_totals(envelope)",
      "a clear paying 1000 in first clears"),
+    ("period items left out of the envelope groups",
+     "capture.manager:ADDON_TEMPLATE",
+     'ENVELOPE_GROUPS = ("items", "currency", "period_items")',
+     'ENVELOPE_GROUPS = ("items", "currency")',
+     "holding only `period_items`"),
+    ("period items' records not applied",
+     "capture.manager:ADDON_TEMPLATE",
+     'periods = result.get("period_items")',
+     'periods = None',
+     "not 17"),
 ]

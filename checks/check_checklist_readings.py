@@ -106,7 +106,7 @@ def _run():
         unsure_ceiling, EVENT_FINISHED_FIELD,
         EVENT_CLIENT_FIELD, event_totals_onto, EVENT_TOTALS_FIELD,
         LIKELY_DONE,
-        GRANT_FITS, SOON_SETTLED,
+        GRANT_FITS, SOON_SETTLED, EXPIRING_KEY_PREFIX,
     )
     import checklist_manager
 
@@ -138,7 +138,10 @@ def _run():
              for _title, rows in columns_for(_snapshot())
              for key, _label, _widest in rows
              if key.startswith(SHOP_HEAD_PREFIX)}
-    produced = set(_readings(_snapshot(), now))
+    # The Expiring Items block's lines are no column's rows: the block
+    # draws whatever it is given, and `_expiring` below reads them.
+    produced = {key for key in _readings(_snapshot(), now)
+                if not key.startswith(EXPIRING_KEY_PREFIX)}
     if (produced - keyed - heads) or (keyed - produced):
         failures.append(
             f"the rows reserving a value are {sorted(keyed)} and "
@@ -2605,6 +2608,87 @@ def _run():
             f"in PERIOD_ITEMS. Only a period item has copies to count, so "
             f"both module rows would read 0 forever.")
 
+    failures.extend(_expiring(now))
+    return failures
+
+
+def _expiring(now):
+    """The Expiring Items block: what it lists, in what order and state,
+    and how its columns stand side by side."""
+    from ui.scaling import px
+    from ui.tabs.checklist_tab import (
+        EXPIRING_COLUMN_GAP, EXPIRING_KEY_PREFIX, EXPIRING_NONE,
+        LABEL_TO_VALUE, MODULE_ITEM, MUTED, NO_DATA, SEGMENT_GAP, SOON,
+        TEXT_INSET, UNKNOWN, WARN_BLINK, countdown_words, expiring_layout,
+        expiring_rows)
+    failures = []
+
+    def copies(res_id, *pairs):
+        return {"res_id": res_id, "value": [
+            {"count": count, "end_time": end} for count, end in pairs]}
+
+    month = now + 30 * DAY
+    raw = {"inventory": {"period_items": [
+        copies(MODULE_ITEM, (1, now + HOUR), (1, now + 3 * DAY)),
+        copies(3920039, (8, month), (9, month)),       # Abyssal Core
+        copies(3920040, (3, now + 5 * DAY)),            # Colorless Core
+        copies(3920043, (1, now + 36 * HOUR)),          # Core of Potential
+        copies(3920045, (1, month)),                    # Core of the Reverse
+    ]}}
+    rows = expiring_rows(raw, now)
+    want = [
+        ("Core of Potential", "1", countdown_words(36 * HOUR), SOON),
+        ("Colorless Core", "3", countdown_words(5 * DAY), WARN_BLINK),
+        ("Abyssal Core", "17", countdown_words(30 * DAY), UNKNOWN),
+        ("Core of the Reverse", "1", countdown_words(30 * DAY), UNKNOWN),
+    ]
+    got = [tuple(words for words, _state in segments) + (segments[0][1],)
+           for _key, segments in rows]
+    if got != want:
+        failures.append(
+            f"Expiring Items read {got}, not {want}: soonest first and by "
+            f"name among equals, the marker off each name, every copy "
+            f"counted, the whole line red inside two days and orange "
+            f"inside a week -- and the 14-day Delegation Module left to "
+            f"the Weekly rows that already count it.")
+    if any(len({state for _w, state in segments}) != 1
+           for _key, segments in rows):
+        failures.append("an Expiring Items line is drawn in more than one "
+                        "state: the whole line blinks, not its countdown")
+
+    empty = expiring_rows({"inventory": {"items": []}}, now)
+    if empty != [(EXPIRING_KEY_PREFIX, ((EXPIRING_NONE, MUTED),))]:
+        failures.append(f"an inventory holding nothing expiring read "
+                        f"{empty}, not one dim {EXPIRING_NONE!r}")
+    unread = expiring_rows({}, now)
+    if unread != [(EXPIRING_KEY_PREFIX, ((NO_DATA, UNKNOWN),))]:
+        failures.append(
+            f"a snapshot with no inventory read {unread}, not {NO_DATA!r}: "
+            f"nothing held and nothing read are different answers")
+
+    # Five lines, two to a column: three columns, top to bottom first,
+    # each as wide as its own lines and the next one EXPIRING_COLUMN_GAP
+    # after it -- left-aligned, not spread across the tab.
+    font = SimpleNamespace(measure=lambda words: 7 * len(str(words)))
+    lines_in = [(f"k{n}", ((name, None), (count, None), ("9d left", None)))
+                for n, (name, count) in enumerate(
+                    (("Abyssal Core", "17"), ("Core", "3"),
+                     ("Colorless Core", "120"), ("X", "1"), ("Y", "2")))]
+    lines, stops, width = expiring_layout(font, lines_in, 2)
+    keys = [[key for key, _s in line] for line in lines]
+    if keys != [["k0", "k2", "k4"], ["k1", "k3"]]:
+        failures.append(f"five lines two to a column were laid out as "
+                        f"{keys}, not down each column and then across")
+    gap = px(TEXT_INSET + LABEL_TO_VALUE)
+    space = font.measure(SEGMENT_GAP)
+    first_end = 7 * len("Abyssal Core") + gap + 7 * 2 + space + 7 * 7
+    second = first_end + px(EXPIRING_COLUMN_GAP)
+    if len(stops) != 8 or stops[2] != second:
+        failures.append(
+            f"the second column's names stop at "
+            f"{stops[2] if len(stops) > 2 else None}, not {second}: the "
+            f"end of the first column's widest countdown plus the gap. "
+            f"Stops {stops}.")
     return failures
 
 
@@ -2648,4 +2732,17 @@ FAULTS = [
      "if priced:\n            return (pitch, MIDDLE_STOP_PREFIX + priced)",
      "if False:\n            return (pitch, MIDDLE_STOP_PREFIX + priced)",
      "its shop's middle stops"),
+    ("an item a row already counts listed again",
+     "ui.tabs.checklist_tab:expiring_rows",
+     "if res_id in EXPIRING_LISTED_ELSEWHERE:", "if False:",
+     "left to the Weekly rows"),
+    ("only an expiring line's countdown blinking",
+     "ui.tabs.checklist_tab:expiring_rows",
+     "((name, state), (str(count), state), (words, state))",
+     "((name, UNKNOWN), (str(count), UNKNOWN), (words, state))",
+     "the whole line blinks"),
+    ("Expiring Items' columns run together",
+     "ui.tabs.checklist_tab:expiring_layout",
+     "start = end + px(EXPIRING_COLUMN_GAP)", "start = end",
+     "plus the gap"),
 ]

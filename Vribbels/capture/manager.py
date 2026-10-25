@@ -224,6 +224,13 @@ CHAOS_GAVE_UP = "GIVEUP"
 # its drops beside the share an Overclock doubles. See
 # `Addon._settle_held_run`.
 RUN_HOLDS_DROPS = ("simulation/enter_savedata_stage",)
+# The groups a totals envelope holds its records under: the item list's,
+# the currency table's, and the period items', whose records list their
+# copies rather than state an amount (`Addon._period_count`). A mission
+# paying a Galactic Disaster season's Time-Limited cores answers with
+# `result.period_items` beside the currency it also paid, and read for
+# the first two groups alone the cores never reached the snapshot.
+ENVELOPE_GROUPS = ("items", "currency", "period_items")
 # The fights that are not a boss's, as a map's `spot_list` types them.
 CHAOS_NON_BOSS = ("SPOT_TYPE_BATTLE", "SPOT_TYPE_ELITE")
 # The replies that carry a Chaos stage in progress: what a run this
@@ -1309,11 +1316,11 @@ class Addon:
             payload = data.get(key)
             if not isinstance(payload, dict):
                 continue
-            if key == "currencies" and not (
-                    "currency" in payload or "items" in payload):
+            if key == "currencies" and not any(
+                    group in payload for group in ENVELOPE_GROUPS):
                 continue
-            if key in ("result", "item", "result_reward") and not (
-                    "currency" in payload or "items" in payload):
+            if key in ("result", "item", "result_reward") and not any(
+                    group in payload for group in ENVELOPE_GROUPS):
                 # **A story episode nests its rewards one deeper**, as
                 # `result.story_reward_result.reward`, and the `result`
                 # around them carries no `currency` or `items` of its
@@ -3075,11 +3082,11 @@ class Addon:
         for value in payload.values():
             if not isinstance(value, dict):
                 continue
-            if "currency" in value or "items" in value:
+            if any(group in value for group in ENVELOPE_GROUPS):
                 return value
             for deeper in value.values():
-                if isinstance(deeper, dict) and ("currency" in deeper
-                                                 or "items" in deeper):
+                if isinstance(deeper, dict) and any(
+                        group in deeper for group in ENVELOPE_GROUPS):
                     return deeper
         return None
 
@@ -3091,7 +3098,7 @@ class Addon:
         stops at the FIRST match; a stage's `return_info` carries
         several, so this collects them all.
 
-        The test is the shape: a dict holding `items` or `currency`
+        The test is the shape: a dict holding one of `ENVELOPE_GROUPS`
         whose rows carry a `doc`. Bounded, because a deep enough walk
         of a stage reply eventually finds something that only
         resembles a reward -- and the walk stops descending as soon as
@@ -3101,7 +3108,7 @@ class Addon:
         found = []
 
         def envelope(value):
-            for group in ("items", "currency"):
+            for group in ENVELOPE_GROUPS:
                 rows = value.get(group)
                 if isinstance(rows, dict) and any(
                         isinstance(row, dict) and isinstance(row.get("doc"),
@@ -3143,7 +3150,7 @@ class Addon:
         diffs = []
         for envelope in envelopes:
             moved = {}
-            for group in ("items", "currency"):
+            for group in ENVELOPE_GROUPS:
                 for entry in (envelope.get(group) or {}).values():
                     doc = entry.get("doc") if isinstance(entry, dict) else None
                     diff = entry.get("diff") if isinstance(entry, dict) else None
@@ -3166,21 +3173,39 @@ class Addon:
         return out
 
     def _held_amount(self, res_id):
-        """What the cache holds of one item or currency, or None."""
+        """What the cache holds of one item, currency or period item, or
+        None."""
         for row in (self.inventory_data or {}).get("items") or ():
             if isinstance(row, dict) and row.get("res_id") == res_id:
                 return row.get("amount")
         record = ((self.character_data or {}).get("currencies")
                   or {}).get(str(res_id))
-        return record.get("amount") if isinstance(record, dict) else None
+        if isinstance(record, dict):
+            return record.get("amount")
+        for row in (self.inventory_data or {}).get("period_items") or ():
+            if isinstance(row, dict) and row.get("res_id") == res_id:
+                return self._period_count(row)
+        return None
+
+    @staticmethod
+    def _period_count(record):
+        """How many items a period item's record holds: its copies'
+        `count`s added up, a copy saying none being one. The record
+        states no `amount`, each copy carrying its own expiry."""
+        total = 0
+        for copy in record.get("value") or ():
+            if isinstance(copy, dict):
+                count = copy.get("count", 1)
+                total += count if isinstance(count, int) else 1
+        return total
 
     def _apply_totals(self, result, spent=False, report=True, judged=None):
         """Apply a record that states what a holding NOW IS.
 
-        Shape: {"items": {res_id: entry}, "currency": {res_id: entry}},
-        each entry carrying `doc` -- the item's whole record, in the
-        same shape the cache already holds -- and `diff`, how much of it
-        moved. `add_result`, `item_result` and `dec_result` all use it;
+        Shape: {"items": {res_id: entry}, "currency": {res_id: entry},
+        "period_items": {res_id: entry}}, each entry carrying `doc` --
+        the item's whole record, in the same shape the cache already
+        holds -- and `diff`, how much of it moved. `add_result`, `item_result` and `dec_result` all use it;
         `spent` only picks the word for the log, and `report=False`
         leaves the line to the caller. `judged` is {res_id: the total
         to tell a restatement by}, for the holdings another envelope of
@@ -3245,6 +3270,28 @@ class Addon:
                     was = (judged or {}).get(doc["res_id"], was)
                     held[str(doc["res_id"])] = doc
                     shift = self._shift(was, doc, entry)
+                    if shift:
+                        moved.append((doc["res_id"], shift))
+                    self._save_pending = True
+
+        # Period items, a LIST keyed by res_id like the items, whose
+        # record lists its copies -- so what it holds is counted off
+        # the copies, before and after, rather than read off an amount.
+        periods = result.get("period_items")
+        if isinstance(periods, dict) and self.inventory_data is not None:
+            held = self.inventory_data.setdefault("period_items", [])
+            if isinstance(held, list):
+                for entry in periods.values():
+                    doc = entry.get("doc") if isinstance(entry, dict) else None
+                    if not isinstance(doc, dict) or "res_id" not in doc:
+                        continue
+                    was = next((self._period_count(row) for row in held
+                                if isinstance(row, dict)
+                                and row.get("res_id") == doc["res_id"]), None)
+                    was = (judged or {}).get(doc["res_id"], was)
+                    self._replace_item(held, doc)
+                    shift = self._shift(
+                        was, {"amount": self._period_count(doc)}, entry)
                     if shift:
                         moved.append((doc["res_id"], shift))
                     self._save_pending = True
@@ -3433,7 +3480,7 @@ class Addon:
         stated = {}
         for envelope in envelopes:
             self._apply_totals(envelope, report=False)
-            for group in ("items", "currency"):
+            for group in ENVELOPE_GROUPS:
                 rows = envelope.get(group)
                 for row in (rows.values() if isinstance(rows, dict)
                             else ()):

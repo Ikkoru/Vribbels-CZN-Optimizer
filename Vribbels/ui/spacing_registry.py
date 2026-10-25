@@ -1980,8 +1980,9 @@ def _to_window_edge(locator):
     between the ink and that. Counted the same way as every other rule:
     the pixels BETWEEN the two, neither end included.
 
-    Right edge only. Nothing in the app ends at the bottom of the
-    window; the panel that looks like it does has another beneath it.
+    Right edge only. The one block ending at the bottom of the window,
+    the Checklist's Expiring Items, is a content frame and is read box
+    to box (`_box_to_window_bottom`).
     """
     def resolve(cap, app):
         span = sa.painted_extent_h(cap, sa.box_of(locator(app)))
@@ -2847,6 +2848,10 @@ def _text_column_gap(locator, needles, index=0, from_end=False):
     nothing between them -- has two bands where the others have four, so
     its right-hand pair is at a different index and only the same one
     counting backwards.
+
+    `needles` None reads EVERY line, for a Text whose lines are all
+    rows of one table and whose words are the data's: the Checklist's
+    Expiring Items, one item per field.
     """
     def resolve(cap, app):
         widget = locator(app)
@@ -2858,8 +2863,13 @@ def _text_column_gap(locator, needles, index=0, from_end=False):
         # raises before any scan runs.
         fill = _widget_fill(widget)
         readings = []
-        for needle in needles:
-            where = widget.search(needle, "1.0", tk.END)
+        if needles is None:
+            count = int(widget.index("end-1c").split(".")[0])
+            places = [f"{n}.0" for n in range(1, count + 1)]
+        else:
+            places = [widget.search(needle, "1.0", tk.END)
+                      for needle in needles]
+        for where in places:
             if not where:
                 continue
             info = widget.dlineinfo(where)
@@ -2886,7 +2896,8 @@ def _text_column_gap(locator, needles, index=0, from_end=False):
             gap = sa.gap_between(columns[first][1], columns[first + 1][0])
             readings.append((gap, line.strip(), len(columns)))
         if not readings:
-            return None, f"no line with that column, of {list(needles)}"
+            return None, ("no line with that column, of "
+                          f"{list(needles) if needles else 'every line'}")
         readings.sort()
         # Every row is reported, because which one is tightest is the
         # whole question: the rule's distance lives on the row with the
@@ -4114,6 +4125,9 @@ EXCEPTION_ENTRIES = {
     "Checklist: block division": "exception",
     "Checklist: product -> product": "exception",
     "Checklist: shop heading -> its first product": "exception",
+    # The Expiring Items block takes the columns' heading gap and pitch.
+    "Checklist: Expiring Items heading -> its first row": "exception",
+    "Checklist: Expiring Items row -> row": "exception",
     # A section's heading stands four further from the row above it
     # than rows do from one another. Marked at `HEADING_PAD`.
     "Overall Gacha Stats: row -> heading": "exception",
@@ -4866,6 +4880,107 @@ def _checklist_text_at(position):
 _checklist_text = _checklist_text_at(0)
 
 
+def _expiring_part(attr):
+    """Locator: a part of the Checklist's Expiring Items block -- its
+    frame, heading or Text -- off the tab itself. The block is not one
+    of the columns, so it has no position among them to be found by."""
+    def find(app):
+        return getattr(app.checklist_tab_instance, attr)
+    return find
+
+
+def _lowest_checklist_text(app):
+    """Locator: the Checklist column whose rows reach lowest, which is
+    what the Expiring Items block has to clear."""
+    texts = []
+    for position in range(len(_checklist_column(0)(app).master
+                              .winfo_children())):
+        try:
+            texts.append(_checklist_text_at(position)(app))
+        except LookupError:
+            continue
+    if not texts:
+        raise LookupError("no Checklist column has a rows block")
+    return max(texts, key=lambda text: sa.box_of(text).bottom)
+
+
+def _ink_above_capital(above, label):
+    """Resolver: the lowest ink in a Text -> a Label's first CAPITAL.
+
+    The Text's own ink rather than a line's capital: the column that
+    reaches lowest usually ends on a shop product, whose label is its
+    checkbox and has no capital to read. A descender on a last line of
+    words reads the gap a few pixels short, which for a FLOOR errs the
+    safe way."""
+    def resolve(cap, app):
+        text, heading = above(app), label(app)
+        upper = sa.painted_extent_v(cap, sa.box_of(text),
+                                    {_widget_fill(text)})
+        if upper is None:
+            return None, "the column above painted nothing"
+        band = _label_capital_box(cap, heading)
+        if band is None:
+            return None, "no capital in the heading to measure to"
+        lower = sa.painted_extent_v(cap, band)
+        if lower is None:
+            return None, "the heading's capital painted nothing"
+        return sa.gap_between(upper[1], lower[0]), ""
+    return resolve
+
+
+def _box_to_window_bottom(locator):
+    """Resolver: a widget's BOX bottom edge -> the window's.
+
+    The vertical twin of `_box_to_window_edge`, for the one block that
+    hangs from the foot of the window: the Checklist's Expiring Items.
+    Box to box, as every `content frame -> content frame` gap is."""
+    def resolve(cap, app):
+        box = sa.box_of(locator(app))
+        return sa.gap_between(box.bottom,
+                              cap.origin[1] + cap.image.size[1]), ""
+    return resolve
+
+
+# What the Expiring Items scenario adds to the held period items: every
+# item a Galactic Disaster season's shop has sold on a clock, two each,
+# a month from running out -- enough to run the block into a second
+# column at any scale, plain-inked so no blink is caught mid-step.
+EXPIRING_SCENARIO_IDS = tuple(range(3920033, 3920047))
+EXPIRING_SCENARIO_DAYS = 30
+
+
+def _expiring_columns(app):
+    """Hold enough Expiring Items to fill more than one column, so the
+    gap between two of them is on screen: the snapshot's own period
+    items, and `EXPIRING_SCENARIO_IDS` beside them."""
+    import time as clock
+    tab = app.checklist_tab_instance
+    inventory = (tab.optimizer.raw_data or {}).get("inventory")
+    if not isinstance(inventory, dict):
+        raise LookupError("no inventory loaded to add period items to")
+    held = list(inventory.get("period_items") or [])
+    ends = int(clock.time()) + EXPIRING_SCENARIO_DAYS * 24 * 3600
+    have = {entry.get("res_id") for entry in held if isinstance(entry, dict)}
+    _expiring_columns.kept = inventory.get("period_items")
+    inventory["period_items"] = held + [
+        {"res_id": res_id, "value": [{"count": 2, "end_time": ends}]}
+        for res_id in EXPIRING_SCENARIO_IDS if res_id not in have]
+    tab.refresh_checklist()
+
+
+def _restore_expiring_columns(app):
+    tab = app.checklist_tab_instance
+    inventory = (tab.optimizer.raw_data or {}).get("inventory")
+    if isinstance(inventory, dict) and hasattr(_expiring_columns, "kept"):
+        inventory["period_items"] = _expiring_columns.kept
+        del _expiring_columns.kept
+    tab.refresh_checklist()
+
+
+sa.register_scenario("expiring_columns", _expiring_columns,
+                     _restore_expiring_columns)
+
+
 # (tab, name, target, rule, resolver, axis) for the Checklist tab. Its
 # columns are built by one function, so a gap read in the first is the
 # same gap in every other.
@@ -4933,7 +5048,41 @@ CHECKLIST_ENTRIES = [
      RULE_CONTENT_FRAME, _box_from_window_edge(_checklist_column(0)), "h"),
     ("Checklist", "Checklist: last column -> window edge", 4,
      RULE_CONTENT_FRAME, _box_to_window_edge(_checklist_column(-1)), "h"),
+    # **Expiring Items**, along the foot of the tab. Its heading and
+    # its rows take the columns' own levers, so these read the same
+    # distances as the two entries at the top of the list.
+    ("Checklist", "Checklist: Expiring Items heading -> its first row", 12,
+     RULE_PANEL_UNRELATED_LABEL,
+     _gap_to_first_capital(_expiring_part("_expiring_head"),
+                           _expiring_part("_expiring_text")), "v"),
+    ("Checklist", "Checklist: Expiring Items row -> row", 12,
+     RULE_LABEL_ROW_PITCH,
+     _text_line_pitch(_expiring_part("_expiring_text"),
+                      label="Expiring Items",
+                      kinds=_checklist_pitch_tags("row")), "v"),
+    # A FLOOR: the block hangs from the foot of the window, so this is
+    # `EXPIRING_CLEARANCE` plus whatever its rows leave unfilled, and
+    # only where a column runs to the room's end is it the lever alone.
+    # No exact twin: the rows come in whole lines, so no layout puts
+    # the lever on screen by itself.
+    ("Checklist", "Checklist: tallest column -> Expiring Items", 10,
+     RULE_PANEL_UNRELATED_LABEL,
+     _ink_above_capital(_lowest_checklist_text,
+                        _expiring_part("_expiring_head")), "v"),
+    ("Checklist", "Checklist: window edge -> Expiring Items", 4,
+     RULE_CONTENT_FRAME, _box_from_window_edge(_expiring_part("_expiring")),
+     "h"),
+    ("Checklist", "Checklist: Expiring Items -> window bottom", 4,
+     RULE_CONTENT_FRAME, _box_to_window_bottom(_expiring_part("_expiring")),
+     "v"),
 ]
+
+# Two Expiring Items columns side by side, read in a scenario that holds
+# enough items to fill more than one (`_expiring_columns`): with the
+# maintainer's own few there is often only one. Every line holding two
+# columns, the tightest reported -- the column's widest countdown is
+# where the lever is.
+EXPIRING_COLUMN_GAP_NAME = "Checklist: Expiring Items column -> column"
 
 MATERIALS_ENTRIES = [
     # Both ends are text and both were on their references: the dump
@@ -5217,6 +5366,10 @@ MINIMUM_GAPS = {
     # A wrap moves whole words, so the gap is the wrap's margin plus
     # whatever the next word did not fit into.
     PRESET_WRAP_GAP,
+    # The Expiring Items block hangs from the foot of the window, so
+    # its room under the tallest column is the clearance plus whatever
+    # its whole lines leave unfilled.
+    "Checklist: tallest column -> Expiring Items",
 }
 
 
@@ -5549,6 +5702,20 @@ def register_all():
         axis="h",
         scenario="long_preset_name",
         provisional=PRESET_WRAP_GAP in AWAITING_FIRST_READING,
+    )
+
+    # Two Expiring Items columns, in a scenario holding enough items to
+    # fill more than one. See `EXPIRING_COLUMN_GAP_NAME`.
+    sa.track(
+        name=EXPIRING_COLUMN_GAP_NAME,
+        tab="Checklist",
+        rule=RULE_PAIR_GAP,
+        target=8,
+        resolve=_text_column_gap(_expiring_part("_expiring_text"), None,
+                                 index=2),
+        axis="h",
+        scenario="expiring_columns",
+        provisional=EXPIRING_COLUMN_GAP_NAME in AWAITING_FIRST_READING,
     )
 
     # The same group read HORIZONTALLY, against the detail pane's

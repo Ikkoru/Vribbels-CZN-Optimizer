@@ -268,6 +268,14 @@ def shipped_source(client, partners=None):
             lines += _rows(rarities[word])
             lines.append("    ],")
     lines += ["}", "",
+              "# {item res_id: (how its clock runs, its days or None, the",
+              "# schedule it lasts until or None)} for every item the game",
+              "# deletes after a while. See game_client.period_items.",
+              "ITEM_PERIODS = {"]
+    lines += [f"    {res_id}: {ascii(tuple(rule))},"
+              for res_id, rule in sorted(
+                  game_client.period_items(client).items())]
+    lines += ["}", "",
               "# {partner res_id: ((name, acts on the assigned combatant "
               "alone,",
               "# ((limit break, its text from then on), ...)), ...)}, in the",

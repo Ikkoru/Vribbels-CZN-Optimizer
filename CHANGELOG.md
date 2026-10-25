@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.com/Vorbroker/Vribbels-CZN-Optimizer) at v1.7.0 (2026-02-07) and restarts versioning from v1.0.0. For the pre-fork history, see the upstream repository's CHANGELOG.
 
+## [2.7.0] - unreleased
+
+### Added
+
+- Checklist: Expiring Items, along the foot of the tab. Every time-limited item you hold, soonest to expire first: how many, and the time left on the soonest.
+  - A line blinks orange inside a week and red inside two days.
+  - The 14-day Command Delegation Module stays in the Weekly column's rows.
+
+### Fixed
+
+- Time-limited items gained while capturing are counted straight away, not at the next login.
+
 ## [2.6.0] - Rossweisse, Card Skin Packs, Season 5
 
 ### Added

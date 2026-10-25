@@ -705,10 +705,14 @@ def hand_item_names():
 #
 # These live in `inventory.period_items`, not in the item list, and are
 # nested one level deeper than everything else: the entry is the ITEM
-# and its `value` lists the COPIES, one per copy with its own
-# `end_time`. So the number held is the length of that inner list, and
-# there is no `amount` anywhere to read it from. `period_items.held` is
-# what knows the shape.
+# and its `value` lists the COPIES, each with its own `end_time` and a
+# `count` of the items it stands for. So the number held is those
+# counts added up, and there is no `amount` anywhere to read it from.
+# `period_items.held` is what knows the shape.
+#
+# Only the items given an icon are here. Every item the game deletes
+# after a while is in the client's `item_period` table
+# (`game_client.known_period_items`).
 PERIOD_ITEMS = {
     3920026: ("Time-Limited Command Delegation Module - 14 Days",
               "currency_chaos_delegation_module.png"),  # Used to speed up Chaos runs. Expire 14 days after acquisition.

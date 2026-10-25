@@ -3005,6 +3005,103 @@ def _the_checklist_fits_its_window(tab):
     return out
 
 
+def _expiring_items_fit_under_the_columns(tab):
+    """The Expiring Items block has to sit under the columns, inside the
+    window, with every line it reserves drawn.
+
+    Its height is WORKED OUT rather than asked of Tk -- the room the
+    tallest column leaves, in whole lines (`_expiring_fit`) -- so a
+    formula wrong about a column's height or a line's pitch puts the
+    block over the foot of the tallest column, or runs it off the
+    window's, and nothing on screen says which line went missing.
+
+    Measured at the default window, mapped at alpha 0 like
+    `_the_checklist_fits_its_window`, holding every Time-Limited item a
+    season's shop sells: more than one column's worth, so the fit is
+    what decides the layout.
+
+    Returns a list of complaints.
+    """
+    import time
+    import tkinter as tk
+    from ui.scaling import px, WINDOW_H, WINDOW_W
+    from ui.tabs.checklist_tab import EXPIRING_CLEARANCE
+
+    raw = tab.optimizer.raw_data
+    if not isinstance(raw, dict):
+        return []
+    kept = raw.get("inventory", None)
+    ends = int(time.time()) + 30 * 24 * 3600
+    inventory = dict(kept) if isinstance(kept, dict) else {}
+    inventory["period_items"] = [
+        {"res_id": res_id, "value": [{"count": 2, "end_time": ends}]}
+        for res_id in range(3920033, 3920047)]
+    raw["inventory"] = inventory
+    root = tab.frame.winfo_toplevel()
+    notebook = tab.frame.master
+    out = []
+    try:
+        try:
+            root.attributes("-alpha", 0.0)
+            if str(tab.frame) not in notebook.tabs():
+                notebook.add(tab.frame, text="Checklist")
+            notebook.pack(fill=tk.BOTH, expand=True)
+            notebook.select(tab.frame)
+            root.geometry("%dx%d" % (px(WINDOW_W), px(WINDOW_H)))
+            root.deiconify()
+            root.update_idletasks()
+            tab.refresh_checklist()
+            root.update_idletasks()
+        except tk.TclError as e:
+            return [f"the Checklist could not be laid out for measuring: {e}"]
+        text, holder = tab._expiring_text, tab._expiring_holder
+        lines = int(text.index("end-1c").split(".")[0])
+        if lines >= len(range(3920033, 3920047)):
+            out.append(
+                f"fourteen Expiring Items took {lines} lines in one column "
+                f"at the default window, so nothing here exercised the fit "
+                f"that moves the rest into a second.")
+        drawn = 0
+        for line in range(1, lines + 1):
+            tall = text.count("%d.0" % line, "%d.0" % (line + 1), "ypixels")
+            drawn += (tall[0] if isinstance(tall, tuple) else tall) or 0
+        if drawn > int(holder.cget("height")):
+            out.append(
+                f"the Expiring Items' {lines} lines lay out to {drawn}px "
+                f"inside a block reserved for {holder.cget('height')}px; "
+                f"the lines at its foot are clipped without a word.")
+        # The height each column's rows RESERVE, not the one it was
+        # given: a block that took too much squeezes the column above,
+        # and pack then hands its rows less than they asked for -- so
+        # the column's allocated foot always clears the block, clipped.
+        tallest = max(
+            (frame.winfo_rooty() + frame.winfo_children()[-1].winfo_y()
+             + int(frame.winfo_children()[-1].cget("height"))
+             for frame in tab._column_frames
+             if len(frame.winfo_children()) > 1),
+            default=0)
+        head = tab._expiring_head.winfo_rooty()
+        if head - tallest < px(EXPIRING_CLEARANCE):
+            out.append(
+                f"the Expiring Items heading starts {head - tallest}px "
+                f"under the foot of the tallest column, where at least "
+                f"{px(EXPIRING_CLEARANCE)} was left for it: the block was "
+                f"sized for more room than the columns leave.")
+        foot = tab.frame.winfo_rooty() + tab.frame.winfo_height()
+        bottom = tab._expiring.winfo_rooty() + tab._expiring.winfo_height()
+        if bottom > foot:
+            out.append(f"the Expiring Items block runs {bottom - foot}px "
+                       f"past the foot of the tab")
+    finally:
+        if kept is None:
+            raw.pop("inventory", None)
+        else:
+            raw["inventory"] = kept
+        tab.refresh_checklist()
+        root.withdraw()
+    return out
+
+
 def _a_marked_shop_heading_has_something_to_say(tab):
     """A shop heading is underlined only where a tip will appear.
 
@@ -6308,6 +6405,10 @@ def run():
             failures.extend(_countdowns_line_up(built["ChecklistTab"]))
             failures.extend(_finished_boxes_ask_only_where_it_is_open(
                 built["ChecklistTab"]))
+            # Last: it refreshes the tab, and a refresh retires the
+            # `Finished?` answers the sub-checks above leave behind.
+            failures.extend(
+                _expiring_items_fit_under_the_columns(built["ChecklistTab"]))
         if "InventoryTab" in built:
             failures.extend(
                 _level_filter_keeps_one_level(built["InventoryTab"]))
@@ -6410,4 +6511,13 @@ FAULTS = [
      "ui.tabs.gacha_history_tab:GachaHistoryTab._overall_rows",
      "Beside(PRISM_ONLY, SKINS_ONLY, halves=True),",
      "PRISM_ONLY, SKINS_ONLY,", "sheet's headings read"),
+    ("Expiring Items fitted to the whole tab, columns ignored",
+     "ui.tabs.checklist_tab:ChecklistTab._expiring_fit",
+     "room = (height - tallest - self._expiring_head.winfo_reqheight()",
+     "room = (height - self._expiring_head.winfo_reqheight()",
+     "under the foot of the tallest column"),
+    ("Expiring Items' block a line short of its lines",
+     "ui.tabs.checklist_tab:ChecklistTab._fill_expiring",
+     "height=len(lines) * pitch)", "height=(len(lines) - 1) * pitch)",
+     "clipped without a word"),
 ]

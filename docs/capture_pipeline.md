@@ -267,6 +267,8 @@ One envelope between them:
 
 `doc` is the item's whole record in the shape the cache already holds, and **`doc.amount` is the TOTAL, not the change** — so `_apply_totals` writes it in rather than adding `diff`, and a frame arriving twice cannot double a count. Items are a list keyed by `res_id` and currencies a dict keyed by the same id as a string; an id not yet held is appended.
 
+**A third group, `period_items`, carries what the game deletes after a while**: a Galactic Disaster season's Time-Limited cores, the Time-Limited Command Delegation Modules. Its `doc` is the `inventory.period_items` entry, whose copies each carry an `end_time` and a `count` (`period_items.py`), so what it holds is the copies' counts added up, before and after (`Addon._period_count`). A mission paying 3 Abyssal Cores answered with `result.period_items` beside the currency it also paid, and read for `items` and `currency` alone, the snapshot kept the login's count until the next login. `ENVELOPE_GROUPS` names the three; every shape test that tells an envelope reads it.
+
 `drop_item_result` and `chaos_free_reward_result` are the exception: a stage's rewards and a Chaos or encounter report screen's, as a LIST with one entry per drop and no record at all —
 
 ```
