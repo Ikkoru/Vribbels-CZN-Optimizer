@@ -419,6 +419,8 @@ def run():
     failures.extend(_given_up(Addon))
     failures.extend(_what_the_entry_says(Addon))
     failures.extend(_the_partners(Addon))
+    failures.extend(_the_map_and_route(Addon))
+    failures.extend(_the_report_counts_each_mark_once())
     failures.extend(_the_table_keeps_a_replayed_row())
     failures.extend(_the_report_reads_at_zero_nodes())
     failures.extend(_the_table_names_the_rolls())
@@ -1094,6 +1096,117 @@ def _report_any_third_pay():
     _tool = loaded
 
 
+def _map_stage(spots, area=0):
+    """A Chaos stage carrying `spots`, (id, floor, type, Rare Species)
+    each, as an area's map in its replies."""
+    return {"curr_area_id": area,
+            "chaos_info": DISASTER_ENTRY["playing_stage_info"]["chaos_info"],
+            "spot_list": [dict({"id": sid, "floor": floor,
+                                "type": "SPOT_TYPE_" + kind},
+                               **({"event_id": "keyword_monster"} if rare
+                                  else {}))
+                          for sid, floor, kind, rare in spots]}
+
+
+def _the_map_and_route(Addon):
+    """A run keeps each area's map as first sent -- its spot types
+    counted, the Rare Species spots apart, and whether the list held one
+    spot a floor, as a delegated run's route-only list does -- and
+    every spot it entered by type. The map a later reply sends again,
+    after a spot has turned into another, does not replace it. Returns
+    complaints."""
+    out = []
+    addon = _new(Addon)
+    _setup(addon)
+    steps = _Steps(addon, 1700)
+    whole = [(7, -1, "UNKNOWN", False), (8, 0, "UNKNOWN", False),
+             (1, 1, "BATTLE", True), (2, 1, "ELITE", False),
+             (3, 2, "UNKNOWN", False), (4, 3, "BOSS", False)]
+    steps.step("disaster/enter_disaster_chaos_stage",
+               service_server_time=1790480000,
+               stage_info={"stage": _map_stage(whole)}, **DISASTER_ENTRY)
+    for sid, floor, kind in ((1, 1, "BATTLE"), (3, 2, "UNKNOWN")):
+        steps.step("stage/enter_spot",
+                   spot_info={"floor": floor, "spot_type": "SPOT_TYPE_" + kind,
+                              "spot_id": sid},
+                   stage_info=_map_stage(whole[:2] + [
+                       (1, 1, "ELITE", False)] + whole[3:]))
+    steps.step("stage/enter_spot",
+               spot_info={"floor": 4, "spot_type": "SPOT_TYPE_BATTLE",
+                          "spot_id": 9},
+               stage_info=_map_stage([(9, 4, "BATTLE", False),
+                                      (10, 5, "BOSS", False)], area=1))
+    steps.step("stage/clear_stage", service_server_time=1790480600,
+               stage_id=100000)
+    run_ = addon.chaos_runs[-1] if addon.chaos_runs else {}
+    want_maps = {"0": {"spots": {"BATTLE": 1, "ELITE": 1, "UNKNOWN": 1,
+                                 "BOSS": 1},
+                       "keyword": {"BATTLE": 1}, "path": False},
+                 "1": {"spots": {"BATTLE": 1, "BOSS": 1}, "keyword": {},
+                       "path": True}}
+    want_route = {"BATTLE": 2, "UNKNOWN": 1}
+    if (run_.get("maps"), run_.get("route")) != (want_maps, want_route):
+        out.append(f"a run records maps {run_.get('maps')} and route "
+                   f"{run_.get('route')}, not {want_maps} and {want_route}: "
+                   f"each area's map as first sent, its Rare Species spots "
+                   f"apart and a one-spot-a-floor list marked `path`, and "
+                   f"every spot entered (`Addon._note_chaos_map`).")
+    tool = _tool()
+    cell = tool.map_of(run_)
+    back = tool.maps_of(cell)
+    if back.get("0", {}).get("keyword") != {"battle": 1} \
+            or back.get("1", {}).get("path") is not True:
+        out.append(f"chaos_runs.py writes the maps as {cell!r} and reads "
+                   f"them back as {back}: the Rare Species spots and the "
+                   f"`path` mark do not survive the table.")
+    return out
+
+
+def _the_report_counts_each_mark_once():
+    """`docs/chaos_runs.py` counts a marked fight toward the marks it
+    is: a Senectus on a Rare Species spot as Senectus alone -- the spot
+    was counted on the Rare Species fight before it -- season 3's
+    Persona Card battle, tagged `k0+k1`, as one mark, and the Aether
+    Eater over battles alone, where it is met. Counting the inherited
+    keyword again counts the spot twice. Returns complaints."""
+    tool = _tool()
+    out = []
+    for key, want in (("b1+k5", ["b1"]), ("k0+k1", ["k0+k1"]),
+                      ("k5", ["k5"]), ("e+k5", ["e", "k5"])):
+        if tool.identities(key) != want:
+            out.append(f"chaos_runs.identities reads {key!r} as "
+                       f"{tool.identities(key)}, not {want}.")
+    rows = [{"marked": "b1+k5:1 k5:2 e:1",
+             "marked_at": "battle.k5:1 elite.k5:1 battle.e:1 "
+                          "break_in.b1+k5:1",
+             "fought": "battle:10 elite:4", "payouts": "", "amplified": "0",
+             "season": "s04"}]
+    facts = tool._group_facts(rows)
+    met_on = tool.spots_met(rows)
+    got = (tool.over_of(facts, "k5", met_on), tool.over_of(facts, "e", met_on),
+           tool.over_of(facts, "b1", met_on))
+    if got != ((2, 14), (1, 10), (1, 1)):
+        out.append(f"a run meeting a Rare Species battle and Elite, Senectus "
+                   f"on the battle's spot and an Aether Eater reads {got}, "
+                   f"not ((2, 14), (1, 10), (1, 1)): the Rare Species "
+                   f"twice over every fight, the Aether Eater over battles, "
+                   f"Senectus over runs.")
+    return out
+
+
+def _report_breakins_counted_twice():
+    """Fault: chaos_runs.py counting a break-in toward every mark it
+    carries."""
+    global _tool
+    real = _tool
+
+    def loaded():
+        tool = real()
+        tool.identities = lambda key: key.split("+")
+        return tool
+    _tool = loaded
+
+
 # What this check must catch, for `checks/faults.py`.
 FAULTS = [
     ("a run left by its capture not taken up",
@@ -1154,6 +1267,19 @@ FAULTS = [
      "    if amplified(whole, nodes) == amount:\n        return whole\n"
      "    return amount * 100 / (100 + nodes)",
      "    return whole", "181 at 25 nodes"),
+    ("a later map replacing the first", "capture.manager:ADDON_TEMPLATE",
+     "        if held and area not in maps:", "        if held:",
+     "each area's map as first sent"),
+    ("a route-only list taken for a whole map",
+     "capture.manager:ADDON_TEMPLATE",
+     '"path": max(floors.values()) == 1}', '"path": False}',
+     "each area's map as first sent"),
+    ("a spot entered twice counted once", "capture.manager:ADDON_TEMPLATE",
+     "                route[spot] = route.get(spot, 0) + 1",
+     "                route[spot] = 1", "each area's map as first sent"),
+    ("the report counting a break-in's keyword again",
+     _report_breakins_counted_twice, None, None,
+     "the Rare Species twice over every fight"),
     ("the report placing bosses by the floors paid alone",
      _report_bosses_by_rank, None, None, "the map's last floor is the second"),
     ("the report holding the third boss to no pay",

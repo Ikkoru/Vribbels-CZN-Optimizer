@@ -313,6 +313,33 @@ def _chaos_stage(data):
     return None
 
 
+def _chaos_map(spots):
+    """An area's map as a run keeps it: `spots`, each spot type counted
+    -- `BATTLE`, `ELITE`, `UNKNOWN` and the rest -- over the floors from
+    1; `keyword`, the spots of each type the map marks
+    `keyword_monster`, a Rare Species; and `path`, whether the list held
+    one spot a floor. **A run the Delegation Module plays is sent its
+    route alone**, so its `path` is true and its counts are the route's,
+    not the map's: only a run played by hand shows the whole map. None
+    for no list."""
+    if not isinstance(spots, list):
+        return None
+    kinds, keyword, floors = {}, {}, {}
+    for spot in spots:
+        if not isinstance(spot, dict) or not isinstance(
+                spot.get("floor"), int) or spot["floor"] < 1:
+            continue
+        kind = str(spot.get("type") or "?").replace("SPOT_TYPE_", "")
+        kinds[kind] = kinds.get(kind, 0) + 1
+        floors[spot["floor"]] = floors.get(spot["floor"], 0) + 1
+        if spot.get("event_id") == "keyword_monster":
+            keyword[kind] = keyword.get(kind, 0) + 1
+    if not kinds:
+        return None
+    return {"spots": kinds, "keyword": keyword,
+            "path": max(floors.values()) == 1}
+
+
 def _chaos_setup(data):
     """What a Chaos entry's reply says the run is, as the wire names it:
     the Chaos (`chaos_id`), the mode, the difficulty a list id carries
@@ -4167,6 +4194,7 @@ class Addon:
             self.chaos_map = []
             self.chaos_fight_key = None
             stage = _chaos_stage(data)
+            self._note_chaos_map(self.chaos_run, stage)
             self.chaos_events = list((stage or {}).get("used_spot_event")
                                      or ())
             self._save_open_chaos()
@@ -4184,6 +4212,11 @@ class Addon:
                 spot = str(info.get("spot_type") or "?").replace(
                     "SPOT_TYPE_", "")
                 self.chaos_spot = (info.get("floor"), spot, "")
+                # Every spot entered, fight or not: what a modifier
+                # does to the route, where `maps` says what it does to
+                # the map.
+                route = run.setdefault("route", {})
+                route[spot] = route.get(spot, 0) + 1
                 area = str(stage.get("curr_area_id"))
                 run.setdefault("entered", {}).setdefault(area, []).append(
                     info.get("spot_id"))
@@ -4200,6 +4233,7 @@ class Addon:
                                                            - listed)
             if stage.get("used_spot_event"):
                 self.chaos_events = list(stage["used_spot_event"])
+            self._note_chaos_map(run, stage)
             # The map as it stands: each area's floors arrive whole
             # when the area opens, so this is what a loss is measured
             # against.
@@ -4390,10 +4424,24 @@ class Addon:
                     self.chaos_spot = (floor + offset if isinstance(
                         floor, int) and isinstance(offset, int) else floor,
                         kind, "")
+        self._note_chaos_map(run, stage)
         self.chaos_run = run
         self.chaos_events = events
         self.chaos_fight_key = None
         self._save_open_chaos()
+
+    def _note_chaos_map(self, run, stage):
+        """Keep each area's map in `maps`, by area id, as first sent
+        (`_chaos_map`): an area's map arrives whole when it opens, and
+        a spot an effect turns into another later is the run's doing,
+        not the map's."""
+        if not isinstance(stage, dict):
+            return
+        held = _chaos_map(stage.get("spot_list"))
+        area = str(stage.get("curr_area_id"))
+        maps = run.setdefault("maps", {})
+        if held and area not in maps:
+            maps[area] = held
 
     def _chaos_fight(self, run, fight):
         """Count one fight of the run in progress -- once, by its battle

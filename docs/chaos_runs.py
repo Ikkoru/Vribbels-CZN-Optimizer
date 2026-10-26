@@ -81,6 +81,8 @@ The columns this script owns:
 | `marked`  | the fights carrying a mark, paid or not: `k5:2 e:1`             |
 | `marked_at` | the same by the spot each was met on: `battle.k5:1 elite.k5:1` |
 | `fought`  | the fights, by spot: `battle:11 elite:4 boss:3`; `unknown` is a fight a `?` encounter offered, `break_in` a hidden mini-boss |
+| `route`   | every spot entered, fight or not, by type: `battle:11 elite:3 unknown:9 safety:4 supply:2 boss:3`; `?` for a run filed before runs kept it |
+| `map`     | each area's map as first sent, by area id: `0: battle:20 elite:6 unknown:17 ... kw.battle:2`, `kw.` the spots marked `keyword_monster` (a Rare Species); `path` where the list held one spot a floor -- what a delegated run is sent, its route alone, so only a run played by hand shows the whole map (`capture.manager._chaos_map`); `?` for a run filed before runs kept it |
 | `lost`    | where a lost run was lost: `floor:spot:non-boss fights left`, `+mark` for a mark |
 | `gaps`    | how much of the run a capture saw: empty for all of it; else `started elsewhere` and `resumed N`, what the clear's restatement `recovered`, and `partial:` what stays unknown -- `chaos_estimate.recovery` |
 | `SPOT_*`  | the payouts at each kind of spot, `+` between them              |
@@ -95,6 +97,27 @@ meets. A hidden mini-boss is a break-in (`b1` is Senectus), paying
 nothing of itself; one that breaks in on a Rare Species carries its
 keyword, `b1+k5`, and pays as one. A mark the report has never seen is
 flagged.
+
+**Each mark is counted once, over what it can be met on**
+(`identities`, `counted_over`). A Senectus on a Rare Species is a
+Senectus: the keyword is its spot's, and the spot is already counted on
+the Rare Species fight before it -- every one captured followed one on
+the same floor -- so it adds a second Rare Species payout, not a second
+Rare Species. `k0+k1`, season 3's Persona Card battle, is one mark.
+Senectus is met once a run at most, so it is counted over runs; every
+other mark over the kinds of ordinary fight it has been met on -- the
+Aether Eater over battles alone, which is where the client puts all of
+its battles, the Rare Species over battles and Elites. A mark's `a
+run` is its count over runs, so one met twice in a run counts twice;
+`runs met` is the runs that met it at all.
+
+**Every rate is read over several pools** (`POOLS`): one map played
+one way, one map, the season the runs were played in, every season. A
+strict pool mixes in nothing -- no other map's mix of fights, no other
+mode's choice of path -- and a loose one has the runs to say
+something; where they agree, the mixing did no harm. A map pool needs
+`FEWEST_POOL_RUNS` whole runs, and a pool holding the same runs as a
+stricter one is not shown again.
 
 **The report after the table reads every amount at 0 nodes**, each
 payout read back at its run's own `amplified` nodes
@@ -113,13 +136,14 @@ check on the order: a third boss paying otherwise, another boss paying
 Its tables, in order: what a whole run pays played through, by part
 and season; each set amount that differs at 0 nodes from the last run
 that paid it, with what else changed between the two; what pays and
-how often a fight met each mark, by season part and game version; each
-season's own Chaos from one game version to the next -- a part always
-opens with a version, so a part is never compared on its own -- and
-where each Chaos puts its bosses. Flagged above them, besides the
-bosses: a payout no whole amount at 0 nodes comes to, which would be
-the 1% a node rule failing, a payout with no mark, and a mark never
-seen before.
+how often each mark was met, by season part and game version; each
+game version against the next, whichever season -- each mark on
+battles and Elites apart, since another map's mix of the two moves a
+rate a fight on its own; a part always opens with a version, so a part
+is never compared on its own -- and where each Chaos puts its bosses.
+Flagged above them, besides the bosses: a payout no whole amount at 0
+nodes comes to, which would be the 1% a node rule failing, a payout
+with no mark, and a mark never seen before.
 
 **A mark's rate is also tested for a shift in time**, taking a change
 to be sudden and lasting, as a balance patch is: across the whole runs
@@ -128,8 +152,10 @@ only if shuffling the runs rarely fits as well (`shifts`). Senectus,
 met once a run at most, is tested run by run, met or not; every other
 mark fight by fight. A run inside one of `chaos_estimate.RATE_EVENTS`
 -- something that raised the rates for a while -- is left out. Last,
-the figures `chaos_estimate.SHIPPED` wants, for the release step to
-copy, each line green where it says what is shipped.
+the figures the Checklist's season estimate ships with
+(`chaos_estimate.SHIPPED`), as the runs measure them, for the release
+step to copy: a line is green where it matches what ships, yellow,
+with what ships beside it, where it differs.
 
 **A rate a run is not a rate a fight, and a map's own mix of fights can
 move the first alone.** Season 5's Chaos -- and any Chaos given its
@@ -174,11 +200,11 @@ whichever door. `ELITE_ADD` among them adds Elite spaces to the map by
 its level: `p005` to `p008` add 2, 4, 6 and 8, the client's
 `zero_system_eff` says (`ELITE_ADD_SPACES`). Taking ordinary battles
 away is what would move the Aether Eater, met only on them, so the
-mark rates end with the fights a run met at each level and without it,
-for each Chaos, special and mode that has runs at more than one. On
-season 4's own Chaos the runs with it fought as many ordinary battles
-as those without, and more Elites: on a path of fixed length, the
-Elites took the place of spots that were not ordinary battles.
+mark rates are followed by the spots a run entered at each level and
+without it, fights or not (`route`), for each map and mode that has
+runs at more than one; and by each area's whole map at each level
+(`map`), where the replacing shows apart from the route: only a run
+played by hand is sent its whole map, a delegated one its route alone.
 
 **How a run's rolls and path were chosen.** A Galactic Disaster run's
 rolls are as the game dealt them: the maintainer does not reroll its
@@ -200,6 +226,47 @@ that run was paid most of. `CURRENCY` places only a run no standings
 had been read before. A season's parts are dated the way the Checklist
 dates its shop pages, for the season live in the newest snapshot; a
 row keeps the part it was given once the season is over.
+
+**What each season's Chaos adds**, as the maintainer played them and
+the wire shows them (`wire:` where a capture bears it out). A season's
+gimmick can move a rate a run with no rate a fight moving, so a new
+season's goes here before its runs are read. Every map has a first
+area, the Outskirts, ending on the first boss on floor 17, and a
+second, the Center, ending on the second boss on the last floor the
+entry names.
+
+- **Season 1 (Laboratory 0).** One or two warp points in each area,
+  one enterable in each, leading to a map of their own. wire: the warp
+  map was 3 floors in the Outskirts, its last a fight, and 3 or 4 in
+  the Center (two Elites, or three battles, then an Unidentified Area
+  floor); either way the run came out 3 floors above where it went in.
+  Part 2 adds a third boss after the Center, part 3 a second one, the
+  first becoming an Elite -- wire: an Elite on 37 and the third boss on
+  40, in every Zero System run of it.
+- **Season 2 (Burning Life).** Warp points as season 1's, their maps
+  Events that are battles; the second warp can offer a damage check
+  fight instead, then a warp holding a third-boss-type enemy. wire: 2
+  warp floors, out 1 floor above the way in. Part 3 adds a third boss
+  after the Center, with no Elite before it from here on.
+- **Season 3 (Theater of Illusions).** Persona Card battles, `k0+k1`,
+  on battles and Elites alike. Part 2 can swap the second boss for
+  another (wire: `base_00296` for `base_00066`), part 3 adds a third
+  boss after the Center.
+- **Season 4 (The Kaleidoscope Hatchery).** Any battle or Unidentified
+  Area can carry a Desire card icon (not a keyword on the wire). Part 2
+  can swap the second boss (wire: from part 3 on, every run's was
+  `base_00305`, not the listed `base_00109`, paying the same), part 3
+  adds a third boss in a hidden area of 3 fixed floors.
+- **Season 5 (Celestial Bulwark).** The Center is Elites and
+  Unidentified Areas, with rests and a supply spot, and 11 floors where
+  the others have 17; the third boss is there from the start, three
+  floors after the second, and is drawn from past seasons' bosses
+  (wire: `base_00317`, `base_00282`, `base_00296`). Its Effect, given to
+  another Chaos in the Zero System, does the same there.
+
+A past season's Chaos in the Zero System pays the live currency for
+its first two bosses alone, at its own lower amounts; its third boss
+has paid nothing.
 
 Nothing here writes to `snapshots/`; the archive is read in place.
 """
@@ -238,7 +305,7 @@ CURRENCY = {3920001: "s01", 3920002: "s02", 3920006: "s03", 3920031: "s04",
 OWNED = ["date", "season", "part", "chaos", "door", "difficulty",
          "floors", "special", "options", "rolled", "amplified", "partners",
          "invasion", "mode", "client", "total", "payouts", "marked",
-         "marked_at", "fought", "lost", "gaps"]
+         "marked_at", "fought", "route", "map", "lost", "gaps"]
 # The effect ids a run's rolled bonus and penalties come as, whichever
 # door it was entered by.
 ROLLED = (("zero_orb_bonus_", "b"), ("zero_orb_penalty_", "p"))
@@ -274,7 +341,12 @@ SPOT_COLUMN = "SPOT_TYPE_"
 RECOVERED = "~"
 
 # The marks by the game's names; one missing here is new, and flagged.
-MARKS = {"k5": "Rare Species", "e": "Aether Eater", "b1": "Senectus"}
+# `k0+k1` is season 3's Persona Card battle, which carries both tags and
+# an `eidolon_keyword_pool` (the client's eidolon cards are the Persona
+# Cards): one mark, `identities`.
+MARKS = {"k5": "Rare Species", "e": "Aether Eater", "b1": "Senectus",
+         "k0+k1": "Persona Card", "k0": "Persona Card tag 0",
+         "k1": "Persona Card tag 1"}
 
 # A rate comparison with fewer fights than this on either side says
 # nothing, and one whose difference is under this many standard errors
@@ -609,6 +681,50 @@ def met_of(row):
                for mark, n in counts_of(row.get("marked")).items())
 
 
+def map_of(run):
+    """A run's `maps` as the `map` column writes them: each area's
+    `area: type:n ... kw.type:n [path]`, joined by ` | `; `?` for a run
+    filed before runs kept them."""
+    if "maps" not in run:
+        return "?"
+    out = []
+    for area, held in sorted((run.get("maps") or {}).items(),
+                             key=lambda item: str(item[0])):
+        if not isinstance(held, dict):
+            continue
+        cells = ["%s:%d" % (kind.lower(), n) for kind, n
+                 in sorted((held.get("spots") or {}).items())]
+        cells += ["kw.%s:%d" % (kind.lower(), n) for kind, n
+                  in sorted((held.get("keyword") or {}).items())]
+        out.append("%s: %s%s" % (area, " ".join(cells),
+                                 " path" if held.get("path") else ""))
+    return " | ".join(out)
+
+
+def maps_of(cell):
+    """{area: {"spots": {type: n}, "keyword": {type: n}, "path": bool}}
+    from a `map` cell; {} for `?` or empty."""
+    out = {}
+    for part in (cell or "").split(" | "):
+        area, _, rest = part.partition(": ")
+        if not rest:
+            continue
+        held = {"spots": {}, "keyword": {}, "path": False}
+        for token in rest.split():
+            if token == "path":
+                held["path"] = True
+                continue
+            name, _, n = token.rpartition(":")
+            if not n.isdigit():
+                continue
+            if name.startswith("kw."):
+                held["keyword"][name[3:]] = int(n)
+            else:
+                held["spots"][name] = int(n)
+        out[area] = held
+    return out
+
+
 def rolled_counts(cell):
     """{group: effect id} from a `rolled` cell, or None for `?`."""
     if (cell or "?") == "?":
@@ -716,6 +832,10 @@ def row_of(run, source, parts, kinds=None):
             for mark, n in sorted(marks.items())),
         "fought": " ".join("%s:%d" % (spot.lower(), n) for spot, n in
                            sorted((run.get("fought") or {}).items())),
+        "route": " ".join("%s:%d" % (spot.lower(), n) for spot, n in
+                          sorted((run.get("route") or {}).items()))
+                 if "route" in run else "?",
+        "map": map_of(run),
         "lost": lost_token(run.get("lost")),
         "gaps": gaps_of(run, recovered, unknown),
         "log": source,
@@ -809,7 +929,7 @@ def missed_of(row):
 # What an amount and a count are painted in.
 AMOUNT, COUNT = "32", "35"
 # The marks' order in the tables, before any other.
-MARK_ORDER = ("e", "b1", "k5", "b1+k5")
+MARK_ORDER = ("e", "b1", "k5", "k0+k1", "b1+k5")
 # How many whole runs a Chaos needs for the Senectus table to read its
 # checks; those with fewer are summed on one line.
 FEWEST_INVASION_RUNS = 3
@@ -978,43 +1098,109 @@ def _order(keys):
 
 
 def _named(key):
-    """A set amount's or a mark's name as the report prints it; a fight
-    carrying several marks, each by its name."""
+    """A set amount's or a mark's name as the report prints it: a key
+    `MARKS` names whole by that name, else each of its marks by theirs."""
+    if key in MARKS:
+        return MARKS[key]
     return " + ".join(MARKS.get(part, part) for part in key.split("+"))
 
 
+def identities(key):
+    """The marks a marked fight counts toward, from its key.
+
+    **A break-in counts as Senectus alone.** One that breaks in on a
+    Rare Species carries the spot's keyword (`b1+k5`) and pays as one,
+    but the spot is already counted, on the fight before it there:
+    every Senectus on a Rare Species captured followed a Rare Species
+    battle on the same floor. Counting the keyword again would count
+    the spot twice. **A key `MARKS` names whole is one mark**: `k0+k1`,
+    season 3's Persona Card battle, which carries both tags. Any other
+    key counts toward each of its marks."""
+    if key in MARKS:
+        return [key]
+    parts = key.split("+")
+    return [part for part in parts if chaos_estimate.is_invasion(part)] \
+        or parts
+
+
+FIGHT_SPOTS = ("battle", "elite")
+
+
+def spots_met(rows):
+    """{mark: the kinds of fight it has been met on}, over `rows`' own
+    `marked_at` (`identities`)."""
+    out = collections.defaultdict(set)
+    for row in rows:
+        for spot, marks in marked_at_of(row.get("marked_at")).items():
+            for key in marks:
+                for mark in identities(key):
+                    out[mark].add(spot)
+    return out
+
+
+def counted_over(mark, met_on):
+    """What a mark's rate is counted over: `run` for a break-in, met
+    once a run at most; else the kinds of ordinary fight it has been met
+    on (`spots_met`) -- the Aether Eater on battles alone, which is
+    where the client puts every one of its battles -- or both where it
+    has been met on neither."""
+    if chaos_estimate.is_invasion(mark):
+        return ("run",)
+    return tuple(spot for spot in FIGHT_SPOTS
+                 if spot in met_on.get(mark, ())) or FIGHT_SPOTS
+
+
+def unit(over):
+    """`counted_over`'s answer in words: `a run`, `a battle`, `a fight`."""
+    if over == ("run",):
+        return "a run"
+    return "a fight" if len(over) > 1 else "a " + over[0]
+
+
 def _group_facts(rows):
-    """For one group of rows: ({key: its amounts at 0 nodes}, {mark:
-    marked fights}, fights)."""
-    amounts = collections.defaultdict(set)
-    marked = collections.Counter()
-    fights = 0
+    """For one group of rows: their amounts at 0 nodes by key, and how
+    often each mark was met (`identities`) -- in all, by spot, and in
+    how many runs -- beside the ordinary fights by spot and the runs."""
+    facts = {"runs": len(rows), "amounts": collections.defaultdict(set),
+             "keys": collections.Counter(), "met": collections.Counter(),
+             "at": collections.defaultdict(collections.Counter),
+             "spots": collections.Counter(), "met_runs": collections.Counter()}
     for row in rows:
         for key, _spot, amount, _mark, _raw in base_payouts(row) or ():
-            amounts[key].add(amount)
-        marked.update(counts_of(row.get("marked")))
+            facts["amounts"][key].add(amount)
         fought = counts_of(row.get("fought"))
-        fights += fought.get("battle", 0) + fought.get("elite", 0)
-    return amounts, marked, fights
+        for spot in FIGHT_SPOTS:
+            facts["spots"][spot] += fought.get(spot, 0)
+        here = set()
+        for key, n in counts_of(row.get("marked")).items():
+            facts["keys"][key] += n
+            for mark in identities(key):
+                facts["met"][mark] += n
+                here.add(mark)
+        for spot, marks in marked_at_of(row.get("marked_at")).items():
+            for key, n in marks.items():
+                for mark in identities(key):
+                    facts["at"][mark][spot] += n
+        for mark in here:
+            facts["met_runs"][mark] += 1
+    return facts
 
 
-def _pays_cells(keys, amounts, marked, fights):
-    """One row's cells for a what-pays grid: a boss's amounts at 0
-    nodes, one column; a mark's in three -- its amounts, then how often
-    a fight met it, `(k` and `/n)`, so the counts align on their `/`. A
-    mark met and never paid pays nothing (`0`): Senectus alone."""
-    cells = []
-    for key in keys:
-        if _single(key):
-            cells.append(_amounts(amounts[key]) if key in amounts else "")
-        elif key in marked:
-            cells += [_amounts(amounts[key]) if key in amounts
-                      else [("0", AMOUNT)],
-                      [("(", None), (str(marked[key]), COUNT)],
-                      [("/%d" % fights, COUNT), (")", None)]]
-        else:
-            cells += [""] * 3
-    return cells
+def over_of(facts, mark, met_on):
+    """(met, out of) for a mark in one group: runs that met it over runs
+    for a break-in, else its fights over the fights it is counted over
+    (`counted_over`)."""
+    over = counted_over(mark, met_on)
+    if over == ("run",):
+        return facts["met_runs"][mark], facts["runs"]
+    return facts["met"][mark], sum(facts["spots"][spot] for spot in over)
+
+
+def _compound(key):
+    """Whether a payout key is a break-in on another mark's spot, which
+    the what-pays grid shows beside its marks: `b1+k5`."""
+    return "+" in key and key not in MARKS and any(
+        chaos_estimate.is_invasion(part) for part in key.split("+"))
 
 
 def _single(key):
@@ -1023,20 +1209,67 @@ def _single(key):
     return key.startswith("boss") or key.endswith("no mark")
 
 
-def _pays_layout(keys, lead):
+def _pays_keys(every):
+    """The what-pays grid's keys over every group's facts: the bosses,
+    each mark met, then each break-in on another mark's spot."""
+    keys = set()
+    for facts in every:
+        keys |= {key for key in facts["amounts"] if _single(key)}
+        keys |= set(facts["met"])
+        keys |= {key for key in facts["keys"] if _compound(key)}
+    return _order(keys)
+
+
+def _pays_cells(keys, facts, met_on):
+    """One row's cells for a what-pays grid: a boss's amounts at 0
+    nodes, one column; a mark's in three -- its amounts, then how often
+    it was met over what it is counted over (`over_of`), `(k` and `/n)`,
+    so the counts align on their `/`. A mark met and never paid pays
+    nothing (`0`): Senectus alone. A break-in on another mark's spot
+    is counted out of every Senectus."""
+    cells = []
+    for key in keys:
+        if _single(key):
+            cells.append(_amounts(facts["amounts"][key])
+                         if key in facts["amounts"] else "")
+            continue
+        if _compound(key):
+            met = facts["keys"][key]
+            out_of = facts["met"][identities(key)[0]]
+        else:
+            met, out_of = over_of(facts, key, met_on)
+        if not met and key not in facts["amounts"]:
+            cells += [""] * 3
+            continue
+        cells += [_amounts(facts["amounts"][key]) if key in facts["amounts"]
+                  else [("0", AMOUNT)],
+                  [("(", None), (str(met), COUNT)],
+                  [("/%d" % out_of, COUNT), (")", None)]]
+    return cells
+
+
+def _pays_layout(keys, lead, met_on):
     """(head, align, joins) for a what-pays grid whose first `lead`
-    columns are the row's own: a boss one column, a mark three."""
+    columns are the row's own: a boss one column, a mark three, each
+    mark's heading saying what it is counted over."""
     head, align, joins, at = [], {}, {}, lead
     for key in keys:
         if _single(key):
             head.append(_named(key))
             at += 1
+            continue
+        if _compound(key):
+            first, *rest = key.split("+")
+            name = "%s on a %s spot, of %s" % (
+                _named(first), _named("+".join(rest)), _named(first))
         else:
-            head.append((_named(key), 3))
-            align.update({at: "r", at + 1: "r", at + 2: "l"})
-            joins.update({at: " ", at + 1: ""})
-            at += 3
+            name = "%s, %s" % (_named(key), unit(counted_over(key, met_on)))
+        head.append((name, 3))
+        align.update({at: "r", at + 1: "r", at + 2: "l"})
+        joins.update({at: " ", at + 1: ""})
+        at += 3
     return head, align, joins
+
 
 
 def changes(rows):
@@ -1096,19 +1329,20 @@ def changes(rows):
     return out, flags
 
 
-def _rate_moved(a, b):
-    """(cell, moved) comparing one mark's rate a fight between two
-    groups, each (marked fights, fights); a `too few` cell where either
-    has fewer than FEWEST_FIGHTS fights."""
+def _rate_moved(a, b, fewest=FEWEST_FIGHTS):
+    """(cell, moved) comparing one rate between two groups, each (met,
+    out of); a `too few` cell where either is out of fewer than
+    `fewest`."""
     (ka, na), (kb, nb) = a, b
     text = _count(ka, na) + [(" -> ", None)] + _count(kb, nb)
-    if min(na, nb) < FEWEST_FIGHTS:
+    if min(na, nb) < fewest:
         return text + [(" too few", QUIET)], False
     pa, pb = ka / na, kb / nb
     pooled = (ka + kb) / (na + nb)
     spread = math.sqrt(pooled * (1 - pooled) * (1 / na + 1 / nb)) or 1
     moved = abs((pb - pa) / spread) >= Z_DIFFERS
     return text + [(" MOVED", FLAG) if moved else (" same", GOOD)], moved
+
 
 
 def bosses_table(rows):
@@ -1178,50 +1412,57 @@ def report(rows):
                _version(row.get("client")))
         groups[key].append(row)
         first.setdefault(key, date)
+    met_on = spots_met(rows.values())
     facts = {key: _group_facts(members) for key, members in groups.items()}
-    keys = _order({key for amounts, marked, _f in facts.values()
-                   for key in set(amounts) | set(marked)})
-    heading("What pays, by season part and game version, at 0 nodes "
-            "(and how often a fight met each mark)")
-    head, align, joins = _pays_layout(keys, 4)
-    grid([[part, version, str(len(groups[(part, version)])), str(fights)]
-          + _pays_cells(keys, amounts, marked, fights)
-          for (part, version), (amounts, marked, fights)
-          in sorted(facts.items(), key=lambda item: first[item[0]])],
+    order = sorted(groups, key=lambda key: first[key])
+    keys = _pays_keys(facts.values())
+    heading("What pays, by season part and game version, at 0 nodes, and "
+            "how often each mark was met over what it is counted over")
+    head, align, joins = _pays_layout(keys, 4, met_on)
+    grid([[part, version, str(facts[(part, version)]["runs"]),
+           str(sum(facts[(part, version)]["spots"].values()))]
+          + _pays_cells(keys, facts[(part, version)], met_on)
+          for part, version in order],
          head=["part", "version", "runs", "fights"] + head,
          align=align, joins=joins)
 
-    # Each season's own Chaos, one version against the next: a part
-    # always opens with a version, so a part on its own says nothing.
-    pairs = []
-    by_season = collections.defaultdict(list)
-    for key in sorted(groups, key=lambda key: first[key]):
-        by_season[key[0].split()[0]].append(key)
-    for season, held in sorted(by_season.items()):
-        pairs += [(season, a, b) for a, b in zip(held, held[1:])]
-    marks = _order({mark for _season, a, b in pairs
-                    for mark in set(facts[a][1]) | set(facts[b][1])})
+    # One game version against the next, whichever season: the set
+    # amounts by key, a boss by its place; each mark on each kind of
+    # fight apart, since a map's own mix of battles and Elites moves a
+    # rate a fight with no rate a battle moving; Senectus by the run.
     steps = []
-    for season, a, b in pairs:
-        (amounts_a, marked_a, fights_a) = facts[a]
-        (amounts_b, marked_b, fights_b) = facts[b]
+    for a, b in zip(order, order[1:]):
+        fa, fb = facts[a], facts[b]
         moved = ["%s %s -> %s" % (_named(key), "/".join(
-            map(_number, sorted(amounts_a[key]))), "/".join(
-            map(_number, sorted(amounts_b[key]))))
-            for key in _order(set(amounts_a) & set(amounts_b))
-            if amounts_a[key] != amounts_b[key]]
-        row = [season, "%s -> %s" % (a[1], b[1]),
-               [("; ".join(moved), FLAG)] if moved else [("same", GOOD)]]
-        for mark in marks:
-            row.append(_rate_moved((marked_a[mark], fights_a),
-                                   (marked_b[mark], fights_b))[0]
-                       if marked_a[mark] or marked_b[mark] else "")
-        steps.append(row)
+            map(_number, sorted(fa["amounts"][key]))), "/".join(
+            map(_number, sorted(fb["amounts"][key]))))
+            for key in _order(set(fa["amounts"]) & set(fb["amounts"]))
+            if fa["amounts"][key] != fb["amounts"][key]]
+        lead = ["%s %s" % a, "%s %s" % b,
+                [("; ".join(moved), FLAG)] if moved else [("same", GOOD)]]
+        for mark in _order(set(fa["met"]) | set(fb["met"])):
+            cells = []
+            if chaos_estimate.is_invasion(mark):
+                cells += ["", "", _rate_moved(
+                    (fa["met_runs"][mark], fa["runs"]),
+                    (fb["met_runs"][mark], fb["runs"]), FEWEST_RUNS)[0]]
+            else:
+                for spot in FIGHT_SPOTS:
+                    pair = ((fa["at"][mark][spot], fa["spots"][spot]),
+                            (fb["at"][mark][spot], fb["spots"][spot]))
+                    cells.append(_rate_moved(*pair)[0]
+                                 if pair[0][0] or pair[1][0] else "")
+                cells.append("")
+            steps.append(lead + [_named(mark)] + cells)
+            lead = ["", "", ""]
+        if lead[0]:
+            steps.append(lead)
     if steps:
-        heading("From one game version to the next, each season's own "
-                "Chaos: set amounts at 0 nodes, and each mark a fight")
-        grid(steps, head=["season", "versions", "set amounts"]
-             + [_named(mark) for mark in marks])
+        heading("From one game version to the next: set amounts at 0 "
+                "nodes, each mark on battles and Elites apart, Senectus "
+                "by the run")
+        grid(steps, head=["from", "to", "set amounts", "mark",
+                          "on battles", "on Elites", "runs met"])
 
 
 
@@ -1370,127 +1611,167 @@ def shifts(ks, ns, rng, offset=0):
 
 
 def _met_in(runs):
-    """{mark: the Chaoses it has been met in}, over `runs`."""
+    """{mark: the Chaoses it has been met in}, over `runs`
+    (`identities`)."""
     out = collections.defaultdict(set)
     for row in runs:
         for key in counts_of(row.get("marked")):
-            for one in key.split("+"):
-                out[one].add(row["chaos"])
+            for mark in identities(key):
+                out[mark].add(row["chaos"])
     return out
+
+
+def _map_name(row):
+    """A row's map: its Chaos and the special options it was given."""
+    return ", ".join(cell for cell in (row["chaos"], row.get("special"))
+                     if cell)
+
+
+def _setting(row):
+    """A row's map and how it was played, as the tables group them."""
+    return "%s, %s" % (_map_name(row), row["mode"])
+
+
+# **How the rate tables pool runs, strictest first.** Few runs share
+# every setting, so each rate is read over several pools: the runs of
+# one map played one way, of one map, of the season the runs were
+# played in, and of every season. A strict pool is free of what the
+# others mix in -- another map's mix of fights, a mode's choice of
+# path -- and a loose one has the runs to say something; where the two
+# agree, the mixing did no harm. A pool needs FEWEST_POOL_RUNS whole
+# runs to be shown, but for the season and the whole, and one holding
+# the same runs as a stricter one is not shown again.
+POOLS = (("map, mode", _setting), ("map", _map_name),
+         ("season", lambda row: row["season"]),
+         ("all", lambda row: "every season"))
+FEWEST_POOL_RUNS = 3
+
+
+def pooled(runs, tiers=POOLS, fewest=FEWEST_POOL_RUNS):
+    """[(tier, label, rows)]: `runs` grouped at each of `tiers`,
+    strictest first (`POOLS`)."""
+    out, seen = [], set()
+    for tier, key in tiers:
+        groups = collections.defaultdict(list)
+        for row in runs:
+            groups[key(row)].append(row)
+        for label, members in sorted(groups.items()):
+            dates = frozenset(row["date"] for row in members)
+            if dates in seen or (tier not in ("season", "all")
+                                 and len(members) < fewest):
+                continue
+            seen.add(dates)
+            out.append((tier, label, members))
+    return out
+
+
+def _shift_cell(ks, ns, among, per):
+    """The shift test's verdict on one rate over runs in order
+    (`shifts`), as a cell."""
+    found = shifts(ks, ns, random.Random(0))
+    if found:
+        edges = [0] + [at for at, _p in found] + [len(ks)]
+        return [("shifted: " + ", ".join(
+            "%.3f %s from %s" % (sum(ks[a:b]) / max(1, sum(ns[a:b])), per,
+                                 among[a]["date"][:10])
+            for a, b in zip(edges, edges[1:]))
+            + " (p %s)" % ", ".join("%.3f" % p for _at, p in found), FLAG)]
+    _at, p = split_test(ks, ns, random.Random(0))
+    return [("none (p %.2f)" % p, GOOD)] if p is not None \
+        else [("too few runs", QUIET)]
 
 
 def rate_shifts(rows):
     """Print each mark's rate over the whole runs of every Chaos it has
-    been met in -- a fight, a run, on each kind of ordinary fight (see
-    the module docstring's note on a map's own mix of fights) -- and
-    any shift in it. Senectus is met once a run at most, so its shift
-    is looked for run by run, met or not; raised runs are
-    `invasion_rates`' alone."""
+    been met in, pooled from one map up to every season (`POOLS`): over
+    what it is counted over (`counted_over`), a run, on each kind of
+    ordinary fight, and any shift in it over time. Senectus, met once a
+    run at most, is counted and tested run by run, met or not; a raised
+    run is `invasion_rates`' alone."""
     runs = _whole_runs(rows)
     met_in = _met_in(runs)
-    # A run that does not say where its marks were met is left out of
-    # the by-spot counts.
-    told = {row["date"] for row in runs
-            if row.get("marked_at") or not row.get("marked")}
-    heading("Mark rates over time, over %d whole run(s)%s; each mark over "
-            "the Chaoses it has been met in" % (
+    met_on = spots_met(runs)
+    heading("Mark rates over %d whole run(s)%s, of the Chaoses each mark "
+            "has been met in, pooled from one map to every season" % (
                 len(runs), "" if len(runs) == len(rows)
                 else " (%d left out)" % (len(rows) - len(runs))))
     table = []
     for mark in _order(met_in):
         invasion = chaos_estimate.is_invasion(mark)
+        over = counted_over(mark, met_on)
         among = [row for row in runs if row["chaos"] in met_in[mark]
                  and not (invasion and raise_of(row))]
-        fights, ks = [], []
-        for row in among:
-            fought = counts_of(row.get("fought"))
-            fights.append(fought.get("battle", 0) + fought.get("elite", 0))
-            ks.append(sum(n for key, n in counts_of(row.get("marked")).items()
-                          if mark in key.split("+")))
-        tested = ([min(1, k) for k in ks], [1] * len(ks)) if invasion \
-            else (ks, fights)
-        found = shifts(*tested, random.Random(0))
-        if found:
-            edges = [0] + [at for at, _p in found] + [len(ks)]
-            shift = [("shifted: " + ", ".join(
-                "%.3f %s from %s" % (
-                    sum(tested[0][a:b]) / max(1, sum(tested[1][a:b])),
-                    "a run" if invasion else "a fight",
-                    among[a]["date"][:10]) for a, b in zip(edges, edges[1:]))
-                + " (p %s)" % ", ".join("%.3f" % p for _at, p in found),
-                FLAG)]
-        else:
-            _at, p = split_test(*tested, random.Random(0))
-            shift = [("none (p %.2f)" % p, GOOD)] if p is not None \
-                else [("too few runs (%d a side)" % FEWEST_RUNS, QUIET)]
-        spots = []
-        for spot in ("battle", "elite"):
-            on = [row for row in among if row["date"] in told]
-            n = sum(counts_of(row.get("fought")).get(spot, 0) for row in on)
-            k = sum(count for row in on for key, count in marked_at_of(
-                row.get("marked_at")).get(spot, {}).items()
-                if mark in key.split("+"))
-            spots.append(_count(k, n) + [(" %.3f" % (k / n), None)]
-                         if n and k else "")
-        total, met = sum(ks), sum(1 for k in ks if k)
-        table.append([_named(mark), _count(total, sum(fights)),
-                      "%.3f" % (total / max(1, sum(fights))),
-                      "%.2f" % (total / max(1, len(among))),
-                      _count(met, len(among)), str(len(met_in[mark]))]
-                     + spots + [shift])
-    grid(table, head=["mark", "met / fights", "a fight", "a run",
-                      "runs met", "Chaos", "on battles", "on Elites",
+        name = _named(mark)
+        for tier, label, members in pooled(among, POOLS[1:]):
+            facts = _group_facts(members)
+            met, out_of = over_of(facts, mark, met_on)
+            ks, ns = [], []
+            for row in members:
+                held = sum(n for key, n in counts_of(row.get("marked"))
+                           .items() if mark in identities(key))
+                fought = counts_of(row.get("fought"))
+                ks.append(min(1, held) if invasion else held)
+                ns.append(1 if invasion else sum(fought.get(spot, 0)
+                                                 for spot in over))
+            spots = []
+            for spot in FIGHT_SPOTS:
+                k, n = facts["at"][mark][spot], facts["spots"][spot]
+                spots.append(_count(k, n) + [(" %.3f" % (k / n), None)]
+                             if n and k else "")
+            table.append([name, tier, label, str(len(members)),
+                          _count(met, out_of) + [(" " + unit(over)[2:] + "s",
+                                                  None)],
+                          "%.3f" % (met / max(1, out_of)),
+                          "%.2f" % (facts["met"][mark] / len(members)),
+                          _count(facts["met_runs"][mark], len(members))]
+                         + spots + [_shift_cell(ks, ns, members,
+                                                unit(over))])
+            name = ""
+    grid(table, head=["mark", "pool", "", "runs", "met / over", "rate",
+                      "a run", "runs met", "on battles", "on Elites",
                       "shift over time"])
     penalty_mix(runs)
+    map_mix(runs)
     invasion_rates(runs)
 
 
-def _setting(row):
-    """A row's Chaos, special and mode, as the tables group them."""
-    return ", ".join(cell for cell in (
-        row["chaos"], row.get("special"), row["mode"]) if cell)
-
-
 def invasion_rates(runs):
-    """Print, for each Chaos, special and mode with enough whole runs,
-    how often a run met Senectus, and what the client's rule makes of it
-    (`chaos_estimate.invasion_chance`): the checks a run gets, fitted to
-    every run at its own raise, and a run's chance at no raise and at
-    each Danger Intuition step. A run that kept no partners counts as
-    raising nothing, and is flagged where the game had the passives by
-    then. Raised runs meeting Senectus more or less often than the rule
-    says, over enough runs, is the rule being wrong, and is for the doc
+    """Print, pooled from one map played one way up to every season
+    (`POOLS`), how often a whole run met Senectus, and what the client's
+    rule makes of it (`chaos_estimate.invasion_chance`): the checks a
+    run gets, fitted to every run at its own raise, and a run's chance
+    at no raise and at each Danger Intuition step; and any shift over
+    time, run by run. A pool of several maps fits one count of checks
+    to their mix. A run that kept no partners counts as raising
+    nothing, and is flagged where the game had the passives by then.
+    Raised runs meeting Senectus more or less often than the rule says,
+    over enough runs, is the rule being wrong, and is for the doc
     first."""
     unknown = [row["date"] for row in runs if raise_of(row) is None
                and chaos_estimate.had_passives({"client": row.get("client")})]
-    by = collections.defaultdict(list)
-    for row in runs:
-        by[_setting(row)].append((met_of(row), raise_of(row) or 0.0))
-    if not by:
+    if not runs:
         return
     steps = sorted({value for passives in
                     game_client.known_exploration_effects().values()
                     for effect, values in passives
                     if effect == chaos_estimate.INVASION_EFFECT
                     for _at, value in values})
-    raised = any(value for held in by.values() for _met, value in held)
+    raised = any(raise_of(row) for row in runs)
 
     def pct(value):
         return "+%g%%" % round(value * 100 / chaos_estimate.INVASION_BASE, 2)
 
-    heading("Senectus a run, one at most (`chaos_estimate.invasion_chance`), "
-            "Chaos with %d whole runs or more" % FEWEST_INVASION_RUNS)
+    heading("Senectus a whole run, one at most "
+            "(`chaos_estimate.invasion_chance`)")
     if unknown:
         print(paint("   ! played with Exploration Passives but no partners "
                     "kept, counted as no raise: %s" % ", ".join(unknown),
                     FLAG))
-    table, few = [], []
-    for key, held in sorted(by.items()):
-        if len(held) < FEWEST_INVASION_RUNS:
-            few.extend(held)
-            continue
+    table = []
+    for tier, label, members in pooled(runs):
+        held = [(met_of(row), raise_of(row) or 0.0) for row in members]
         met = sum(1 for hit, _value in held if hit)
-        row = [key, _count(met, len(held))]
+        row = [tier, label, str(len(members)), _count(met, len(members))]
         if raised:
             row.append("; ".join("%s %d/%d" % (
                 pct(value) if value else "none",
@@ -1504,55 +1785,114 @@ def invasion_rates(runs):
                     for value in [0.0] + steps]
         else:
             row += [[("every run met one" if met else "none met", QUIET)]]
+            row += [""] * (len(steps) + 1)
+        row.append(_shift_cell([1 if hit else 0 for hit, _v in held],
+                               [1] * len(held), members, "a run"))
         table.append(row)
-    grid(table, head=["Chaos", "met", *(["by raise"] if raised else []),
-                      "checks", "no raise", *map(pct, steps)])
-    if few:
-        print(paint("   the rest, under %d run(s) each: %d of %d met one" % (
-            FEWEST_INVASION_RUNS, sum(1 for hit, _v in few if hit),
-            len(few)), QUIET))
+    grid(table, head=["pool", "", "runs", "met",
+                      *(["by raise"] if raised else []), "checks",
+                      "no raise", *map(pct, steps), "shift over time"])
 
 
 # ELITE_ADD's levels by the penalty id a run rolls, as the Elite spaces
 # each adds to the map: the client's `zero_system_eff` rows, `opt_1`.
 ELITE_ADD_SPACES = {"p005": 2, "p006": 4, "p007": 6, "p008": 8}
+# The spot types the map and route tables count, in their order.
+SPOT_KINDS = ("battle", "elite", "unknown", "safety", "supply", "boss")
+
+
+def _level(row, group="ELITE_ADD"):
+    """A row's rolled `group` level as the tables write it: `none`,
+    `p008 (+8)`; None for a row filed before runs kept their effects."""
+    rolled = rolled_counts(row.get("rolled"))
+    if rolled is None:
+        return None
+    level = rolled.get(group)
+    if level is None:
+        return "none"
+    return "%s (+%s)" % (level, ELITE_ADD_SPACES.get(level, "?"))
 
 
 def penalty_mix(runs, group="ELITE_ADD"):
-    """Print the fights a whole run met at each level of a rolled `group`
-    penalty and without it, for each Chaos, special and mode that has
-    runs at more than one: whether it takes ordinary battles away is
-    what moves a mark met only on them. A Chaos's map and a mode's
-    choice of path set a run's mix of fights too, so runs are only
-    compared among their own. A run filed before runs kept their
-    effects is left out."""
+    """Print the spots a whole run entered at each level of a rolled
+    `group` penalty and without it -- fights and the rest -- for each
+    map and mode that has runs at more than one: what the penalty does
+    to the route, which is what moves a mark met on one kind of fight.
+    A map and a mode's choice of path set a run's route too, so runs are
+    only compared among their own. What it does to the map is
+    `map_mix`'s."""
     by = collections.defaultdict(lambda: collections.defaultdict(list))
     for row in runs:
-        rolled = rolled_counts(row.get("rolled"))
-        if rolled is not None:
-            by[_setting(row)][rolled.get(group)].append(
-                counts_of(row.get("fought")))
+        level = _level(row, group)
+        if level is not None and row.get("route") not in (None, "", "?"):
+            by[_setting(row)][level].append(counts_of(row["route"]))
     compared = {key: levels for key, levels in by.items() if len(levels) > 1}
     if not compared:
         return
-    heading("Fights a whole run, by the %s level rolled (the Elite spaces "
-            "it adds)" % group)
+    heading("Spots a whole run entered, by the %s level rolled (the Elite "
+            "spaces it adds)" % group)
     table = []
     for key, levels in sorted(compared.items()):
-        for level in sorted(levels, key=lambda level: (level is not None,
-                                                       level or "")):
-            fought = levels[level]
-            spaces = ELITE_ADD_SPACES.get(level)
-            table.append([
-                key, "none" if level is None else "%s (+%s)" % (
-                    level, spaces if spaces is not None else "?"),
-                str(len(fought)),
-                "%.1f" % (sum(f.get("battle", 0) for f in fought)
-                          / len(fought)),
-                "%.1f" % (sum(f.get("elite", 0) for f in fought)
-                          / len(fought))])
+        for level in sorted(levels, key=lambda lv: (lv != "none", lv)):
+            route = levels[level]
+            table.append([key, level, str(len(route))] + [
+                "%.1f" % (sum(r.get(kind, 0) for r in route) / len(route))
+                for kind in SPOT_KINDS])
             key = ""
-    grid(table, head=["Chaos", group, "runs", "battles", "Elites"])
+    grid(table, head=["map, mode", group, "runs"] + list(SPOT_KINDS))
+
+
+def map_mix(runs, group="ELITE_ADD"):
+    """Print each area's whole map, as first sent, by the `group` level
+    rolled: the spots of each type, and the share of the ordinary fight
+    spots the map marks as a Rare Species -- a rate no route chooses.
+    Only a run played by hand is sent its whole map (`map`'s `path`).
+    Pooled over every map whose floors end alike, each area apart, then
+    each map on its own where it has whole maps at more than one level:
+    the areas' maps are drawn by the map list each Chaos names."""
+    held = []
+    for row in runs:
+        level = _level(row, group)
+        if level is None:
+            continue
+        for area, area_map in maps_of(row.get("map")).items():
+            if not area_map["path"] and area in ("0", "1"):
+                held.append((row, level, area, area_map))
+    if not held:
+        return
+    heading("Whole maps as first sent (runs played by hand), by the %s "
+            "level rolled" % group)
+    groups = collections.defaultdict(list)
+    for row, level, area, area_map in held:
+        groups[("every map ending on %s" % _map_end(row), area,
+                level)].append(area_map)
+    per_map = collections.defaultdict(list)
+    for row, level, area, area_map in held:
+        per_map[(_map_name(row), area, level)].append(area_map)
+    levels_of = collections.defaultdict(set)
+    for name, area, level in per_map:
+        levels_of[(name, area)].add(level)
+    for key, maps in per_map.items():
+        if len(levels_of[key[:2]]) > 1:
+            groups[key] = maps
+    table = []
+    for (label, area, level), maps in sorted(
+            groups.items(), key=lambda item: (not item[0][0].startswith(
+                "every"), item[0][0], item[0][1], item[0][2] != "none",
+                item[0][2])):
+        fights = sum(m["spots"].get(kind, 0) for m in maps
+                     for kind in FIGHT_SPOTS)
+        marked = sum(m["keyword"].get(kind.upper(), 0)
+                     + m["keyword"].get(kind, 0)
+                     for m in maps for kind in FIGHT_SPOTS)
+        table.append([label, area, level, str(len(maps))] + [
+            "%.1f" % (sum(m["spots"].get(kind, 0) for m in maps) / len(maps))
+            for kind in SPOT_KINDS[:-1]]
+            + [_count(marked, fights) + [(" %.3f" % (marked / fights), None)]
+               if fights else ""])
+    grid(table, head=["map", "area", group, "maps"] + list(SPOT_KINDS[:-1])
+         + ["Rare Species spots"])
+
 
 
 def shipped_figures(rows):
@@ -1568,7 +1908,10 @@ def shipped_figures(rows):
     for date, row in rows.items():
         if row["season"] != "?":
             by_season[row["season"]][date] = row
-    heading("For chaos_estimate.SHIPPED (green: as shipped)")
+    heading("The Checklist's built-in figures, as these runs measure them, "
+            "for the release step to copy into chaos_estimate.SHIPPED: "
+            "green where they match what ships, yellow where they differ "
+            "(what ships after `# shipped:`)")
     for season in sorted(by_season):
         members = by_season[season]
         flat = chaos_estimate.flat_places("disaster_" + season)
@@ -1624,28 +1967,31 @@ def shipped_figures(rows):
         print('       },')
 
 
-def others_table(others):
+def others_table(others, met_on):
     """Print every Chaos other than the season's own, a row each: what
-    it paid at 0 nodes, and how often a fight met each mark."""
+    it paid at 0 nodes, and how often each mark was met over what it is
+    counted over (`over_of`)."""
     heading("Other Chaos, left out of everything above but the mark rates")
     table = []
     for label in sorted(others):
         rows = others[label]
-        amounts, marked, fights = _group_facts(rows)
+        facts = _group_facts(rows)
         chaos, door, special, mode = label
         pays = []
-        for key in _order(amounts):
-            pays += [("%s " % _named(key), None)] + _amounts(amounts[key]) \
-                + [("  ", None)]
+        for key in _order(facts["amounts"]):
+            pays += [("%s " % _named(key), None)] \
+                + _amounts(facts["amounts"][key]) + [("  ", None)]
         met = []
-        for key in _order(marked):
-            met += [("%s " % _named(key), None)] + _count(marked[key], fights) \
-                + [("  ", None)]
+        for mark in _order(facts["met"]):
+            k, n = over_of(facts, mark, met_on)
+            met += [("%s " % _named(mark), None)] + _count(k, n) \
+                + [(" %s  " % unit(counted_over(mark, met_on)), None)]
         table.append([chaos, door, special, mode, str(len(rows)),
                       pays or [("nothing", QUIET)],
                       met or [("none", QUIET)]])
     grid(table, head=["Chaos", "door", "special", "mode", "runs",
-                      "pays, at 0 nodes", "marks met a fight"])
+                      "pays, at 0 nodes", "marks met"])
+
 
 
 def main():
@@ -1772,7 +2118,7 @@ def main():
     rate_shifts(kept)
     shipped_figures(own)
     if others:
-        others_table(others)
+        others_table(others, spots_met(kept.values()))
 
 
 if __name__ == "__main__":
