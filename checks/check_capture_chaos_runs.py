@@ -420,6 +420,7 @@ def run():
     failures.extend(_what_the_entry_says(Addon))
     failures.extend(_the_partners(Addon))
     failures.extend(_the_table_keeps_a_replayed_row())
+    failures.extend(_the_report_reads_at_zero_nodes())
     failures.extend(_the_table_names_the_rolls())
     failures.extend(_a_run_spans_captures(Addon))
     failures.extend(_new_season(Addon))
@@ -808,6 +809,36 @@ def _the_table_names_the_rolls():
     return out
 
 
+def _the_report_reads_at_zero_nodes():
+    """`docs/chaos_runs.py`'s changes table reads every amount at 0
+    nodes: a boss paying 180 at 25 nodes and 144 at none has not
+    changed, a flat boss is read as paid, and a payout no whole amount
+    at 0 nodes comes to is flagged. Read as paid, every node bought is
+    a change, and a real one drowns among them."""
+    tool = _tool()
+
+    def row(date, nodes, payouts):
+        return {"date": date, "season": "s04", "part": "part 3",
+                "client": "cznlive 1.464 r688", "amplified": str(nodes),
+                "payouts": payouts, "marked": "", "fought": ""}
+
+    rows = {r["date"]: r for r in (
+        row("2026-09-17 18:21", 25, "17:boss:180 37:boss:60 5:battle:60+k5"),
+        row("2026-09-18 18:21", 0, "17:boss:144 37:boss:60 5:battle:48+k5"),
+        row("2026-09-19 18:21", 0, "17:boss:150"),
+        row("2026-09-20 18:21", 25, "17:boss:181"))}
+    found, flags = tool.changes(rows)
+    said = [(cells[0], cells[1]) for cells in found]
+    want = [("2026-09-19 18:21", "s04 boss 17"),
+            ("2026-09-20 18:21", "s04 boss 17")]
+    if said != want or not any("181 at 25 nodes" in flag for flag in flags):
+        return [f"chaos_runs.py's changes table reads {said} with flags "
+                f"{flags}, not {want} with 181 at 25 nodes flagged: 180 at "
+                f"25 nodes is 144 at 0, the flat floor-37 boss is 60 as "
+                f"paid, and 181 at 25 nodes fits no whole amount."]
+    return []
+
+
 def _the_table_keeps_a_replayed_row():
     """`docs/chaos_runs.py`'s default pass keeps a row a log was replayed
     into against the capture's own record of the same run.
@@ -983,6 +1014,21 @@ def _the_partners(Addon):
     return out
 
 
+def _report_read_as_paid():
+    """Fault: chaos_runs.py's report reading each payout as paid, not at
+    0 nodes. The tool is loaded from its file on each use, out of the
+    runner's reach, so its loader is wrapped instead."""
+    global _tool
+    real = _tool
+
+    def loaded():
+        tool = real()
+        tool.base_payouts = lambda row, recovered=False: tool.payouts_of(
+            row["payouts"], recovered)
+        return tool
+    _tool = loaded
+
+
 # What this check must catch, for `checks/faults.py`.
 FAULTS = [
     ("a run left by its capture not taken up",
@@ -1036,6 +1082,17 @@ FAULTS = [
     ("a run taken up without its partners", "capture.manager:ADDON_TEMPLATE",
      '"stage_info": data.get("stage_info")})',
      '"stage_info": None})', "a run taken up from a stage reply"),
+    ("the report reading payouts as paid", _report_read_as_paid, None, None,
+     "180 at 25 nodes is 144 at 0"),
+    ("a payout no whole base fits read as one",
+     "chaos_estimate:base_of",
+     "    if amplified(whole, nodes) == amount:\n        return whole\n"
+     "    return amount * 100 / (100 + nodes)",
+     "    return whole", "181 at 25 nodes"),
+    ("the report reading a flat boss through the nodes",
+     "chaos_estimate:flat_floors",
+     'return set(shipped_entry(season, shipped).get("flat") or ())',
+     "return set()", "the flat floor-37 boss"),
     ("a partner's passive counted before the passives came",
      "chaos_estimate:run_raise",
      'return invasion_raise(run["partners"]) if had_passives(run) else 0.0',
