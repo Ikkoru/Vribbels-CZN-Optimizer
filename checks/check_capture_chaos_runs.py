@@ -1097,15 +1097,21 @@ def _report_any_third_pay():
 
 
 def _map_stage(spots, area=0):
-    """A Chaos stage carrying `spots`, (id, floor, type, Rare Species)
-    each, as an area's map in its replies."""
+    """A Chaos stage carrying `spots`, (id, floor, type, mark) each, as
+    an area's map in its replies: the mark True for a Rare Species,
+    `eidolon` for a Persona Card spot, another string for that
+    `event_id`."""
+    def marked(mark):
+        if mark is True:
+            return {"event_id": "keyword_monster"}
+        if mark == "eidolon":
+            return {"eidolon_reward_tag_id": "tag_1"}
+        return {"event_id": mark} if mark else {}
     return {"curr_area_id": area,
             "chaos_info": DISASTER_ENTRY["playing_stage_info"]["chaos_info"],
             "spot_list": [dict({"id": sid, "floor": floor,
-                                "type": "SPOT_TYPE_" + kind},
-                               **({"event_id": "keyword_monster"} if rare
-                                  else {}))
-                          for sid, floor, kind, rare in spots]}
+                                "type": "SPOT_TYPE_" + kind}, **marked(mark))
+                          for sid, floor, kind, mark in spots]}
 
 
 def _the_map_and_route(Addon):
@@ -1120,8 +1126,8 @@ def _the_map_and_route(Addon):
     _setup(addon)
     steps = _Steps(addon, 1700)
     whole = [(7, -1, "UNKNOWN", False), (8, 0, "UNKNOWN", False),
-             (1, 1, "BATTLE", True), (2, 1, "ELITE", False),
-             (3, 2, "UNKNOWN", False), (4, 3, "BOSS", False)]
+             (1, 1, "BATTLE", True), (2, 1, "ELITE", "eidolon"),
+             (3, 2, "UNKNOWN", "dis04_desire_insert"), (4, 3, "BOSS", False)]
     steps.step("disaster/enter_disaster_chaos_stage",
                service_server_time=1790480000,
                stage_info={"stage": _map_stage(whole)}, **DISASTER_ENTRY)
@@ -1141,9 +1147,12 @@ def _the_map_and_route(Addon):
     run_ = addon.chaos_runs[-1] if addon.chaos_runs else {}
     want_maps = {"0": {"spots": {"BATTLE": 1, "ELITE": 1, "UNKNOWN": 1,
                                  "BOSS": 1},
-                       "keyword": {"BATTLE": 1}, "path": False},
+                       "keyword": {"BATTLE": 1},
+                       "events": {"keyword_monster": 1, "eidolon_reward": 1,
+                                  "dis04_desire_insert": 1},
+                       "path": False},
                  "1": {"spots": {"BATTLE": 1, "BOSS": 1}, "keyword": {},
-                       "path": True}}
+                       "events": {}, "path": True}}
     want_route = {"BATTLE": 2, "UNKNOWN": 1}
     if (run_.get("maps"), run_.get("route")) != (want_maps, want_route):
         out.append(f"a run records maps {run_.get('maps')} and route "
@@ -1155,10 +1164,24 @@ def _the_map_and_route(Addon):
     cell = tool.map_of(run_)
     back = tool.maps_of(cell)
     if back.get("0", {}).get("keyword") != {"battle": 1} \
+            or back.get("0", {}).get("events") != want_maps["0"]["events"] \
             or back.get("1", {}).get("path") is not True:
         out.append(f"chaos_runs.py writes the maps as {cell!r} and reads "
-                   f"them back as {back}: the Rare Species spots and the "
-                   f"`path` mark do not survive the table.")
+                   f"them back as {back}: the Rare Species spots, the spot "
+                   f"events and the `path` mark do not survive the table.")
+    for row, want in (
+            ({"chaos": "Celestial Bulwark", "special": ""}, "s05"),
+            ({"chaos": "Swamp of Judgment",
+              "special": "Promise Upon the Snow+Sekred’s Breath"}, "s05"),
+            ({"chaos": "Laboratory 0", "special": "Forbidden Catalyst"},
+             "s01"),
+            ({"chaos": "Twin Star's Shadow", "special": "Diallos’s Glory"},
+             "no Effect")):
+        if tool.effect_season(row) != want:
+            out.append(f"chaos_runs.effect_season reads {row} as "
+                       f"{tool.effect_season(row)!r}, not {want!r}: the "
+                       f"season whose Effect shapes the map, by the Chaos's "
+                       f"own or the Effect it was given.")
     return out
 
 
@@ -1203,6 +1226,19 @@ def _report_breakins_counted_twice():
     def loaded():
         tool = real()
         tool.identities = lambda key: key.split("+")
+        return tool
+    _tool = loaded
+
+
+def _report_effects_unknown():
+    """Fault: chaos_runs.py knowing no season's Effect by its special
+    option, so a Zero System map given one pools by its Chaos alone."""
+    global _tool
+    real = _tool
+
+    def loaded():
+        tool = real()
+        tool.EFFECT_SEASONS = {}
         return tool
     _tool = loaded
 
@@ -1277,6 +1313,12 @@ FAULTS = [
     ("a spot entered twice counted once", "capture.manager:ADDON_TEMPLATE",
      "                route[spot] = route.get(spot, 0) + 1",
      "                route[spot] = 1", "each area's map as first sent"),
+    ("a map's spot events but the Rare Species dropped",
+     "capture.manager:ADDON_TEMPLATE",
+     "            if event:\n", "            if event == \"keyword_monster\":\n",
+     "each area's map as first sent"),
+    ("a Zero System map pooled by its Chaos, not its Effect",
+     _report_effects_unknown, None, None, "the season whose Effect shapes"),
     ("the report counting a break-in's keyword again",
      _report_breakins_counted_twice, None, None,
      "the Rare Species twice over every fight"),

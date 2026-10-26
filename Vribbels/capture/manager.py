@@ -317,14 +317,18 @@ def _chaos_map(spots):
     """An area's map as a run keeps it: `spots`, each spot type counted
     -- `BATTLE`, `ELITE`, `UNKNOWN` and the rest -- over the floors from
     1; `keyword`, the spots of each type the map marks
-    `keyword_monster`, a Rare Species; and `path`, whether the list held
-    one spot a floor. **A run the Delegation Module plays is sent its
-    route alone**, so its `path` is true and its counts are the route's,
-    not the map's: only a run played by hand shows the whole map. None
-    for no list."""
+    `keyword_monster`, a Rare Species; `events`, every spot event the
+    map shows by its `event_id` -- season 4's Desire events
+    (`dis04_desire_insert`), the merchants, a hidden boss's trigger --
+    and season 3's Persona Card spots, which carry an
+    `eidolon_reward_tag_id` instead, as `eidolon_reward`; and `path`,
+    whether the list held one spot a floor. **A run the Delegation
+    Module plays is sent its route alone**, so its `path` is true and
+    its counts are the route's, not the map's: only a run played by
+    hand shows the whole map. None for no list."""
     if not isinstance(spots, list):
         return None
-    kinds, keyword, floors = {}, {}, {}
+    kinds, keyword, events, floors = {}, {}, {}, {}
     for spot in spots:
         if not isinstance(spot, dict) or not isinstance(
                 spot.get("floor"), int) or spot["floor"] < 1:
@@ -334,9 +338,14 @@ def _chaos_map(spots):
         floors[spot["floor"]] = floors.get(spot["floor"], 0) + 1
         if spot.get("event_id") == "keyword_monster":
             keyword[kind] = keyword.get(kind, 0) + 1
+        for event in (spot.get("event_id"),
+                      "eidolon_reward" if spot.get("eidolon_reward_tag_id")
+                      else None):
+            if event:
+                events[str(event)] = events.get(str(event), 0) + 1
     if not kinds:
         return None
-    return {"spots": kinds, "keyword": keyword,
+    return {"spots": kinds, "keyword": keyword, "events": events,
             "path": max(floors.values()) == 1}
 
 

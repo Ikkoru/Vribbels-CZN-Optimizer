@@ -82,7 +82,7 @@ The columns this script owns:
 | `marked_at` | the same by the spot each was met on: `battle.k5:1 elite.k5:1` |
 | `fought`  | the fights, by spot: `battle:11 elite:4 boss:3`; `unknown` is a fight a `?` encounter offered, `break_in` a hidden mini-boss |
 | `route`   | every spot entered, fight or not, by type: `battle:11 elite:3 unknown:9 safety:4 supply:2 boss:3`; `?` for a run filed before runs kept it |
-| `map`     | each area's map as first sent, by area id: `0: battle:20 elite:6 unknown:17 ... kw.battle:2`, `kw.` the spots marked `keyword_monster` (a Rare Species); `path` where the list held one spot a floor -- what a delegated run is sent, its route alone, so only a run played by hand shows the whole map (`capture.manager._chaos_map`); `?` for a run filed before runs kept it |
+| `map`     | each area's map as first sent, by area id: `0: battle:20 elite:6 unknown:17 ... kw.battle:2`, `kw.` the spots marked `keyword_monster` (a Rare Species), `ev.` every spot event the map shows (season 4's Desire events are `ev.dis04_desire_insert`, season 3's Persona Card spots `ev.eidolon_reward`); `path` where the list held one spot a floor -- what a delegated run is sent, its route alone, so only a run played by hand shows the whole map (`capture.manager._chaos_map`); `?` for a run filed before runs kept it |
 | `lost`    | where a lost run was lost: `floor:spot:non-boss fights left`, `+mark` for a mark |
 | `gaps`    | how much of the run a capture saw: empty for all of it; else `started elsewhere` and `resumed N`, what the clear's restatement `recovered`, and `partial:` what stays unknown -- `chaos_estimate.recovery` |
 | `SPOT_*`  | the payouts at each kind of spot, `+` between them              |
@@ -112,7 +112,9 @@ run` is its count over runs, so one met twice in a run counts twice;
 `runs met` is the runs that met it at all.
 
 **Every rate is read over several pools** (`POOLS`): one map played
-one way, one map, the season the runs were played in, every season. A
+one way, one map, every map shaped by the same season's Effect
+(`effect_season`: a season's Chaos, or any Chaos given that season's
+Effect in the Zero System), every map. A
 strict pool mixes in nothing -- no other map's mix of fights, no other
 mode's choice of path -- and a loose one has the runs to say
 something; where they agree, the mixing did no harm. A map pool needs
@@ -249,19 +251,26 @@ entry names.
   warp floors, out 1 floor above the way in. Part 3 adds a third boss
   after the Center, with no Elite before it from here on.
 - **Season 3 (Theater of Illusions).** Persona Card battles, `k0+k1`,
-  on battles and Elites alike. Part 2 can swap the second boss for
+  on battles and Elites alike; the map marks their spots with an
+  `eidolon_reward_tag_id` (`map`'s `ev.eidolon_reward`). Part 2 can swap
+  the second boss for
   another (wire: `base_00296` for `base_00066`), part 3 adds a third
   boss after the Center.
 - **Season 4 (The Kaleidoscope Hatchery).** Any battle or Unidentified
-  Area can carry a Desire card icon (not a keyword on the wire). Part 2
+  Area can carry a Desire event: once it is done, a choice of a Desire
+  card of one type, a Desire card of any, or leaving. wire: the map
+  marks those spots `event_id` `dis04_desire_insert` (`map`'s
+  `ev.`), and the season's tree has a node adding more
+  (`ZERO_DESIRE_SPOT_ADD`). Part 2
   can swap the second boss (wire: from part 3 on, every run's was
   `base_00305`, not the listed `base_00109`, paying the same), part 3
   adds a third boss in a hidden area of 3 fixed floors.
 - **Season 5 (Celestial Bulwark).** The Center is Elites and
   Unidentified Areas, with rests and a supply spot, and 11 floors where
   the others have 17; the third boss is there from the start, three
-  floors after the second, and is drawn from past seasons' bosses
-  (wire: `base_00317`, `base_00282`, `base_00296`). Its Effect, given to
+  floors after the second, and is drawn from past seasons' bosses and
+  a Sortie's (wire: `base_00317`, `base_00282`, `base_00296`). Its
+  Effect, given to
   another Chaos in the Zero System, does the same there.
 
 A past season's Chaos in the Zero System pays the live currency for
@@ -427,9 +436,24 @@ def logs(since=""):
                     raw.decode("utf-8", "replace")).readlines()
     for path in loose:
         if stamp(path) >= since:
-            with gzip.open(path, "rt", encoding="utf-8",
-                           errors="replace") as fh:
-                yield os.path.basename(path), list(fh)
+            yield os.path.basename(path), read_log(path)
+
+
+def read_log(path):
+    """Every whole line of a loose debug log. **A capture still running
+    is writing it**, one gzip member a line, so a read can meet the
+    last member half written: that member is dropped, the lines before
+    it kept, and the run in progress is left for the next pass, which
+    reads this log again (`main`'s `since`)."""
+    lines = []
+    try:
+        with gzip.open(path, "rt", encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                lines.append(line)
+    except EOFError:
+        print(paint("   %s: still being written, read up to its last whole "
+                    "line" % os.path.basename(path), QUIET), flush=True)
+    return lines
 
 
 def fresh_addon(work):
@@ -696,20 +720,23 @@ def map_of(run):
                  in sorted((held.get("spots") or {}).items())]
         cells += ["kw.%s:%d" % (kind.lower(), n) for kind, n
                   in sorted((held.get("keyword") or {}).items())]
+        cells += ["ev.%s:%d" % (event, n) for event, n
+                  in sorted((held.get("events") or {}).items())]
         out.append("%s: %s%s" % (area, " ".join(cells),
                                  " path" if held.get("path") else ""))
     return " | ".join(out)
 
 
 def maps_of(cell):
-    """{area: {"spots": {type: n}, "keyword": {type: n}, "path": bool}}
-    from a `map` cell; {} for `?` or empty."""
+    """{area: {"spots": {type: n}, "keyword": {type: n}, "events":
+    {event id: n}, "path": bool}} from a `map` cell; {} for `?` or
+    empty."""
     out = {}
     for part in (cell or "").split(" | "):
         area, _, rest = part.partition(": ")
         if not rest:
             continue
-        held = {"spots": {}, "keyword": {}, "path": False}
+        held = {"spots": {}, "keyword": {}, "events": {}, "path": False}
         for token in rest.split():
             if token == "path":
                 held["path"] = True
@@ -719,6 +746,8 @@ def maps_of(cell):
                 continue
             if name.startswith("kw."):
                 held["keyword"][name[3:]] = int(n)
+            elif name.startswith("ev."):
+                held["events"][name[3:]] = int(n)
             else:
                 held["spots"][name] = int(n)
         out[area] = held
@@ -1632,18 +1661,43 @@ def _setting(row):
     return "%s, %s" % (_map_name(row), row["mode"])
 
 
+# A season's Effect by the Zero System special option that carries it:
+# `v1_05` to `v1_09` are seasons 1 to 5's (`chaos_estimate.ZERO_SPECIALS`).
+EFFECT_SEASONS = {"zero_orb_special_v1_0%d" % (n + 4): "s%02d" % n
+                  for n in range(1, 6)}
+
+
+def effect_season(row):
+    """The season whose Effect shapes a row's map: its Chaos's own, for
+    a run of a season's Chaos through the Galactic Disaster; else the
+    season of the Effect among its special options; else, for a season's
+    Chaos with none, its own season's; `no Effect` for a base-game Chaos
+    with none. **The Effect is what makes a season's map** -- its
+    warps, its hidden areas, its Center of Elites -- so it, not the
+    season a run was played in, is what pools runs alike."""
+    named = {chaos_estimate.zero_special_name(special): season
+             for special, season in EFFECT_SEASONS.items()}
+    for special in (row.get("special") or "").split("+"):
+        if special in named:
+            return named[special]
+    own = short(CHAOS_SEASONS.get(row.get("chaos")))
+    return own or "no Effect"
+
+
 # **How the rate tables pool runs, strictest first.** Few runs share
 # every setting, so each rate is read over several pools: the runs of
-# one map played one way, of one map, of the season the runs were
-# played in, and of every season. A strict pool is free of what the
-# others mix in -- another map's mix of fights, a mode's choice of
-# path -- and a loose one has the runs to say something; where the two
-# agree, the mixing did no harm. A pool needs FEWEST_POOL_RUNS whole
-# runs to be shown, but for the season and the whole, and one holding
-# the same runs as a stricter one is not shown again.
+# one map played one way, of one map, of maps shaped by the same
+# season's Effect (`effect_season`), and of every map. A strict pool is
+# free of what the others mix in -- another map's mix of fights, a
+# mode's choice of path -- and a loose one has the runs to say
+# something; where the two agree, the mixing did no harm. A pool needs
+# FEWEST_POOL_RUNS whole runs to be shown, but for the Effect and the
+# whole, and one holding the same runs as a stricter one is not shown
+# again.
 POOLS = (("map, mode", _setting), ("map", _map_name),
-         ("season", lambda row: row["season"]),
-         ("all", lambda row: "every season"))
+         ("Effect", lambda row: "%s Effect" % effect_season(row)
+          if effect_season(row) != "no Effect" else "no Effect"),
+         ("all", lambda row: "every map"))
 FEWEST_POOL_RUNS = 3
 
 
@@ -1657,7 +1711,7 @@ def pooled(runs, tiers=POOLS, fewest=FEWEST_POOL_RUNS):
             groups[key(row)].append(row)
         for label, members in sorted(groups.items()):
             dates = frozenset(row["date"] for row in members)
-            if dates in seen or (tier not in ("season", "all")
+            if dates in seen or (tier not in ("Effect", "all")
                                  and len(members) < fewest):
                 continue
             seen.add(dates)
