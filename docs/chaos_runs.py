@@ -636,8 +636,10 @@ def run_of_row(row):
              spot.upper(), mark, None, amount]
             for floor, spot, amount, mark
             in payouts_of(row["payouts"], recovered=True)]
+    end = _map_end(row)
     return {"paid": paid, "lost": lost_of(row.get("lost")),
-            "marked": counts_of(row.get("marked"))}
+            "marked": counts_of(row.get("marked")),
+            "floors": None if end is None else [0, end]}
 
 
 def gaps_of(run, recovered, unknown):
@@ -917,30 +919,17 @@ def _map_end(row):
 
 def boss_orders(row):
     """{floor: name}: each boss floor a row paid on, by its place in the
-    run, wherever the map puts it.
-
-    The entry's `floors` end on the second boss, so `boss 2` is that
-    floor, `boss 1` the one boss before it, which ends the first area,
-    and `boss 3` the first after it: season 4's hidden area, season 5's
-    Effect's last floors. A row with no `floors` -- a run filed before
-    runs kept them -- is read by the order of its boss floors instead.
-    A boss outside that order is `boss x<floor>`, and `changes` flags
-    it."""
-    floors = sorted({int(floor) for floor, spot, _a, _m
-                     in payouts_of(row["payouts"], recovered=True)
-                     if spot == "boss" and floor.isdigit()})
-    end = _map_end(row)
-    if end is None:
-        return {floor: "boss %d" % n if n <= 3 else "boss x%d" % floor
-                for n, floor in enumerate(floors, 1)}
-    before = [floor for floor in floors if floor < end]
-    after = [floor for floor in floors if floor > end]
-    out = {end: "boss 2"} if end in floors else {}
-    for floor in before:
-        out[floor] = "boss 1" if len(before) == 1 else "boss x%d" % floor
-    for n, floor in enumerate(after):
-        out[floor] = "boss 3" if n == 0 else "boss x%d" % floor
-    return out
+    run, wherever the map puts it (`chaos_estimate.boss_places`, the
+    estimate's own rule): `boss 1` to `boss 3`. A row with no `floors`
+    -- a run filed before runs kept them -- is read by the order of its
+    boss floors. A boss outside the order is `boss x<floor>`, and
+    `changes` flags it."""
+    floors = [int(floor) for floor, spot, _a, _m
+              in payouts_of(row["payouts"], recovered=True)
+              if spot == "boss" and floor.isdigit()]
+    return {floor: "boss %d" % place if place else "boss x%d" % floor
+            for floor, place in chaos_estimate.boss_places(
+                floors, _map_end(row)).items()}
 
 
 def base_payouts(row, recovered=False):
@@ -1237,7 +1226,7 @@ def report(rows):
 
 
 def _reference(rows, row):
-    """({boss floor: amount}, {mark: amount}) to price a lost run's
+    """({boss place: amount}, {mark: amount}) to price a lost run's
     `missed` by: its part's bosses as the latest cleared run of that
     season part paid them, and each mark as last paid -- the shipped
     figures where no run has. Each is taken to the lost run's own nodes
@@ -1247,10 +1236,10 @@ def _reference(rows, row):
     season = "disaster_" + row["season"]
     entry = chaos_estimate.shipped_entry(season)
     nodes = _nodes(row)
-    flat = chaos_estimate.flat_floors(season)
+    flat = chaos_estimate.flat_places(season)
 
-    def at(amount, was, floor=None):
-        if floor in flat:
+    def at(amount, was, place=None):
+        if place in flat:
             return amount
         return chaos_estimate.amplified(
             chaos_estimate.base_of(amount, was), nodes)
@@ -1258,8 +1247,8 @@ def _reference(rows, row):
     marks = {mark: at(amount, 0)
              for mark, (amount, _rate) in (entry.get("marks") or {}).items()}
     found = re.match(r"part (\d+)$", row.get("part") or "")
-    bosses = {floor: at(amount, 0, floor)
-              for floor, amount in (chaos_estimate.shipped_bosses(
+    bosses = {place: at(amount, 0, place)
+              for place, amount in (chaos_estimate.shipped_bosses(
                   entry, int(found.group(1))) if found else {}).items()}
     for date in sorted(rows):
         other = rows[date]
@@ -1270,10 +1259,13 @@ def _reference(rows, row):
                 or (other["season"], other["part"], other.get("chaos"))
                 != (row["season"], row["part"], row.get("chaos"))):
             continue
-        table = {int(floor): at(amount, _nodes(other), int(floor))
+        places = chaos_estimate.run_places(run_of_row(other))
+        table = {places[int(floor)]: at(amount, _nodes(other),
+                                        places[int(floor)])
                  for floor, spot, amount, _mark
                  in payouts_of(other["payouts"])
-                 if spot == "boss" and floor.isdigit()}
+                 if spot == "boss" and floor.isdigit()
+                 and places.get(int(floor))}
         if table:
             bosses = table
     return bosses, marks
@@ -1579,7 +1571,7 @@ def shipped_figures(rows):
     heading("For chaos_estimate.SHIPPED (green: as shipped)")
     for season in sorted(by_season):
         members = by_season[season]
-        flat = chaos_estimate.flat_floors("disaster_" + season)
+        flat = chaos_estimate.flat_places("disaster_" + season)
         bosses, amounts, most = {}, {}, {}
         for date in sorted(members):
             row = members[date]
@@ -1588,11 +1580,14 @@ def shipped_figures(rows):
                 if mark and spot != "boss":
                     amounts[mark] = chaos_estimate.base_of(amount, nodes)
             found = re.match(r"part (\d+)$", row["part"] or "")
-            table = {int(floor): amount if int(floor) in flat
+            places = chaos_estimate.run_places(run_of_row(row))
+            table = {places[int(floor)]: amount
+                     if places[int(floor)] in flat
                      else chaos_estimate.base_of(amount, nodes)
                      for floor, spot, amount, _mark
                      in payouts_of(row["payouts"])
-                     if spot == "boss" and floor.isdigit()}
+                     if spot == "boss" and floor.isdigit()
+                     and places.get(int(floor))}
             if found:
                 part = int(found.group(1))
                 most[part] = max(most.get(part, 0), nodes)

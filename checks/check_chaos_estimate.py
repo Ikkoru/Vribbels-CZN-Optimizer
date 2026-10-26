@@ -65,16 +65,18 @@ TREES = {"disaster_s04": [13, 19, 25], "disaster_s05": [13]}
 
 
 def _run(season, part, bosses=(), marks=(), marked=None, lost=None,
-         closed=AFTER, nodes=0, other=()):
+         closed=AFTER, nodes=0, other=(), floors=(0, 34)):
     """A run in the capture's record shape, with `nodes` of its own
     season's amplification nodes in force, and `other` effects besides;
-    `nodes` None for a run filed before runs kept their effects."""
+    `nodes` None for a run filed before runs kept their effects. Its
+    map's `floors` end on the second boss, as season 4's do."""
     import game_client
     number = int(season.rsplit("_s", 1)[1])
     paid = [[floor, "BOSS", "", 1, amount] for floor, amount in bosses]
     paid += [[5, "BATTLE", mark, 1, amount] for mark, amount in marks]
     run = {"season": season, "part": part, "closed": closed, "paid": paid,
-           "marked": marked or {}, "lost": lost}
+           "marked": marked or {}, "lost": lost,
+           "floors": list(floors) if floors else None}
     if nodes is not None:
         run["effects"] = [[game_client.AMPLIFY_GROUP,
                            "zero_season_s%d_skill_%03d_001" % (number, n), [1]]
@@ -95,8 +97,8 @@ def _sums(ce, table):
     want = 0
     for part, nodes in zip((1, 2, 3), TREES[LIVE]):
         bosses = shipped["bosses"][max(part, 2)]
-        want += 21 * (sum(amount if floor in flat else _ceil(amount, nodes)
-                          for floor, amount in bosses.items())
+        want += 21 * (sum(amount if place in flat else _ceil(amount, nodes)
+                          for place, amount in bosses.items())
                       + sum(_ceil(amount, nodes) * rate
                             for amount, rate in shipped["marks"].values()))
     got = ce.season_chaos(LIVE, [], [21, 21, 21], 1, shipped=table)
@@ -105,8 +107,8 @@ def _sums(ce, table):
             f"season 4 at one run a day comes to {got!r}, not {want!r}: "
             f"each part's bosses times its days -- the first part "
             f"borrowing the second's -- plus the marks a run meets, every "
-            f"payout at its part's nodes (13, 19, 25), the floor-37 boss "
-            f"at base.")
+            f"payout at its part's nodes (13, 19, 25), the third boss at "
+            f"base.")
     doubled = ce.season_chaos(LIVE, [], [21, 21, 21], 2, shipped=table)
     if not math.isclose(doubled, 2 * want):
         failures.append(f"two runs a day come to {doubled!r}, not twice "
@@ -194,19 +196,30 @@ def _base_reading(ce, table):
     """4: the player's payouts at their own nodes."""
     failures = []
     seen = [_run(LIVE, 3, [(17, 152), (37, 60)], nodes=5),
-            _run(LIVE, 3, [(17, 163), (37, 60)], nodes=13)]
+            _run(LIVE, 3, [(17, 163), (34, 163), (37, 60)], nodes=13),
+            _run(LIVE, 3, [(17, 152), (28, 152), (31, 60)], nodes=5,
+                 floors=(0, 28))]
     got = ce.boss_table(LIVE, 3, seen, None, table, 0)
-    if got.get(17) != 144 or got.get(37) != 60:
+    if got != {1: 144, 2: 144, 3: 60}:
         failures.append(
-            f"runs paying 152 at 5 nodes and 163 at 13 settle at {got}: "
-            f"both are 144 at base, and the flat floor-37 boss 60 as paid "
-            f"(`base_of` in `boss_table`).")
+            f"runs paying 152 at 5 nodes and 163 at 13, on a map ending on "
+            f"floor 34 and one ending on 28, settle at {got}, not "
+            f"{{1: 144, 2: 144, 3: 60}}: 144 at base, each boss by its "
+            f"place in the run whatever its floor, and the third boss 60 as "
+            f"paid (`base_of` in `boss_table`, `boss_places`).")
+    partly = _run(LIVE, 3, [(28, 152), (31, 60)], floors=(0, 28))
+    if ce.run_places(partly) != {28: 2, 31: 3}:
+        failures.append(
+            f"a run on a map ending on floor 28 that paid only floors 28 "
+            f"and 31 places them {ce.run_places(partly)}, not "
+            f"{{28: 2, 31: 3}}: the map's last floor is the second boss, "
+            f"whatever was paid before it (`boss_places`).")
     old = ce.boss_table(LIVE, 3, [_run(LIVE, 3, [(17, 180)], nodes=None)],
                         None, table, 0)
-    if old.get(17) != 144:
+    if old.get(1) != 144:
         failures.append(
             f"a part-3 run that kept no effects, paying 180, settles at "
-            f"{old.get(17)!r}: it reads at its part's 25 nodes, 144 at base.")
+            f"{old.get(1)!r}: it reads at its part's 25 nodes, 144 at base.")
     marks = ce.mark_values(LIVE, [_run(LIVE, 3, marks=[("k5", 51)], nodes=5),
                                   _run(LIVE, 3, marks=[("k5", 60)], nodes=25)],
                            table, 0)
@@ -230,7 +243,7 @@ def _staleness(ce, table):
                 f"without an update.")
 
     def floor17(live, runs, stale):
-        return ce.boss_table(live, 3, runs, None, table, stale)[17]
+        return ce.boss_table(live, 3, runs, None, table, stale)[1]
 
     fresh = [_run(LIVE, 3, [(17, 170)]), _run(LIVE, 3, [(17, 150)]),
              _run(LIVE, 3, [(17, 120)])]
@@ -340,7 +353,7 @@ def _rates(ce, table):
 def _lost(ce):
     """7: lost runs."""
     failures = []
-    bosses = {17: 180, 34: 180, 37: 60}
+    bosses = {1: 180, 2: 180, 3: 60}
     values = {"k5": 60, "e": 90}
     for lost, paid, whole, due, what in (
             ([37, "BOSS", "", 0], [(17, 180), (34, 180)], True, 60,
@@ -583,8 +596,15 @@ FAULTS = [
      "seen[mark].append(base_of(amount, nodes))",
      "seen[mark].append(amount)", "Rare Species paying 51"),
     ("the flat boss amplified", "chaos_estimate:season_chaos",
-     "bosses = sum(amount if floor in flat else amplified(amount, held)",
-     "bosses = sum(amplified(amount, held)", "the floor-37 boss at base"),
+     "bosses = sum(amount if place in flat else amplified(amount, held)",
+     "bosses = sum(amplified(amount, held)", "the third boss at base"),
+    ("bosses placed by the floors paid alone", "chaos_estimate:boss_places",
+     "    if end is None:\n        return", "    if True:\n        return",
+     "the map's last floor is the second boss"),
+    ("a lost run missing the bosses after its own floor alone",
+     "chaos_estimate:missed",
+     "if place not in paid)", "if place not in paid and place > 2)",
+     "the last fight, a Rare Species"),
     ("another season's tree counted", "chaos_estimate:run_nodes",
      "if entry[0] == AMPLIFY_GROUP and own and int(own.group(1)) == number:",
      "if entry[0] == AMPLIFY_GROUP:", "raises nothing of season 5's"),

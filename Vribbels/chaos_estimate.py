@@ -5,16 +5,19 @@ player's own recorded runs take their place.
 **A run's take is set, but for its marked fights.** `docs/chaos_runs.py`
 measures it off every run the capture records:
 
-- each BOSS floor pays a set amount, and the floors belong to the season
-  PART: season 4's part 2 had bosses on floors 17 and 34, its part 3 a
-  third on floor 37;
+- each BOSS pays a set amount by its place in the run, and the bosses
+  belong to the season PART: season 4's part 2 had two, its part 3 a
+  third. A boss is named by its place, not its floor, since each
+  season's map puts them elsewhere (`boss_places`): boss 2 on the last
+  floor the run's entry names, boss 1 the one before it, boss 3 the
+  first after it -- season 4's 17, 34 and 37, season 5's 17, 28 and 31;
 - each MARKED fight pays a set amount -- the Rare Species 48, the Aether
   Eater 72 -- and only how many a run meets is chance;
 - **each Memory Resonance Amplification node** of the season's skill
   tree, the Environment Variables, adds 1% to every payout, rounded up
   (`amplified`) -- every one but the bosses the season marks `flat`:
-  season 5's floor-31 boss paid 60 at 0 nodes and at 5, where the
-  floor-17 boss paid 144 and then 152.
+  season 5's third boss paid 60 at 0 nodes and at 5, where its first
+  paid 144 and then 152.
 
 **The shipped figures are at base**, no node bought, and every run of a
 part counts at the nodes the part's tree holds by its end
@@ -41,7 +44,7 @@ whole seasons (`staleness`):
 1. A set amount the player saw BELOW the shipped one is ignored: a lower
    Chaos level pays less, and the estimate is for level 8 and up. One
    ABOVE it replaces it -- the mean of every payout at or above the
-   shipped amount, on that floor in that part.
+   shipped amount, by that boss in that part.
 2. Once a whole season has run since the release, what the player saw
    the season before counts as well as this season's.
 3. Once two have, a lower payout counts too, the shipped amount being
@@ -95,8 +98,8 @@ from version import RELEASED_IN, RELEASED_ON
 # off the maintainer's own runs by `docs/chaos_runs.py` and refreshed by
 # the release step.
 #
-# `bosses` is {part: {boss floor: amount}}; `flat` the boss floors no
-# node amplifies; `nodes` the amplification nodes the season's tree
+# `bosses` is {part: {boss place: amount}}, place 1 the first boss of a
+# run (`boss_places`); `flat` the places no node amplifies; `nodes` the amplification nodes the season's tree
 # holds by the end of each part, part 1 first, for where no client tree
 # is read (`season_nodes`); `marks` is {mark: (amount a fight, marked
 # fights a whole run)}, the break-in marks' at no Invasion raise
@@ -104,16 +107,16 @@ from version import RELEASED_IN, RELEASED_ON
 # borrows the second's.
 SHIPPED = {
     "disaster_s04": {
-        "bosses": {2: {17: 144, 34: 144},
-                   3: {17: 144, 34: 144, 37: 60}},
-        "flat": (37,),
+        "bosses": {2: {1: 144, 2: 144},
+                   3: {1: 144, 2: 144, 3: 60}},
+        "flat": (3,),
         "nodes": (13, 19, 25),
         "marks": {"k5": (48, 1.43), "e": (72, 0.36), "b1": (0, 0.36),
                   "b1+k5": (48, 0.07)},
     },
     "disaster_s05": {
-        "bosses": {1: {17: 144, 28: 144, 31: 60}},
-        "flat": (31,),
+        "bosses": {1: {1: 144, 2: 144, 3: 60}},
+        "flat": (3,),
         "nodes": (13,),
         # Over 3 whole runs of part 1.
         "marks": {"k5": (48, 1.67), "b1": (0, 0.67), "b1+k5": (48, 0.33)},
@@ -128,7 +131,7 @@ SHIPPED = {
 # currency. Each node is one effect.
 SEASON_SKILL = re.compile(r"zero_season_s(\d+)_skill_")
 
-# Rule 3: the share of a floor's payouts the highest must make up to
+# Rule 3: the share of a boss's payouts the highest must make up to
 # stand alone.
 TOP_SHARE = 0.7
 
@@ -419,23 +422,56 @@ def is_full(run):
                for at, spot, _mark, _amount in payouts(run))
 
 
+def boss_places(floors, end=None):
+    """{floor: place}: each boss floor by its place in the run, 1 the
+    first, None for a boss outside the order.
+
+    `end` is the last floor the run's entry names (`floor_info`), which
+    every map captured ends on its second boss: place 2 is that floor,
+    place 1 the one boss before it, which ends the first area, place 3
+    the first after it -- season 4's hidden area, season 5's Effect's
+    last floors. Without `end`, the floors' own order."""
+    floors = sorted(set(floors))
+    if end is None:
+        return {floor: n if n <= 3 else None
+                for n, floor in enumerate(floors, 1)}
+    before = [floor for floor in floors if floor < end]
+    after = [floor for floor in floors if floor > end]
+    out = {end: 2} if end in floors else {}
+    out.update({floor: 1 if len(before) == 1 else None for floor in before})
+    out.update({floor: 3 if n == 0 else None
+                for n, floor in enumerate(after)})
+    return out
+
+
+def run_places(run):
+    """{floor: place} for the bosses a run paid on (`boss_places`), by
+    the floors its entry named where it kept them."""
+    held = run.get("floors")
+    end = held[1] if isinstance(held, (list, tuple)) and len(held) == 2 \
+        and isinstance(held[1], int) else None
+    return boss_places([floor for floor, spot, _mark, _amount
+                        in payouts(run)
+                        if spot == BOSS and isinstance(floor, int)], end)
+
+
 def missed(run, bosses, marks):
     """What a whole lost run did not collect: the lost fight's own
-    payout -- its boss's, or its mark's -- and every boss floor after
-    it. 0 for a cleared run, and for a lost one that is not whole.
+    payout, a mark's, and every boss of its part it did not pay -- the
+    one it was lost to among them. 0 for a cleared run, and for a lost
+    one that is not whole.
 
-    `bosses` is {floor: amount} for the run's season part, `marks`
-    {mark: amount}.
+    `bosses` is {place: amount} for the run's season part
+    (`boss_places`), `marks` {mark: amount}.
     """
     lost = run.get("lost")
     if not lost or not is_full(run):
         return 0
-    floor, spot, mark = lost[0], lost[1], lost[2] or ""
-    if spot == BOSS:
-        own = bosses.get(floor, 0)
-    else:
-        own = marks.get(mark, 0) if mark else 0
-    return own + sum(amount for at, amount in bosses.items() if at > floor)
+    spot, mark = lost[1], lost[2] or ""
+    own = marks.get(mark, 0) if spot != BOSS and mark else 0
+    paid = set(run_places(run).values())
+    return own + sum(amount for place, amount in bosses.items()
+                     if place not in paid)
 
 
 def part_of(when, starts):
@@ -471,8 +507,8 @@ def shipped_entry(live, shipped=SHIPPED):
 
 
 def shipped_bosses(entry, part):
-    """The shipped {floor: amount} for a part, at base: its own, else the
-    nearest measured part before it, else after it."""
+    """The shipped {boss place: amount} for a part, at base: its own,
+    else the nearest measured part before it, else after it."""
     table = entry.get("bosses") or {}
     if part in table:
         return dict(table[part])
@@ -482,9 +518,10 @@ def shipped_bosses(entry, part):
     return dict(table[pick]) if pick is not None else {}
 
 
-def flat_floors(season, shipped=SHIPPED):
-    """The boss floors of `season`'s Chaos no node amplifies: its shipped
-    entry's `flat`, or the entry it borrows."""
+def flat_places(season, shipped=SHIPPED):
+    """The boss places of `season`'s Chaos no node amplifies
+    (`boss_places`): its shipped entry's `flat`, or the entry it
+    borrows."""
     return set(shipped_entry(season, shipped).get("flat") or ())
 
 
@@ -625,8 +662,9 @@ def _seasons_read(live, stale):
 
 
 def boss_table(live, part, runs, starts=None, shipped=SHIPPED, stale=0):
-    """{boss floor: amount at base} for one part of the live season, each
-    payout the player saw read back to base at its own run's nodes."""
+    """{boss place: amount at base} for one part of the live season
+    (`boss_places`), each payout the player saw read back to base at its
+    own run's nodes. A boss outside the order is left out."""
     expected = shipped_bosses(shipped_entry(live, shipped), part)
     wanted = _seasons_read(live, stale)
     seen, counts = collections.defaultdict(list), {}
@@ -636,13 +674,15 @@ def boss_table(live, part, runs, starts=None, shipped=SHIPPED, stale=0):
                 or run_part(run, live, starts) != part):
             continue
         nodes = _nodes_of(run, live, starts, shipped, counts)
-        flat = flat_floors(run.get("season"), shipped)
+        flat = flat_places(run.get("season"), shipped)
+        places = run_places(run)
         for floor, spot, _mark, amount in payouts(run):
-            if spot == BOSS and isinstance(floor, int):
-                seen[floor].append(amount if floor in flat
+            place = places.get(floor) if spot == BOSS else None
+            if place is not None:
+                seen[place].append(amount if place in flat
                                    else base_of(amount, nodes))
-    return {floor: settle(expected.get(floor, 0), seen.get(floor, []), stale)
-            for floor in sorted(set(expected) | set(seen))}
+    return {place: settle(expected.get(place, 0), seen.get(place, []), stale)
+            for place in sorted(set(expected) | set(seen))}
 
 
 def mark_values(live, runs, shipped=SHIPPED, stale=0, starts=None):
@@ -896,12 +936,12 @@ def season_chaos(live, runs, part_days, runs_a_day=DEFAULT_RUNS_PER_DAY,
     rates = raise_rates(rates, current_raise(live, runs)
                         if raised is None else raised)
     nodes = season_nodes(live, len(part_days), runs, starts, shipped)
-    flat = flat_floors(live, shipped)
+    flat = flat_places(live, shipped)
     total = 0
     for part, days in enumerate(part_days, start=1):
         held = nodes[part - 1]
-        bosses = sum(amount if floor in flat else amplified(amount, held)
-                     for floor, amount in boss_table(
+        bosses = sum(amount if place in flat else amplified(amount, held)
+                     for place, amount in boss_table(
                          live, part, runs, starts, shipped, stale).items())
         marks = sum(amplified(values.get(mark, 0), held) * rate
                     for mark, rate in rates.items())
