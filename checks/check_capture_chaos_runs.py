@@ -811,32 +811,67 @@ def _the_table_names_the_rolls():
 
 def _the_report_reads_at_zero_nodes():
     """`docs/chaos_runs.py`'s changes table reads every amount at 0
-    nodes: a boss paying 180 at 25 nodes and 144 at none has not
-    changed, a flat boss is read as paid, and a payout no whole amount
-    at 0 nodes comes to is flagged. Read as paid, every node bought is
-    a change, and a real one drowns among them."""
+    nodes and every boss by its place in the run: a first boss paying
+    180 at 25 nodes on floor 17 of one map and 144 at none on another's
+    has not changed, a third boss is read as paid, and a payout no whole
+    amount at 0 nodes comes to is flagged. Read as paid, every node
+    bought is a change, and a real one drowns among them; read by
+    floor, a new map is all new bosses.
+
+    The place comes off the map's `floors`, whose end is the second
+    boss's floor -- so a run whose first boss was paid while no capture
+    watched still has its others in place -- else off the order of the
+    boss floors paid. A third boss paying other than 60, and another
+    boss paying 60, are flagged: the order and the pay no longer
+    agree. Returns complaints."""
     tool = _tool()
 
-    def row(date, nodes, payouts):
-        return {"date": date, "season": "s04", "part": "part 3",
+    def row(date, nodes, payouts, floors="0-34", season="s04"):
+        return {"date": date, "season": season, "part": "part 3",
                 "client": "cznlive 1.464 r688", "amplified": str(nodes),
-                "payouts": payouts, "marked": "", "fought": ""}
+                "payouts": payouts, "marked": "", "fought": "",
+                "floors": floors}
 
+    out = []
+    for each, want in (
+            (row("x", 0, "17:boss:1 34:boss:1 37:boss:1", "?"),
+             {17: "boss 1", 34: "boss 2", 37: "boss 3"}),
+            (row("x", 0, "28:boss:1 31:boss:1", "0-28"),
+             {28: "boss 2", 31: "boss 3"}),
+            (row("x", 0, "17:boss:1 20:boss:1 28:boss:1 31:boss:1 33:boss:1",
+                 "0-28"),
+             {17: "boss x17", 20: "boss x20", 28: "boss 2", 31: "boss 3",
+              33: "boss x33"})):
+        if tool.boss_orders(each) != want:
+            out.append(f"chaos_runs.boss_orders reads bosses on "
+                       f"{each['payouts']!r} with floors {each['floors']!r} "
+                       f"as {tool.boss_orders(each)}, not {want}: the map's "
+                       f"last floor is the second boss, the one before it "
+                       f"the first, the one after it the third.")
     rows = {r["date"]: r for r in (
-        row("2026-09-17 18:21", 25, "17:boss:180 37:boss:60 5:battle:60+k5"),
-        row("2026-09-18 18:21", 0, "17:boss:144 37:boss:60 5:battle:48+k5"),
+        row("2026-09-17 18:21", 25,
+            "17:boss:180 34:boss:180 37:boss:60 5:battle:60+k5"),
+        row("2026-09-18 18:21", 0,
+            "17:boss:144 28:boss:144 31:boss:60 5:battle:48+k5", "0-28",
+            "s05"),
         row("2026-09-19 18:21", 0, "17:boss:150"),
-        row("2026-09-20 18:21", 25, "17:boss:181"))}
+        row("2026-09-20 18:21", 25, "17:boss:181 37:boss:59"),
+        row("2026-09-21 18:21", 0, "17:boss:60"))}
     found, flags = tool.changes(rows)
     said = [(cells[0], cells[1]) for cells in found]
-    want = [("2026-09-19 18:21", "s04 boss 17"),
-            ("2026-09-20 18:21", "s04 boss 17")]
-    if said != want or not any("181 at 25 nodes" in flag for flag in flags):
-        return [f"chaos_runs.py's changes table reads {said} with flags "
-                f"{flags}, not {want} with 181 at 25 nodes flagged: 180 at "
-                f"25 nodes is 144 at 0, the flat floor-37 boss is 60 as "
-                f"paid, and 181 at 25 nodes fits no whole amount."]
-    return []
+    want = [("2026-09-19 18:21", "boss 1"), ("2026-09-20 18:21", "boss 1"),
+            ("2026-09-20 18:21", "boss 3"), ("2026-09-21 18:21", "boss 1")]
+    told = [any(text in flag for flag in flags)
+            for text in ("181 at 25 nodes", "third boss paid 59",
+                         "boss 1 paid 60")]
+    if said != want or not all(told):
+        out.append(f"chaos_runs.py's changes table reads {said} with flags "
+                   f"{flags}, not {want} with 181 at 25 nodes, a third boss "
+                   f"paying 59 and a first boss paying 60 flagged: 180 at "
+                   f"25 nodes is 144 at 0, season 5's floor-28 boss is season "
+                   f"4's floor-34 one, the third boss is read as paid, and "
+                   f"181 at 25 nodes fits no whole amount.")
+    return out
 
 
 def _the_table_keeps_a_replayed_row():
@@ -1023,8 +1058,38 @@ def _report_read_as_paid():
 
     def loaded():
         tool = real()
-        tool.base_payouts = lambda row, recovered=False: tool.payouts_of(
-            row["payouts"], recovered)
+        tool.base_payouts = lambda row, recovered=False: [
+            (tool._key(floor, spot, mark, tool.boss_orders(row)), spot,
+             amount, mark, amount)
+            for floor, spot, amount, mark
+            in tool.payouts_of(row["payouts"], recovered)]
+        return tool
+    _tool = loaded
+
+
+def _report_bosses_by_rank():
+    """Fault: chaos_runs.py placing each boss by the order of the floors
+    paid alone, the map's `floors` passed over."""
+    global _tool
+    real = _tool
+
+    def loaded():
+        tool = real()
+        tool._map_end = lambda row: None
+        return tool
+    _tool = loaded
+
+
+def _report_any_third_pay():
+    """Fault: chaos_runs.py's changes table holding the third boss to
+    whatever the odd one in the case paid, so neither odd pay is
+    flagged."""
+    global _tool
+    real = _tool
+
+    def loaded():
+        tool = real()
+        tool.THIRD_BOSS_PAYS = 59
         return tool
     _tool = loaded
 
@@ -1089,10 +1154,10 @@ FAULTS = [
      "    if amplified(whole, nodes) == amount:\n        return whole\n"
      "    return amount * 100 / (100 + nodes)",
      "    return whole", "181 at 25 nodes"),
-    ("the report reading a flat boss through the nodes",
-     "chaos_estimate:flat_floors",
-     'return set(shipped_entry(season, shipped).get("flat") or ())',
-     "return set()", "the flat floor-37 boss"),
+    ("the report placing bosses by the floors paid alone",
+     _report_bosses_by_rank, None, None, "the map's last floor is the second"),
+    ("the report holding the third boss to no pay",
+     _report_any_third_pay, None, None, "a third boss paying 59"),
     ("a partner's passive counted before the passives came",
      "chaos_estimate:run_raise",
      'return invasion_raise(run["partners"]) if had_passives(run) else 0.0',

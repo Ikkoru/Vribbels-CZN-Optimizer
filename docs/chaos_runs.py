@@ -67,6 +67,7 @@ The columns this script owns:
 | `chaos`   | which Chaos it was, by the stage id its clear names -- `chaos_estimate.CHAOS_NAMES`, else the game client's name (`chaos_estimate.chaos_names`) |
 | `door`    | how it was entered: `Galactic Disaster`, `Zero System` or `own screen` (a base-game Chaos's) |
 | `difficulty` | the number ending the list id it was entered with (`6`), or a Zero System map's level (`lv80`) |
+| `floors`  | the map's floors as its entry gives them (`floor_info`): `0-28`, the last being the second boss's; `?` for a run filed before runs kept them |
 | `special` | a Zero System map's special options, by `chaos_estimate.ZERO_SPECIALS` where named, else the game client's name (`zero_special_name`) |
 | `options` | a Zero System map's bonus and penalty options: `b001 p112` |
 | `rolled`  | the bonus and penalties the run rolled, any door, as effects: `ELITE_ADD:p008 CREDIT_DOWN:p016` |
@@ -97,17 +98,28 @@ flagged.
 
 **The report after the table reads every amount at 0 nodes**, each
 payout read back at its run's own `amplified` nodes
-(`chaos_estimate.base_of`, a `flat` boss as paid): what a node bought
-is not a change, and the report is there to catch the game's own. Its
-tables, in order: what a run pays played through, by part and season;
-each set amount that differs at 0 nodes from the last run that paid it
--- a boss within its own season's Chaos -- with what else changed
-between the two; what pays and how often a fight met each mark, by
-season part and game version; and each season's own Chaos from one
-game version to the next. A part always opens with a version, so a
-part is never compared on its own. Flagged above them: a payout no
-whole amount at 0 nodes comes to, which would be the 1% a node rule
-failing, a payout with no mark, and a mark never seen before.
+(`chaos_estimate.base_of`), the third boss as paid: what a node bought
+is not a change, and the report is there to catch the game's own.
+
+**A boss is named by its place in the run**, not its floor, since
+each season's map puts them elsewhere: `boss 1` ends the first area,
+`boss 2` the last floor the entry's `floors` names, `boss 3` is the
+first past it (`boss_orders`). Every map captured fits: season 4's 17,
+34 and its hidden area's 37, season 5's 17, 28 and 31, the first two
+paying 144 at 0 nodes and the third an unscaled 60. The 60 is the
+check on the order: a third boss paying otherwise, another boss paying
+60, and a boss outside the order are flagged.
+
+Its tables, in order: what a whole run pays played through, by part
+and season; each set amount that differs at 0 nodes from the last run
+that paid it, with what else changed between the two; what pays and
+how often a fight met each mark, by season part and game version; each
+season's own Chaos from one game version to the next -- a part always
+opens with a version, so a part is never compared on its own -- and
+where each Chaos puts its bosses. Flagged above them, besides the
+bosses: a payout no whole amount at 0 nodes comes to, which would be
+the 1% a node rule failing, a payout with no mark, and a mark never
+seen before.
 
 **A mark's rate is also tested for a shift in time**, taking a change
 to be sudden and lasting, as a balance patch is: across the whole runs
@@ -158,11 +170,12 @@ break-in marks back to no raise, as `chaos_estimate.SHIPPED` keeps them.
 
 **A Galactic Disaster run rolls a bonus and penalties as a codex
 does**, with no choice of three, and `rolled` names every run's,
-whichever door. `ELITE_ADD` among them turns a set number of floors
-into Elite floors by its level, 2 to 8 as remembered from the game.
-Taking ordinary battles away is what would move the Aether Eater, met
-only on them, so the mark rates end with the fights a run met with and
-without it, for each Chaos, special and mode that has runs of both. On
+whichever door. `ELITE_ADD` among them adds Elite spaces to the map by
+its level: `p005` to `p008` add 2, 4, 6 and 8, the client's
+`zero_system_eff` says (`ELITE_ADD_SPACES`). Taking ordinary battles
+away is what would move the Aether Eater, met only on them, so the
+mark rates end with the fights a run met at each level and without it,
+for each Chaos, special and mode that has runs at more than one. On
 season 4's own Chaos the runs with it fought as many ordinary battles
 as those without, and more Elites: on a path of fixed length, the
 Elites took the place of spots that were not ordinary battles.
@@ -223,7 +236,7 @@ CURRENCY = {3920001: "s01", 3920002: "s02", 3920006: "s03", 3920031: "s04",
 # What this script fills in. Anything after them in an existing file
 # is the maintainer's and is carried over by `date`.
 OWNED = ["date", "season", "part", "chaos", "door", "difficulty",
-         "special", "options", "rolled", "amplified", "partners",
+         "floors", "special", "options", "rolled", "amplified", "partners",
          "invasion", "mode", "client", "total", "payouts", "marked",
          "marked_at", "fought", "lost", "gaps"]
 # The effect ids a run's rolled bonus and penalties come as, whichever
@@ -616,10 +629,13 @@ def marked_at_of(cell):
 
 def run_of_row(row):
     """A row in the shape the capture records a run, for
-    `chaos_estimate`'s readers."""
+    `chaos_estimate`'s readers. A payout the clear restated counts: a
+    boss paid while no capture watched still paid, and a lost run is
+    whole or not by it."""
     paid = [[int(floor) if floor.lstrip("-").isdigit() else floor,
              spot.upper(), mark, None, amount]
-            for floor, spot, amount, mark in payouts_of(row["payouts"])]
+            for floor, spot, amount, mark
+            in payouts_of(row["payouts"], recovered=True)]
     return {"paid": paid, "lost": lost_of(row.get("lost")),
             "marked": counts_of(row.get("marked"))}
 
@@ -666,6 +682,9 @@ def row_of(run, source, parts, kinds=None):
         "chaos": chaos_estimate.chaos_name(run),
         "door": DOORS.get(run.get("via", "disaster"), run.get("via")),
         "difficulty": difficulty_of(run),
+        "floors": "-".join(map(str, run["floors"]))
+                  if isinstance(run.get("floors"), list)
+                  and len(run["floors"]) == 2 else "?",
         "special": "+".join(chaos_estimate.zero_special_name(s)
                             for s in (run.get("codex") or {}).get(
                                 "special") or ()),
@@ -792,6 +811,10 @@ MARK_ORDER = ("e", "b1", "k5", "b1+k5")
 # How many whole runs a Chaos needs for the Senectus table to read its
 # checks; those with fewer are summed on one line.
 FEWEST_INVASION_RUNS = 3
+# What every third boss captured has paid, at any nodes: what
+# `changes` holds a third boss to, and a 60 from any other boss is
+# flagged.
+THIRD_BOSS_PAYS = 60
 
 
 def _segments(cell):
@@ -805,31 +828,61 @@ def _visible(cell):
 
 def _numeric(text):
     """Whether a cell reads as a number, and is right-aligned."""
-    return bool(re.fullmatch(r"[-+]?[\d.,/%]+( \([\d/]+\))?", text.strip()))
+    return bool(re.fullmatch(r"[-+]?[\d.,/%]+", text.strip()))
 
 
-def grid(rows, head=(), indent="   "):
+def grid(rows, head=(), indent="   ", align=None, joins=None):
     """Print `rows` -- lists of cells, each a string or [(text, colour)]
     segments -- as columns as wide as their widest cell, `head` above
-    them in bold: a number right-aligned, all else left."""
-    every = ([list(head)] if head else []) + [list(row) for row in rows]
-    if not every:
+    them in bold. A heading may be (text, span), over several columns.
+    `align` is {column: "l" or "r"}, where unset a number right and all
+    else left; `joins` {column: the gap after it}, two spaces where
+    unset."""
+    body = [list(row) for row in rows]
+    heads = [cell if isinstance(cell, tuple) else (cell, 1) for cell in head]
+    count = max([len(row) for row in body] + [sum(s for _t, s in heads)])
+    if not count:
         return
-    count = max(len(row) for row in every)
-    for row in every:
+    for row in body:
         row += [""] * (count - len(row))
-    widths = [max(_visible(row[i]) for row in every) for i in range(count)]
-    for n, row in enumerate(every):
+    gaps = [(joins or {}).get(i, "  ") for i in range(count - 1)] + [""]
+    widths = [max([_visible(row[i]) for row in body] + [0])
+              for i in range(count)]
+    spans, at = [], 0
+    for text, span in heads:
+        spans.append((text, range(at, at + span)))
+        at += span
+    for text, columns in spans:
+        room = sum(widths[i] for i in columns) + sum(
+            len(gaps[i]) for i in columns[:-1])
+        widths[columns[-1]] += max(0, len(text) - room)
+
+    def side(i, plain):
+        return (align or {}).get(i) or ("r" if _numeric(plain) else "l")
+
+    if spans:
+        out = []
+        for text, columns in spans:
+            room = sum(widths[i] for i in columns) + sum(
+                len(gaps[i]) for i in columns[:-1])
+            right = len(columns) == 1 and all(
+                side(columns[0], "".join(t for t, _c in _segments(row[
+                    columns[0]]))) == "r" for row in body
+                if _visible(row[columns[0]]))
+            pad = " " * (room - len(text))
+            out.append((pad + paint(text, "1") if right and body
+                        else paint(text, "1") + pad) + gaps[columns[-1]])
+        print((indent + "".join(out)).rstrip())
+    for row in body:
         out = []
         for i, cell in enumerate(row):
             segments = _segments(cell)
-            if head and n == 0:
-                segments = [(text, "1") for text, _code in segments]
-            gap = " " * (widths[i] - _visible(cell))
-            text = "".join(paint(t, c) if c else t for t, c in segments)
             plain = "".join(t for t, _c in segments)
-            out.append(gap + text if _numeric(plain) else text + gap)
-        print((indent + "  ".join(out)).rstrip())
+            text = "".join(paint(t, c) if c else t for t, c in segments)
+            pad = " " * (widths[i] - _visible(cell))
+            out.append((pad + text if side(i, plain) == "r" else text + pad)
+                       + gaps[i])
+        print((indent + "".join(out)).rstrip())
 
 
 def heading(text):
@@ -855,43 +908,83 @@ def _version(client):
     return str(client or "?").replace("cznlive ", "")
 
 
+def _map_end(row):
+    """The last floor a row's `floors` names -- the second boss's -- or
+    None."""
+    found = re.fullmatch(r"-?\d+-(\d+)", row.get("floors") or "")
+    return int(found.group(1)) if found else None
+
+
+def boss_orders(row):
+    """{floor: name}: each boss floor a row paid on, by its place in the
+    run, wherever the map puts it.
+
+    The entry's `floors` end on the second boss, so `boss 2` is that
+    floor, `boss 1` the one boss before it, which ends the first area,
+    and `boss 3` the first after it: season 4's hidden area, season 5's
+    Effect's last floors. A row with no `floors` -- a run filed before
+    runs kept them -- is read by the order of its boss floors instead.
+    A boss outside that order is `boss x<floor>`, and `changes` flags
+    it."""
+    floors = sorted({int(floor) for floor, spot, _a, _m
+                     in payouts_of(row["payouts"], recovered=True)
+                     if spot == "boss" and floor.isdigit()})
+    end = _map_end(row)
+    if end is None:
+        return {floor: "boss %d" % n if n <= 3 else "boss x%d" % floor
+                for n, floor in enumerate(floors, 1)}
+    before = [floor for floor in floors if floor < end]
+    after = [floor for floor in floors if floor > end]
+    out = {end: "boss 2"} if end in floors else {}
+    for floor in before:
+        out[floor] = "boss 1" if len(before) == 1 else "boss x%d" % floor
+    for n, floor in enumerate(after):
+        out[floor] = "boss 3" if n == 0 else "boss x%d" % floor
+    return out
+
+
 def base_payouts(row, recovered=False):
-    """(floor, spot, amount at 0 nodes, mark) for each payout a row was
-    paid, read back at its run's own nodes (`chaos_estimate.base_of`),
-    a boss on one of its season's `flat` floors as paid; with
-    `recovered`, the ones the clear restated too. None for a row whose
-    nodes are `?`."""
+    """(key, spot, amount at 0 nodes, mark, amount as paid) for each
+    payout a row was paid, read back at its run's own nodes
+    (`chaos_estimate.base_of`), the third boss as paid: it has never
+    moved with the nodes. A boss is keyed by its place in the run
+    (`boss_orders`), a mark by itself (`_key`). With `recovered`, the
+    payouts the clear restated too. None for a row whose nodes are
+    `?`."""
     nodes = str(row.get("amplified") or "")
     if not nodes.isdigit():
         return None
-    flat = chaos_estimate.flat_floors("disaster_" + row["season"])
-    return [(floor, spot, amount if spot == "boss" and floor.isdigit()
-             and int(floor) in flat
-             else chaos_estimate.base_of(amount, int(nodes)), mark)
-            for floor, spot, amount, mark
-            in payouts_of(row["payouts"], recovered)]
+    orders = boss_orders(row)
+    out = []
+    for floor, spot, amount, mark in payouts_of(row["payouts"], recovered):
+        key = _key(floor, spot, mark, orders)
+        out.append((key, spot, amount if key == "boss 3"
+                    else chaos_estimate.base_of(amount, int(nodes)), mark,
+                    amount))
+    return out
 
 
-def _key(floor, spot, mark):
+def _key(floor, spot, mark, orders):
     """What a set amount is kept under: a mark by itself, a boss by its
-    floor, a payout with no mark by its spot and floor."""
+    place in the run (`boss_orders`), a payout with no mark by its spot
+    and floor."""
     if mark:
         return mark
     if spot == "boss":
-        return "boss %s" % floor
+        return orders.get(int(floor)) if floor.isdigit() else "boss ?"
     return "%s %s, no mark" % (spot, floor)
 
 
 def _order(keys):
-    """Keys in the tables' order: bosses by floor, then the marks in
-    `MARK_ORDER`, then the rest."""
+    """Keys in the tables' order: bosses by their place, then the marks
+    in `MARK_ORDER`, then the rest."""
     def rank(key):
-        found = re.fullmatch(r"boss (\d+)", key)
+        found = re.fullmatch(r"boss (x?)(\d+)", key)
         if found:
-            return (0, int(found.group(1)), key)
+            return (0, int(bool(found.group(1))), int(found.group(2)), key)
         if key in MARK_ORDER:
-            return (1, MARK_ORDER.index(key), key)
-        return (2, 0, key)
+            return (1, 0, MARK_ORDER.index(key), key)
+        return (2, 0, 0, key)
     return sorted(keys, key=rank)
 
 
@@ -908,8 +1001,8 @@ def _group_facts(rows):
     marked = collections.Counter()
     fights = 0
     for row in rows:
-        for floor, spot, amount, mark in base_payouts(row) or ():
-            amounts[_key(floor, spot, mark)].add(amount)
+        for key, _spot, amount, _mark, _raw in base_payouts(row) or ():
+            amounts[key].add(amount)
         marked.update(counts_of(row.get("marked")))
         fought = counts_of(row.get("fought"))
         fights += fought.get("battle", 0) + fought.get("elite", 0)
@@ -917,27 +1010,57 @@ def _group_facts(rows):
 
 
 def _pays_cells(keys, amounts, marked, fights):
-    """One row's cells for a what-pays grid: each key's amounts at 0
-    nodes, a mark's with how often a fight met it. A mark met and never
-    paid pays nothing (`0`): Senectus alone."""
+    """One row's cells for a what-pays grid: a boss's amounts at 0
+    nodes, one column; a mark's in three -- its amounts, then how often
+    a fight met it, `(k` and `/n)`, so the counts align on their `/`. A
+    mark met and never paid pays nothing (`0`): Senectus alone."""
     cells = []
     for key in keys:
-        if key in marked:
-            cells.append((_amounts(amounts[key]) if key in amounts
-                          else [("0", AMOUNT)]) + [(" (", None)]
-                         + _count(marked[key], fights) + [(")", None)])
-        else:
+        if _single(key):
             cells.append(_amounts(amounts[key]) if key in amounts else "")
+        elif key in marked:
+            cells += [_amounts(amounts[key]) if key in amounts
+                      else [("0", AMOUNT)],
+                      [("(", None), (str(marked[key]), COUNT)],
+                      [("/%d" % fights, COUNT), (")", None)]]
+        else:
+            cells += [""] * 3
     return cells
+
+
+def _single(key):
+    """Whether a what-pays key takes one column: a boss, or a payout
+    with no mark. A mark takes three."""
+    return key.startswith("boss") or key.endswith("no mark")
+
+
+def _pays_layout(keys, lead):
+    """(head, align, joins) for a what-pays grid whose first `lead`
+    columns are the row's own: a boss one column, a mark three."""
+    head, align, joins, at = [], {}, {}, lead
+    for key in keys:
+        if _single(key):
+            head.append(_named(key))
+            at += 1
+        else:
+            head.append((_named(key), 3))
+            align.update({at: "r", at + 1: "r", at + 2: "l"})
+            joins.update({at: " ", at + 1: ""})
+            at += 3
+    return head, align, joins
 
 
 def changes(rows):
     """(rows for the changes grid, flags). A row for each set amount,
     read at 0 nodes, that differs from the last run that paid it, with
     what else changed between the two: what a node bought cannot move
-    it, and a boss is compared within its own season's Chaos. Flagged:
-    a payout no whole amount at 0 nodes comes to, a payout with no
-    mark, and a mark never seen before."""
+    it. A boss is compared by its place in the run, whatever the map.
+
+    Flagged: a third boss paying other than `THIRD_BOSS_PAYS`, and
+    another boss paying it -- the two would mean the order and the pay
+    no longer agree; a boss outside the map's order; a payout no whole
+    amount at 0 nodes comes to; a payout with no mark; and a mark never
+    seen before."""
     out, flags, last, unnamed = [], [], {}, set()
     for date in sorted(rows):
         row = rows[date]
@@ -952,26 +1075,34 @@ def changes(rows):
         paid = base_payouts(row)
         if paid is None:
             continue
-        for (floor, spot, amount, mark), (_f, _s, raw, _m) in zip(
-                paid, payouts_of(row["payouts"])):
+        for key, spot, amount, mark, raw in paid:
             if not mark and spot != "boss":
-                flags.append("%s: floor %s's %s paid %d with no mark -- a "
-                             "paying fight nothing names yet"
-                             % (date, floor, spot, raw))
+                flags.append("%s: %s paid %d -- a paying fight nothing "
+                             "names yet" % (date, key, raw))
                 continue
-            what = _named(_key(floor, spot, mark))
+            what = _named(key)
+            if key.startswith("boss x"):
+                flags.append("%s: a boss outside the map's order, on floor "
+                             "%s (the map ends on %s), paid %d"
+                             % (date, key[6:], _map_end(row), raw))
+            elif key == "boss 3" and raw != THIRD_BOSS_PAYS:
+                flags.append("%s: the third boss paid %d, not the %d every "
+                             "third boss has" % (date, raw, THIRD_BOSS_PAYS))
+            elif spot == "boss" and key != "boss 3" \
+                    and raw == THIRD_BOSS_PAYS:
+                flags.append("%s: %s paid %d, as only third bosses have"
+                             % (date, what, raw))
             if not float(amount).is_integer():
                 flags.append("%s: %s paid %d at %s nodes, which no whole "
                              "amount at 0 nodes comes to"
                              % (date, what, raw, row["amplified"]))
-            key = (row["season"] if spot == "boss" else "", what)
             if key in last and last[key][0] != amount:
                 was, when, there = last[key]
                 moved = ["%s -> %s" % (a, b) for a, b in zip(there, where)
                          if a != b]
-                out.append([date, " ".join(filter(None, key)),
-                            _amounts([was]), _amounts([amount]), when,
-                            ", ".join(moved) or "nothing else"])
+                out.append([date, what, _amounts([was]), _amounts([amount]),
+                            [(when, QUIET)], ", ".join(moved)
+                            or "nothing else"])
             last[key] = (amount, date, where)
     return out, flags
 
@@ -991,6 +1122,55 @@ def _rate_moved(a, b):
     return text + [(" MOVED", FLAG) if moved else (" same", GOOD)], moved
 
 
+def bosses_table(rows):
+    """Print where each Chaos puts its bosses, by their place in the run
+    (`boss_orders`), and what each pays at 0 nodes, the third as paid:
+    one row per season, Chaos, door and special option, over every row
+    that paid a boss. What the order rule rests on, laid out for
+    checking."""
+    groups = collections.defaultdict(list)
+    for row in rows.values():
+        if any(spot == "boss" for _f, spot, _a, _m in payouts_of(
+                row["payouts"], recovered=True)):
+            groups[(row["season"], row["chaos"], row.get("door") or "",
+                    row.get("special") or "")].append(row)
+    if not groups:
+        return
+    found = collections.defaultdict(lambda: collections.defaultdict(set))
+    keys = set()
+    for group, members in groups.items():
+        for row in members:
+            orders = boss_orders(row)
+            for key, spot, amount, _mark, _raw in base_payouts(
+                    row, recovered=True) or ():
+                if spot != "boss":
+                    continue
+                floor = next((f for f, k in orders.items() if k == key), "?")
+                found[group][key].add((floor, amount))
+                keys.add(key)
+    keys = _order(keys)
+    heading("Bosses by their place in the run: floor, then pay at 0 nodes "
+            "(the third boss as paid)")
+    table = []
+    for group in sorted(groups, key=lambda g: (g[0], g[2], g[1], g[3])):
+        season, chaos, door, special = group
+        ends = sorted({_map_end(row) for row in groups[group]} - {None})
+        row = [season, chaos, door, special, str(len(groups[group])),
+               "/".join(map(str, ends)) or "?"]
+        for key in keys:
+            seen = sorted(found[group].get(key, ()))
+            row.append(", ".join("%s" % floor for floor in sorted(
+                {floor for floor, _a in seen})) if seen else "")
+            row.append(_amounts({amount for _f, amount in seen})
+                       if seen else "")
+        table.append(row)
+    head = ["season", "Chaos", "door", "special", "runs", "map ends"]
+    head += [(_named(key), 2) for key in keys]
+    grid(table, head=head,
+         joins={6 + 2 * n: " " for n in range(len(keys))},
+         align={6 + 2 * n: "r" for n in range(len(keys))})
+
+
 def report(rows):
     """The changes run by run, what pays by season part and game version,
     and what moved between one game version and the next."""
@@ -999,10 +1179,8 @@ def report(rows):
                                                    else ": none"))
     for line in flags:
         print(paint("   ! " + line, FLAG))
-    grid([[cells[0], cells[1], cells[2], cells[3], [(cells[4], QUIET)],
-           cells[5]] for cells in found],
-         head=["date", "what", "was", "now", "last paid", "since then"]
-         if found else ())
+    grid(found, head=["date", "what", "was", "now", "last paid",
+                      "since then"] if found else ())
 
     groups, first = collections.defaultdict(list), {}
     for date in sorted(rows):
@@ -1016,12 +1194,13 @@ def report(rows):
                    for key in set(amounts) | set(marked)})
     heading("What pays, by season part and game version, at 0 nodes "
             "(and how often a fight met each mark)")
+    head, align, joins = _pays_layout(keys, 4)
     grid([[part, version, str(len(groups[(part, version)])), str(fights)]
           + _pays_cells(keys, amounts, marked, fights)
           for (part, version), (amounts, marked, fights)
           in sorted(facts.items(), key=lambda item: first[item[0]])],
-         head=["part", "version", "runs", "fights"]
-         + [_named(key) for key in keys])
+         head=["part", "version", "runs", "fights"] + head,
+         align=align, joins=joins)
 
     # Each season's own Chaos, one version against the next: a part
     # always opens with a version, so a part on its own says nothing.
@@ -1342,36 +1521,46 @@ def invasion_rates(runs):
             len(few)), QUIET))
 
 
+# ELITE_ADD's levels by the penalty id a run rolls, as the Elite spaces
+# each adds to the map: the client's `zero_system_eff` rows, `opt_1`.
+ELITE_ADD_SPACES = {"p005": 2, "p006": 4, "p007": 6, "p008": 8}
+
+
 def penalty_mix(runs, group="ELITE_ADD"):
-    """Print the fights a whole run met with and without a rolled
-    `group` penalty, for each Chaos, special and mode that has runs of
-    both: whether it takes ordinary battles away is what moves a mark
-    met only on them. A Chaos's map and a mode's choice of path set a
-    run's mix of fights too, so runs are only compared among their own.
-    A run filed before runs kept their effects is left out."""
+    """Print the fights a whole run met at each level of a rolled `group`
+    penalty and without it, for each Chaos, special and mode that has
+    runs at more than one: whether it takes ordinary battles away is
+    what moves a mark met only on them. A Chaos's map and a mode's
+    choice of path set a run's mix of fights too, so runs are only
+    compared among their own. A run filed before runs kept their
+    effects is left out."""
     by = collections.defaultdict(lambda: collections.defaultdict(list))
     for row in runs:
         rolled = rolled_counts(row.get("rolled"))
         if rolled is not None:
-            by[_setting(row)][group in rolled].append(
+            by[_setting(row)][rolled.get(group)].append(
                 counts_of(row.get("fought")))
-    compared = {key: sides for key, sides in by.items() if len(sides) == 2}
+    compared = {key: levels for key, levels in by.items() if len(levels) > 1}
     if not compared:
         return
-    heading("Fights a whole run, with and without %s" % group)
+    heading("Fights a whole run, by the %s level rolled (the Elite spaces "
+            "it adds)" % group)
     table = []
-    for key, sides in sorted(compared.items()):
-        row = [key]
-        for has in (False, True):
-            fought = sides[has]
-            row += [str(len(fought)),
-                    "%.1f" % (sum(f.get("battle", 0) for f in fought)
-                              / len(fought)),
-                    "%.1f" % (sum(f.get("elite", 0) for f in fought)
-                              / len(fought))]
-        table.append(row)
-    grid(table, head=["Chaos", "runs without", "battles", "Elites",
-                      "runs with", "battles", "Elites"])
+    for key, levels in sorted(compared.items()):
+        for level in sorted(levels, key=lambda level: (level is not None,
+                                                       level or "")):
+            fought = levels[level]
+            spaces = ELITE_ADD_SPACES.get(level)
+            table.append([
+                key, "none" if level is None else "%s (+%s)" % (
+                    level, spaces if spaces is not None else "?"),
+                str(len(fought)),
+                "%.1f" % (sum(f.get("battle", 0) for f in fought)
+                          / len(fought)),
+                "%.1f" % (sum(f.get("elite", 0) for f in fought)
+                          / len(fought))])
+            key = ""
+    grid(table, head=["Chaos", group, "runs", "battles", "Elites"])
 
 
 def shipped_figures(rows):
@@ -1533,20 +1722,26 @@ def main():
     by_part = collections.defaultdict(list)
     others = collections.defaultdict(list)
     tally = collections.Counter()
+    unplayed = []
     for row in kept.values():
         if not current(row):
             others[(row["chaos"], row.get("door") or "",
                     row.get("special") or "", row["mode"])].append(row)
             continue
+        for _key_, _spot, amount, _mark, _raw in base_payouts(row) or ():
+            tally[amount] += 1
+        # A run lost before its last fight paid what it paid, not what a
+        # run pays (`chaos_estimate.is_full`).
+        if not chaos_estimate.is_full(run_of_row(row)):
+            unplayed.append(row["date"])
+            continue
         paid = base_payouts(row, recovered=True)
         nodes = _nodes(row)
         by_part["%s %s" % (row["season"], row["part"])].append((
             int(row["total"] or 0) + missed_of(row),
-            None if paid is None else sum(amount for _f, _s, amount, _m
+            None if paid is None else sum(amount for _k, _s, amount, _m, _r
                                           in paid)
             + chaos_estimate.base_of(missed_of(row), nodes)))
-        for _floor, _spot, amount, _mark in base_payouts(row) or ():
-            tally[amount] += 1
 
     # What a run of the season's own Chaos pays played through, by part
     # and by season, at 0 nodes and as paid. The estimate is built from
@@ -1571,10 +1766,14 @@ def main():
                      + [str(round(sum(p for p, _b in got) / len(got)))])
     grid(table, head=["part", "runs", "mean", "min", "max",
                       "as paid, mean"])
+    if unplayed:
+        print(paint("   left out, lost before their last fight: %s"
+                    % ", ".join(sorted(unplayed)), QUIET))
     print("   each payout at 0 nodes, and how often: " + "  ".join(
         paint(_number(value), AMOUNT) + paint(" x%d" % n, COUNT)
         for value, n in sorted(tally.items())))
     report(own)
+    bosses_table(kept)
     rate_shifts(kept)
     shipped_figures(own)
     if others:
