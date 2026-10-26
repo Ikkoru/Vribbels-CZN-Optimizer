@@ -421,6 +421,7 @@ def run():
     failures.extend(_the_partners(Addon))
     failures.extend(_the_map_and_route(Addon))
     failures.extend(_the_report_counts_each_mark_once())
+    failures.extend(_the_report_pools_and_steps())
     failures.extend(_the_table_keeps_a_replayed_row())
     failures.extend(_the_report_reads_at_zero_nodes())
     failures.extend(_the_table_names_the_rolls())
@@ -1217,6 +1218,62 @@ def _the_report_counts_each_mark_once():
     return out
 
 
+def _the_report_pools_and_steps():
+    """`docs/chaos_runs.py`'s bosses table puts every Chaos but a
+    season's own on one `offseason` row while they keep one pattern, and
+    one that breaks it on an `exception` row of its own; and its
+    version steps show a step between parts or game versions only where
+    it shifts. Pooled blindly, an odd Chaos would hide in the pattern;
+    listed in full, the steps bury the one that moved. Returns
+    complaints."""
+    import contextlib
+    import io
+    tool = _tool()
+
+    def row(date, chaos, door, payouts, part="part 3", client="1.464 r688"):
+        return {"date": date, "season": "s04", "part": part, "chaos": chaos,
+                "door": door, "special": "", "client": "cznlive " + client,
+                "amplified": "0", "floors": "0-34", "payouts": payouts,
+                "marked": "", "marked_at": "", "fought": "battle:10"}
+
+    out = []
+    rows = {r["date"]: r for r in (
+        row("2026-09-01 00:00", "Burning Life", "Zero System",
+            "17:boss:108 34:boss:108"),
+        row("2026-09-02 00:00", "Laboratory 0", "Zero System",
+            "17:boss:108 34:boss:108"),
+        row("2026-09-03 00:00", "Theater of Illusions", "Zero System",
+            "17:boss:108 34:boss:120"))}
+    printed = io.StringIO()
+    with contextlib.redirect_stdout(printed):
+        tool.bosses_table(rows)
+    lines = printed.getvalue().splitlines()
+    offseason = [line for line in lines if "offseason" in line]
+    odd = [line for line in lines if "exception" in line]
+    if len(offseason) != 1 or "Theater" in offseason[0] or len(odd) != 1 \
+            or "Theater of Illusions" not in odd[0]:
+        out.append(f"chaos_runs.bosses_table printed {lines}: Burning Life "
+                   f"and Laboratory 0 on one offseason row, and Theater of "
+                   f"Illusions, its second boss paying 120 where theirs pay "
+                   f"108, on an exception row of its own.")
+    own = {r["date"]: r for r in (
+        row("2026-09-10 00:00", "The Kaleidoscope Hatchery",
+            "Galactic Disaster", "17:boss:144", "part 2"),
+        row("2026-09-20 00:00", "The Kaleidoscope Hatchery",
+            "Galactic Disaster", "17:boss:150", "part 3"),
+        row("2026-09-21 00:00", "The Kaleidoscope Hatchery",
+            "Galactic Disaster", "17:boss:150", "part 3", "1.465 r690"))}
+    shifted = {name: [moved for _step, moved in tool._steps(own, key)]
+               for name, key in tool.STEPS}
+    if shifted != {"season": [], "part": [True], "version": [True, False]}:
+        out.append(f"chaos_runs._steps reads a first boss paying 144 in "
+                   f"part 2 and 150 in part 3, the same over part 3's two "
+                   f"versions, as {shifted}: no step between seasons, the "
+                   f"part step and the version step crossing it shifted, "
+                   f"the later version step not.")
+    return out
+
+
 def _report_breakins_counted_twice():
     """Fault: chaos_runs.py counting a break-in toward every mark it
     carries."""
@@ -1239,6 +1296,37 @@ def _report_effects_unknown():
     def loaded():
         tool = real()
         tool.EFFECT_SEASONS = {}
+        return tool
+    _tool = loaded
+
+
+def _report_offseason_all_kept():
+    """Fault: chaos_runs.py's bosses table pooling every other Chaos on
+    the offseason row, the one that breaks the pattern among them."""
+    global _tool
+    real = _tool
+
+    def loaded():
+        tool = real()
+        source = tool.bosses_table
+        tool.bosses_table = lambda rows: source({
+            date: dict(row, payouts=row["payouts"].replace(
+                "34:boss:120", "34:boss:108")) for date, row in rows.items()})
+        return tool
+    _tool = loaded
+
+
+def _report_steps_unshifted():
+    """Fault: chaos_runs.py's version steps never calling a step
+    shifted, so no finer step is ever shown."""
+    global _tool
+    real = _tool
+
+    def loaded():
+        tool = real()
+        source = tool._steps
+        tool._steps = lambda rows, key: [(step, False)
+                                         for step, _s in source(rows, key)]
         return tool
     _tool = loaded
 
@@ -1319,6 +1407,10 @@ FAULTS = [
      "each area's map as first sent"),
     ("a Zero System map pooled by its Chaos, not its Effect",
      _report_effects_unknown, None, None, "the season whose Effect shapes"),
+    ("the bosses table hiding an odd Chaos in the offseason row",
+     _report_offseason_all_kept, None, None, "on an exception row"),
+    ("the version steps never shifted", _report_steps_unshifted, None, None,
+     "the part step and the version step"),
     ("the report counting a break-in's keyword again",
      _report_breakins_counted_twice, None, None,
      "the Rare Species twice over every fight"),

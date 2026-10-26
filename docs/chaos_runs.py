@@ -139,10 +139,12 @@ Its tables, in order: what a whole run pays played through, by part
 and season; each set amount that differs at 0 nodes from the last run
 that paid it, with what else changed between the two; what pays and
 how often each mark was met, by season part and game version; each
-game version against the next, whichever season -- each mark on
-battles and Elites apart, since another map's mix of the two moves a
-rate a fight on its own; a part always opens with a version, so a part
-is never compared on its own -- and where each Chaos puts its bosses.
+season against the next, each mark on battles and Elites apart, since
+another map's mix of the two moves a rate a fight on its own, then
+each step between parts and between game versions that shows a
+possible shift (`STEPS`); and where each Chaos puts its bosses, every
+Chaos but a season's own on one `offseason` row while they keep one
+pattern, one that breaks it on a red `exception` row of its own.
 Flagged above them, besides the bosses: a payout no whole amount at 0
 nodes comes to, which would be the 1% a node rule failing, a payout
 with no mark, and a mark never seen before.
@@ -1289,10 +1291,11 @@ def _pays_layout(keys, lead, met_on):
             continue
         if _compound(key):
             first, *rest = key.split("+")
-            name = "%s on a %s spot, of %s" % (
-                _named(first), _named("+".join(rest)), _named(first))
+            name = "%s on a %s spot (already counted in %s (%s))" % (
+                _named(first), _named("+".join(rest)), _named(first),
+                unit(counted_over(first, met_on)))
         else:
-            name = "%s, %s" % (_named(key), unit(counted_over(key, met_on)))
+            name = "%s (%s)" % (_named(key), unit(counted_over(key, met_on)))
         head.append((name, 3))
         align.update({at: "r", at + 1: "r", at + 2: "l"})
         joins.update({at: " ", at + 1: ""})
@@ -1374,53 +1377,95 @@ def _rate_moved(a, b, fewest=FEWEST_FIGHTS):
 
 
 
+# What marks a row that breaks a pattern the others keep.
+ALARM = "31"
+
+
+def _boss_cells(members):
+    """{boss key: (its floors, its amounts at 0 nodes)} over a group of
+    rows, each as a sorted tuple, the third boss as paid."""
+    found = collections.defaultdict(set)
+    for row in members:
+        orders = boss_orders(row)
+        for key, spot, amount, _mark, _raw in base_payouts(
+                row, recovered=True) or ():
+            if spot == "boss":
+                found[key].add((next((f for f, k in orders.items()
+                                      if k == key), "?"), amount))
+    return {key: (tuple(sorted({floor for floor, _a in seen}, key=str)),
+                  tuple(sorted({amount for _f, amount in seen})))
+            for key, seen in found.items()}
+
+
 def bosses_table(rows):
     """Print where each Chaos puts its bosses, by their place in the run
-    (`boss_orders`), and what each pays at 0 nodes, the third as paid:
-    one row per season, Chaos, door and special option, over every row
-    that paid a boss. What the order rule rests on, laid out for
-    checking."""
-    groups = collections.defaultdict(list)
+    (`boss_orders`), and what each pays at 0 nodes, the third as paid,
+    over every row that paid a boss: a row for each season's own Chaos,
+    and one, `offseason`, for every other Chaos -- a past season's, or a
+    base-game one, through the Zero System or its own screen -- that
+    keeps the pattern those others share. One that breaks it, by a boss
+    on another floor, paying another amount, or there where the rest
+    have none, is an `exception`, in red at the top, on a row of its
+    own. The pattern is each boss's most common floors and pay among
+    the other Chaoses, its absence counting as one. The last column is
+    the Center's last floor, which the entry names and the second boss
+    stands on. What the order rule rests on, laid out for checking."""
+    own = collections.defaultdict(list)
+    other = collections.defaultdict(list)
     for row in rows.values():
-        if any(spot == "boss" for _f, spot, _a, _m in payouts_of(
+        if not any(spot == "boss" for _f, spot, _a, _m in payouts_of(
                 row["payouts"], recovered=True)):
-            groups[(row["season"], row["chaos"], row.get("door") or "",
-                    row.get("special") or "")].append(row)
-    if not groups:
+            continue
+        group = (row["chaos"], row.get("door") or "", row.get("special") or "")
+        if current(row):
+            own[(row["season"],) + group].append(row)
+        else:
+            other[group].append(row)
+    if not own and not other:
         return
-    found = collections.defaultdict(lambda: collections.defaultdict(set))
-    keys = set()
-    for group, members in groups.items():
-        for row in members:
-            orders = boss_orders(row)
-            for key, spot, amount, _mark, _raw in base_payouts(
-                    row, recovered=True) or ():
-                if spot != "boss":
-                    continue
-                floor = next((f for f, k in orders.items() if k == key), "?")
-                found[group][key].add((floor, amount))
-                keys.add(key)
-    keys = _order(keys)
+    cells = {("own",) + key: _boss_cells(members)
+             for key, members in own.items()}
+    cells.update({("other",) + key: _boss_cells(members)
+                  for key, members in other.items()})
+    keys = _order({key for held in cells.values() for key in held})
+    pattern = {}
+    for key in keys:
+        seen = collections.Counter(cells[("other",) + group].get(key)
+                                   for group in other)
+        pattern[key] = seen.most_common(1)[0][0] if seen else None
+    keeps = [group for group in other if all(
+        cells[("other",) + group].get(key) == pattern[key] for key in keys)]
+    breaks = [group for group in other if group not in keeps]
+
+    def boss_row(label, chaos, door, special, members, held, colour=None):
+        ends = sorted({_map_end(row) for row in members} - {None})
+        out = [[(label, colour)] if colour else label, chaos, door, special,
+               str(len(members))]
+        for key in keys:
+            floors, amounts = held.get(key) or ((), ())
+            out.append(", ".join(map(str, floors)))
+            out.append(_amounts(amounts) if amounts else "")
+        return out + ["/".join(map(str, ends)) or "?"]
+
     heading("Bosses by their place in the run: floor, then pay at 0 nodes "
             "(the third boss as paid)")
-    table = []
-    for group in sorted(groups, key=lambda g: (g[0], g[2], g[1], g[3])):
-        season, chaos, door, special = group
-        ends = sorted({_map_end(row) for row in groups[group]} - {None})
-        row = [season, chaos, door, special, str(len(groups[group])),
-               "/".join(map(str, ends)) or "?"]
-        for key in keys:
-            seen = sorted(found[group].get(key, ()))
-            row.append(", ".join("%s" % floor for floor in sorted(
-                {floor for floor, _a in seen})) if seen else "")
-            row.append(_amounts({amount for _f, amount in seen})
-                       if seen else "")
-        table.append(row)
-    head = ["season", "Chaos", "door", "special", "runs", "map ends"]
-    head += [(_named(key), 2) for key in keys]
+    table = [boss_row("exception", *group, other[group],
+                      cells[("other",) + group], ALARM)
+             for group in sorted(breaks)]
+    if keeps:
+        members = [row for group in keeps for row in other[group]]
+        doors = sorted({group[1] for group in keeps})
+        table.append(boss_row(
+            "offseason", ", ".join(sorted({group[0] for group in keeps})),
+            ", ".join(doors), "", members,
+            {key: pattern[key] for key in keys if pattern[key]}))
+    table += [boss_row(*group, own[group], cells[("own",) + group])
+              for group in sorted(own)]
+    head = ["season", "Chaos", "door", "special", "runs"]
+    head += [(_named(key), 2) for key in keys] + ["Center last floor"]
     grid(table, head=head,
-         joins={6 + 2 * n: " " for n in range(len(keys))},
-         align={6 + 2 * n: "r" for n in range(len(keys))})
+         joins={5 + 2 * n: " " for n in range(len(keys))},
+         align={5 + 2 * n: "r" for n in range(len(keys))})
 
 
 def report(rows):
@@ -1455,43 +1500,87 @@ def report(rows):
          head=["part", "version", "runs", "fights"] + head,
          align=align, joins=joins)
 
-    # One game version against the next, whichever season: the set
-    # amounts by key, a boss by its place; each mark on each kind of
-    # fight apart, since a map's own mix of battles and Elites moves a
-    # rate a fight with no rate a battle moving; Senectus by the run.
-    steps = []
+    tiers = {name: _steps(rows, key) for name, key in STEPS}
+    heading("From one season to the next: set amounts at 0 nodes, each "
+            "mark on battles and Elites apart, Senectus by the run")
+    head = ["from", "to", "set amounts", "mark", "on battles", "on Elites",
+            "runs met"]
+    first_tier, *finer = STEPS
+    grid([cells for step, _shifted in tiers[first_tier[0]] for cells in step],
+         head=head)
+    shown = [(name, step) for name, _key in finer
+             for step, shifted in tiers[name] if shifted]
+    if not shown:
+        print(paint("   no step between parts or game versions shows a "
+                    "possible shift", QUIET))
+        return
+    print(paint("   Steps between parts and game versions that show a "
+                "possible shift:", HEADING))
+    grid([[name] + cells for name, step in shown for cells in step],
+         head=["step"] + head)
+
+
+# The steps the report compares the season's own Chaos across, coarsest
+# first: each season against the next, then each part, then each game
+# version. The first is always shown, the finer ones only where they
+# show a possible shift.
+STEPS = (("season", lambda row: row["season"]),
+         ("part", lambda row: "%s %s" % (row["season"], row["part"])),
+         ("version", lambda row: "%s %s %s" % (
+             row["season"], row["part"], _version(row.get("client")))))
+
+
+def _steps(rows, key):
+    """[(grid rows, shifted)]: each group of `rows` by `key` against the
+    next, in the order they were first played -- the set amounts at 0
+    nodes by key, a boss by its place; each mark on each kind of fight
+    apart, since a map's own mix of battles and Elites moves a rate a
+    fight with no rate a battle moving; Senectus by the run. `shifted`
+    where a set amount differs or a rate MOVED."""
+    groups, first = collections.defaultdict(list), {}
+    for date in sorted(rows):
+        label = key(rows[date])
+        groups[label].append(rows[date])
+        first.setdefault(label, date)
+    order = sorted(groups, key=lambda label: first[label])
+    facts = {label: _group_facts(members) for label, members in groups.items()}
+    out = []
     for a, b in zip(order, order[1:]):
         fa, fb = facts[a], facts[b]
-        moved = ["%s %s -> %s" % (_named(key), "/".join(
-            map(_number, sorted(fa["amounts"][key]))), "/".join(
-            map(_number, sorted(fb["amounts"][key]))))
-            for key in _order(set(fa["amounts"]) & set(fb["amounts"]))
-            if fa["amounts"][key] != fb["amounts"][key]]
-        lead = ["%s %s" % a, "%s %s" % b,
-                [("; ".join(moved), FLAG)] if moved else [("same", GOOD)]]
+        moved = ["%s %s -> %s" % (_named(key_), "/".join(
+            map(_number, sorted(fa["amounts"][key_]))), "/".join(
+            map(_number, sorted(fb["amounts"][key_]))))
+            for key_ in _order(set(fa["amounts"]) & set(fb["amounts"]))
+            if fa["amounts"][key_] != fb["amounts"][key_]]
+        shifted = bool(moved)
+        lead = [a, b, [("; ".join(moved), FLAG)] if moved
+                else [("same", GOOD)]]
+        step = []
         for mark in _order(set(fa["met"]) | set(fb["met"])):
             cells = []
             if chaos_estimate.is_invasion(mark):
-                cells += ["", "", _rate_moved(
+                cell, hit = _rate_moved(
                     (fa["met_runs"][mark], fa["runs"]),
-                    (fb["met_runs"][mark], fb["runs"]), FEWEST_RUNS)[0]]
+                    (fb["met_runs"][mark], fb["runs"]), FEWEST_RUNS)
+                cells += ["", "", cell]
+                shifted |= hit
             else:
                 for spot in FIGHT_SPOTS:
                     pair = ((fa["at"][mark][spot], fa["spots"][spot]),
                             (fb["at"][mark][spot], fb["spots"][spot]))
-                    cells.append(_rate_moved(*pair)[0]
-                                 if pair[0][0] or pair[1][0] else "")
+                    if pair[0][0] or pair[1][0]:
+                        cell, hit = _rate_moved(*pair)
+                        cells.append(cell)
+                        shifted |= hit
+                    else:
+                        cells.append("")
                 cells.append("")
-            steps.append(lead + [_named(mark)] + cells)
+            step.append(lead + [_named(mark)] + cells)
             lead = ["", "", ""]
         if lead[0]:
-            steps.append(lead)
-    if steps:
-        heading("From one game version to the next: set amounts at 0 "
-                "nodes, each mark on battles and Elites apart, Senectus "
-                "by the run")
-        grid(steps, head=["from", "to", "set amounts", "mark",
-                          "on battles", "on Elites", "runs met"])
+            step.append(lead)
+        out.append((step, shifted))
+    return out
 
 
 
