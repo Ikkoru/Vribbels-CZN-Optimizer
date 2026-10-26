@@ -16,10 +16,12 @@ and a third its own; an item's name is held by `check_event_names`.
    a rates reply the account captured over the client's pools, and the
    client's over nothing. Without either, a Seasonal rerun counts on the
    rerun counter, its pulls on the wrong pity.
-4. **The partners' Exploration Passives, the Card Skin tables and the
-   season trees' node counts** (`game_client.known_exploration_passives`,
-   `known_card_skins`, `known_season_nodes`): this machine's read over
-   the shipped copy, which stands for the rest.
+4. **The partners' Exploration Passives and their effects, the Card
+   Skin tables and the season trees' node counts**
+   (`game_client.known_exploration_passives`,
+   `known_exploration_effects`, `known_card_skins`,
+   `known_season_nodes`): this machine's read over the shipped copy,
+   which stands for the rest.
 
 Held on synthetic client facts, put in place with `game_client.use` and
 taken away after, and on probe entries put into the program's tables
@@ -99,6 +101,8 @@ def run():
         game_client.use(dict(facts, exploration_passives={
             str(PROBE_PARTNER): [{"name": "Probe", "assigned": True,
                                   "steps": [[0, "a"], [2, "b"]]}]},
+            exploration_effects={
+                str(PROBE_PARTNER): [["EFF_PROBE", [[0, 1], [2, 2.5]]]]},
             card_skins={"skins": {str(PROBE_SKIN): ["Probe Skin", "RARE",
                                                     1003]},
                         "packs": {"probe_pack": ["Probe Pack",
@@ -106,6 +110,15 @@ def run():
             season_nodes={PROBE_SEASON: [4, 9]}))
         held = game_client.known_exploration_passives()
         kept = set(from_client.EXPLORATION_PASSIVES) <= set(held)
+        does = game_client.known_exploration_effects()
+        if does.get(PROBE_PARTNER) != (("EFF_PROBE", ((0, 1.0),
+                                                      (2, 2.5))),) \
+                or not set(from_client.EXPLORATION_EFFECTS) <= set(does):
+            out.append(f"the Exploration Passives' effects read "
+                       f"{does.get(PROBE_PARTNER)!r} for a partner only this "
+                       f"client holds: the client's read goes over the "
+                       f"shipped table, which stands for the rest "
+                       f"(`known_exploration_effects`).")
         from game_data.partners import get_partner_exploration
         steps = [get_partner_exploration(PROBE_PARTNER, lb) for lb in (1, 2)]
         if steps != [[("Probe", "a")], [("Probe", "b")]]:
@@ -174,6 +187,14 @@ FAULTS = [
     ("the client's Exploration Passives not read",
      "game_client:known_exploration_passives",
      "out[int(key)] = tuple(", "out[-1] = tuple(", "the Exploration Passives"),
+    ("the client's passive effects not read",
+     "game_client:known_exploration_effects",
+     "out[int(key)] = tuple(", "out[-1] = tuple(", "the Exploration Passives' "
+     "effects"),
+    ("the shipped passive effects dropped",
+     "game_client:known_exploration_effects",
+     'out = dict(getattr(from_client, "EXPLORATION_EFFECTS", {}))',
+     "out = {}", "the Exploration Passives' effects"),
     ("the shipped Card Skins dropped", "game_client:known_card_skins",
      'skins = dict(getattr(from_client, "CARD_SKINS", {}))', "skins = {}",
      "the card skins read"),

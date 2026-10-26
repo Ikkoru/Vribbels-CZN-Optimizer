@@ -3434,6 +3434,221 @@ EXPLORATION_PASSIVES = {
     ),
 }
 
+# {partner res_id: ((effect, ((limit break, value from then on), ...)),
+# ...)}: what each Exploration Passive does, in the game's slot order.
+# See game_client.exploration_effects.
+EXPLORATION_EFFECTS = {
+    1025: (
+        ('EFF_R_SPARK_GOD_PCT_MULTIPLY', ((0, 20.0),)),
+        ('EFF_EARN_BATTLE_INGAME_CURRENCY_VALUE_CHANGE_PCT', ((0, 104.0), (2, 108.0))),
+        ('EFF_EQUIPMENT_GET', ((0, 1.0), (4, 1.0))),
+    ),
+    1058: (
+        ('EFF_COLLAPSE_NEED_COUNT_SUBTRACT', ((0, 1.0),)),
+        ('EFF_EARN_STRESS_VALUE_CHANGE_PCT', ((0, 94.0), (2, 88.0))),
+        ('EFF_RARE_ENCOUNTER_RARITY_PCT_ADD', ((0, 0.9), (4, 1.8))),
+    ),
+    1070: (
+        ('EFF_STRESS_VALUE_ADD_SELF', ((0, -2.0),)),
+        ('EFF_SAFETY_MERCHANT_COST_INCREASE_PCT', ((0, -4.0), (2, -8.0))),
+        ('EFF_GAIN_INGAME_CURRENCY', ((0, 30.0), (4, 60.0))),
+    ),
+    20001: (
+        ('EFF_EQUIPMENT_GET', ((0, 1.0), (2, 1.0))),
+        ('EFF_EARN_BATTLE_INGAME_CURRENCY_VALUE_CHANGE_PCT', ((0, 104.0), (4, 108.0))),
+    ),
+    20002: (
+        ('EFF_SHIELD_HEAL_UP_RATE_PCT_MULTIPLY', ((0, 15.0),)),
+        ('EFF_DICE_ADD', ((0, 1.0), (2, 2.0))),
+        ('EFF_SAFETY_MERCHANT_COST_INCREASE_PCT', ((0, -4.0), (4, -8.0))),
+    ),
+    20003: (
+        ('EFF_EQUIPMENT_GET', ((0, 1.0), (2, 1.0))),
+        ('EFF_UNIQUE_CARD_REWARD_PCT_MULTIPLY', ((0, 6.0), (4, 12.0))),
+    ),
+    20004: (
+        ('EFF_R_SPARK_GOD_PCT_MULTIPLY', ((0, 20.0),)),
+        ('EFF_UNIQUE_CARD_REWARD_PCT_MULTIPLY', ((0, 6.0), (2, 12.0))),
+        ('EFF_SAFETY_MERCHANT_COST_INCREASE_PCT', ((0, -4.0), (4, -8.0))),
+    ),
+    20005: (
+        ('EFF_COLLAPSE_NEED_COUNT_SUBTRACT', ((0, 1.0),)),
+        ('EFF_EARN_STRESS_VALUE_CHANGE_PCT', ((0, 94.0), (2, 88.0))),
+        ('EFF_EQUIPMENT_GET', ((0, 1.0), (4, 1.0))),
+    ),
+    20006: (
+        ('EFF_R_SPARK_GOD_PCT_MULTIPLY', ((0, 20.0),)),
+        ('EFF_DICE_ADD', ((0, 1.0), (2, 2.0))),
+        ('EFF_EARN_STRESS_VALUE_CHANGE_PCT', ((0, 94.0), (4, 88.0))),
+    ),
+    20007: (
+        ('EFF_GAIN_INGAME_CURRENCY', ((0, 30.0), (2, 60.0))),
+        ('EFF_EARN_STRESS_VALUE_CHANGE_PCT', ((0, 94.0), (4, 88.0))),
+    ),
+    20008: (
+        ('EFF_COLLAPSE_NEED_COUNT_SUBTRACT', ((0, 1.0),)),
+        ('EFF_EARN_STRESS_VALUE_CHANGE_PCT', ((0, 94.0), (2, 88.0))),
+        ('EFF_DICE_ADD', ((0, 1.0), (4, 2.0))),
+    ),
+    20009: (
+        ('EFF_R_SPARK_GOD_PCT_MULTIPLY', ((0, 20.0),)),
+        ('EFF_UNIQUE_CARD_REWARD_PCT_MULTIPLY', ((0, 6.0), (2, 12.0))),
+        ('EFF_EARN_BATTLE_INGAME_CURRENCY_VALUE_CHANGE_PCT', ((0, 104.0), (4, 108.0))),
+    ),
+    20011: (
+        ('EFF_SAFETY_MERCHANT_COST_INCREASE_PCT', ((0, -4.0), (2, -8.0))),
+        ('EFF_RARE_ENCOUNTER_RARITY_PCT_ADD', ((0, 0.9), (4, 1.8))),
+    ),
+    20014: (
+        ('EFF_STRESS_VALUE_ADD_SELF', ((0, -2.0),)),
+        ('EFF_EARN_STRESS_VALUE_CHANGE_PCT', ((0, 94.0), (2, 88.0))),
+        ('EFF_EARN_BATTLE_INGAME_CURRENCY_VALUE_CHANGE_PCT', ((0, 104.0), (4, 108.0))),
+    ),
+    20019: (
+        ('EFF_STRESS_VALUE_ADD_SELF', ((0, -2.0),)),
+        ('EFF_EARN_BATTLE_INGAME_CURRENCY_VALUE_CHANGE_PCT', ((0, 104.0), (2, 108.0))),
+        ('EFF_EARN_STRESS_VALUE_CHANGE_PCT', ((0, 94.0), (4, 88.0))),
+    ),
+    20021: (
+        ('EFF_R_SPARK_GOD_PCT_MULTIPLY', ((0, 20.0),)),
+        ('EFF_RARE_ENCOUNTER_RARITY_PCT_ADD', ((0, 0.9), (2, 1.8))),
+        ('EFF_GAIN_INGAME_CURRENCY', ((0, 30.0), (4, 60.0))),
+    ),
+    20024: (
+        ('EFF_EARN_STRESS_VALUE_CHANGE_PCT', ((0, 94.0), (2, 88.0))),
+        ('EFF_DICE_ADD', ((0, 1.0), (4, 2.0))),
+    ),
+    20025: (
+        ('EFF_SAFETY_MERCHANT_COST_INCREASE_PCT', ((0, -4.0), (2, -8.0))),
+        ('EFF_GAIN_INGAME_CURRENCY', ((0, 30.0), (4, 60.0))),
+    ),
+    20027: (
+        ('EFF_RARE_ENCOUNTER_RARITY_PCT_ADD', ((0, 0.9), (2, 1.8))),
+        ('EFF_GAIN_INGAME_CURRENCY', ((0, 30.0), (4, 60.0))),
+    ),
+    20030: (
+        ('EFF_COLLAPSE_NEED_COUNT_SUBTRACT', ((0, 1.0),)),
+        ('EFF_GAIN_INGAME_CURRENCY', ((0, 30.0), (2, 60.0))),
+        ('EFF_RARE_ENCOUNTER_RARITY_PCT_ADD', ((0, 0.9), (4, 1.8))),
+    ),
+    20032: (
+        ('EFF_EARN_BATTLE_INGAME_CURRENCY_VALUE_CHANGE_PCT', ((0, 104.0), (2, 108.0))),
+        ('EFF_SAFETY_MERCHANT_COST_INCREASE_PCT', ((0, -4.0), (4, -8.0))),
+    ),
+    20033: (
+        ('EFF_DICE_ADD', ((0, 1.0), (2, 2.0))),
+        ('EFF_UNIQUE_CARD_REWARD_PCT_MULTIPLY', ((0, 6.0), (4, 12.0))),
+    ),
+    20034: (
+        ('EFF_STRESS_VALUE_ADD_SELF', ((0, -2.0),)),
+        ('EFF_UNIQUE_CARD_REWARD_PCT_MULTIPLY', ((0, 6.0), (2, 12.0))),
+        ('EFF_SAFETY_MERCHANT_COST_INCREASE_PCT', ((0, -4.0), (4, -8.0))),
+    ),
+    20035: (
+        ('EFF_EQUIPMENT_GET', ((0, 1.0), (2, 1.0))),
+        ('EFF_EARN_BATTLE_INGAME_CURRENCY_VALUE_CHANGE_PCT', ((0, 104.0), (4, 108.0))),
+    ),
+    20036: (
+        ('EFF_EARN_BATTLE_INGAME_CURRENCY_VALUE_CHANGE_PCT', ((0, 104.0), (2, 108.0))),
+        ('EFF_DICE_ADD', ((0, 1.0), (4, 2.0))),
+    ),
+    20037: (
+        ('EFF_COLLAPSE_NEED_COUNT_SUBTRACT', ((0, 1.0),)),
+        ('EFF_RARE_ENCOUNTER_RARITY_PCT_ADD', ((0, 0.9), (2, 1.8))),
+        ('EFF_EQUIPMENT_GET', ((0, 1.0), (4, 1.0))),
+    ),
+    20038: (
+        ('EFF_STRESS_VALUE_ADD_SELF', ((0, -2.0),)),
+        ('EFF_GAIN_INGAME_CURRENCY', ((0, 30.0), (2, 60.0))),
+        ('EFF_EQUIPMENT_GET', ((0, 1.0), (4, 1.0))),
+    ),
+    30044: (
+        ('EFF_COLLAPSE_NEED_COUNT_SUBTRACT', ((0, 1.0),)),
+        ('EFF_GAIN_INGAME_CURRENCY', ((0, 30.0), (2, 60.0))),
+        ('EFF_DICE_ADD', ((0, 1.0), (4, 2.0))),
+    ),
+    30045: (
+        ('EFF_R_SPARK_GOD_PCT_MULTIPLY', ((0, 20.0),)),
+        ('EFF_SAFETY_MERCHANT_COST_INCREASE_PCT', ((0, -4.0), (2, -8.0))),
+        ('EFF_EARN_BATTLE_INGAME_CURRENCY_VALUE_CHANGE_PCT', ((0, 104.0), (4, 108.0))),
+    ),
+    30046: (
+        ('EFF_STRESS_VALUE_ADD_SELF', ((0, -2.0),)),
+        ('EFF_DICE_ADD', ((0, 1.0), (2, 2.0))),
+        ('EFF_SAFETY_MERCHANT_COST_INCREASE_PCT', ((0, -4.0), (4, -8.0))),
+    ),
+    30051: (
+        ('EFF_COLLAPSE_NEED_COUNT_SUBTRACT', ((0, 1.0),)),
+        ('EFF_UNIQUE_CARD_REWARD_PCT_MULTIPLY', ((0, 6.0), (2, 12.0))),
+        ('EFF_EARN_BATTLE_INGAME_CURRENCY_VALUE_CHANGE_PCT', ((0, 104.0), (4, 108.0))),
+    ),
+    30052: (
+        ('EFF_STRESS_VALUE_ADD_SELF', ((0, -2.0),)),
+        ('EFF_EQUIPMENT_GET', ((0, 1.0), (2, 1.0))),
+        ('EFF_GAIN_INGAME_CURRENCY', ((0, 30.0), (4, 60.0))),
+    ),
+    30053: (
+        ('EFF_R_SPARK_GOD_PCT_MULTIPLY', ((0, 20.0),)),
+        ('EFF_DICE_ADD', ((0, 1.0), (2, 2.0))),
+        ('EFF_GAIN_INGAME_CURRENCY', ((0, 30.0), (4, 60.0))),
+    ),
+    30054: (
+        ('EFF_R_SPARK_GOD_PCT_MULTIPLY', ((0, 20.0),)),
+        ('EFF_EARN_BATTLE_INGAME_CURRENCY_VALUE_CHANGE_PCT', ((0, 104.0), (2, 108.0))),
+        ('EFF_RARE_ENCOUNTER_RARITY_PCT_ADD', ((0, 0.9), (4, 1.8))),
+    ),
+    30076: (
+        ('EFF_DMG_UP_RATE_PCT_MULTIPLY', ((0, 15.0),)),
+        ('EFF_BREAK_IN_RATEUP_PCT_ADD', ((0, 0.56), (2, 1.12))),
+        ('EFF_EQUIPMENT_GET', ((0, 1.0), (4, 1.0))),
+    ),
+    30085: (
+        ('EFF_SHIELD_HEAL_UP_RATE_PCT_MULTIPLY', ((0, 15.0),)),
+        ('EFF_GAIN_INGAME_CURRENCY', ((0, 30.0), (2, 60.0))),
+        ('EFF_EARN_STRESS_VALUE_CHANGE_PCT', ((0, 94.0), (4, 88.0))),
+    ),
+    30091: (
+        ('EFF_COLLAPSE_NEED_COUNT_SUBTRACT', ((0, 1.0),)),
+        ('EFF_SAFETY_MERCHANT_COST_INCREASE_PCT', ((0, -4.0), (2, -8.0))),
+        ('EFF_RARE_ENCOUNTER_RARITY_PCT_ADD', ((0, 0.9), (4, 1.8))),
+    ),
+    30092: (
+        ('EFF_STRESS_VALUE_ADD_SELF', ((0, -2.0),)),
+        ('EFF_UNIQUE_CARD_REWARD_PCT_MULTIPLY', ((0, 6.0), (2, 12.0))),
+        ('EFF_DICE_ADD', ((0, 1.0), (4, 2.0))),
+    ),
+    30094: (
+        ('EFF_DMG_UP_RATE_PCT_MULTIPLY', ((0, 15.0),)),
+        ('EFF_RARE_ENCOUNTER_RARITY_PCT_ADD', ((0, 0.9), (2, 1.8))),
+        ('EFF_GAIN_INGAME_CURRENCY', ((0, 30.0), (4, 60.0))),
+    ),
+    30095: (
+        ('EFF_SHIELD_HEAL_UP_RATE_PCT_MULTIPLY', ((0, 15.0),)),
+        ('EFF_EQUIPMENT_GET', ((0, 1.0), (2, 1.0))),
+        ('EFF_EARN_BATTLE_INGAME_CURRENCY_VALUE_CHANGE_PCT', ((0, 104.0), (4, 108.0))),
+    ),
+    30114: (
+        ('EFF_STRESS_VALUE_ADD_SELF', ((0, -2.0),)),
+        ('EFF_EARN_BATTLE_INGAME_CURRENCY_VALUE_CHANGE_PCT', ((0, 104.0), (2, 108.0))),
+        ('EFF_RARE_ENCOUNTER_RARITY_PCT_ADD', ((0, 0.9), (4, 1.8))),
+    ),
+    30116: (
+        ('EFF_DMG_UP_RATE_PCT_MULTIPLY', ((0, 15.0),)),
+        ('EFF_DICE_ADD', ((0, 1.0), (2, 2.0))),
+        ('EFF_SAFETY_MERCHANT_COST_INCREASE_PCT', ((0, -4.0), (4, -8.0))),
+    ),
+    30118: (
+        ('EFF_COLLAPSE_NEED_COUNT_SUBTRACT', ((0, 1.0),)),
+        ('EFF_EARN_STRESS_VALUE_CHANGE_PCT', ((0, 94.0), (2, 88.0))),
+        ('EFF_UNIQUE_CARD_REWARD_PCT_MULTIPLY', ((0, 6.0), (4, 12.0))),
+    ),
+    30135: (
+        ('EFF_PARTNER_UNIQUE_SPARK', ((0, 1.0),)),
+        ('EFF_BREAK_IN_RATEUP_PCT_ADD', ((0, 0.56), (2, 1.12))),
+        ('EFF_UNIQUE_CARD_REWARD_PCT_MULTIPLY', ((0, 6.0), (4, 12.0))),
+    ),
+}
+
 # {Card Skin res_id: (name, rarity, the combatant it is for)}
 # and {pack id: (name, {rarity: the chance a pull is one}, the
 # combatant its Super Rare is for)}. See game_client.card_skins.

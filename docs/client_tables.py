@@ -288,6 +288,20 @@ def shipped_source(client, partners=None):
                   f"{ascii(tuple(tuple(step) for step in p['steps']))}),"
                   for p in passives]
         lines.append("    ),")
+    lines += ["}", "",
+              "# {partner res_id: ((effect, ((limit break, value from then "
+              "on), ...)),",
+              "# ...)}: what each Exploration Passive does, in the game's "
+              "slot order.",
+              "# See game_client.exploration_effects.",
+              "EXPLORATION_EFFECTS = {"]
+    for res_id, passives in sorted(
+            game_client.exploration_effects(client).items()):
+        lines.append(f"    {res_id}: (")
+        lines += [f"        ({ascii(effect)}, "
+                  f"{ascii(tuple((at, float(value)) for at, value in steps))}),"
+                  for effect, steps in passives]
+        lines.append("    ),")
     skins = game_client.card_skins(client)
     lines += ["}", "",
               "# {Card Skin res_id: (name, rarity, the combatant it is for)}",

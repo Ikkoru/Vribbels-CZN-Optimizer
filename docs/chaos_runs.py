@@ -71,6 +71,8 @@ The columns this script owns:
 | `options` | a Zero System map's bonus and penalty options: `b001 p112` |
 | `rolled`  | the bonus and penalties the run rolled, any door, as effects: `ELITE_ADD:p008 CREDIT_DOWN:p016` |
 | `amplified` | how many of the season's `Memory Resonance Amplification` nodes were in force: each pays +1% of the season's currency (`chaos_estimate.run_nodes`); `?` for a run filed before runs kept their effects |
+| `partners` | each combatant's partner and its limit break, in team order: `Sig LB2, Peko LB0, Nyx LB4`; `?` for a run filed before runs kept them |
+| `invasion` | what the partners' Exploration Passives raised the Invasion chance by, in the game's words: `+16%` of the base chance (`chaos_estimate.run_raise`); empty for none, and for a run played before the passives came; `?` where `partners` is |
 | `mode`    | `delegated`, played by the Delegation Module down one path, or `ordinary` |
 | `client`  | the game client and data patch it ran on: `cznlive 1.464 r688`  |
 | `total`   | what the run paid in the season's currency                      |
@@ -131,6 +133,18 @@ run; the season's own tree in its Galactic Disaster runs, where season
 and 09-17 -- none of the season's encounter-rate nodes is for a mark,
 as read in game; and a map's penalties. A shift that lines up with one
 of these is theirs.
+
+**A partner can raise the Invasion chance.** The Exploration Passives,
+which came with Rossweisse's patch (`chaos_estimate.PASSIVES_FROM`),
+give some partners Danger Intuition --
+Sig and Peko -- adding to Senectus's chance each time the run checks
+for one. A run meets Senectus at most once and each missed check raises
+the next one's chance, so the raise moves a run's chance by less than
+the game's "+8%" says (`chaos_estimate.invasion_chance`). `invasion`
+says each run's raise. The per-fight lines and the shift test leave the
+raised runs out of the break-in marks, the Senectus lines after them
+read every run at its own raise, and `shipped_figures` reads the
+break-in marks back to no raise, as `chaos_estimate.SHIPPED` keeps them.
 
 **A Galactic Disaster run rolls a bonus and penalties as a codex
 does**, with no choice of three, and `rolled` names every run's,
@@ -199,8 +213,9 @@ CURRENCY = {3920001: "s01", 3920002: "s02", 3920006: "s03", 3920031: "s04",
 # What this script fills in. Anything after them in an existing file
 # is the maintainer's and is carried over by `date`.
 OWNED = ["date", "season", "part", "chaos", "door", "difficulty",
-         "special", "options", "rolled", "amplified", "mode", "client",
-         "total", "payouts", "marked", "marked_at", "fought", "lost", "gaps"]
+         "special", "options", "rolled", "amplified", "partners",
+         "invasion", "mode", "client", "total", "payouts", "marked",
+         "marked_at", "fought", "lost", "gaps"]
 # The effect ids a run's rolled bonus and penalties come as, whichever
 # door it was entered by.
 ROLLED = (("zero_orb_bonus_", "b"), ("zero_orb_penalty_", "p"))
@@ -527,6 +542,48 @@ def amplified_of(run, season):
     return "?" if held is None else str(held)
 
 
+def partners_of(run):
+    """A run's partners as the `partners` column writes them, in team
+    order: `Sig LB2, Peko LB0, Nyx LB4`; `?` for a run filed before runs
+    kept their partners."""
+    if "partners" not in run:
+        return "?"
+    from game_data.partners import PARTNERS
+    return ", ".join(
+        "%s LB%s" % ((PARTNERS.get(res_id) or {}).get("name") or res_id,
+                     limit_break or 0)
+        for res_id, limit_break, *_rest in run["partners"])
+
+
+def invasion_of(run):
+    """What a run's partners raised its Invasion chance by, as the
+    `invasion` column writes it: in the game's words, a share of the
+    base chance (`+16%`); empty for no raise, `?` where the run kept no
+    partners (`chaos_estimate.run_raise`)."""
+    raised = chaos_estimate.run_raise(run)
+    if raised is None:
+        return "?"
+    return "+%g%%" % round(raised * 100 / chaos_estimate.INVASION_BASE, 2) \
+        if raised else ""
+
+
+def raise_of(row):
+    """A row's Invasion raise in points, off its `invasion` cell: 0 for
+    none, None for `?`."""
+    cell = (row.get("invasion") or "").strip()
+    if cell == "?":
+        return None
+    found = re.fullmatch(r"\+([\d.]+)%", cell)
+    return float(found.group(1)) * chaos_estimate.INVASION_BASE / 100 \
+        if found else 0.0
+
+
+def met_of(row):
+    """Whether a row's run met Senectus: a break-in mark in `marked`."""
+    return any(chaos_estimate.is_invasion(mark) and n
+               for mark, n in counts_of(row.get("marked")).items())
+
+
 def rolled_counts(cell):
     """{group: effect id} from a `rolled` cell, or None for `?`."""
     if (cell or "?") == "?":
@@ -605,6 +662,8 @@ def row_of(run, source, parts, kinds=None):
             for o in (run.get("codex") or {}).get(kind) or ()),
         "rolled": rolled_of(run),
         "amplified": amplified_of(run, season),
+        "partners": partners_of(run),
+        "invasion": invasion_of(run),
         "mode": ("delegated" if run.get("delegated") else "ordinary")
                 if "delegated" in run else "?",
         "client": run.get("client") or "?",
@@ -1041,6 +1100,10 @@ def rate_shifts(rows):
                 HEADING))
     for mark in marks:
         among = [row for row in runs if row["chaos"] in met_in[mark]]
+        # A partner's raise would read as a shift: those runs are
+        # `invasion_rates`' alone.
+        if chaos_estimate.is_invasion(mark):
+            among = [row for row in among if not raise_of(row)]
         fights = []
         for row in among:
             fought = counts_of(row.get("fought"))
@@ -1067,6 +1130,55 @@ def rate_shifts(rows):
                        % FEWEST_RUNS, QUIET)))
     spot_rates(runs, met_in)
     penalty_mix(runs)
+    invasion_rates(runs)
+
+
+def invasion_rates(runs):
+    """Print, for each Chaos, special and mode, how often a whole run
+    met Senectus, by the Invasion raise its partners gave it, and what
+    the client's rule makes of it (`chaos_estimate.invasion_chance`):
+    the checks a run gets, fitted to every run at its own raise, and
+    the chance a run at no raise and at each Danger Intuition step. A
+    run that kept no partners counts as raising nothing, and is flagged
+    where the game had the passives by then. Raised runs meeting
+    Senectus more or less often than the rule says, over enough runs,
+    is the rule being wrong, and is for the doc first."""
+    unknown = [row["date"] for row in runs if raise_of(row) is None
+               and chaos_estimate.had_passives({"client": row.get("client")})]
+    if unknown:
+        print(paint("   ! played with Exploration Passives but no partners "
+                    "kept, counted as no raise: %s" % ", ".join(unknown),
+                    FLAG))
+    by = collections.defaultdict(list)
+    for row in runs:
+        key = ", ".join(cell for cell in (
+            row["chaos"], row.get("special"), row["mode"]) if cell)
+        by[key].append((met_of(row), raise_of(row) or 0.0))
+    if not by:
+        return
+    print(paint("   Senectus a run, by the Invasion raise its partners "
+                "gave (at most one a run; `chaos_estimate.invasion_chance`):",
+                HEADING))
+    steps = sorted({value for passives in
+                    game_client.known_exploration_effects().values()
+                    for effect, values in passives
+                    if effect == chaos_estimate.INVASION_EFFECT
+                    for _at, value in values})
+    for key, held in sorted(by.items()):
+        raises = collections.defaultdict(list)
+        for met, raised in held:
+            raises[raised].append(met)
+        seen = "; ".join("%s %d of %d" % (
+            "+%g%%" % round(raised * 100 / chaos_estimate.INVASION_BASE, 2)
+            if raised else "no raise", sum(mets), len(mets))
+            for raised, mets in sorted(raises.items()))
+        checks = chaos_estimate.invasion_fit(held)
+        reads = ", ".join("%.2f at %s" % (
+            chaos_estimate.invasion_chance(checks, raised),
+            "+%g%%" % round(raised * 100 / chaos_estimate.INVASION_BASE, 2)
+            if raised else "no raise") for raised in [0.0] + steps)
+        print("      %s, %d run(s): %s | %.1f checks a run: %s" % (
+            key, len(held), seen, checks, reads))
 
 
 def penalty_mix(runs, group="ELITE_ADD"):
@@ -1129,8 +1241,9 @@ def shipped_figures(rows):
     each part's bosses as its latest cleared run paid them, each mark's
     amount as last paid, each read back to base at its run's own nodes
     (`chaos_estimate.base_of`, the season's `flat` bosses as paid); each
-    mark per whole run; and the most nodes a part's runs had, beside
-    the shipped `nodes` to compare."""
+    mark per whole run, the break-in marks' at no Invasion raise
+    (`chaos_estimate.base_rates`); and the most nodes a part's runs had,
+    beside the shipped `nodes` to compare."""
     by_season = collections.defaultdict(dict)
     for date, row in rows.items():
         if row["season"] != "?":
@@ -1162,8 +1275,12 @@ def shipped_figures(rows):
         for row in whole:
             for key, n in counts_of(row.get("marked")).items():
                 counted[key] += n
-        marks = {mark: (amounts.get(mark, 0),
-                        round(counted[mark] / len(whole), 2) if whole else 0)
+        # The break-in marks at no Invasion raise, as SHIPPED keeps them.
+        rates = chaos_estimate.base_rates(
+            {mark: counted[mark] / len(whole) for mark in counted},
+            [(met_of(row), raise_of(row) or 0.0) for row in whole]) \
+            if whole else {}
+        marks = {mark: (amounts.get(mark, 0), round(rates.get(mark, 0), 2))
                  for mark in sorted(set(amounts) | set(counted))}
         tree = game_client.known_season_nodes().get("disaster_" + season)
         print('       "disaster_%s": {' % season)

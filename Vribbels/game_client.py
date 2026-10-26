@@ -76,7 +76,7 @@ GAMERES = Path("bin") / "appdata" / "cznlive" / "gameres"
 # reader that changes what it reads raises this: every install then
 # reads its client again once, rather than at the next patch.
 CACHE_FILE = "game_client.json"
-CACHE_FORMAT = 20
+CACHE_FORMAT = 21
 
 # The manifest layout this reads. A different version is a different
 # layout until shown otherwise.
@@ -1524,21 +1524,25 @@ def chaos_names(client):
 # the rest on every combatant and the run.
 EXPLORATION_SLOTS = "partner_ego_passive@partner_ego_passive"
 EXPLORATION_TEXTS = "partner_ego_passive@partner_ego_passive_eff"
+# What each level of a passive does, as the game computes it: the text
+# row's `link_nb_eff_id` names a row here, its `nb_eff` the effect and
+# `eff_value` how much. Danger Intuition is `EFF_BREAK_IN_RATEUP_PCT_ADD`,
+# 0.56 at the level its text calls 8%: 8% of Senectus's base chance of 7
+# (`chaos_estimate.INVASION_BASE`).
+EXPLORATION_VALUES = "partner_ego_passive@nb_eff"
 
 
-def exploration_passives(client):
-    """{partner res_id: [{name, assigned, steps}]}: a partner's
-    Exploration Passives in the game's slot order, each one's name,
-    whether it acts on the assigned combatant alone, and [limit break,
-    its text from then on] for each limit break it rises at."""
-    texts = client.text()
+def _exploration_slots(client):
+    """[(partner res_id, [(slot's rows by limit break, each row's text
+    row or None)])]: every partner's Exploration Passives, slot by slot
+    in the game's order."""
     effects = {r["id"]: r for r in client.rows(EXPLORATION_TEXTS)}
     slots = {}
     for row in client.rows(EXPLORATION_SLOTS):
         key = row.get("id", "").rpartition("_")[0]
         slots.setdefault(key, {}).setdefault(row.get("eff_class"),
                                              []).append(row)
-    out = {}
+    out = []
     for partner in client.rows("partner_base@char_partner"):
         rid = _figure(partner.get("id"))
         held = slots.get(partner.get("link_partner_ego_passive_key") or "")
@@ -1548,20 +1552,64 @@ def exploration_passives(client):
         for slot in sorted(held):
             rows = sorted(held[slot],
                           key=lambda r: _figure(r.get("limit_break")) or 0)
+            passives.append([(row, effects.get("%s_%02d" % (
+                row.get("link_partner_ego_passive_eff_key"),
+                _figure(row.get("level"))))
+                if isinstance(_figure(row.get("level")), int) else None)
+                for row in rows])
+        out.append((rid, passives))
+    return out
+
+
+def exploration_passives(client):
+    """{partner res_id: [{name, assigned, steps}]}: a partner's
+    Exploration Passives in the game's slot order, each one's name,
+    whether it acts on the assigned combatant alone, and [limit break,
+    its text from then on] for each limit break it rises at."""
+    texts = client.text()
+    out = {}
+    for rid, slots in _exploration_slots(client):
+        passives = []
+        for rows in slots:
             name, steps = None, []
-            for row in rows:
-                level, at = _figure(row.get("level")), _figure(
-                    row.get("limit_break"))
-                effect = effects.get("%s_%02d" % (
-                    row.get("link_partner_ego_passive_eff_key"), level)) \
-                    if isinstance(level, int) else None
+            for row, effect in rows:
+                at = _figure(row.get("limit_break"))
                 text = passage(texts.get((effect or {}).get("description")))
                 name = name or passage(texts.get((effect or {}).get("name")))
                 if text and isinstance(at, int):
                     steps.append([at, text])
             if name and steps:
                 passives.append({"name": name, "steps": steps, "assigned":
-                                 rows[0].get("belong_character_eff") == "YES"})
+                                 rows[0][0].get("belong_character_eff")
+                                 == "YES"})
+        if passives:
+            out[rid] = passives
+    return out
+
+
+def exploration_effects(client):
+    """{partner res_id: [[effect, [[limit break, value from then on],
+    ...]], ...]}: what each of a partner's Exploration Passives does,
+    in the game's slot order -- the `nb_eff` of each level it rises to
+    and its `eff_value` (`EXPLORATION_VALUES`). A passive whose effect
+    changes between levels is listed under its first."""
+    values = {r["id"]: r for r in client.rows(EXPLORATION_VALUES)}
+    out = {}
+    for rid, slots in _exploration_slots(client):
+        passives = []
+        for rows in slots:
+            effect, steps = None, []
+            for row, text in rows:
+                at = _figure(row.get("limit_break"))
+                held = values.get((text or {}).get("link_nb_eff_id")) or {}
+                value = _figure(held.get("eff_value"))
+                if not held.get("nb_eff") or not isinstance(
+                        value, (int, float)) or not isinstance(at, int):
+                    continue
+                effect = effect or held["nb_eff"]
+                steps.append([at, value])
+            if effect and steps:
+                passives.append([effect, steps])
         if passives:
             out[rid] = passives
     return out
@@ -1894,6 +1942,8 @@ def read_facts(install):
                          in period_items(client).items()},
         "exploration_passives": {str(res_id): passives for res_id, passives
                                  in exploration_passives(client).items()},
+        "exploration_effects": {str(res_id): passives for res_id, passives
+                                in exploration_effects(client).items()},
         "card_skins": card_skins(client),
         "season_nodes": season_nodes(client),
     }
@@ -2239,6 +2289,24 @@ def known_exploration_passives():
                  tuple((int(at), str(text)) for at, text in p["steps"]))
                 for p in passives)
         except (KeyError, TypeError, ValueError):
+            continue
+    return out
+
+
+def known_exploration_effects():
+    """{partner res_id: ((effect, ((limit break, value from then on),
+    ...)), ...)}: the shipped table, with what this machine's client
+    says over it, partner by partner. See `exploration_effects`."""
+    from game_data import from_client
+    out = dict(getattr(from_client, "EXPLORATION_EFFECTS", {}))
+    for key, passives in ((_facts or {}).get("exploration_effects")
+                          or {}).items():
+        try:
+            out[int(key)] = tuple(
+                (str(effect), tuple((int(at), float(value))
+                                    for at, value in steps))
+                for effect, steps in passives)
+        except (TypeError, ValueError):
             continue
     return out
 

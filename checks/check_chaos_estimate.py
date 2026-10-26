@@ -38,6 +38,14 @@ else, so a broken one reads as a plausible figure:
     a part's count takes in the parts before it, the nodes the client
     has rows for, amplification nodes alone; and a season with one
     layout for all its parts grows a part a patch (`grown_season_nodes`).
+11. **A partner's Invasion raise follows the client's rule**: added to
+    every check's chance, which starts at `INVASION_BASE` and rises by
+    `INVASION_STEP` a miss, one Senectus a run at most -- so a raise
+    moves a run's chance by less than its share of the base, and the
+    more checks a run gets, the less. The raise is the partner's step
+    at its limit break, summed over the team, and nothing before the
+    passives came. The player's raised runs read back to no raise, and
+    the estimate meets the break-in marks at the newest run's raise.
 
 The client's trees are put in place for the run with `game_client.use`
 and the shipped extract's taken away, so the cases read the same on any
@@ -437,6 +445,101 @@ def _client_tree(game_client):
     return []
 
 
+# Danger Intuition, as the client gives Sig and Peko it: 0.56 from limit
+# break 0, 1.12 from 2.
+DANGER = ["EFF_BREAK_IN_RATEUP_PCT_ADD", [[0, 0.56], [2, 1.12]]]
+EFFECTS = {"30135": [["EFF_PARTNER_UNIQUE_SPARK", [[0, 1]]], DANGER],
+           "30076": [["EFF_R_SPARK_GOD_PCT_MULTIPLY", [[0, 20]]], DANGER]}
+PASSIVE_CLIENT = "cznlive 1.837 r126"
+
+
+def _invasion(ce, table):
+    """11: the Invasion raise."""
+    failures = []
+    for checks, raised, want, what in (
+            (1, 0, 0.07, "one check at the base"),
+            (1, 0.56, 0.0756, "one check at +8%"),
+            (2, 0, 1 - 0.93 * 0.92, "two checks, the second at 8%"),
+            (ce.MOST_CHECKS, 0, 1.0, "every check")):
+        got = ce.invasion_chance(checks, raised)
+        if not math.isclose(got, want):
+            failures.append(f"{what} meets Senectus {got!r} of runs, not "
+                            f"{want!r} (`invasion_chance`).")
+    for rate in (0.07, 0.43, 0.9):
+        back = ce.invasion_chance(ce.invasion_checks(rate))
+        if not math.isclose(back, rate, abs_tol=1e-6):
+            failures.append(f"a rate of {rate} read as checks and back is "
+                            f"{back!r} (`invasion_checks`).")
+    shipped = {mark: rate for mark, (_amount, rate)
+               in table[LIVE]["marks"].items()}
+    raised = ce.raise_rates(shipped, 1.12)
+    met = shipped["b1"] + shipped["b1+k5"]
+    want = ce.invasion_chance(ce.invasion_checks(met), 1.12)
+    if not math.isclose(raised["b1"] + raised["b1+k5"], want) \
+            or not math.isclose(raised["b1"] / raised["b1+k5"],
+                                shipped["b1"] / shipped["b1+k5"]) \
+            or raised["k5"] != shipped["k5"] or want >= met * 1.16:
+        failures.append(
+            f"season 4's {met:.2f} Senectus a run at +16% reads "
+            f"{raised['b1'] + raised['b1+k5']!r}, not {want!r}, and not "
+            f"{met:.2f} x 1.16: the raise is added to every check, one "
+            f"Senectus a run at most, each break-in mark keeping its share "
+            f"and the other marks unmoved (`raise_rates`).")
+    runs = [(True, 1.12)] * 47 + [(False, 1.12)] * 53
+    base = ce.base_rates({"b1": 0.47}, runs)["b1"]
+    if not math.isclose(ce.raise_rates({"b1": base}, 1.12)["b1"], 0.47,
+                        abs_tol=1e-6):
+        failures.append(f"runs at +16% meeting 0.47 a run read back to "
+                        f"{base!r} at no raise, which does not raise back to "
+                        f"0.47 (`base_rates`).")
+    for team, client, want, what in (
+            ([[30135, 0]], PASSIVE_CLIENT, 0.56, "Sig at LB0"),
+            ([[30135, 2]], PASSIVE_CLIENT, 1.12, "Sig at LB2"),
+            ([[30135, 3], [30076, 0], [1025, 4]], PASSIVE_CLIENT, 1.68,
+             "Sig at LB3, Peko at LB0 and a partner without the passive"),
+            ([[30076, 2]], "cznlive 1.814 r88", 0.0,
+             "Peko before the passives came")):
+        got = ce.run_raise({"partners": team, "client": client})
+        if not math.isclose(got, want):
+            failures.append(f"{what} raise the Invasion chance by {got!r}, "
+                            f"not {want} (`run_raise`).")
+    if ce.run_raise({"client": PASSIVE_CLIENT}) is not None:
+        failures.append("a run that kept no partners reads as raising "
+                        "nothing, not as unknown.")
+
+    def run_(closed, team, marked=None):
+        return dict(_run(LIVE, 3, closed=closed, marked=marked or {}),
+                    partners=team, client=PASSIVE_CLIENT)
+
+    newest = [run_(AFTER, []), run_(AFTER + 9, [[30135, 2]])]
+    if ce.current_raise(LIVE, newest) != 1.12 \
+            or ce.current_raise(LIVE, newest[:1]) != 0:
+        failures.append(f"the newest run took Sig at LB2, and the raise the "
+                        f"estimate takes reads "
+                        f"{ce.current_raise(LIVE, newest)!r} (`current_raise`).")
+    plain = ce.season_chaos(LIVE, newest[:1], [21, 21, 21], 1, shipped=table)
+    sig = ce.season_chaos(LIVE, newest, [21, 21, 21], 1, shipped=table)
+    by_hand = ce.season_chaos(LIVE, newest[:1], [21, 21, 21], 1,
+                              shipped=table, raised=1.12)
+    if not plain < sig or not math.isclose(sig, by_hand):
+        failures.append(f"season 4 comes to {plain!r} without a raise, "
+                        f"{sig!r} with Sig at LB2 on the newest run and "
+                        f"{by_hand!r} told +16%: the break-in marks are met "
+                        f"at the newest run's raise.")
+    shipped_s07 = dict(table, disaster_s07=table[LIVE])
+    raised_runs = [dict(run_(AFTER + i, [[30135, 2]],
+                             {"b1": 1} if i % 2 else {}),
+                        season="disaster_s07")
+                   for i in range(ce.RATE_RUNS)]
+    rates, _n = ce.mark_rates("disaster_s07", raised_runs, shipped_s07, 2, 0)
+    want = ce.invasion_chance(ce.invasion_fit([(True, 1.12), (False, 1.12)]))
+    if not math.isclose(rates.get("b1", 0), want) or not rates["b1"] < 0.5:
+        failures.append(f"runs at +16%, half meeting Senectus, give a rate "
+                        f"of {rates.get('b1')!r} a run, not {want!r}: the "
+                        f"player's own rates are read back to no raise.")
+    return failures
+
+
 def run():
     add_source_to_path()
     import chaos_estimate as ce
@@ -447,7 +550,8 @@ def run():
     failures = []
     try:
         game_client.use({"format": game_client.CACHE_FORMAT,
-                         "season_nodes": TREES})
+                         "season_nodes": TREES,
+                         "exploration_effects": EFFECTS})
         # The cases are read against season 4's figures alone: a later
         # season shipped beside it becomes the one every season after it
         # starts from, which is a reading of the table, not of the rules.
@@ -461,6 +565,7 @@ def run():
         failures += _lost(ce)
         failures += _setting(ce)
         failures += _client_tree(game_client)
+        failures += _invasion(ce, table)
     finally:
         game_client.use(held)
     return failures
@@ -523,4 +628,25 @@ FAULTS = [
      "counts.append(sum(1 for number in shown if held.get(number)))",
      "counts.append(sum(1 for number in shown if held.get(number, True)))",
      "amplification nodes with rows alone"),
+    ("the Invasion raise taken as a share of a run's rate",
+     "chaos_estimate:raise_rates",
+     "scale = invasion_chance(invasion_checks(min(met, 1.0)), raised) / met",
+     "scale = 1 + raised / INVASION_BASE", "the raise is added to every"),
+    ("a missed check not raising the next", "chaos_estimate:invasion_chance",
+     "chance = (INVASION_BASE + raised + done * INVASION_STEP) / 100",
+     "chance = (INVASION_BASE + raised) / 100", "two checks, the second"),
+    ("a partner's passive read at its first step",
+     "chaos_estimate:invasion_raise",
+     "reached = [value for rise, value in steps if rise <= limit_break]",
+     "reached = [value for rise, value in steps if rise <= 0]",
+     "Sig at LB2 raise"),
+    ("the player's raised runs not read back", "chaos_estimate:mark_rates",
+     "return (base_rates(own, [(met_invasion(run), run_raise(run))",
+     "return (dict(own) or base_rates(own, [(met_invasion(run), "
+     "run_raise(run))",
+     "read back to no raise"),
+    ("the estimate not raised", "chaos_estimate:season_chaos",
+     "rates = raise_rates(rates, current_raise(live, runs)",
+     "rates = raise_rates(rates, 0 * current_raise(live, runs)",
+     "met at the newest run's raise"),
 ]

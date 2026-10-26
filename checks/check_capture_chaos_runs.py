@@ -41,6 +41,10 @@ quietly:
 10. **A run says what its entry said it was**: the Chaos's id, the
     difficulty, a Zero System map's codex, every effect in force, and
     each mark by the spot it was met on.
+11. **A run says which partners it took, at which limit break**: off
+    the entry, or the stage a run no capture saw enter is taken up
+    from. Their Exploration Passives are not among the effects, and
+    the table's Invasion raise is read off them alone.
 
 Synthetic frames in the shapes of those captures. No Tk and no
 snapshot needed.
@@ -414,6 +418,7 @@ def run():
 
     failures.extend(_given_up(Addon))
     failures.extend(_what_the_entry_says(Addon))
+    failures.extend(_the_partners(Addon))
     failures.extend(_the_table_keeps_a_replayed_row())
     failures.extend(_the_table_names_the_rolls())
     failures.extend(_a_run_spans_captures(Addon))
@@ -901,6 +906,83 @@ def _what_the_entry_says(Addon):
     return failures
 
 
+# Each combatant's partner as an entry's `stage_info` lists it (the
+# 2026-10-21 15:53 capture's, cut down), the third combatant's left
+# without one.
+SUPPORTERS = {"enter_supporters": [
+    {"id": 4, "res_id": 30135, "limit_break": 2, "level": 60},
+    {"id": 5, "res_id": 1025, "limit_break": 0, "level": 60}]}
+SIG_STEPS = {"30135": [["EFF_PARTNER_UNIQUE_SPARK", [[0, 1]]],
+                       ["EFF_BREAK_IN_RATEUP_PCT_ADD", [[0, 0.56], [2, 1.12]]]]}
+
+
+def _the_partners(Addon):
+    """A run records each combatant's partner and its limit break, off
+    the entry's `enter_supporters` -- or, for a run no capture saw
+    enter, off the stage reply it is taken up from. An entry with no
+    stage says nothing, which is not a team without partners. The
+    table writes them, and what they raised the Invasion chance by: a
+    partner's Exploration Passive is not among the run's effects, so
+    the partners are its only record. Returns complaints."""
+    import game_client
+    out = []
+    addon = _new(Addon)
+    _setup(addon)
+    steps = _Steps(addon, 1500)
+    steps.step("chaos/enter_embody_chaos_stage",
+               service_server_time=1790461000, **EMBODY_ENTRY)
+    steps.step("stage/clear_stage", service_server_time=1790461600,
+               stage_id=120000004)
+    steps.step("disaster/enter_disaster_chaos_stage",
+               service_server_time=1790463000, stage_info=SUPPORTERS,
+               **DISASTER_ENTRY)
+    steps.step("stage/clear_stage", service_server_time=1790463600,
+               stage_id=100000)
+    embody, disaster = (addon.chaos_runs + [{}, {}])[:2]
+    team = [[30135, 2], [1025, 0]]
+    if disaster.get("partners") != team or "partners" in embody:
+        out.append(f"a run entered with Sig at LB2 and Ivy at LB0 records "
+                   f"partners {disaster.get('partners')!r}, and one whose "
+                   f"entry carries no stage {embody.get('partners')!r}: "
+                   f"{team!r} in team order, and none at all.")
+    later = _new(Addon)
+    _setup(later)
+    steps = _Steps(later, 1600)
+    steps.step("world/get_stage_info", service_server_time=1790470000,
+               stage_info=dict(_span_stage(["e0"]), **SUPPORTERS))
+    steps.step("stage/clear_stage", service_server_time=1790470600,
+               stage_id=100000)
+    taken = later.chaos_runs[-1] if later.chaos_runs else {}
+    if (taken.get("started_elsewhere"), taken.get("partners")) != (True,
+                                                                   team):
+        out.append(f"a run taken up from a stage reply reads started "
+                   f"elsewhere {taken.get('started_elsewhere')!r} with "
+                   f"partners {taken.get('partners')!r}, not True with "
+                   f"{team!r}: the stage reply lists them as the entry "
+                   f"does (`Addon._resume_chaos`).")
+    held = game_client._facts
+    try:
+        game_client.use({"format": game_client.CACHE_FORMAT,
+                         "exploration_effects": SIG_STEPS})
+        tool = _tool()
+        cells = [(row["partners"], row["invasion"]) for row in (
+            tool.row_of(dict(disaster, client=client), "x", {})
+            for client in ("cznlive 1.837 r126", "cznlive 1.814 r88"))]
+        cells.append(tuple(tool.row_of(embody, "x", {})[key]
+                           for key in ("partners", "invasion")))
+        want = [("Sig LB2, Ivy LB0", "+16%"), ("Sig LB2, Ivy LB0", ""),
+                ("?", "?")]
+        if cells != want:
+            out.append(f"docs/chaos_runs.py writes partners and invasion "
+                       f"{cells}, not {want}: Sig's Danger Intuition at LB2 "
+                       f"is +16% from the client that brought the passives, "
+                       f"nothing before it, and a run that kept no partners "
+                       f"is unknown.")
+    finally:
+        game_client.use(held)
+    return out
+
+
 # What this check must catch, for `checks/faults.py`.
 FAULTS = [
     ("a run left by its capture not taken up",
@@ -940,4 +1022,23 @@ FAULTS = [
      'or disaster.get("disaster_list_id")),',
      'or info.get("disaster_list_id")),',
      "a Galactic Disaster run records difficulty"),
+    ("the partners not kept", "capture.manager:ADDON_TEMPLATE",
+     "    if isinstance(team, list):\n        out[\"partners\"]",
+     "    if False:\n        out[\"partners\"]",
+     "a run entered with Sig at LB2"),
+    ("an entry with no stage read as a team without partners",
+     "capture.manager:ADDON_TEMPLATE",
+     'team = stage.get("enter_supporters") if isinstance(stage, dict) '
+     'else None',
+     'team = stage.get("enter_supporters") if isinstance(stage, dict) '
+     'else []',
+     "a run entered with Sig at LB2"),
+    ("a run taken up without its partners", "capture.manager:ADDON_TEMPLATE",
+     '"stage_info": data.get("stage_info")})',
+     '"stage_info": None})', "a run taken up from a stage reply"),
+    ("a partner's passive counted before the passives came",
+     "chaos_estimate:run_raise",
+     'return invasion_raise(run["partners"]) if had_passives(run) else 0.0',
+     'return invasion_raise(run["partners"])',
+     "nothing before it"),
 ]

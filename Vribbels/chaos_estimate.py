@@ -70,6 +70,16 @@ boss and 45 a Rare Species in the past ones captured in season 4, at
 its 25 nodes, against 180 and 60 -- and the estimate is of the live
 one.
 
+**A partner can raise the Invasion chance**, and a Senectus breaking in
+on a Rare Species pays as one (`b1+k5`). The break-in marks' rates are
+kept at no raise -- the shipped ones, and the player's own read back to
+it (`base_rates`) -- and the estimate takes them to the raise the
+player's newest run of the season's Chaos had (`current_raise`,
+`raise_rates`). A raise is not a share of the rate a run: a run meets
+Senectus at most once, and each check that misses raises the next
+check's chance, so a raise added to every check moves a run's chance
+less the more checks a run gets (`invasion_chance`).
+
 No Tk: this takes plain data, and `docs/chaos_runs.py` reads it too.
 """
 
@@ -89,7 +99,8 @@ from version import RELEASED_IN, RELEASED_ON
 # node amplifies; `nodes` the amplification nodes the season's tree
 # holds by the end of each part, part 1 first, for where no client tree
 # is read (`season_nodes`); `marks` is {mark: (amount a fight, marked
-# fights a whole run)}. Season 4's first part was never captured, so it
+# fights a whole run)}, the break-in marks' at no Invasion raise
+# (`base_rates`). Season 4's first part was never captured, so it
 # borrows the second's.
 SHIPPED = {
     "disaster_s04": {
@@ -182,6 +193,33 @@ ZERO_SPECIALS = {
 # the ordinary rate, so the rates leave it out; `docs/chaos_runs.py`
 # does the same.
 RATE_EVENTS = ()
+
+# **Senectus, the Invasion monster**, as the client's `break_in@break_in`
+# row `bi_0001` sets it: from floor `break_in_first_spot` (5) on, each
+# check meets it at `INVASION_BASE`% (`break_in_col_cnt_revise`), plus
+# `INVASION_STEP` for every check before it that missed
+# (`break_in_ck_fail_revise`), and a run meets it once at most
+# (`break_in_max_cnt`). Every break-in captured fits: none before floor
+# 5, none a second in one run. What a check is the table does not say,
+# so how many a run gets is read off how often runs meet one
+# (`invasion_checks`, `invasion_fit`). The Zero System's own Invasion
+# node, Hostile Signal Detection, was in force in every run captured, so
+# what it does is inside that reading.
+INVASION_BASE = 7
+INVASION_STEP = 1
+# The most checks a run is read as getting. The chance reaches 100% on
+# the 94th, so no rate a run needs more.
+MOST_CHECKS = 100
+# **A partner's Exploration Passive adding to the Invasion chance**:
+# Danger Intuition's effect, whose value is added to every check's
+# chance -- 0.56 at the level the game calls 8%, which is 8% of
+# INVASION_BASE (`game_client.exploration_effects`).
+INVASION_EFFECT = "EFF_BREAK_IN_RATEUP_PCT_ADD"
+# The first game client with Exploration Passives, as a run's `client`
+# names its version, and the day it went live, UTC, for a run that names
+# none: a partner taken into a run before then raised nothing.
+PASSIVES_FROM = (1, 837)
+PASSIVES_ON = "2026-10-21"
 
 # The `chaos_runs_per_day` setting: what it falls back to, and the most
 # it may say.
@@ -636,6 +674,167 @@ def in_rate_event(when):
     return None
 
 
+def is_invasion(mark):
+    """Whether a mark is a break-in's: `b1`, or `b1+k5` for one
+    breaking in on a Rare Species (`capture.manager._chaos_mark`)."""
+    return str(mark).startswith("b")
+
+
+def invasion_chance(checks, raised=0.0):
+    """The chance a run meets Senectus over `checks` checks, each check's
+    chance `raised` by its partners (`invasion_raise`). A share of a
+    check counts as that share of one, so the chance rises smoothly
+    with the checks and can be read back (`invasion_checks`)."""
+    checks = max(0.0, min(float(checks), MOST_CHECKS))
+    whole = int(checks)
+    missed = 1.0
+    for done in range(whole + 1):
+        share = 1.0 if done < whole else checks - whole
+        if share <= 0:
+            break
+        chance = (INVASION_BASE + raised + done * INVASION_STEP) / 100
+        missed *= (1 - min(1.0, max(0.0, chance))) ** share
+    return 1 - missed
+
+
+def invasion_checks(rate, raised=0.0):
+    """How many checks a run gets, for runs at `raised` to meet Senectus
+    at `rate` a run: `invasion_chance` read back, by halving. 0 for a
+    rate of nothing, `MOST_CHECKS` for one no count falls short of."""
+    if rate <= 0:
+        return 0.0
+    if rate >= invasion_chance(MOST_CHECKS, raised):
+        return float(MOST_CHECKS)
+    low, high = 0.0, float(MOST_CHECKS)
+    for _ in range(50):
+        middle = (low + high) / 2
+        if invasion_chance(middle, raised) < rate:
+            low = middle
+        else:
+            high = middle
+    return (low + high) / 2
+
+
+def invasion_fit(runs):
+    """The checks a run gets, read off `runs`, each (whether it met
+    Senectus, its raise): the count at which the runs, each at its own
+    raise, would meet as many as they did. None for no runs. With every
+    raise the same, it is `invasion_checks` of their rate."""
+    runs = [(bool(met), raised or 0.0) for met, raised in runs]
+    if not runs:
+        return None
+    met = sum(1 for hit, _raised in runs if hit)
+    if met == 0:
+        return 0.0
+    if met == len(runs):
+        return float(MOST_CHECKS)
+    low, high = 0.0, float(MOST_CHECKS)
+    for _ in range(50):
+        middle = (low + high) / 2
+        if sum(invasion_chance(middle, raised)
+               for _hit, raised in runs) < met:
+            low = middle
+        else:
+            high = middle
+    return (low + high) / 2
+
+
+def raise_rates(rates, raised):
+    """`rates` -- {mark: marked fights a whole run}, at no raise -- with
+    the break-in marks' taken to `raised`: the rate a run meets Senectus
+    read as checks (`invasion_checks`), the chance at the raise over as
+    many, each break-in mark keeping its share."""
+    met = sum(rate for mark, rate in rates.items() if is_invasion(mark))
+    if not raised or met <= 0:
+        return dict(rates)
+    scale = invasion_chance(invasion_checks(min(met, 1.0)), raised) / met
+    return {mark: rate * scale if is_invasion(mark) else rate
+            for mark, rate in rates.items()}
+
+
+def base_rates(rates, runs):
+    """`rates` -- {mark: marked fights a whole run} over `runs`, each
+    (whether it met Senectus, its raise) -- with the break-in marks'
+    read back to no raise (`invasion_fit`), each keeping its share. As
+    they are where no run had a raise."""
+    runs = list(runs)
+    met = sum(rate for mark, rate in rates.items() if is_invasion(mark))
+    if met <= 0 or not any(raised for _hit, raised in runs):
+        return dict(rates)
+    scale = invasion_chance(invasion_fit(runs)) / met
+    return {mark: rate * scale if is_invasion(mark) else rate
+            for mark, rate in rates.items()}
+
+
+def client_version(run):
+    """A run's game client as (major, minor) off its `client`
+    (`cznlive 1.837 r126` is (1, 837)), or None."""
+    found = re.search(r"(\d+)\.(\d+)", str(run.get("client") or ""))
+    return (int(found.group(1)), int(found.group(2))) if found else None
+
+
+def had_passives(run):
+    """Whether the game had Exploration Passives when a run was played:
+    its client from `PASSIVES_FROM` on, else, naming none, a clear on
+    `PASSIVES_ON` or after."""
+    version = client_version(run)
+    if version is not None:
+        return version >= PASSIVES_FROM
+    closed = run.get("closed")
+    return isinstance(closed, (int, float)) and datetime.datetime.fromtimestamp(
+        closed, datetime.timezone.utc).strftime("%Y-%m-%d") >= PASSIVES_ON
+
+
+def invasion_raise(partners):
+    """What `partners` -- [[res_id, limit break], ...] -- add to every
+    check's Invasion chance, in points: each one's `INVASION_EFFECT`
+    at the last limit break it rose at by then, summed
+    (`game_client.known_exploration_effects`)."""
+    import game_client
+    held = game_client.known_exploration_effects()
+    total = 0.0
+    for entry in partners or ():
+        if not isinstance(entry, (list, tuple)) or len(entry) < 2:
+            continue
+        res_id, limit_break = entry[0], entry[1] or 0
+        for effect, steps in held.get(res_id) or ():
+            if effect != INVASION_EFFECT:
+                continue
+            reached = [value for rise, value in steps if rise <= limit_break]
+            if reached:
+                total += reached[-1]
+    return round(total, 6)
+
+
+def run_raise(run):
+    """What a run's partners added to its Invasion chance, in points
+    (`invasion_raise`): 0 for a run played before Exploration Passives
+    (`had_passives`), None for one filed before runs kept their
+    partners."""
+    if "partners" not in run:
+        return None
+    return invasion_raise(run["partners"]) if had_passives(run) else 0.0
+
+
+def current_raise(live, runs):
+    """The raise the player's newest run of `live`'s own Chaos had
+    (`run_raise`): the team the estimate takes them to keep. 0 where no
+    such run kept its partners."""
+    for run in sorted(readable(runs), key=lambda run: run["closed"],
+                      reverse=True):
+        if is_current(run) and run.get("season") == live:
+            raised = run_raise(run)
+            if raised is not None:
+                return raised
+    return 0.0
+
+
+def met_invasion(run):
+    """Whether a run's marks hold a break-in."""
+    return any(is_invasion(mark) and isinstance(n, int) and n > 0
+               for mark, n in (run.get("marked") or {}).items())
+
+
 def _counted(runs):
     """The runs a mark's rate is counted over: whole, of the live
     season's own Chaos, every fight known, none inside a `RATE_EVENTS`
@@ -646,7 +845,8 @@ def _counted(runs):
 
 
 def mark_rates(live, runs, shipped=SHIPPED, stale=0, since=None):
-    """({mark: marked fights a whole run}, how many runs made them).
+    """({mark: marked fights a whole run}, how many runs made them), the
+    break-in marks' at no raise (`base_rates`).
 
     The shipped rates and None, unless rule 4 or rule 5 hands them to
     the player.
@@ -668,20 +868,24 @@ def mark_rates(live, runs, shipped=SHIPPED, stale=0, since=None):
         for mark, n in (run.get("marked") or {}).items():
             if isinstance(n, int):
                 marked[mark] += n
-    return ({mark: marked[mark] / len(counted)
-             for mark in sorted(set(rates) | set(marked))}, len(counted))
+    own = {mark: marked[mark] / len(counted)
+           for mark in sorted(set(rates) | set(marked))}
+    return (base_rates(own, [(met_invasion(run), run_raise(run))
+                             for run in counted]), len(counted))
 
 
 def season_chaos(live, runs, part_days, runs_a_day=DEFAULT_RUNS_PER_DAY,
                  starts=None, shipped=SHIPPED, released_in=RELEASED_IN,
-                 since=None):
+                 since=None, raised=None):
     """What the live season's Chaos pays at `runs_a_day`, or None where
     nothing has been shipped to start from.
 
     `runs` is the snapshot's `chaos_runs`; `part_days` the days each
     part runs, first to last; `starts` when each part opened, which
     dates the live season's runs where given. Every payout is at its
-    part's nodes (`season_nodes`), the `flat` bosses at base.
+    part's nodes (`season_nodes`), the `flat` bosses at base. The
+    break-in marks are met at the Invasion raise `raised`, else at the
+    player's newest run's (`current_raise`).
     """
     if not shipped or not part_days:
         return None
@@ -689,6 +893,8 @@ def season_chaos(live, runs, part_days, runs_a_day=DEFAULT_RUNS_PER_DAY,
     runs = readable(runs)
     values = mark_values(live, runs, shipped, stale, starts)
     rates, _counted = mark_rates(live, runs, shipped, stale, since)
+    rates = raise_rates(rates, current_raise(live, runs)
+                        if raised is None else raised)
     nodes = season_nodes(live, len(part_days), runs, starts, shipped)
     flat = flat_floors(live, shipped)
     total = 0

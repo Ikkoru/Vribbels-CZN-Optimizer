@@ -319,7 +319,7 @@ def _chaos_setup(data):
     (a base-game Chaos's `embody_chaos_04_06`, a Galactic Disaster's
     `disaster_s04_08`), a Zero System map's codex -- its level, its
     bonus, penalty and special options -- the planet, the bosses and
-    the floors, and every Zero System effect in force.
+    the floors, every Zero System effect in force, and the partners.
 
     **All of it, named as sent.** What most of it changes is not on the
     wire: a special option can rebuild the map (the next season's turns
@@ -327,6 +327,13 @@ def _chaos_setup(data):
     floors), and the season's own skill tree raises encounter and
     break-in rates as the player levels it. A rate read off runs that
     differ in any of these is a rate of their mix.
+
+    **The partners' Exploration Passives are not among the effects**:
+    they are worked out from `partners`, `[res_id, limit break]` for
+    each combatant's partner in team order, off the stage's
+    `enter_supporters` (`chaos_estimate.run_raise`). Left out where the
+    reply carries no stage, so a run that never kept them reads as
+    unknown rather than as a team without partners.
 
     The bosses come off the reply's `dev_msg`, a developer's note whose
     `boss_list:` part names them."""
@@ -359,6 +366,12 @@ def _chaos_setup(data):
               for word in str(data.get("dev_msg") or "").split()
               if word.startswith("boss_list:")]
     out["bosses"] = bosses[0] if bosses else []
+    stage = data.get("stage_info")
+    team = stage.get("enter_supporters") if isinstance(stage, dict) else None
+    if isinstance(team, list):
+        out["partners"] = [[sup.get("res_id"), sup.get("limit_break")]
+                           for sup in team
+                           if isinstance(sup, dict) and sup.get("res_id")]
     return out
 
 
@@ -4330,7 +4343,8 @@ class Addon:
         setup = _chaos_setup({"playing_stage_info": {
             "chaos_info": stage.get("chaos_info"),
             "ingame_content_config_id": None},
-            "zero_system_effs": data.get("zero_system_effs")})
+            "zero_system_effs": data.get("zero_system_effs"),
+            "stage_info": data.get("stage_info")})
         held = self._read_open_chaos() or {}
         run = held.get("run")
         kept = held.get("events") or []

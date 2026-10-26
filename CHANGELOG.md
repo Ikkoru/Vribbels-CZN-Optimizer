@@ -13,6 +13,8 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Checklist: Expiring Items, under the columns. Every time-limited item you hold, soonest to expire first: how many, and the time left on the soonest.
   - A line blinks orange inside a week and red inside two days.
   - Command Delegation Modules stay in the Weekly column's rows.
+- Chaos runs record the partners you took and their limit breaks.
+  - Checklist: the season estimate counts Danger Intuition, Sig's and Peko's Exploration Passive, which makes a Senectus Invasion likelier. It uses the partners of your newest run of the season's Chaos.
 
 ### Fixed
 
