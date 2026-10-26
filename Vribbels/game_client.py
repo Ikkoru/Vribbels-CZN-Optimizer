@@ -76,7 +76,7 @@ GAMERES = Path("bin") / "appdata" / "cznlive" / "gameres"
 # reader that changes what it reads raises this: every install then
 # reads its client again once, rather than at the next patch.
 CACHE_FILE = "game_client.json"
-CACHE_FORMAT = 21
+CACHE_FORMAT = 22
 
 # The manifest layout this reads. A different version is a different
 # layout until shown otherwise.
@@ -204,6 +204,25 @@ PAYMENT_TIERS = "event_payment_reward@event_payment_reward"
 # code's achievement key>_<n>`, and its sticker (`style_link_item_id`)
 # once every one is claimed. Its row is `TRAUMA_CODE_TABLE`'s.
 TRAUMA_ACHIEVEMENTS = "trauma_code_achievement@trauma_code_achievement"
+# Where a Trauma Code's event battles open a day apart: each battle's
+# achievement names its story node (`opt_1_multiple_link`), and the
+# node's entry condition names, beside the battle before it, a schedule
+# of its own (`schedule_trc_30134_e_1`) whose window opens that day.
+TRAUMA_NODES = "story_map(trauma)@story_map_node"
+TRAUMA_NODE_LINK = "opt_1_multiple_link"
+TRAUMA_NODE_ENTRY = "enter_cond_link_unlock_condition_state_id"
+GATE_SCHEDULE = re.compile(r"schedule_\w+")
+LIST_CELL = re.compile(r"[^\[\],\s]+")
+# The free Rescues for logging in: a row per event, `day_gacha_count`
+# pulls issued on each of `issued_max_day` days.
+FREE_GACHA_TABLE = "event_free_gacha@event_free_gacha"
+# A special event's gifts handed out at once, its page's `EVENT_LOGIN_
+# REWARD` content: a define per page and a row per gift, `<the define's
+# key>_<n>`. The content names the define (`multiple_link`), and the
+# schedule is the content's own or else its special event's.
+LOGIN_REWARD_DEFINES = "event_login_reward@event_login_reward_define"
+LOGIN_REWARD_ROWS = "event_login_reward@event_login_reward"
+LOGIN_REWARD_CONTENT = "EVENT_LOGIN_REWARD"
 
 # What the Checklist counts up to, where the client states it: the
 # day's Activity tiers, the weekly currencies' grants and caps, each
@@ -818,6 +837,94 @@ def payment_events(client):
             "tiers": [[tier["id"], _figure(tier.get("point")) or 0]
                       for tier in sorted(held, key=lambda t: int(
                           t["id"].rsplit("_", 1)[1]))]}
+    return out
+
+
+def _in_order(rows):
+    """`_numbered` rows' ids, in their numbers' order."""
+    return [row["id"] for row in sorted(
+        rows, key=lambda row: int(row["id"].rsplit("_", 1)[1]))]
+
+
+def trauma_codes(client):
+    """{schedule id: {"event": its event's id, "code": the code's id,
+    "rewards": [[achievement id, gate schedule or None], ...], "final":
+    1 where a sticker follows every reward, else 0}} for every Trauma
+    Code with an event.
+
+    The wire files the claims under the event's id (`evn_trc_30134_1`)
+    and the sticker's on the code's own row (`trc_30134`). A reward's
+    gate is the schedule whose opening lets its battle be entered, the
+    battles opening a day apart; None for one open from the start."""
+    gates = {}
+    for node in client.rows(TRAUMA_NODES):
+        found = GATE_SCHEDULE.findall(node.get(TRAUMA_NODE_ENTRY) or "")
+        if node.get("id") and found:
+            gates[node["id"]] = found[0]
+    rewards = client.rows(TRAUMA_ACHIEVEMENTS)
+    out = {}
+    for row in client.rows(TRAUMA_CODE_TABLE):
+        schedule = row.get("link_trauma_code_schedule_id")
+        held = _numbered(rewards, row.get("link_trauma_code_achievement_key"))
+        if (schedule in NO_LINK or not held or not row.get("id")
+                or row.get("link_trauma_code_id") in NO_LINK):
+            continue
+        links = {reward["id"]: LIST_CELL.findall(
+            reward.get(TRAUMA_NODE_LINK) or "") for reward in held}
+        out[schedule] = {
+            "event": row["id"],
+            "code": row["link_trauma_code_id"],
+            "rewards": [[reward, next((gates[node] for node in links[reward]
+                                       if node in gates), None)]
+                        for reward in _in_order(held)],
+            "final": int(row.get("style_link_item_id") not in NO_LINK)}
+    return out
+
+
+def free_gachas(client):
+    """{schedule id: {"id": the wire's row id, "pulls": every pull it
+    issues}} for every free-Rescue event: its pulls a day times its
+    days. The wire's row counts the pulls issued so far and the pulls
+    taken."""
+    out = {}
+    for row in client.rows(FREE_GACHA_TABLE):
+        schedule = row.get("link_event_schedule_id")
+        a_day = _figure(row.get("day_gacha_count"))
+        days = _figure(row.get("issued_max_day"))
+        if (schedule in NO_LINK or not row.get("id")
+                or not isinstance(a_day, int) or not isinstance(days, int)
+                or a_day <= 0 or days <= 0):
+            continue
+        out[schedule] = {"id": row["id"], "pulls": a_day * days}
+    return out
+
+
+def login_rewards(client):
+    """{schedule id: {"define": its define's id, "rewards": [reward id,
+    ...]}} for every special event's page of gifts handed out at once,
+    the Nightmare Carnival's three among them.
+
+    A gift page has no schedule of its own, so it is filed under its
+    special event's, which no other page takes: the Carnival's row is
+    its gifts. The wire files the claims under the define's id."""
+    defines = {row.get("id"): row for row in client.rows(LOGIN_REWARD_DEFINES)}
+    gifts = client.rows(LOGIN_REWARD_ROWS)
+    contents = client.rows(SPECIAL_CONTENT_TABLE)
+    out = {}
+    for special in client.rows(SPECIAL_DEFINE_TABLE):
+        for part in _numbered(contents,
+                              special.get("link_special_event_content_key")):
+            define = defines.get(part.get("multiple_link"))
+            if part.get("type") != LOGIN_REWARD_CONTENT or define is None:
+                continue
+            schedule = part.get("link_event_schedule_id")
+            if schedule in NO_LINK:
+                schedule = special.get("link_event_schedule_id")
+            held = _numbered(gifts, define.get("key"))
+            if schedule in NO_LINK or not held:
+                continue
+            out.setdefault(schedule, {"define": define["id"],
+                                      "rewards": _in_order(held)})
     return out
 
 
@@ -1913,6 +2020,9 @@ def read_facts(install):
         "event_totals": event_totals(client),
         "trial_slots": trial_slots(client),
         "payment_events": payment_events(client),
+        "trauma_codes": trauma_codes(client),
+        "free_gachas": free_gachas(client),
+        "login_rewards": login_rewards(client),
         "limits": limits(client),
         "story_chapters": story_chapters(client),
         "item_names": {str(res_id): name for res_id, name
@@ -2176,6 +2286,61 @@ def known_payment_events():
                 out[key] = (event["define"], event["item"],
                             tuple(tuple(t) for t in tiers))
     return out
+
+
+def _known(table, fact, shape):
+    """{schedule id: entry} from the shipped `table` with this machine's
+    client's `fact` over it, each entry `shape(entry)`, or left out
+    where `shape` answers None."""
+    from game_data import from_client
+    out = {}
+    for source in (getattr(from_client, table, {}),
+                   (_facts or {}).get(fact) or {}):
+        for key, entry in source.items():
+            held = shape(entry) if isinstance(entry, dict) else None
+            if held is not None:
+                out[key] = held
+    return out
+
+
+def _trauma_shape(entry):
+    rewards = entry.get("rewards")
+    if (isinstance(entry.get("event"), str)
+            and isinstance(entry.get("code"), str) and rewards
+            and all(isinstance(r, (list, tuple)) and len(r) == 2
+                    and isinstance(r[0], str)
+                    and (r[1] is None or isinstance(r[1], str))
+                    for r in rewards)):
+        return (entry["event"], entry["code"],
+                tuple(tuple(r) for r in rewards), int(bool(entry.get("final"))))
+    return None
+
+
+def known_trauma_codes():
+    """{schedule id: (event id, code id, ((achievement id, gate schedule
+    or None), ...), final)}: the shipped table, with what this machine's
+    client says over it. See `trauma_codes`."""
+    return _known("TRAUMA_CODES", "trauma_codes", _trauma_shape)
+
+
+def known_free_gachas():
+    """{schedule id: (wire row id, every pull it issues)}: the shipped
+    table, with what this machine's client says over it. See
+    `free_gachas`."""
+    return _known("FREE_GACHAS", "free_gachas", lambda entry: (
+        (entry["id"], entry["pulls"])
+        if isinstance(entry.get("id"), str)
+        and not isinstance(entry.get("pulls"), list)
+        and _whole(entry.get("pulls")) else None))
+
+
+def known_login_rewards():
+    """{schedule id: (define id, (reward id, ...))}: the shipped table,
+    with what this machine's client says over it. See `login_rewards`."""
+    return _known("LOGIN_REWARDS", "login_rewards", lambda entry: (
+        (entry["define"], tuple(entry["rewards"]))
+        if isinstance(entry.get("define"), str) and entry.get("rewards")
+        and all(isinstance(r, str) for r in entry["rewards"]) else None))
 
 
 def known_story_chapters():

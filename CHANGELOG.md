@@ -15,6 +15,15 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - Command Delegation Modules stay in the Weekly column's rows.
 - Chaos runs record the partners you took and their limit breaks.
   - Checklist: the season estimate counts Danger Intuition, Sig's and Peko's Exploration Passive, which makes a Senectus Invasion likelier. It uses the partners of your newest run of the season's Chaos.
+- Checklist: three more events count their rewards.
+  - Free Rescues for logging in: the pulls taken out of all the event gives, red while pulls are waiting, orange once today's are taken.
+  - A Trauma Code's event: its rewards and sticker. Orange while what is left waits on a battle that opens on a later day.
+  - The Nightmare Carnival's gifts on its first page.
+- Checklist: the Nightmare Carnival's Exchange moves to the top of the Events when two days pass without a tier claimed.
+
+### Changed
+
+- Checklist: a Trauma Code's battle openings (`schedule_trc_…_e_1` and on) no longer show as events of their own.
 
 ### Fixed
 

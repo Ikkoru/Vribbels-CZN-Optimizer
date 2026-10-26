@@ -489,6 +489,27 @@ PAYMENT_EVENTS = {
     'payment_event_01': {'define': 'payment_event_01', 'item': 3930006, 'tiers': [['payment_reward_01_01', 300], ['payment_reward_01_02', 1000], ['payment_reward_01_03', 2000], ['payment_reward_01_04', 4000], ['payment_reward_01_05', 7000], ['payment_reward_01_06', 10000], ['payment_reward_01_07', 15000]]},
 }
 
+# {schedule id: {'event': event id, 'code': code id, 'rewards': [[achievement id, gate schedule], ...], 'final': 0 or 1}}.
+# See game_client.trauma_codes.
+TRAUMA_CODES = {
+    'schedule_trc_1052': {'event': 'evn_trc_1052_1', 'code': 'trc_1052', 'rewards': [['trauma_code_04_01', None], ['trauma_code_04_02', None], ['trauma_code_04_03', 'schedule_trc_1052_e_1'], ['trauma_code_04_04', 'schedule_trc_1052_e_2'], ['trauma_code_04_05', 'schedule_trc_1052_e_3'], ['trauma_code_04_06', 'schedule_trc_1052_e_4']], 'final': 1},
+    'schedule_trc_1062': {'event': 'evn_trc_1062_1', 'code': 'trc_1062', 'rewards': [['trauma_code_01_01', None], ['trauma_code_01_02', None], ['trauma_code_01_03', 'schedule_trc_1062_e_1'], ['trauma_code_01_04', 'schedule_trc_1062_e_2'], ['trauma_code_01_05', 'schedule_trc_1062_e_3'], ['trauma_code_01_06', 'schedule_trc_1062_e_4']], 'final': 1},
+    'schedule_trc_30048': {'event': 'evn_trc_30048_1', 'code': 'trc_30048', 'rewards': [['trauma_code_05_01', None], ['trauma_code_05_02', None], ['trauma_code_05_03', 'schedule_trc_30048_e_1'], ['trauma_code_05_04', 'schedule_trc_30048_e_2'], ['trauma_code_05_05', 'schedule_trc_30048_e_3'], ['trauma_code_05_06', 'schedule_trc_30048_e_4']], 'final': 1},
+    'schedule_trc_30134': {'event': 'evn_trc_30134_1', 'code': 'trc_30134', 'rewards': [['trauma_code_06_01', None], ['trauma_code_06_02', None], ['trauma_code_06_03', 'schedule_trc_30134_e_1'], ['trauma_code_06_04', 'schedule_trc_30134_e_2'], ['trauma_code_06_05', 'schedule_trc_30134_e_3'], ['trauma_code_06_06', 'schedule_trc_30134_e_4']], 'final': 1},
+}
+
+# {schedule id: {'id': wire row id, 'pulls': every pull}}. See game_client.free_gachas.
+FREE_GACHAS = {
+    'ch_event_free_gacha_1': {'id': 'ch_free_gacha_001', 'pulls': 70},
+    'event_free_gacha_1': {'id': 'free_gacha_001', 'pulls': 70},
+    'event_free_gacha_2': {'id': 'free_gacha_002', 'pulls': 70},
+}
+
+# {schedule id: {'define': define id, 'rewards': [reward id, ...]}}. See game_client.login_rewards.
+LOGIN_REWARDS = {
+    'event_schedule_1st_year_1': {'define': 'event_login_reward_1', 'rewards': ['event_login_reward_1_1', 'event_login_reward_1_2', 'event_login_reward_1_3']},
+}
+
 # {kind: figure or {id: figure}}: the Checklist's maximums. See game_client.limits.
 LIMITS = {
     'activity': 100,

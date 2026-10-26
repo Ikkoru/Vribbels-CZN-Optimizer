@@ -618,6 +618,142 @@ def _payment_events(ct):
     return out
 
 
+def _payment_stalls(ct):
+    """A payment event two days without a tier claimed, short of its
+    last, sorts above every other event; one claimed in the last two
+    days, or every tier claimed, does not."""
+    import game_client as gc
+    out = []
+    tiers = [["payment_reward_01_01", 300], ["payment_reward_01_02", 1000]]
+    window = {"start_time": NOW - 10 * DAY, "end_time": NOW + 30 * DAY}
+
+    def first_row(claimed_at, every=False):
+        filed = {"payment_reward_01_01": {"complete_time": claimed_at}}
+        if every:
+            filed["payment_reward_01_02"] = {"complete_time": claimed_at}
+        raw = {"event_schedules": {"EVENT_SCHEDULE": {
+                   "payment_event_01": window,
+                   # Owed, and ending sooner: first by the usual order.
+                   "event_other_1": {"start_time": NOW - DAY,
+                                     "end_time": NOW + DAY}}},
+               ct.PAYMENT_CLAIMS_FIELD: {"payment_event_01": filed},
+               "mission_entities": {"event_other_1_1": _mission(
+                   "event_other_1_1", NOW - DAY)}}
+        return ct.event_rows(raw, NOW)[0][0]
+
+    try:
+        gc.use({"payment_events": {"payment_event_01": {
+            "define": "payment_event_01", "item": 3930006, "tiers": tiers}}})
+        for claimed_at, every, top, why in (
+                (NOW - 3 * DAY, False, True,
+                 "three days since its last claim is stalled"),
+                (NOW - DAY, False, False,
+                 "a tier claimed yesterday is not stalled"),
+                (NOW - 3 * DAY, True, False,
+                 "every tier claimed is finished, not stalled")):
+            got = first_row(claimed_at, every) == (
+                ct.EVENT_KEY_PREFIX + "payment_event_01")
+            if got != top:
+                out.append(f"the Exchange {'was' if got else 'was not'} "
+                           f"sorted to the top: {why}.")
+    finally:
+        gc.use(None)
+    return out
+
+
+def _gifts_and_free_pulls(ct):
+    """A gift page reads its gifts claimed against the client's; free
+    Rescues read the pulls taken against every pull the event issues,
+    red with pulls issued and not taken and orange with none."""
+    import game_client as gc
+    out = []
+    try:
+        gc.use({"login_rewards": {"event_schedule_1st_year_1": {
+                    "define": "event_login_reward_1",
+                    "rewards": ["event_login_reward_1_%d" % n
+                                for n in (1, 2, 3)]}},
+                "free_gachas": {"event_free_gacha_2": {
+                    "id": "free_gacha_002", "pulls": 70}}})
+        for filed, want in (
+                (["event_login_reward_1_1"], ("1/3", ct.TODO)),
+                (["event_login_reward_1_%d" % n for n in (1, 2, 3)],
+                 ("3/3", ct.DONE))):
+            raw = {ct.GIFT_CLAIMS_FIELD: {"event_login_reward_1": {
+                gift: {"complete_time": NOW} for gift in filed}}}
+            got = ct._event_missions(raw, "event_schedule_1st_year_1", {},
+                                     NOW)
+            if got != [want]:
+                out.append(f"the Carnival's gifts with {len(filed)} claimed "
+                           f"read {got!r}, not {want!r}.")
+        for taken, issued, want in ((50, 60, ("50/70", ct.TODO)),
+                                    (60, 60, ("60/70", ct.CYCLE_DONE)),
+                                    (70, 70, ("70/70", ct.DONE))):
+            raw = {ct.FREE_PULLS_FIELD: [{"res_id": "free_gacha_002",
+                                          "gacha_count": taken,
+                                          "issued_count": issued}]}
+            got = ct._event_missions(raw, "event_free_gacha_2", {}, NOW)
+            if got != [want]:
+                out.append(f"free Rescues {taken} taken of {issued} issued "
+                           f"read {got!r}, not {want!r}.")
+    finally:
+        gc.use(None)
+    return out
+
+
+def _trauma_codes(ct):
+    """A Trauma Code reads its rewards and sticker claimed against the
+    client's; a reward behind a battle not open yet leaves it orange,
+    every reward claimed waits on the sticker; and the schedules that
+    open its battles are no rows of their own."""
+    import game_client as gc
+    out = []
+    rewards = [["trauma_code_06_01", None], ["trauma_code_06_02", None],
+               ["trauma_code_06_03", "schedule_trc_30134_e_1"]]
+    window = {"start_time": NOW - DAY, "end_time": NOW + 30 * DAY}
+
+    def read(claimed, sticker=0, gate_opens=NOW - 3600):
+        raw = {"event_schedules": {"EVENT_TRAUMA_CODE": {
+                   "schedule_trc_30134": window,
+                   "schedule_trc_30134_e_1": {"start_time": gate_opens,
+                                              "end_time": NOW + 30 * DAY}}},
+               ct.TRAUMA_CLAIMS_FIELD: {"evn_trc_30134_1": {
+                   reward: {"complete_time": NOW} for reward in claimed}},
+               ct.TRAUMA_CODES_FIELD: [{"res_id": "trc_30134",
+                                        "unlock_state": 1,
+                                        "event_achieve_state": sticker}]}
+        return raw, ct._event_trauma(raw, "schedule_trc_30134", window, NOW)
+
+    first_two = ["trauma_code_06_01", "trauma_code_06_02"]
+    every = first_two + ["trauma_code_06_03"]
+    try:
+        gc.use({"trauma_codes": {"schedule_trc_30134": {
+            "event": "evn_trc_30134_1", "code": "trc_30134",
+            "rewards": rewards, "final": 1}}})
+        for claimed, sticker, opens, want, why in (
+                (["trauma_code_06_02"], 0, NOW - 3600, ("1/4", ct.TODO),
+                 "a reward open and unclaimed is to do"),
+                (first_two, 0, NOW + 3600, ("2/4", ct.CYCLE_DONE),
+                 "the one reward left is behind a battle not open yet"),
+                (first_two, 0, NOW - 3600, ("2/4", ct.TODO),
+                 "the battle has opened"),
+                (every, 0, NOW - 3600, ("3/4", ct.FINAL_WAITING),
+                 "every reward claimed waits on the sticker"),
+                (every, 1, NOW - 3600, ("4/4", ct.DONE),
+                 "the sticker taken is finished")):
+            raw, got = read(claimed, sticker, opens)
+            if got != [want]:
+                out.append(f"a Trauma Code read {got!r}, not {want!r}: "
+                           f"{why}.")
+        rows = [key for key, _label, _widest in ct.event_rows(raw, NOW)]
+        if rows != [ct.EVENT_KEY_PREFIX + "schedule_trc_30134"]:
+            out.append(f"a Trauma Code listed {rows!r}. The schedule that "
+                       f"opens one of its battles is part of it, not an "
+                       f"event of its own.")
+    finally:
+        gc.use(None)
+    return out
+
+
 def _unread_rows_asked(ct):
     """A row with nothing read but its deadline is asked `Finished?`."""
     out = []
@@ -643,7 +779,8 @@ def run():
     for probe in (_node_lists, _earlier_instalments, _client_totals,
                   _one_instalment_votes_once, _final_rewards, _step_tracks,
                   _numbering, _family_corroborates, _split_trials,
-                  _countdown, _payment_events, _unread_rows_asked):
+                  _countdown, _payment_events, _payment_stalls,
+                  _gifts_and_free_pulls, _trauma_codes, _unread_rows_asked):
         failures.extend(probe(ct))
     return failures
 
@@ -656,9 +793,30 @@ FAULTS = [
     ("the countdown unread", "ui.tabs.checklist_tab:_event_countdown",
      "    if not isinstance(window, dict):\n        return []",
      "    return []", "not ('15/15'"),
-    ("the session's claim ignored", "ui.tabs.checklist_tab:_payment_progress",
+    ("the session's claim ignored", "ui.tabs.checklist_tab:_filed_claims",
      "claimed.add(latest.get(\"reward_id\"))", "pass",
      "counts before the next login"),
+    ("a stalled Exchange left in place", "ui.tabs.checklist_tab:event_rows",
+     "found.append((not _stalled(raw, name, window, now),",
+     "found.append((True,", "was not sorted to the top"),
+    ("a stall's clock ignoring the claims", "ui.tabs.checklist_tab:_stalled",
+     "since = max(stamps + [", "since = max([", "was sorted to the top"),
+    ("gifts unread", "ui.tabs.checklist_tab:_event_missions",
+     "_gift_progress(raw, name)\n", "[]\n", "Carnival's gifts"),
+    ("free pulls issued counted as taken",
+     "ui.tabs.checklist_tab:_free_pull_progress",
+     "TODO if issued > taken else CYCLE_DONE", "CYCLE_DONE",
+     "free Rescues 50 taken"),
+    ("a Trauma Code's gates ignored", "ui.tabs.checklist_tab:_gate_open",
+     "    if gate is None:\n        return True",
+     "    return True", "not open yet"),
+    ("a Trauma Code's sticker not waited on",
+     "ui.tabs.checklist_tab:_event_trauma",
+     "FINAL_WAITING if final and not sticker else DONE", "DONE",
+     "waits on the sticker"),
+    ("a battle's gate listed as an event", "ui.tabs.checklist_tab:event_rows",
+     "            if group in GATED_GROUPS and any(",
+     "            if False and any(", "opens one of its battles"),
     ("tokens never enough", "ui.tabs.checklist_tab:_payment_progress",
      "held >= tokens for tier", "held > 10 ** 9 + tokens for tier",
      "a reward waiting"),

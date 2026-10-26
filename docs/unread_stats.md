@@ -223,7 +223,6 @@ What the client cannot say, read off captures:
 | `hyperspace_entities` | `hyperspace/get_list` | no | `clear_count` per Basin content. The Basin's stars and rewards are read |
 | `tower_entities` | `tower/get_tower`; a clear's `return_info.tower_result.tower_entity` | no | per Tower (`spiral_tower_01`): `last_cleared_floor` and `restart_floor`. The clear's `tower_result.item_result` is what those floors paid, and is read. `tower_clear_info_entities` beside it has always been `{}` |
 | `zero_orb_archive_entities`, `zero_orb_codex_entities`, `zero_orb_codex_special_entities` | `zero_orb/get_list` | no | the Chaos Matrix's archive (`complete_time` per entry), codex pieces (`lv`, `coordinate`, options) and special codex counts. `zero_orb_entity` itself is read |
-| `trauma_code_entities` | `trauma_code/get_list` | no | per combatant's Trauma Code: `unlock_state`, `story_state`, and an `event_achieve_state` of its own |
 | `card_archive` | `load/user` | in `characters` | every card id the account has seen |
 | `counseling_archive` | `load/user`; `mentalclinic/*` answers with one combatant's | in `characters` | per combatant, each counseling and whether its reward was taken |
 | `archive_gift_data`, `archive_supporters` | `load/user` | in `characters` | per combatant the gift items given and rewards received; the supporters recorded |
@@ -246,7 +245,7 @@ What the Checklist needs from an event is in `docs/events.md`. The mini-games' o
 | `event_operation_entities` | yes | per operation stage: `clear_chaos_difficulty` and the buff options taken, each with its `point` |
 | `marble_achievement_entities`, `marble_mission_entities` | yes, by name | the Disaster Marble's reward ladder (claimable-reward rows) and its missions' scores, per season |
 | `story_event_entities` | yes, by name | per story event, every episode's `state` (2 once watched) and `complete_time` |
-| `trauma_code_entities`, `trauma_code_event_entities`, `mission_trauma_code_event_entities`, `story_trauma_code_event_entities` | yes, by name, from `trauma_code/get_list` | per Trauma Code its `unlock_state`, `story_state` and `event_achieve_state` (a list); 1 on three codes of five, which in `event_mission_reward_entities` means an event's final reward taken, unconfirmed here. The other three empty in every capture so far, a code's event records once one is played |
+| `story_trauma_code_event_entities`, `trauma_code_event_entities` | yes, by name, from `trauma_code/get_list` | a Trauma Code's event beside the claims the Checklist reads (`docs/events.md`): the first its story nodes cleared, `{event id: {node: record with createAt}}`; the second empty in every capture so far. `story_node_mission_event_trauma_entities`, the event nodes' conditions met, is not kept |
 
 ## Combatants between logins
 

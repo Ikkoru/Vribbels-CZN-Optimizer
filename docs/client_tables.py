@@ -147,6 +147,29 @@ def shipped_source(client, partners=None):
               for key, event in sorted(
                   game_client.payment_events(client).items())]
     lines += ["}", "",
+              "# {schedule id: {'event': event id, 'code': code id, "
+              "'rewards': [[achievement id, gate schedule], ...], "
+              "'final': 0 or 1}}.",
+              "# See game_client.trauma_codes.",
+              "TRAUMA_CODES = {"]
+    lines += [f"    {ascii(key)}: {ascii(code)},"
+              for key, code in sorted(
+                  game_client.trauma_codes(client).items())]
+    lines += ["}", "",
+              "# {schedule id: {'id': wire row id, 'pulls': every pull}}. "
+              "See game_client.free_gachas.",
+              "FREE_GACHAS = {"]
+    lines += [f"    {ascii(key)}: {ascii(event)},"
+              for key, event in sorted(
+                  game_client.free_gachas(client).items())]
+    lines += ["}", "",
+              "# {schedule id: {'define': define id, 'rewards': [reward id, "
+              "...]}}. See game_client.login_rewards.",
+              "LOGIN_REWARDS = {"]
+    lines += [f"    {ascii(key)}: {ascii(event)},"
+              for key, event in sorted(
+                  game_client.login_rewards(client).items())]
+    lines += ["}", "",
               "# {kind: figure or {id: figure}}: the Checklist's maximums. "
               "See game_client.limits.",
               "LIMITS = {"]

@@ -1256,19 +1256,56 @@ def event_rows(raw, now=None):
     **Anything still owed comes first**, and within each half the order
     is by deadline, which is what a checklist is about. Same shape as
     an untracked shop product sinking to the bottom of its shop: the
-    rows that need a decision are the ones at the top.
+    rows that need a decision are the ones at the top. Above them all,
+    a payment event stalled short of its last tier (`_stalled`).
+
+    A schedule that only opens part of another event in a gated group
+    is no row of its own: see `GATED_GROUPS`.
     """
     now = time.time() if now is None else now
     found = []
     for group in EVENT_GROUPS:
         # EVERY instance, not one per group: three events overlapped
         # under `EVENT_SCHEDULE` in one capture.
-        for name, window in schedules.all_live(group, raw, now):
-            found.append((_event_settled(raw, name, group, window, now),
+        live = list(schedules.all_live(group, raw, now))
+        names = {name for name, _window in live}
+        for name, window in live:
+            if group in GATED_GROUPS and any(
+                    name.startswith(other + "_") for other in names):
+                continue
+            found.append((not _stalled(raw, name, window, now),
+                          _event_settled(raw, name, group, window, now),
                           window["end_time"], name))
     return tuple((EVENT_KEY_PREFIX + name, event_label(name),
                   with_countdown(EVENT_WIDEST))
-                 for _settled, _end, name in sorted(found))
+                 for _stuck, _settled, _end, name in sorted(found))
+
+
+def _stalled(raw, name, window, now):
+    """Whether a payment event has gone `STALLS_AFTER` without a tier
+    claimed, with tiers still to claim: since its last claim, or since
+    it opened where none is claimed. Dated by the claims' own stamps,
+    so a restart of the program does not restart the clock; a claim
+    kept apart (`PAYMENT_CLAIM_FIELD`) is one of them."""
+    event = game_client.known_payment_events().get(name)
+    records = (raw or {}).get(PAYMENT_CLAIMS_FIELD)
+    if event is None or not isinstance(records, dict):
+        return False
+    define, _item, tiers = event
+    filed = records.get(define)
+    stamps = [record.get("complete_time")
+              for record in (filed.values() if isinstance(filed, dict)
+                             else ()) if isinstance(record, dict)]
+    latest = (raw or {}).get(PAYMENT_CLAIM_FIELD)
+    if isinstance(latest, dict) and latest.get("define_id") == define:
+        stamps.append(latest.get("complete_time"))
+    stamps = [s for s in stamps if _is_count(s) and s]
+    claimed = _filed_claims(raw, PAYMENT_CLAIMS_FIELD, define,
+                            PAYMENT_CLAIM_FIELD) or set()
+    if all(tier in claimed for tier, _tokens in tiers):
+        return False
+    since = max(stamps + [(window or {}).get("start_time") or 0])
+    return _is_count(since) and since > 0 and now - since >= STALLS_AFTER
 
 
 @functools.lru_cache(maxsize=None)
@@ -1901,10 +1938,125 @@ def _final_reward(raw, name):
 
 def _event_missions(raw, name, _window, _now):
     """[(words, state)] for an event scored by its own missions, by its
-    story chapter's episodes where it is one (`_story_progress`), or by
-    its tiers where it is a payment event (`_payment_progress`)."""
-    return (_payment_progress(raw, name) or _story_progress(raw, name)
+    story chapter's episodes where it is one (`_story_progress`), by
+    its tiers where it is a payment event (`_payment_progress`), by its
+    gifts where it hands them out at once (`_gift_progress`), or by its
+    pulls where it gives free Rescues (`_free_pull_progress`)."""
+    return (_payment_progress(raw, name) or _gift_progress(raw, name)
+            or _free_pull_progress(raw, name) or _story_progress(raw, name)
             or _event_progress(raw, name))
+
+
+def _filed_claims(raw, field, define, single=None):
+    """The ids claimed under one define in a table filed `{define id:
+    {reward id: record}}`, a record claimed where it has a
+    `complete_time`; None where the snapshot holds no such table.
+
+    `single` names where a snapshot written before the capture folded
+    a claim in kept the session's latest claim alone, one record naming
+    its define and reward."""
+    records = (raw or {}).get(field)
+    if not isinstance(records, dict):
+        return None
+    filed = records.get(define)
+    claimed = {reward for reward, record in (filed.items() if isinstance(
+        filed, dict) else ()) if isinstance(record, dict)
+        and record.get("complete_time")}
+    latest = (raw or {}).get(single) if single else None
+    if (isinstance(latest, dict) and latest.get("define_id") == define
+            and latest.get("complete_time")):
+        claimed.add(latest.get("reward_id"))
+    return claimed
+
+
+def _gift_progress(raw, name):
+    """[(words, state)] for a page of gifts handed out at once, or []
+    for any other event or where the snapshot holds no record of them.
+
+    **Gifts claimed against the client's gifts**
+    (`game_client.known_login_rewards`): the Nightmare Carnival's three,
+    all claimable from the first day, so the row is red until every one
+    is claimed and then green."""
+    page = game_client.known_login_rewards().get(name)
+    if page is None:
+        return []
+    define, rewards = page
+    claimed = _filed_claims(raw, GIFT_CLAIMS_FIELD, define, GIFT_CLAIM_FIELD)
+    if claimed is None:
+        return []
+    taken = sum(1 for reward in rewards if reward in claimed)
+    return [("%d/%d" % (taken, len(rewards)), _done(taken >= len(rewards)))]
+
+
+def _free_pull_progress(raw, name):
+    """[(words, state)] for a free-Rescue event, or [] for any other or
+    where the snapshot holds no record of its pulls.
+
+    **Pulls taken against every pull it issues**, the client's pulls a
+    day times its days (`game_client.known_free_gachas`). The record
+    counts the pulls issued so far and the pulls taken, which the
+    banner shows as `taken/issued`: red with pulls issued and not
+    taken, ORANGE with every issued pull taken and days still to come,
+    a finished day's answer, and green once every pull is taken."""
+    event = game_client.known_free_gachas().get(name)
+    rows = (raw or {}).get(FREE_PULLS_FIELD)
+    if event is None or not isinstance(rows, list):
+        return []
+    row_id, pulls = event
+    row = next((r for r in rows if isinstance(r, dict)
+                and r.get("res_id") == row_id), None)
+    taken = row.get(FREE_PULLS_TAKEN) if row else 0
+    issued = row.get(FREE_PULLS_ISSUED) if row else 0
+    if not (_is_count(taken) and _is_count(issued)):
+        return []
+    return [("%d/%d" % (taken, pulls),
+             DONE if taken >= pulls else
+             TODO if issued > taken else CYCLE_DONE)]
+
+
+def _event_trauma(raw, name, window, now):
+    """[(words, state)] for a Trauma Code's event, or [] for a schedule
+    the client does not list as one or where the snapshot holds no
+    record of its claims.
+
+    **Rewards claimed against the client's rewards**, plus its sticker,
+    the final reward, where it pays one
+    (`game_client.known_trauma_codes`). The claims are filed under the
+    event's id, the sticker on the code's own row as its
+    `event_achieve_state`. Red with a reward to take, ORANGE where every
+    reward left is a battle not open yet -- the battles open a day
+    apart, each behind a schedule of its own (`_gate_open`) -- red
+    waiting on the sticker once every reward is claimed
+    (`FINAL_WAITING`), and green with it taken.
+    """
+    code = game_client.known_trauma_codes().get(name)
+    if code is None:
+        return []
+    event, code_id, rewards, final = code
+    claimed = _filed_claims(raw, TRAUMA_CLAIMS_FIELD, event)
+    if claimed is None:
+        return []
+    row = next((r for r in (raw or {}).get(TRAUMA_CODES_FIELD) or ()
+                if isinstance(r, dict) and r.get("res_id") == code_id), None)
+    sticker = int(bool(final and row
+                       and row.get(EVENT_DONE_FLAG) == EVENT_DONE_VALUE))
+    taken = sum(1 for reward, _gate in rewards if reward in claimed)
+    words = "%d/%d" % (taken + sticker, len(rewards) + final)
+    if taken >= len(rewards):
+        return [(words, FINAL_WAITING if final and not sticker else DONE)]
+    ready = any(reward not in claimed and _gate_open(raw, gate, now)
+                for reward, gate in rewards)
+    return [(words, TODO if ready else CYCLE_DONE)]
+
+
+def _gate_open(raw, gate, now):
+    """Whether the schedule a reward waits behind has opened: open
+    where there is none, and where `event_schedules` does not date it,
+    the honest answer for a reward nothing says is locked."""
+    if gate is None:
+        return True
+    start = _event_window(raw, gate).get("start_time")
+    return not _is_count(start) or start <= now
 
 
 def _payment_progress(raw, name):
@@ -1920,22 +2072,22 @@ def _payment_progress(raw, name):
     with every tier claimed.
 
     The login files the claims under the define's id
-    (`PAYMENT_CLAIMS_FIELD`), and a claim in the session answers alone
-    (`PAYMENT_CLAIM_FIELD`), so both are read.
+    (`PAYMENT_CLAIMS_FIELD`), and the capture folds a claim in the
+    session in beside them; a snapshot written before it did kept that
+    claim alone (`PAYMENT_CLAIM_FIELD`), so both are read.
+
+    **Two days without a tier claimed, short of the last, sorts the row
+    to the top of the Events** (`_stalled`): orange, it would otherwise
+    sit down with the finished.
     """
     event = game_client.known_payment_events().get(name)
-    records = (raw or {}).get(PAYMENT_CLAIMS_FIELD)
-    if event is None or not isinstance(records, dict):
+    if event is None:
         return []
     define, item, tiers = event
-    filed = records.get(define)
-    claimed = {tier for tier, record in (filed.items() if isinstance(
-        filed, dict) else ()) if isinstance(record, dict)
-        and record.get("complete_time")}
-    latest = (raw or {}).get(PAYMENT_CLAIM_FIELD)
-    if (isinstance(latest, dict) and latest.get("define_id") == define
-            and latest.get("complete_time")):
-        claimed.add(latest.get("reward_id"))
+    claimed = _filed_claims(raw, PAYMENT_CLAIMS_FIELD, define,
+                            PAYMENT_CLAIM_FIELD)
+    if claimed is None:
+        return []
     taken = sum(1 for tier, _tokens in tiers if tier in claimed)
     words = "%d/%d" % (taken, len(tiers))
     if taken >= len(tiers):
@@ -2003,6 +2155,8 @@ EVENT_CATEGORIES = {
     "EVENT_COMBATANT_TRIAL": frozenset({TALLIED, GENERIC}),
     "EVENT_SCHEDULE": frozenset({OPEN_ENDED}),
     "EVENT_NODELIST_PAGE": frozenset({OPEN_ENDED}),
+    # The client lists every reward and the sticker that follows them.
+    "EVENT_TRAUMA_CODE": frozenset({TALLIED}),
 }
 
 
@@ -2070,6 +2224,7 @@ EVENT_READERS = {
     "EVENT_OVERCLOCK": _event_overclock,
     "EVENT_COMBATANT_TRIAL": _event_trials,
     "LOBBY_COUNTDOWN": _event_countdown,
+    "EVENT_TRAUMA_CODE": _event_trauma,
 }
 
 
@@ -2758,6 +2913,32 @@ ATTENDANCE_OVER = "completed"
 # tier. See `_payment_progress`.
 PAYMENT_CLAIMS_FIELD = "event_payment_reward_entities"
 PAYMENT_CLAIM_FIELD = "event_payment_reward_entity"
+
+# How long a payment event may go without a tier claimed, short of its
+# last, before its row sorts to the top of the Events (`_stalled`).
+STALLS_AFTER = 48 * 3600
+
+# A page of gifts handed out at once, filed the same way: the login's
+# `{define id: {reward id: record}}`, and the session's latest claim
+# alone in a snapshot written before the capture folded it in.
+GIFT_CLAIMS_FIELD = "event_login_reward_entities"
+GIFT_CLAIM_FIELD = "event_login_reward_entity"
+
+# The free Rescues: a row per event, the pulls taken and the pulls
+# issued so far. See `_free_pull_progress`.
+FREE_PULLS_FIELD = "gacha_free_entities"
+FREE_PULLS_TAKEN = "gacha_count"
+FREE_PULLS_ISSUED = "issued_count"
+
+# A Trauma Code's event: its rewards claimed, `{event id: {achievement
+# id: record}}`, and each code's own row, whose `event_achieve_state`
+# is its sticker taken. See `_event_trauma`.
+TRAUMA_CLAIMS_FIELD = "mission_trauma_code_event_entities"
+TRAUMA_CODES_FIELD = "trauma_code_entities"
+# A Trauma Code's battles open a day apart, each behind a schedule of
+# the code's own, `<its schedule>_e_<n>`, in the code's group. They are
+# not events, and `event_rows` lists none of them.
+GATED_GROUPS = frozenset({"EVENT_TRAUMA_CODE"})
 
 # A countdown check-in's record: an `issued_limit_entities` row whose
 # `usable_time` and `expire_time` are the countdown's own window, with

@@ -428,16 +428,82 @@ def run():
                                  "highest_clear_level": 5,
                                  "total_clear_count": 40},
         # `trauma_code/get_list`'s: a code's state, in a list, and its
-        # event's records, empty in every capture so far -- so their
-        # shape here is a stand-in, kept as sent like any other.
+        # event's claims, by the event's id.
         "trauma_code_entities": [{"res_id": "trc_30048", "unlock_state": 1,
                                   "event_achieve_state": 1,
                                   "story_state": 1}],
-        "mission_trauma_code_event_entities": {"trc_30134": {
-            "trauma_code_06_02": {"res_id": "trauma_code_06_02",
+        "mission_trauma_code_event_entities": {"evn_trc_30134_1": {
+            "trauma_code_06_02": {"event_code_id": "evn_trc_30134_1",
+                                  "res_id": "trauma_code_06_02",
                                   "complete_time": 1792600000}}},
     }
     addon.websocket_message(_Flow([dict(kept, res="ok")]))
+
+    # --- claims in the session, each its own one row -----------------
+    # `trauma_code/get_reward_mission` answers with the claimed reward
+    # under `mission_entity`, `unlock_trauma_code` with the code's row
+    # under the bare `entity`, and `event/event_login_reward` with a
+    # gift's record naming its define and reward. Shapes from
+    # `websocket_debug_20261021_140402` and `_083531`.
+    addon.websocket_message(_Flow([{"res": "ok", "mission_entity": {
+        "event_code_id": "evn_trc_30134_1", "res_id": "trauma_code_06_03",
+        "score": 1, "complete_time": 1792700000}}]))
+    addon.websocket_message(_Flow([{"res": "ok", "entity": {
+        "res_id": "trc_30134", "unlock_state": 1, "event_achieve_state": 0,
+        "story_state": 0}}]))
+    for gift in ("event_login_reward_1_1", "event_login_reward_1_2"):
+        addon.websocket_message(_Flow([{
+            "res": "ok", "event_login_reward_entity": {
+                "define_id": "event_login_reward_1", "reward_id": gift,
+                "complete_time": 1792568457}}]))
+    trauma = addon.login_tables.get(
+        "mission_trauma_code_event_entities", {}).get("evn_trc_30134_1", {})
+    if sorted(trauma) != ["trauma_code_06_02", "trauma_code_06_03"]:
+        failures.append(
+            f"a Trauma Code's claims read {sorted(trauma)!r} after the "
+            f"login and one claim. The claim answers with its one row "
+            f"under `mission_entity`, and it joins the event's table.")
+    codes = [row.get("res_id") for row in
+             addon.login_tables.get("trauma_code_entities") or ()]
+    if sorted(codes) != ["trc_30048", "trc_30134"]:
+        failures.append(
+            f"the Trauma Codes held read {codes!r} after one was unlocked. "
+            f"Its row answers under the bare `entity` and joins the list.")
+    if "trc_30134" in addon.event_rewards:
+        failures.append(
+            "a Trauma Code's row was filed as an event's completion "
+            "record. It carries `event_achieve_state` too, and only "
+            "`unlock_state` tells the two apart.")
+    gifts = addon.event_defines.get("event_login_reward_entities", {}).get(
+        "event_login_reward_1", {})
+    if sorted(gifts) != ["event_login_reward_1_1", "event_login_reward_1_2"]:
+        failures.append(
+            f"two gifts claimed in a session left {sorted(gifts)!r}. A "
+            f"claim filed by define and reward joins its collection, or "
+            f"the second replaces the first.")
+
+    # --- the free Rescues, on nearly every reply ---------------------
+    # Under `reset_resp`; a login that issued nothing sends its own copy
+    # EMPTY, which must not wipe the row; a pull answers singular.
+    addon.websocket_message(_Flow([{"res": "ok", "reset_resp": {
+        "gacha_free_entities": [{"res_id": "free_gacha_002",
+                                 "gacha_count": 0, "issued_count": 10}]}}]))
+    addon.websocket_message(_Flow([{"res": "ok",
+                                    "gacha_free_entities": []}]))
+    pulls = addon.free_gacha.get("free_gacha_002") or {}
+    if (pulls.get("gacha_count"), pulls.get("issued_count")) != (0, 10):
+        failures.append(
+            f"the free Rescues read {pulls!r} after a reply's `reset_resp` "
+            f"and an empty login copy. The row is merged by id, never "
+            f"replaced by the empty list.")
+    addon.websocket_message(_Flow([{"res": "ok", "gacha_free_entity": {
+        "res_id": "free_gacha_002", "gacha_count": 10,
+        "issued_count": 10}}]))
+    pulls = addon.free_gacha.get("free_gacha_002") or {}
+    if (pulls.get("gacha_count"), pulls.get("issued_count")) != (10, 10):
+        failures.append(
+            f"the free Rescues read {pulls!r} after a pull. A pull answers "
+            f"with the row alone, `gacha_free_entity`.")
     # Watching an episode answers with its one row, singular, keyed by
     # event and story. `story_event/complete_event_story`'s shape.
     addon.websocket_message(_Flow([{
@@ -467,6 +533,8 @@ def run():
     for field, shape in (("attendance_entities", list),
                          ("event_mission_reward_entities", list),
                          ("issued_limit_entities", dict),
+                         ("gacha_free_entities", list),
+                         ("event_login_reward_entities", dict),
                          *((field, type(rows)) for field, rows in kept.items())):
         rows = saved.get(field)
         if not isinstance(rows, shape) or not rows:
@@ -481,9 +549,26 @@ def run():
 FAULTS = [
     ("a Trauma Code's tables not kept", "capture.manager:ADDON_TEMPLATE",
      '"chaos_assault_entity", "trauma_code_entities",',
-     '"chaos_assault_entity",', "trauma_code_entities is None"),
+     '"chaos_assault_entity",', "the Trauma Codes held read"),
     ("a login table sent as a list dropped", "capture.manager:ADDON_TEMPLATE",
      "if isinstance(data.get(key), (dict, list)) and data[key]:",
      "if isinstance(data.get(key), dict) and data[key]:",
-     "trauma_code_entities is None"),
+     "the Trauma Codes held read"),
+    ("a Trauma Code claim dropped", "capture.manager:ADDON_TEMPLATE",
+     'claim = data.get("mission_entity")', "claim = None",
+     "a Trauma Code's claims read"),
+    ("a Trauma Code filed as a completion", "capture.manager:ADDON_TEMPLATE",
+     "                                        or TRAUMA_CODE_ROW in row):",
+     "                                        ):",
+     "filed as an event's completion"),
+    ("a gift claim replacing the last", "capture.manager:ADDON_TEMPLATE",
+     '                    held.setdefault(str(value["define_id"]), {})[\n'
+     '                        str(value["reward_id"])] = value',
+     '                    held[str(value["define_id"])] = {\n'
+     '                        str(value["reward_id"]): value}',
+     "two gifts claimed"),
+    ("the free Rescues under reset_resp ignored",
+     "capture.manager:ADDON_TEMPLATE",
+     '                     held.get("gacha_free_entities")',
+     '                     None', "the free Rescues read"),
 ]

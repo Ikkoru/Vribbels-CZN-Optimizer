@@ -157,6 +157,15 @@ EVENT_FIELDS_HANDLED = frozenset({
     "result_event_mission_reward_entities",
 })
 
+# What only a Trauma Code's own row carries, beside the
+# `event_achieve_state` an event's completion record also has: both
+# arrive under the bare `entity`, and this says which one it is.
+TRAUMA_CODE_ROW = "unlock_state"
+
+# The free Rescues' record, as the snapshot holds it: a list, merged by
+# row while the capture runs.
+FREE_GACHA_FIELD = "gacha_free_entities"
+
 # The story-map episodes cleared: the login's list of them, and one
 # episode's clear. Neither reply names what it is, so the command that
 # asked is what does. Saved as `EPISODES_FIELD`.
@@ -563,6 +572,8 @@ class Addon:
         # {field: table} -- login tables kept for a reader that does
         # not exist yet. See the branch after the event sweep.
         self.login_tables = {}
+        # {row id: row} -- the free Rescues issued and taken, by event.
+        self.free_gacha = {}
         # {table: {res_id: row}} -- the lifetime counters, the
         # Achievements screen and the daily tasks; and {table: {res_id:
         # condition_type}}, what each row COUNTS, learned as rows move
@@ -1593,6 +1604,20 @@ class Addon:
                     held[str(value["res_id"])] = value
                     self._save_pending = True
                 continue
+            # **A claim filed by define and reward** is one row of a
+            # collection kept `{define id: {reward id: row}}`: a gift
+            # page's (`event_login_reward_entity`) and a payment tier's.
+            # Folded in, so a second claim in the session does not
+            # replace the first.
+            if (key.endswith("_entity") and value.get("define_id") is not None
+                    and value.get("reward_id") is not None):
+                held = self.event_defines.setdefault(
+                    key[:-len("_entity")] + "_entities", {})
+                if isinstance(held, dict):
+                    held.setdefault(str(value["define_id"]), {})[
+                        str(value["reward_id"])] = value
+                    self._save_pending = True
+                continue
             if key.endswith("_entity") or key.endswith("_entities"):
                 self.event_defines[key] = value
                 self._save_pending = True
@@ -1613,6 +1638,44 @@ class Addon:
             if isinstance(data.get(key), (dict, list)) and data[key]:
                 self.login_tables[key] = data[key]
                 self._save_pending = True
+        # A Trauma Code's event reward claimed in the session answers
+        # with its one row, under `mission_entity` with the event's id
+        # beside its own (`trauma_code/get_reward_mission`); unlocking a
+        # code answers with the code's row under the bare `entity`.
+        # Each is folded into its login table.
+        claim = data.get("mission_entity")
+        if (isinstance(claim, dict) and claim.get("event_code_id") is not None
+                and claim.get("res_id") is not None):
+            table = self.login_tables.setdefault(
+                "mission_trauma_code_event_entities", {})
+            if isinstance(table, dict):
+                table.setdefault(str(claim["event_code_id"]), {})[
+                    str(claim["res_id"])] = claim
+                self._save_pending = True
+        code = data.get("entity")
+        if (isinstance(code, dict) and TRAUMA_CODE_ROW in code
+                and code.get("res_id") is not None):
+            table = self.login_tables.setdefault("trauma_code_entities", [])
+            if isinstance(table, list):
+                table[:] = [row for row in table if not (
+                    isinstance(row, dict)
+                    and row.get("res_id") == code["res_id"])] + [code]
+                self._save_pending = True
+        # The free Rescues for logging in: pulls issued, pulls taken.
+        # **On nearly every reply, under `reset_resp`**, beside the
+        # login's own copy -- which comes back EMPTY on a login that
+        # issued nothing that day, so merged by row and never replaced
+        # -- and a pull answers with its row, `gacha_free_entity`.
+        held = data.get("reset_resp")
+        for rows in (data.get("gacha_free_entities"),
+                     held.get("gacha_free_entities")
+                     if isinstance(held, dict) else None,
+                     [data.get("gacha_free_entity")]):
+            for row in rows if isinstance(rows, list) else ():
+                if isinstance(row, dict) and row.get("res_id") is not None \
+                        and self.free_gacha.get(str(row["res_id"])) != row:
+                    self.free_gacha[str(row["res_id"])] = row
+                    self._save_pending = True
         # Watching an episode answers with its ONE row, keyed by the
         # event and the story rather than by a `res_id` -- folded in
         # for the same reason a summer set is.
@@ -1700,7 +1763,8 @@ class Addon:
             for row in rows:
                 if not isinstance(row, dict) or row.get("res_id") is None:
                     continue
-                if key == "entity" and "event_achieve_state" not in row:
+                if key == "entity" and ("event_achieve_state" not in row
+                                        or TRAUMA_CODE_ROW in row):
                     continue
                 self.event_rewards[str(row["res_id"])] = row
                 self._save_pending = True
@@ -3805,6 +3869,7 @@ class Addon:
             "reward_entities": self.season_rewards or None,
             **self.event_defines,
             **self.login_tables,
+            FREE_GACHA_FIELD: list(self.free_gacha.values()) or None,
             # Lists, the shape the login sends them in, merged by id
             # while the capture runs.
             "mission_accumulate":
