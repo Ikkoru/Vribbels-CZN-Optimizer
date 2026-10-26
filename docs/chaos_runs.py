@@ -3,6 +3,7 @@ pays in a run and whether it has moved.
 
     python docs/chaos_runs.py          # the runs' file, snapshots, and logs since the newest row
     python docs/chaos_runs.py --all    # the same, and every log, loose and archived
+    python docs/chaos_runs.py --full   # the report with every row, nothing pooled
 
 `docs/chaos_runs.cmd` runs the first from Explorer.
 
@@ -145,6 +146,15 @@ each step between parts and between game versions that shows a
 possible shift (`STEPS`); and where each Chaos puts its bosses, every
 Chaos but a season's own on one `offseason` row while they keep one
 pattern, one that breaks it on a red `exception` row of its own.
+
+**The report pools by default; `--full` shows every row** (`FULL`).
+Pooled, a part is one row unless a version step in it shifts; the rate
+tables show each Effect's pool and every map's, a single map only as a
+red `exception` where its rate differs from the rest of its Effect's;
+the ELITE_ADD tables put every level on one `with` row; the other
+Chaos share a row by when they were played, each season's offseason
+and the preseason apart -- the preseason pays nothing, its shop not
+yet open -- a Chaos whose bosses pay otherwise as an exception.
 Flagged above them, besides the bosses: a payout no whole amount at 0
 nodes comes to, which would be the 1% a node rule failing, a payout
 with no mark, and a mark never seen before.
@@ -1452,7 +1462,10 @@ def bosses_table(rows):
     table = [boss_row("exception", *group, other[group],
                       cells[("other",) + group], ALARM)
              for group in sorted(breaks)]
-    if keeps:
+    if FULL:
+        table += [boss_row("offseason", *group, other[group],
+                           cells[("other",) + group]) for group in sorted(keeps)]
+    elif keeps:
         members = [row for group in keeps for row in other[group]]
         doors = sorted({group[1] for group in keeps})
         table.append(boss_row(
@@ -1479,13 +1492,30 @@ def report(rows):
     grid(found, head=["date", "what", "was", "now", "last paid",
                       "since then"] if found else ())
 
-    groups, first = collections.defaultdict(list), {}
+    # A part on one row unless a version step inside it shifts
+    # (`_steps`); each version apart with `FULL`.
+    by_part = collections.defaultdict(dict)
     for date in sorted(rows):
         row = rows[date]
-        key = ("%s %s" % (row["season"], row["part"]),
-               _version(row.get("client")))
+        by_part["%s %s" % (row["season"], row["part"])][date] = row
+    split = {part for part, held in by_part.items()
+             if FULL or any(shifted for _step, shifted
+                            in _steps(held, dict(STEPS)["version"]))}
+    groups, first = collections.defaultdict(list), {}
+    versions = collections.defaultdict(list)
+    for date in sorted(rows):
+        row = rows[date]
+        part = "%s %s" % (row["season"], row["part"])
+        version = _version(row.get("client"))
+        key = (part, version if part in split else "")
         groups[key].append(row)
         first.setdefault(key, date)
+        if version not in versions[key]:
+            versions[key].append(version)
+    groups = {(part, version or ", ".join(versions[(part, version)])):
+              members for (part, version), members in groups.items()}
+    first = {(part, version or ", ".join(versions[(part, version)])): date
+             for (part, version), date in first.items()}
     met_on = spots_met(rows.values())
     facts = {key: _group_facts(members) for key, members in groups.items()}
     order = sorted(groups, key=lambda key: first[key])
@@ -1509,13 +1539,13 @@ def report(rows):
     grid([cells for step, _shifted in tiers[first_tier[0]] for cells in step],
          head=head)
     shown = [(name, step) for name, _key in finer
-             for step, shifted in tiers[name] if shifted]
+             for step, shifted in tiers[name] if shifted or FULL]
     if not shown:
         print(paint("   no step between parts or game versions shows a "
                     "possible shift", QUIET))
         return
-    print(paint("   Steps between parts and game versions that show a "
-                "possible shift:", HEADING))
+    print(paint("   Steps between parts and game versions%s:" % (
+        "" if FULL else " that show a possible shift"), HEADING))
     grid([[name] + cells for name, step in shown for cells in step],
          head=["step"] + head)
 
@@ -1808,6 +1838,58 @@ def pooled(runs, tiers=POOLS, fewest=FEWEST_POOL_RUNS):
     return out
 
 
+# **The report pools by default, `--full` shows every row.** Pooled,
+# the rate tables show each Effect's pool and every map's, and a single
+# map, or map played one way, only where its rate differs from the rest
+# of its Effect's pool -- an `exception`, in red; "What pays" gives a
+# part one row unless a version step in it shifts; the ELITE_ADD tables
+# put every level on one `with` row; the other Chaos tables give each
+# season's offseason and the preseason one row unless a Chaos breaks
+# its pattern. `main` sets this off the command line.
+FULL = False
+FINER = ("map, mode", "map")
+
+
+def pools_shown(runs, measure, fewest, tiers=POOLS):
+    """[(tier, label, rows, exception)]: what a rate table shows of
+    `runs` pooled at `tiers` (`pooled`). With `FULL`, every pool. Else
+    the coarse pools, each finer one only where `measure(rows)` -- (met,
+    out of) -- differs from the rest of its Effect's pool
+    (`_rate_moved`, `fewest` a side), those first."""
+    if FULL:
+        return [(tier, label, members, False)
+                for tier, label, members in pooled(runs, tiers)]
+    coarse = [(tier, key) for tier, key in tiers if tier not in FINER]
+    effect = dict(POOLS)["Effect"]
+    by_effect = collections.defaultdict(list)
+    for row in runs:
+        by_effect[effect(row)].append(row)
+    odd, seen = [], set()
+    for tier, key in tiers:
+        if tier not in FINER:
+            continue
+        groups = collections.defaultdict(list)
+        for row in runs:
+            groups[key(row)].append(row)
+        for label, members in sorted(groups.items()):
+            inside = frozenset(row["date"] for row in members)
+            if len(members) < FEWEST_POOL_RUNS or inside in seen:
+                continue
+            rest = [row for row in by_effect[effect(members[0])]
+                    if row["date"] not in inside]
+            if rest and _rate_moved(measure(members), measure(rest),
+                                    fewest)[1]:
+                seen.add(inside)
+                odd.append((tier, label, members, True))
+    return odd + [(tier, label, members, False)
+                  for tier, label, members in pooled(runs, coarse)]
+
+
+def _tier_cell(tier, exception):
+    """A pool's tier as a cell: an exception's in red."""
+    return [("exception: " + tier, ALARM)] if exception else tier
+
+
 def _shift_cell(ks, ns, among, per):
     """The shift test's verdict on one rate over runs in order
     (`shifts`), as a cell."""
@@ -1845,7 +1927,13 @@ def rate_shifts(rows):
         among = [row for row in runs if row["chaos"] in met_in[mark]
                  and not (invasion and raise_of(row))]
         name = _named(mark)
-        for tier, label, members in pooled(among, POOLS[1:]):
+
+        def measure(members, mark=mark):
+            return over_of(_group_facts(members), mark, met_on)
+
+        for tier, label, members, odd in pools_shown(
+                among, measure, FEWEST_RUNS if invasion else FEWEST_FIGHTS,
+                POOLS[1:]):
             facts = _group_facts(members)
             met, out_of = over_of(facts, mark, met_on)
             ks, ns = [], []
@@ -1861,7 +1949,8 @@ def rate_shifts(rows):
                 k, n = facts["at"][mark][spot], facts["spots"][spot]
                 spots.append(_count(k, n) + [(" %.3f" % (k / n), None)]
                              if n and k else "")
-            table.append([name, tier, label, str(len(members)),
+            table.append([name, _tier_cell(tier, odd), label,
+                          str(len(members)),
                           _count(met, out_of) + [(" " + unit(over)[2:] + "s",
                                                   None)],
                           "%.3f" % (met / max(1, out_of)),
@@ -1911,10 +2000,16 @@ def invasion_rates(runs):
                     "kept, counted as no raise: %s" % ", ".join(unknown),
                     FLAG))
     table = []
-    for tier, label, members in pooled(runs):
+
+    def measure(members):
+        return sum(1 for row in members if met_of(row)), len(members)
+
+    for tier, label, members, odd in pools_shown(runs, measure,
+                                                 FEWEST_RUNS):
         held = [(met_of(row), raise_of(row) or 0.0) for row in members]
         met = sum(1 for hit, _value in held if hit)
-        row = [tier, label, str(len(members)), _count(met, len(members))]
+        row = [_tier_cell(tier, odd), label, str(len(members)),
+               _count(met, len(members))]
         if raised:
             row.append("; ".join("%s %d/%d" % (
                 pct(value) if value else "none",
@@ -1956,6 +2051,19 @@ def _level(row, group="ELITE_ADD"):
     return "%s (+%s)" % (level, ELITE_ADD_SPACES.get(level, "?"))
 
 
+def _level_shown(level):
+    """A level as a table groups it: each apart with `FULL`, else every
+    one but `none` on one `with` row."""
+    return level if FULL or level == "none" else "with"
+
+
+def _level_label(shown, levels):
+    """A grouped level's cell: `with` names the levels it holds."""
+    if shown != "with":
+        return shown
+    return "with: " + ", ".join(sorted(level.split()[0] for level in levels))
+
+
 def penalty_mix(runs, group="ELITE_ADD"):
     """Print the spots a whole run entered at each level of a rolled
     `group` penalty and without it -- fights and the rest -- for each
@@ -1965,10 +2073,13 @@ def penalty_mix(runs, group="ELITE_ADD"):
     only compared among their own. What it does to the map is
     `map_mix`'s."""
     by = collections.defaultdict(lambda: collections.defaultdict(list))
+    held = collections.defaultdict(set)
     for row in runs:
         level = _level(row, group)
         if level is not None and row.get("route") not in (None, "", "?"):
-            by[_setting(row)][level].append(counts_of(row["route"]))
+            by[_setting(row)][_level_shown(level)].append(
+                counts_of(row["route"]))
+            held[(_setting(row), _level_shown(level))].add(level)
     compared = {key: levels for key, levels in by.items() if len(levels) > 1}
     if not compared:
         return
@@ -1976,12 +2087,14 @@ def penalty_mix(runs, group="ELITE_ADD"):
             "spaces it adds)" % group)
     table = []
     for key, levels in sorted(compared.items()):
+        shown = key
         for level in sorted(levels, key=lambda lv: (lv != "none", lv)):
             route = levels[level]
-            table.append([key, level, str(len(route))] + [
+            table.append([shown, _level_label(level, held[(key, level)]),
+                          str(len(route))] + [
                 "%.1f" % (sum(r.get(kind, 0) for r in route) / len(route))
                 for kind in SPOT_KINDS])
-            key = ""
+            shown = ""
     grid(table, head=["map, mode", group, "runs"] + list(SPOT_KINDS))
 
 
@@ -1993,14 +2106,17 @@ def map_mix(runs, group="ELITE_ADD"):
     Pooled over every map whose floors end alike, each area apart, then
     each map on its own where it has whole maps at more than one level:
     the areas' maps are drawn by the map list each Chaos names."""
-    held = []
+    held, levels_in = [], collections.defaultdict(set)
     for row in runs:
         level = _level(row, group)
         if level is None:
             continue
         for area, area_map in maps_of(row.get("map")).items():
             if not area_map["path"] and area in ("0", "1"):
-                held.append((row, level, area, area_map))
+                held.append((row, _level_shown(level), area, area_map))
+                for label in ("every map ending on %s" % _map_end(row),
+                              _map_name(row)):
+                    levels_in[(label, area, _level_shown(level))].add(level)
     if not held:
         return
     heading("Whole maps as first sent (runs played by hand), by the %s "
@@ -2028,7 +2144,9 @@ def map_mix(runs, group="ELITE_ADD"):
         marked = sum(m["keyword"].get(kind.upper(), 0)
                      + m["keyword"].get(kind, 0)
                      for m in maps for kind in FIGHT_SPOTS)
-        table.append([label, area, level, str(len(maps))] + [
+        table.append([label, area,
+                      _level_label(level, levels_in[(label, area, level)]),
+                      str(len(maps))] + [
             "%.1f" % (sum(m["spots"].get(kind, 0) for m in maps) / len(maps))
             for kind in SPOT_KINDS[:-1]]
             + [_count(marked, fights) + [(" %.3f" % (marked / fights), None)]
@@ -2110,34 +2228,97 @@ def shipped_figures(rows):
         print('       },')
 
 
+def period_of(row):
+    """When a run of another Chaos was played, as its pay goes:
+    `preseason`, when nothing pays the season's currency yet, the shop
+    not being open; else the season's offseason, `offseason s04`."""
+    if row.get("part") == "preseason":
+        return "preseason"
+    return "offseason %s" % row["season"]
+
+
 def others_table(others, met_on):
-    """Print every Chaos other than the season's own, a row each: what
-    it paid at 0 nodes, and how often each mark was met over what it is
-    counted over (`over_of`)."""
-    heading("Other Chaos, left out of everything above but the mark rates")
-    table = []
-    for label in sorted(others):
-        rows = others[label]
-        facts = _group_facts(rows)
-        chaos, door, special, mode = label
+    """Print every Chaos other than the season's own: what it paid at 0
+    nodes, and how often each mark was met over what it is counted over
+    (`over_of`). By when it was played (`period_of`), the Chaoses whose
+    pay keeps the period's pattern share one row, their marks counted
+    together; one that breaks it is an `exception`, in red, on a row of
+    its own. The pattern is each boss's most common pay among them, its
+    absence counting as one, and each mark's most common pay among those
+    that met it: whether a run met a mark at all is chance, not pay.
+    With `FULL`, every Chaos, door, special option and mode on a row of
+    its own."""
+    groups = collections.defaultdict(list)
+    for rows in others.values():
+        for row in rows:
+            groups[(period_of(row), row["chaos"], row.get("door") or "",
+                    row.get("special") or "", row["mode"])].append(row)
+    facts = {key: _group_facts(members) for key, members in groups.items()}
+
+    def pay(held, key):
+        amounts = held["amounts"].get(key)
+        return tuple(sorted(amounts)) if amounts else None
+
+    pattern = {}
+    for period in {key[0] for key in groups}:
+        inside = [facts[key] for key in groups if key[0] == period]
+        every = {key for held in inside for key in held["amounts"]}
+        pattern[period] = {}
+        for key in every:
+            seen = collections.Counter(
+                pay(held, key) for held in inside
+                if key.startswith("boss") or pay(held, key))
+            pattern[period][key] = seen.most_common(1)[0][0]
+
+    def keeps(key):
+        held, want = facts[key], pattern[key[0]]
+        return all(pay(held, item) == amounts for item, amounts in want.items()
+                   if item.startswith("boss") or pay(held, item))
+
+    def line(cells, members, held, colour=None):
         pays = []
-        for key in _order(facts["amounts"]):
+        for key in _order(held["amounts"]):
             pays += [("%s " % _named(key), None)] \
-                + _amounts(facts["amounts"][key]) + [("  ", None)]
+                + _amounts(held["amounts"][key]) + [("  ", None)]
         met = []
-        for mark in _order(facts["met"]):
-            k, n = over_of(facts, mark, met_on)
+        met_in = _met_in(members)
+        for mark in _order(held["met"]):
+            # Over the runs of the Chaoses that met it, as the rates
+            # table counts: a pooled row holds maps it cannot be on.
+            k, n = over_of(_group_facts([
+                row for row in members if row["chaos"] in met_in[mark]]),
+                mark, met_on)
             met += [("%s " % _named(mark), None)] + _count(k, n) \
                 + [(" %s  " % unit(counted_over(mark, met_on)), None)]
-        table.append([chaos, door, special, mode, str(len(rows)),
-                      pays or [("nothing", QUIET)],
-                      met or [("none", QUIET)]])
-    grid(table, head=["Chaos", "door", "special", "mode", "runs",
+        first = [(cells[0], colour)] if colour else cells[0]
+        return [first] + list(cells[1:]) + [
+            str(len(members)), pays or [("nothing", QUIET)],
+            met or [("none", QUIET)]]
+
+    heading("Other Chaos, left out of everything above but the mark rates")
+    table = []
+    odd = [key for key in groups if not FULL and not keeps(key)]
+    table += [line(("exception: " + key[0],) + key[1:], groups[key],
+                   facts[key], ALARM) for key in sorted(odd)]
+    for period in sorted(pattern):
+        keys = sorted(key for key in groups
+                      if key[0] == period and key not in odd)
+        if FULL:
+            table += [line(key, groups[key], facts[key]) for key in keys]
+            continue
+        members = [row for key in keys for row in groups[key]]
+        if members:
+            maps = sorted({key[1] for key in keys})
+            table.append(line((period, "%d Chaos" % len(maps), "", "", ""),
+                              members, _group_facts(members)))
+    grid(table, head=["played", "Chaos", "door", "special", "mode", "runs",
                       "pays, at 0 nodes", "marks met"])
 
 
 
 def main():
+    global FULL
+    FULL = "--full" in sys.argv[1:]
     full = "--all" in sys.argv[1:]
     header, rows = existing()
     theirs = header[header.index("log") + 1:] if header else []

@@ -422,6 +422,7 @@ def run():
     failures.extend(_the_map_and_route(Addon))
     failures.extend(_the_report_counts_each_mark_once())
     failures.extend(_the_report_pools_and_steps())
+    failures.extend(_the_report_pools_by_default())
     failures.extend(_the_table_keeps_a_replayed_row())
     failures.extend(_the_report_reads_at_zero_nodes())
     failures.extend(_the_table_names_the_rolls())
@@ -1274,6 +1275,100 @@ def _the_report_pools_and_steps():
     return out
 
 
+def _the_report_pools_by_default():
+    """`docs/chaos_runs.py` pools by default and shows every row with
+    `--full` (`FULL`): a rate table's single map only where its rate
+    differs from the rest of its Effect's pool, as a red exception;
+    the other Chaos by when they were played, the preseason -- which
+    pays nothing, its shop not open -- on a row of its own, and a Chaos
+    whose bosses pay otherwise than the rest as an exception. Returns
+    complaints."""
+    import contextlib
+    import io
+    tool = _tool()
+    out = []
+
+    def run(date, chaos, special, met, part="part 3", payouts=""):
+        return {"date": date, "season": "s05", "part": part, "chaos": chaos,
+                "door": "Zero System", "special": special,
+                "mode": "delegated", "client": "cznlive 1.837 r130",
+                "amplified": "0", "floors": "0-28", "payouts": payouts,
+                "marked": "b1:1" if met else "", "marked_at": "",
+                "fought": "battle:10"}
+
+    runs = [run("2026-10-0%d 00:00" % n, "Swamp of Judgment",
+                "Promise Upon the Snow", False) for n in range(1, 9)]
+    runs += [run("2026-10-1%d 00:00" % n, "The Blue Pot",
+                 "Promise Upon the Snow", True) for n in range(1, 9)]
+
+    def measure(members):
+        return sum(1 for row in members if tool.met_of(row)), len(members)
+
+    shown = tool.pools_shown(runs, measure, tool.FEWEST_RUNS)
+    odd = sorted(label for _t, label, _m, exception in shown if exception)
+    tool.FULL = True
+    every = tool.pools_shown(runs, measure, tool.FEWEST_RUNS)
+    tool.FULL = False
+    if odd != ["Swamp of Judgment, Promise Upon the Snow, delegated",
+               "The Blue Pot, Promise Upon the Snow, delegated"] \
+            or any(exception for *_rest, exception in every) \
+            or len(every) <= len(shown) - len(odd):
+        out.append(f"chaos_runs.pools_shown marks {odd} as exceptions for "
+                   f"a map meeting Senectus in none of 8 runs and one in "
+                   f"all 8 under one Effect, and shows {len(every)} pools "
+                   f"with --full: both maps exceptions to the rest of "
+                   f"their Effect's pool, and --full every pool with "
+                   f"none marked.")
+    others = {"x": [
+        run("2026-09-01 00:00", "Laboratory 0", "", False, "preseason"),
+        run("2026-09-02 00:00", "Burning Life", "", False, "part 2",
+            "17:boss:108 28:boss:108"),
+        run("2026-09-03 00:00", "Twin Star's Shadow", "", False, "part 2",
+            "17:boss:108 28:boss:108"),
+        run("2026-09-04 00:00", "The Blue Pot", "", False, "part 2",
+            "17:boss:108 28:boss:130")]}
+    printed = io.StringIO()
+    with contextlib.redirect_stdout(printed):
+        tool.others_table(others, {})
+    lines = printed.getvalue().splitlines()
+    rows = {line.split()[0] + (" " + line.split()[1] if line.split()[0]
+                               in ("offseason", "exception:") else ""):
+            line for line in lines[3:]}
+    if set(rows) != {"preseason", "offseason s05", "exception: offseason"} \
+            or "The Blue Pot" not in rows.get("exception: offseason", "") \
+            or "2 Chaos" not in rows.get("offseason s05", ""):
+        out.append(f"chaos_runs.others_table printed {lines}: the "
+                   f"preseason run on a row of its own, Burning Life and "
+                   f"Twin Star's Shadow on one offseason row, and The Blue "
+                   f"Pot, its second boss paying 130, as an exception.")
+    return out
+
+
+def _report_pools_never_odd():
+    """Fault: chaos_runs.py's rate pools never finding a map that
+    differs from its Effect's."""
+    global _tool
+    real = _tool
+
+    def loaded():
+        tool = real()
+        tool._rate_moved = lambda *args, **kwargs: ([], False)
+        return tool
+    _tool = loaded
+
+
+def _report_preseason_pooled_in():
+    """Fault: chaos_runs.py pooling the preseason with the offseason."""
+    global _tool
+    real = _tool
+
+    def loaded():
+        tool = real()
+        tool.period_of = lambda row: "offseason %s" % row["season"]
+        return tool
+    _tool = loaded
+
+
 def _report_breakins_counted_twice():
     """Fault: chaos_runs.py counting a break-in toward every mark it
     carries."""
@@ -1411,6 +1506,10 @@ FAULTS = [
      _report_offseason_all_kept, None, None, "on an exception row"),
     ("the version steps never shifted", _report_steps_unshifted, None, None,
      "the part step and the version step"),
+    ("the rate pools never finding an odd map", _report_pools_never_odd,
+     None, None, "both maps exceptions"),
+    ("the preseason pooled with the offseason", _report_preseason_pooled_in,
+     None, None, "the preseason run on a row of its own"),
     ("the report counting a break-in's keyword again",
      _report_breakins_counted_twice, None, None,
      "the Rare Species twice over every fight"),
