@@ -11,7 +11,7 @@ ASCII throughout: a name's other characters are written as escapes.
 """
 
 
-BUILD = 130
+BUILD = 133
 
 # {schedule id: English name}. See game_client.event_names.
 EVENT_NAMES = {
