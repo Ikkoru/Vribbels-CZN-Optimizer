@@ -463,6 +463,19 @@ def run():
             f"a Trauma Code's claims read {sorted(trauma)!r} after the "
             f"login and one claim. The claim answers with its one row "
             f"under `mission_entity`, and it joins the event's table.")
+    # The claim-all button, `get_reward_mission_all`, answers with every
+    # claimed row under the bare `entities`
+    # (`websocket_debug_20261027_155217`).
+    addon.websocket_message(_Flow([{"res": "ok", "entities": [
+        {"event_code_id": "evn_trc_30134_1", "res_id": "trauma_code_06_%02d"
+         % n, "score": 1, "complete_time": 1793119937} for n in (4, 5)]}]))
+    trauma = addon.login_tables.get(
+        "mission_trauma_code_event_entities", {}).get("evn_trc_30134_1", {})
+    if sorted(trauma) != ["trauma_code_06_%02d" % n for n in (2, 3, 4, 5)]:
+        failures.append(
+            f"a Trauma Code's claims read {sorted(trauma)!r} after a "
+            f"claim-all. It answers under the bare `entities`, every row "
+            f"carrying `event_code_id`, and each joins the event's table.")
     codes = [row.get("res_id") for row in
              addon.login_tables.get("trauma_code_entities") or ()]
     if sorted(codes) != ["trc_30048", "trc_30134"]:
@@ -555,8 +568,10 @@ FAULTS = [
      "if isinstance(data.get(key), dict) and data[key]:",
      "the Trauma Codes held read"),
     ("a Trauma Code claim dropped", "capture.manager:ADDON_TEMPLATE",
-     'claim = data.get("mission_entity")', "claim = None",
-     "a Trauma Code's claims read"),
+     '+ [data.get("mission_entity")]', "+ []",
+     "after the login and one claim"),
+    ("a Trauma Code claim-all dropped", "capture.manager:ADDON_TEMPLATE",
+     'claims = data.get("entities")', "claims = None", "after a claim-all"),
     ("a Trauma Code filed as a completion", "capture.manager:ADDON_TEMPLATE",
      "                                        or TRAUMA_CODE_ROW in row):",
      "                                        ):",

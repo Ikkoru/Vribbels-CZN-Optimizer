@@ -1652,12 +1652,19 @@ class Addon:
                 self._save_pending = True
         # A Trauma Code's event reward claimed in the session answers
         # with its one row, under `mission_entity` with the event's id
-        # beside its own (`trauma_code/get_reward_mission`); unlocking a
-        # code answers with the code's row under the bare `entity`.
-        # Each is folded into its login table.
-        claim = data.get("mission_entity")
-        if (isinstance(claim, dict) and claim.get("event_code_id") is not None
-                and claim.get("res_id") is not None):
+        # beside its own (`trauma_code/get_reward_mission`), and the
+        # claim-all button with every claimed row so far, under the
+        # bare `entities` (`get_reward_mission_all`); unlocking a code
+        # answers with the code's row under the bare `entity`. Each is
+        # folded into its login table, `event_code_id` saying which
+        # rows are a Trauma Code's.
+        claims = data.get("entities")
+        for claim in ((claims if isinstance(claims, list) else [])
+                      + [data.get("mission_entity")]):
+            if not (isinstance(claim, dict)
+                    and claim.get("event_code_id") is not None
+                    and claim.get("res_id") is not None):
+                continue
             table = self.login_tables.setdefault(
                 "mission_trauma_code_event_entities", {})
             if isinstance(table, dict):

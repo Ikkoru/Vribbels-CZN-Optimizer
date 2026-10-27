@@ -1236,6 +1236,20 @@ def _event_settled(raw, name, group, window, now):
     return _segments_settled(raw, name, segments)
 
 
+def _event_rank(raw, name, group, window, now):
+    """Where an event's row sorts in the Events block: 0 with something
+    outstanding, 1 done for the day (`CYCLE_DONE`, orange), 2 finished
+    or answered `Finished?`. A day done comes back tomorrow, so it sits
+    above the rows that will not."""
+    reader = EVENT_READERS.get(group)
+    segments = list(reader(raw, name, window, now)) if reader else []
+    if not _segments_settled(raw, name, segments):
+        return 0
+    if str(name) in ((raw or {}).get(EVENT_FINISHED_FIELD) or ()):
+        return 2
+    return 1 if any(state is CYCLE_DONE for _words, state in segments) else 2
+
+
 def _segments_settled(raw, name, segments):
     """`_event_settled`, over the segments its reader already gave."""
     # The user's own answer settles a row as surely as the game's:
@@ -1257,7 +1271,9 @@ def event_rows(raw, now=None):
     is by deadline, which is what a checklist is about. Same shape as
     an untracked shop product sinking to the bottom of its shop: the
     rows that need a decision are the ones at the top. Above them all,
-    a payment event stalled short of its last tier (`_stalled`).
+    a payment event stalled short of its last tier (`_stalled`); among
+    the rows with nothing owed, those done for the day come before the
+    finished (`_event_rank`).
 
     A schedule that only opens part of another event in a gated group
     is no row of its own: see `GATED_GROUPS`.
@@ -1274,11 +1290,11 @@ def event_rows(raw, now=None):
                     name.startswith(other + "_") for other in names):
                 continue
             found.append((not _stalled(raw, name, window, now),
-                          _event_settled(raw, name, group, window, now),
+                          _event_rank(raw, name, group, window, now),
                           window["end_time"], name))
     return tuple((EVENT_KEY_PREFIX + name, event_label(name),
                   with_countdown(EVENT_WIDEST))
-                 for _stuck, _settled, _end, name in sorted(found))
+                 for _stuck, _rank, _end, name in sorted(found))
 
 
 def _stalled(raw, name, window, now):

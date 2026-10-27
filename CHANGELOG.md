@@ -12,6 +12,14 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 - Chaos runs record every fight in order and whether Distortion Adaptation was on. `docs/chaos_runs.py` writes three more columns: `distortion`, `senectus`, the floor a Senectus broke in on, and `fights_before`, the fights before it.
 
+### Changed
+
+- Checklist: events done for the day (orange) sort above the finished ones and the ones you ticked `Finished?`.
+
+### Fixed
+
+- Checklist: a Trauma Code's rewards claimed with the Claim All button count straight away, not at the next login.
+
 ## [2.6.2] - Expiring Items, Chaos Run Tracking
 
 ### Added

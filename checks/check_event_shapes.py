@@ -661,6 +661,56 @@ def _payment_stalls(ct):
     return out
 
 
+def _done_for_the_day_order(ct):
+    """Owed first; then a row done for the day (orange), whatever its
+    deadline; then the finished and the ones answered `Finished?`, an
+    orange row answered so among them."""
+    import game_client as gc
+    out = []
+
+    def window(days):
+        return {"start_time": NOW - DAY, "end_time": NOW + days * DAY}
+
+    raw = {"event_schedules": {"EVENT_SCHEDULE": {
+               "event_owed_1": window(20),
+               "payment_event_01": window(30),
+               "event_schedule_1st_year_1": window(2),
+               "event_free_gacha_2": window(3)}},
+           # Every pull issued so far taken: done for the day, but
+           # answered `Finished?` below.
+           ct.FREE_PULLS_FIELD: [{"res_id": "free_gacha_002",
+                                  "gacha_count": 60, "issued_count": 60}],
+           "mission_entities": {"event_owed_1_1": _mission(
+               "event_owed_1_1", NOW - DAY)},
+           # A tier claimed an hour ago and too few tokens for the next.
+           ct.PAYMENT_CLAIMS_FIELD: {"payment_event_01": {
+               "payment_reward_01_01": {"complete_time": NOW - 3600}}},
+           ct.GIFT_CLAIMS_FIELD: {"event_login_reward_1": {
+               "event_login_reward_1_1": {"complete_time": NOW}}},
+           ct.EVENT_FINISHED_FIELD: frozenset({"event_free_gacha_2"})}
+    want = ["event_owed_1", "payment_event_01",
+            "event_schedule_1st_year_1", "event_free_gacha_2"]
+    try:
+        gc.use({"payment_events": {"payment_event_01": {
+                    "define": "payment_event_01", "item": 3930006,
+                    "tiers": [["payment_reward_01_01", 300],
+                              ["payment_reward_01_02", 1000]]}},
+                "login_rewards": {"event_schedule_1st_year_1": {
+                    "define": "event_login_reward_1",
+                    "rewards": ["event_login_reward_1_1"]}},
+                "free_gachas": {"event_free_gacha_2": {
+                    "id": "free_gacha_002", "pulls": 70}}})
+        got = [key[len(ct.EVENT_KEY_PREFIX):]
+               for key, _label, _widest in ct.event_rows(raw, NOW)]
+        if got != want:
+            out.append(f"the Events sorted {got!r}, not {want!r}: owed, "
+                       f"then done for the day, then finished or answered "
+                       f"`Finished?`, each by deadline.")
+    finally:
+        gc.use(None)
+    return out
+
+
 def _gifts_and_free_pulls(ct):
     """A gift page reads its gifts claimed against the client's; free
     Rescues read the pulls taken against every pull the event issues,
@@ -780,6 +830,7 @@ def run():
                   _one_instalment_votes_once, _final_rewards, _step_tracks,
                   _numbering, _family_corroborates, _split_trials,
                   _countdown, _payment_events, _payment_stalls,
+                  _done_for_the_day_order,
                   _gifts_and_free_pulls, _trauma_codes, _unread_rows_asked):
         failures.extend(probe(ct))
     return failures
@@ -801,6 +852,12 @@ FAULTS = [
      "found.append((True,", "was not sorted to the top"),
     ("a stall's clock ignoring the claims", "ui.tabs.checklist_tab:_stalled",
      "since = max(stamps + [", "since = max([", "was sorted to the top"),
+    ("a day done sorted with the finished", "ui.tabs.checklist_tab:_event_rank",
+     "return 1 if any(", "return 2 if any(", "the Events sorted"),
+    ("an answered Finished? sorted with the days done",
+     "ui.tabs.checklist_tab:_event_rank",
+     "    if str(name) in ((raw or {}).get(EVENT_FINISHED_FIELD) or ()):\n"
+     "        return 2\n", "", "the Events sorted"),
     ("gifts unread", "ui.tabs.checklist_tab:_event_missions",
      "_gift_progress(raw, name)\n", "[]\n", "Carnival's gifts"),
     ("free pulls issued counted as taken",
