@@ -7,9 +7,10 @@ set "RED=%ESC%[91m"
 set "OFF=%ESC%[0m"
 
 echo Don't forget to:
-echo 0. Ensure the default settings are correct.
-echo 1. Delete default json files, then zRUN Vribbels
-echo 2. Be happy
+echo 0. Ensure the default settings are correct
+echo 1. Delete default json files: presets.json, character_preset.json, optimizer_settings.json
+echo 2. zRUN Vribbels
+echo 3. Be happy
 echo.
 
 cd /d "%~dp0Vribbels" || (echo %RED%CANNOT FIND Vribbels NEXT TO THIS FILE%OFF% & pause & exit /b 1)
