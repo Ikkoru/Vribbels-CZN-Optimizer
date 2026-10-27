@@ -39,6 +39,7 @@
     "30115": "Arabella (high DoT)",
     "30117": "Olga (high DoT)",
     "1012": "Anika",
+    "Rossweisse": null,
     "30134": "Rossweisse"
   },
   "name_hints": {
@@ -79,6 +80,8 @@
     "1057": "Yuki",
     "30115": "Arabella",
     "30117": "Olga",
-    "1012": "Anika"
+    "1012": "Anika",
+    "Rossweisse": "Rossweisse",
+    "30134": "Rossweisse"
   }
 }
