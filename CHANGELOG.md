@@ -13,8 +13,9 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Checklist: Expiring Items, under the columns. Every time-limited item you hold, soonest to expire first: how many, and the time left on the soonest.
   - A line blinks orange inside a week and red inside two days.
   - Command Delegation Modules stay in the Weekly column's rows.
-- Chaos runs record the partners you took and their limit breaks.
+- Chaos runs record the partners you took and their limit breaks, Nightmare Mode, the opening pick, the party's HP at each fight's start, and the map.
   - Checklist: the season estimate counts Danger Intuition, Sig's and Peko's Exploration Passive, which makes a Senectus Invasion likelier. It uses the partners of your newest run of the season's Chaos.
+  - Running from source, `docs/chaos_runs.py` turns your runs into a table and a report, and `docs/chaos_runs_xlsx.py` into a spreadsheet. See [Tracking Chaos runs](README.md#tracking-chaos-runs).
 - Checklist: three more events count their rewards.
   - Free Rescues for logging in: the pulls taken out of all the event gives, red while pulls are waiting, orange once today's are taken.
   - A Trauma Code's event: its rewards and sticker. Orange while what is left waits on a battle that opens on a later day.

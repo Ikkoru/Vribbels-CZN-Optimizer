@@ -62,7 +62,7 @@ Snapshots are the maintainer's captured game data. Read them; never write to `Vr
 | Which item res_ids are known, used, or still to identify | `docs/items_id_dump.py` and the item TSVs it writes |
 | What each shop sells, at what price and cap | `docs/items_shops.tsv` |
 | What each Mutation (a Save Data's `corruption_option_<n>`) does | the game client's `savedata_edit_corruption` table: `docs/client_data.md` |
-| Every Galactic Disaster Chaos run and what it paid | `docs/chaos_runs.py` and `docs/chaos_runs.tsv` |
+| Every Galactic Disaster Chaos run and what it paid | `docs/chaos_runs.py` and `docs/chaos_runs.tsv`; `docs/chaos_runs_xlsx.py` makes a spreadsheet of a table |
 | The spacing audit's recorded readings | `docs/spacing_baseline*.json`, one per state and scale, written by the Freeze and States launchers |
 | Which mission res_ids are known, and which set each belongs to | `docs/missions_id_dump.py` and `docs/missions_id.tsv` |
 | Which wire field carries a Checklist row, and the suspects for the rest | `docs/wire_hunt.md` and `docs/wire_hunt.tsv` |

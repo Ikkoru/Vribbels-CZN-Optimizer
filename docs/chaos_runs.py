@@ -4,8 +4,15 @@ pays in a run and whether it has moved.
     python docs/chaos_runs.py          # the runs' file, snapshots, and logs since the newest row
     python docs/chaos_runs.py --all    # the same, and every log, loose and archived
     python docs/chaos_runs.py --full   # the report with every row, nothing pooled
+    python docs/chaos_runs.py --out my_runs.tsv    # write the table there instead
+    python docs/chaos_runs.py --data "C:\\CZN Optimizer\\snapshots"   # read another data folder
 
-`docs/chaos_runs.cmd` runs the first from Explorer.
+`docs/chaos_runs.cmd` runs the first from Explorer, passing on any of
+these. **`docs/chaos_runs.tsv` holds the maintainer's own runs**: anyone
+else gives `--out`, or their runs join those. `--data` reads the
+folder a built program keeps beside its `.exe` instead of
+`Vribbels/snapshots`. `docs/chaos_runs_xlsx.py` turns a table into a
+spreadsheet.
 
 **A run comes from three places, and is one row.** The capture files
 every Chaos run into a file of its own (`Vribbels/chaos_store.py`);
@@ -316,10 +323,16 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SOURCE = ROOT / "Vribbels"
+# Where the script was started, before it moves to the source folder:
+# `--out` and `--data` are read from there.
+LAUNCHED_IN = Path.cwd()
 sys.path.insert(0, str(SOURCE))
 os.chdir(SOURCE)
 
+# The table, and the folder the capture keeps its snapshots, runs and
+# logs in; `--out` and `--data` set another (`main`).
 OUT = ROOT / "docs" / "chaos_runs.tsv"
+DATA = "snapshots"
 
 # The season currencies seen so far. Only a run no standings named a
 # season for is placed by this; see the module docstring.
@@ -442,8 +455,9 @@ def logs(since=""):
     it (a solid stream, decompressed end to end) would find nothing to
     read.
     """
-    loose = sorted(glob.glob("snapshots/websocket_debug_*.jsonl.gz"))
-    archive = "snapshots/archived_captures.tar.xz"
+    loose = sorted(glob.glob(os.path.join(glob.escape(DATA),
+                                          "websocket_debug_*.jsonl.gz")))
+    archive = os.path.join(DATA, "archived_captures.tar.xz")
     if os.path.exists(archive) and not (since and loose
                                         and since >= stamp(loose[0])):
         print(paint("   opening the archive...", QUIET), flush=True)
@@ -516,12 +530,13 @@ def snapshots():
     """(runs, newest snapshot): (source, run) for every run the runs'
     own file and the loose snapshots hold, and the newest snapshot's
     contents."""
-    stored, note = chaos_store.read("snapshots")
+    stored, note = chaos_store.read(DATA)
     if note:
         print(paint("   ! the runs' file: %s" % note, FLAG))
     runs = [(chaos_store.FILE, run) for run in stored if run.get("closed")]
     newest = None
-    for path in sorted(glob.glob("snapshots/memory_fragments_*.json")):
+    for path in sorted(glob.glob(os.path.join(glob.escape(DATA),
+                                              "memory_fragments_*.json"))):
         try:
             with open(path, encoding="utf-8") as fh:
                 data = json.load(fh)
@@ -2360,9 +2375,20 @@ def others_table(others, met_on):
 
 
 def main():
-    global FULL
-    FULL = "--full" in sys.argv[1:]
-    full = "--all" in sys.argv[1:]
+    global FULL, OUT, DATA
+    args = sys.argv[1:]
+    FULL = "--full" in args
+    full = "--all" in args
+    for flag in ("--out", "--data"):
+        if flag in args:
+            at = args.index(flag)
+            if at + 1 >= len(args):
+                sys.exit("%s needs a path after it" % flag)
+            path = (LAUNCHED_IN / args[at + 1]).resolve()
+            if flag == "--out":
+                OUT = path
+            else:
+                DATA = str(path)
     header, rows = existing()
     theirs = header[header.index("log") + 1:] if header else []
     if MISSED not in theirs:
@@ -2417,7 +2443,7 @@ def main():
 
     print(paint("%d snapshot run(s), %d log(s) read, %d new run(s), %d "
                 "row(s) -> %s" % (len(held), seen, new, len(kept),
-                                  OUT.relative_to(ROOT)), GOOD))
+                                  OUT), GOOD))
     if filled:
         print("   filled `missed` for whole lost runs: %s" % ", ".join(filled))
     if any(row["season"] == "?" for row in kept.values()):

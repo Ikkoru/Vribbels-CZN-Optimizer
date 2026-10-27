@@ -74,6 +74,26 @@ Pressing `Generate & Install Cert` adds a mitmproxy certificate to your trusted 
 
 4. Run the program using `zRUN.bat`.
 
+## Tracking Chaos runs
+
+While capture is on, every Chaos run is recorded: what it paid, every fight and what it carried (Rare Species, Aether Eater, Senectus), your partners and their limit breaks, Nightmare Mode, the opening pick at Kyrken's Messenger, the party's HP at each fight's start, and the map. Two scripts in `docs/` turn the records into a table and a spreadsheet. They run from source (see above); the spreadsheet also needs `pip install openpyxl`.
+
+1. Play Chaos runs with capture on. Ticking **Debug WS** on the Capture tab also keeps a log of each session, which lets the script read old runs again for anything it learns to record later.
+2. Make your table, and see its report:
+
+   ```
+   docs\chaos_runs.cmd --out "%USERPROFILE%\Desktop\my_chaos_runs.tsv"
+   ```
+
+   `docs/chaos_runs.tsv` holds the maintainer's runs, so give `--out`, or your runs join theirs. `--all` reads every debug log again; `--full` shows the report without pooling; `--data "<folder>\snapshots"` reads the data a built program keeps beside its exe.
+3. Make the spreadsheet beside it (`my_chaos_runs.xlsx`):
+
+   ```
+   docs\chaos_runs_xlsx.cmd "%USERPROFILE%\Desktop\my_chaos_runs.tsv"
+   ```
+
+How each column and rate is worked out is at the top of `docs/chaos_runs.py`.
+
 ## Credits
 
 Original by [Vorbroker](https://github.com/Vorbroker/Vribbels-CZN-Optimizer).

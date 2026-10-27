@@ -74,3 +74,5 @@ Vribbels/build_tcl/_tk_data/
 # I'm normal
 .old/
 _tmp/
+# Spreadsheets docs/chaos_runs_xlsx.py makes beside a table
+docs/*.xlsx
