@@ -95,7 +95,7 @@ The columns this script owns:
 | `nightmare` | whether the run was in Nightmare Mode, `on` or `off`: the entry request's `is_psychosis_mode`; `?` for a run filed before runs kept it |
 | `opening` | the option picked at the run's opening event, Kyrken's Messenger: `uk_sys_s02_01d_s1` (`capture.manager._chaos_opening`); `?` where no capture saw the pick |
 | `1hp_start` | `yes` where that pick set every enemy of the first 3 normal battles to 1 HP (`ONE_HP_START`), else `no`; `?` as `opening` |
-| `distortion` | whether Distortion Adaptation was on, `on` or `off`: taken to be the entry request's `is_chaos_level_mode` (`capture.manager`, `level_mode`), unconfirmed until a run with it off is captured; `?` for a run filed before runs kept it |
+| `distortion` | whether Distortion Adaptation was on, `on` or `off`: the entry request's `is_chaos_level_mode` (`capture.manager`, `level_mode`); `?` for a run filed before runs kept it |
 | `senectus` | the floor a Senectus broke in on; empty for none (`senectus_of`) |
 | `fights_before` | the fights before the Senectus, by spot: `battle:3 elite:1 unknown:1`; in a run without one, every fight it had. Both `?` for a run filed before runs kept their fights in order |
 | `lost`    | where a lost run was lost: `floor:spot:non-boss fights left`, `+mark` for a mark |

@@ -4927,10 +4927,11 @@ class Addon:
             # `acceleration_info`; one played by hand without it. Nightmare
             # Mode is `is_psychosis_mode`: the client's achievements count
             # its clears as CLEAR_PSYCHOSIS__AREA, "Clear Chaos Interior
-            # {0} times in Nightmare Mode". `is_chaos_level_mode`, with a
-            # flag per combatant in `chaos_level_mode_custom_supporter_info`,
-            # is taken for Distortion Adaptation, which sets combatants to
-            # the Chaos Level: on by default, and true in every run seen.
+            # {0} times in Nightmare Mode". Distortion Adaptation, on by
+            # default, is `is_chaos_level_mode`, with a flag per combatant
+            # in `chaos_level_mode_custom_supporter_info`: a run asked for
+            # with it switched off sent false
+            # (`websocket_debug_20261027_172739`).
             if (isinstance(sent, dict)
                     and self.qid_commands.get(entry.get("qid")) in CHAOS_OPENS):
                 self.chaos_nightmare = sent.get("is_psychosis_mode")
