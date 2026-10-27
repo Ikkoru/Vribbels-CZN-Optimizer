@@ -136,7 +136,7 @@ def main() -> int:
     # Atomic, matching how the managers write: an interrupted run leaves
     # the old file whole rather than half of a new one.
     tmp = TARGET.with_suffix(TARGET.suffix + ".tmp")
-    tmp.write_text(text, encoding="utf-8")
+    tmp.write_text(text, encoding="utf-8", newline="\n")
     tmp.replace(TARGET)
 
     for line in changed:

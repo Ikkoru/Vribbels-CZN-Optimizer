@@ -217,7 +217,7 @@ Windows spawn relaunches the executable per multiprocessing worker. `multiproces
 
 ## The title bar is Windows' own, coloured through DWM
 
-Tk cannot draw the caption; `ui/title_bar.py` sets it as window attributes, the colours on Windows 11 and dark or light by the system's app theme on Windows 10, and says which builds take which. It is set on the main window at the end of `_reveal_window`, still at alpha 0, so the caption never paints in the default first; the two Toplevel dialogs set it where they first map. The native message and file dialogs keep Windows' default. Its height is Windows' too and has no attribute: changing it means drawing a title bar of our own. `check_tabs_build` holds every attribute to Windows accepting it, since a refusal is an error code the caption simply ignores.
+Tk cannot draw the caption; `ui/title_bar.py` sets it as window attributes, the colours on Windows 11 and dark or light by the system's app theme on Windows 10, and says which builds take which. It is set on the main window at the end of `_reveal_window`, still at alpha 0, so the caption never paints in the default first; each Toplevel dialog sets it where it first maps. The native message and file dialogs keep Windows' default. Its height is Windows' too and has no attribute: changing it means drawing a title bar of our own. `check_tabs_build` holds every attribute to Windows accepting it, since a refusal is an error code the caption simply ignores.
 
 ## Display rules that look like bugs
 

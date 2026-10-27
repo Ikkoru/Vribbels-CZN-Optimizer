@@ -147,6 +147,9 @@ class SettingsManager:
         ("first_launch_done", False),
         ("update_last_checked", ""),
         ("update_latest_version", ""),
+        # The version running when the update notice's Ignore Until
+        # Updated was chosen: `ui.update_check.IGNORE_KEY`.
+        ("update_ignored_in", ""),
         ("selected_preset", ""),
         # Set by hand in this file; nothing on screen edits them.
         ("#5", "_Settings without UI_"),

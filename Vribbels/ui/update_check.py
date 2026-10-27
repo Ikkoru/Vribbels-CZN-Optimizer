@@ -1,27 +1,37 @@
-"""The Update Status panel, and the GitHub check behind it.
+"""The Update Status panel, the launch's update check, and the GitHub
+request behind both.
 
-A panel plus its own background thread, in one place because the two
-are one feature: the widgets exist to show what the check found, and
-the check exists to fill them. The hosting tab builds it and packs
-`.panel`; everything else is armed here.
+The panel and the launch check are one feature: the widgets show what a
+check found, and the launch check fills them as well as announcing a
+newer release. The hosting tab builds the panel and packs `.panel`;
+`OptimizerGUI` starts the launch check after the reveal, since the
+Setup & Settings tab may not be built until later.
 
 How the check works
 ===================
-`check_now` starts a background thread that fetches
+A background thread runs `fetch_latest`, which fetches
     https://api.github.com/repos/<repo>/releases/latest
-with urllib -- no third-party dependency -- parses the JSON and posts
-the result back through a queue. The main thread drains that queue on a
-poll and renders the answer.
+with urllib -- no third-party dependency -- and parses the JSON. The
+answer goes back through a queue, which the main thread drains on a
+poll.
 
 **Nothing touches a widget off the main thread.** Tk is single-threaded
 and a config call from the worker is a crash with no traceback anyone
 sees; the queue is what keeps the two apart.
 
 The last result is persisted through the settings manager under
-`update_latest_version` and `update_last_checked`, so the labels
-populate on the next launch without a network round trip. No message
-box ever pops: the answer is in the panel, and the release notes are a
-link away.
+`update_latest_version` and `update_last_checked` (`record_result`), so
+the labels populate on the next launch without a network round trip.
+
+The launch check
+================
+`StartupCheck` runs one check per launch and, where the release is
+newer than this build, shows `show_notice`: open the releases page,
+ignore it this time, or ignore it until the program is updated. The last
+stores this build's version under `IGNORE_KEY`, and a launch of that
+same version makes no request at all (`startup_check_due`), so the
+choice also stops the launch's request to GitHub. A different version,
+newer or older, checks again. The panel's Check Now is unaffected.
 
 Version comparison
 ==================
@@ -39,10 +49,14 @@ import threading
 import tkinter as tk
 import urllib.error
 import urllib.request
+import webbrowser
 from datetime import datetime
 from tkinter import ttk
 
 from ui.scaling import px
+from ui.title_bar import apply_title_bar
+from ui.utils.button_width import BUTTON_W_LARGE
+from ui.utils.escape import close_on_escape
 
 # GitHub releases endpoint for this fork. Replace the slug if the fork
 # ever migrates -- everything else here flows from this constant.
@@ -173,6 +187,208 @@ def current_version() -> str:
         return ""
 
 
+def fetch_latest() -> dict:
+    """The latest release's tag, from GitHub: `{"ok": True, "latest":
+    tag}`, or `{"ok": False, "error": why}`. Blocks for up to the
+    request's timeout, so it runs on a worker."""
+    try:
+        request = urllib.request.Request(
+            RELEASES_API_URL,
+            headers={
+                "Accept": "application/vnd.github+json",
+                # The API requires a UA and urllib sets none.
+                "User-Agent": "Vribbels-CZN-Optimizer",
+            },
+        )
+        with urllib.request.urlopen(request, timeout=10) as response:
+            data = json.loads(response.read().decode("utf-8"))
+        tag = (data.get("tag_name") or "").strip()
+        if not tag:
+            return {"ok": False, "error": "No tag_name in response"}
+        return {"ok": True, "latest": tag}
+    except urllib.error.HTTPError as exc:
+        # 404 is "this repo has published no releases", which is a
+        # different answer from a server that failed.
+        return {"ok": False, "error": (
+            "No releases published yet on this repo" if exc.code == 404
+            else f"HTTP {exc.code}")}
+    except urllib.error.URLError as exc:
+        return {"ok": False, "error": f"Network: {exc.reason}"}
+    except Exception as exc:                # noqa: BLE001
+        return {"ok": False, "error": str(exc)}
+
+
+def record_result(settings_manager, result):
+    """Persist a finished check and return what the panel renders from
+    it: `(latest, checked_at, error)`.
+
+    **The cached version is not cleared by a failure.** A check that
+    could not reach GitHub says nothing about what the last one found,
+    and blanking it would read as "no release exists".
+    """
+    now_iso = datetime.now().isoformat()
+    if settings_manager is not None:
+        settings_manager.set("update_last_checked", now_iso)
+    if result.get("ok"):
+        latest = (result.get("latest") or "").lstrip("vV")
+        if settings_manager is not None:
+            settings_manager.set("update_latest_version", latest)
+        return latest, now_iso, None
+    cached = (settings_manager.get("update_latest_version")
+              if settings_manager is not None else None)
+    return cached, now_iso, result.get("error") or "Unknown error"
+
+
+# ------------------------------------------------------------ the launch
+
+# The settings key "Ignore Until Updated" writes: the version that was
+# running when it was chosen.
+IGNORE_KEY = "update_ignored_in"
+
+NOTICE_TITLE = "Update available"
+
+# The notice's three choices, as the buttons read.
+OPEN_TEXT = "Open Releases Page"
+LATER_TEXT = "Ignore This Time"
+IGNORE_TEXT = "Ignore Until Updated"
+
+
+def startup_check_due(settings_manager, current) -> bool:
+    """Whether this launch checks for an update: not where the user
+    chose to ignore updates while running this same version."""
+    if settings_manager is None:
+        return True
+    ignored = settings_manager.get(IGNORE_KEY) or ""
+    return not (ignored and current
+                and version_core(ignored) == version_core(current))
+
+
+def notice_text(latest, current) -> str:
+    """The notice's words for a release `latest` over this `current`."""
+    return (f"Version {version_core(latest)} has been released.\n"
+            f"You have version {version_core(current)}.")
+
+
+def show_notice(root, colors, latest, current, *, on_open, on_ignore):
+    """Show the update notice centred on `root`, and return the dialog.
+    `on_open` and `on_ignore` (Ignore Until Updated) are called before
+    it closes; Ignore This Time, Escape and the close box only close
+    it."""
+    dlg = tk.Toplevel(root)
+    dlg.title(NOTICE_TITLE)
+    dlg.transient(root)
+    dlg.resizable(False, False)
+    close_on_escape(dlg)
+    try:
+        dlg.configure(bg=colors["bg"])
+    except tk.TclError:
+        pass
+
+    # spacing: content frame -> content frame -- frame, frame ↔↕
+    outer = ttk.Frame(dlg, padding=px(4))
+    outer.pack(fill=tk.BOTH, expand=True)
+    ttk.Label(outer, text=notice_text(latest, current),
+              justify=tk.LEFT).pack(anchor=tk.W)
+
+    def choose(action):
+        def run():
+            dlg.destroy()
+            if action is not None:
+                action()
+        return run
+
+    # spacing: content frame -> content frame -- text, button ↕
+    # A button row under the text and inside no panel of its own, as in
+    # the settings notice.
+    buttons = ttk.Frame(outer)
+    buttons.pack(fill=tk.X, pady=px((4, 0)))
+    ttk.Button(buttons, text=IGNORE_TEXT, width=BUTTON_W_LARGE,
+               command=choose(on_ignore)).pack(side=tk.RIGHT)
+    # spacing: button -> button -- button, button ↔
+    ttk.Button(buttons, text=LATER_TEXT, width=BUTTON_W_LARGE,
+               command=choose(None)).pack(side=tk.RIGHT, padx=px((0, 4)))
+    # spacing: button -> button -- button, button ↔
+    opener = ttk.Button(buttons, text=OPEN_TEXT, width=BUTTON_W_LARGE,
+                        command=choose(on_open))
+    opener.pack(side=tk.RIGHT, padx=px((0, 4)))
+    opener.focus_set()
+
+    dlg.update_idletasks()
+    # Mapped by the line above, so its frame exists to colour.
+    apply_title_bar(dlg, colors["fg"])
+    try:
+        width, height = dlg.winfo_reqwidth(), dlg.winfo_reqheight()
+        x = root.winfo_rootx() + (root.winfo_width() - width) // 2
+        y = root.winfo_rooty() + (root.winfo_height() - height) // 2
+        dlg.geometry(f"+{max(0, x)}+{max(0, y)}")
+    except tk.TclError:
+        pass
+    return dlg
+
+
+class StartupCheck:
+    """One update check at launch, announced where it finds a newer
+    release.
+
+    `on_result(latest, checked_at, error)` is called on the main thread
+    with every finished check, so a panel already built can show it.
+    Does nothing where `startup_check_due` says the user ignored
+    updates for this version. `.started` says whether it asked.
+    """
+
+    def __init__(self, root, colors, settings_manager, on_result=None,
+                 fetch=fetch_latest):
+        self.root = root
+        self.colors = colors
+        self.settings_manager = settings_manager
+        self.on_result = on_result
+        self.current = current_version()
+        self.results = queue.Queue()
+        self.notice = None
+        self.thread = None
+        self.started = bool(self.current) and startup_check_due(
+            settings_manager, self.current)
+        if not self.started:
+            return
+        self.thread = threading.Thread(
+            target=lambda: self.results.put(fetch()), daemon=True)
+        self.thread.start()
+        self.root.after(POLL_MS, self._drain)
+
+    def _drain(self):
+        """Main thread: wait for the one answer, then act on it."""
+        try:
+            result = self.results.get_nowait()
+        except queue.Empty:
+            self.root.after(POLL_MS, self._drain)
+            return
+        self.apply(result)
+
+    def apply(self, result):
+        """Persist `result`, pass it on, and announce a newer release."""
+        latest, when_iso, error = record_result(self.settings_manager,
+                                                result)
+        if self.on_result is not None:
+            try:
+                self.on_result(latest, when_iso, error)
+            except tk.TclError:
+                pass
+        if error or not latest or not is_newer(latest, self.current):
+            return
+        try:
+            self.notice = show_notice(
+                self.root, self.colors, latest, self.current,
+                on_open=lambda: webbrowser.open(RELEASES_HTML_URL),
+                on_ignore=self.ignore_until_updated)
+        except tk.TclError:
+            pass
+
+    def ignore_until_updated(self):
+        """No launch check again while this version runs."""
+        if self.settings_manager is not None:
+            self.settings_manager.set(IGNORE_KEY, self.current)
+
+
 class UpdateStatus:
     """The Update Status panel: what was found, when, and a button.
 
@@ -263,36 +479,8 @@ class UpdateStatus:
         self.button.config(state="disabled", text="Checking...")
         self.verdict.config(text="Checking GitHub...",
                             fg=self.colors["fg_dim"])
-        threading.Thread(target=self._fetch, daemon=True).start()
-
-    def _fetch(self):
-        """The worker. Every outcome goes back through the queue."""
-        try:
-            request = urllib.request.Request(
-                RELEASES_API_URL,
-                headers={
-                    "Accept": "application/vnd.github+json",
-                    # The API requires a UA and urllib sets none.
-                    "User-Agent": "Vribbels-CZN-Optimizer",
-                },
-            )
-            with urllib.request.urlopen(request, timeout=10) as response:
-                data = json.loads(response.read().decode("utf-8"))
-            tag = (data.get("tag_name") or "").strip()
-            if not tag:
-                self.results.put({"ok": False, "error": "No tag_name in response"})
-                return
-            self.results.put({"ok": True, "latest": tag})
-        except urllib.error.HTTPError as exc:
-            # 404 is "this repo has published no releases", which is a
-            # different answer from a server that failed.
-            self.results.put({"ok": False, "error": (
-                "No releases published yet on this repo" if exc.code == 404
-                else f"HTTP {exc.code}")})
-        except urllib.error.URLError as exc:
-            self.results.put({"ok": False, "error": f"Network: {exc.reason}"})
-        except Exception as exc:            # noqa: BLE001
-            self.results.put({"ok": False, "error": str(exc)})
+        threading.Thread(target=lambda: self.results.put(fetch_latest()),
+                         daemon=True).start()
 
     def _drain(self):
         """Main thread: apply whatever finished. Always re-arms."""
@@ -308,22 +496,7 @@ class UpdateStatus:
         """Render a finished check and persist it."""
         self.checking = False
         self.button.config(state="normal", text="Check Now")
-        now_iso = datetime.now().isoformat()
-        if self.settings_manager is not None:
-            self.settings_manager.set("update_last_checked", now_iso)
-
-        if result.get("ok"):
-            latest = (result.get("latest") or "").lstrip("vV")
-            if self.settings_manager is not None:
-                self.settings_manager.set("update_latest_version", latest)
-            self.render(latest, now_iso, None)
-            return
-        # **The cached version is not cleared by a failure.** A check
-        # that could not reach GitHub says nothing about what the last
-        # one found, and blanking it would read as "no release exists".
-        cached = (self.settings_manager.get("update_latest_version")
-                  if self.settings_manager is not None else None)
-        self.render(cached, now_iso, result.get("error") or "Unknown error")
+        self.render(*record_result(self.settings_manager, result))
 
     def restore_cached(self):
         """Fill the labels from the last persisted check."""

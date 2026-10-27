@@ -21,6 +21,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - A Trauma Code's event: its rewards and sticker. Orange while what is left waits on a battle that opens on a later day.
   - The Nightmare Carnival's gifts on its first page.
 - Checklist: the Nightmare Carnival's Exchange moves to the top of the Events when two days pass without a tier claimed.
+- The program checks for a new release when it starts, and says when one is out: open the releases page, ignore it this time, or ignore it until you update.
 
 ### Changed
 

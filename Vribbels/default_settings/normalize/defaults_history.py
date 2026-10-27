@@ -176,7 +176,7 @@ def main():
         return 0
     text = json.dumps(history, indent=1, sort_keys=True) + "\n"
     if not OUT.exists() or OUT.read_text(encoding="utf-8") != text:
-        OUT.write_text(text, encoding="utf-8")
+        OUT.write_text(text, encoding="utf-8", newline="\n")
         print(f"{OUT.name} rewritten: "
               f"{sum(map(len, history['presets'].values()))} preset values, "
               f"{len(history['optimizer_settings'])} combatants' settings, "

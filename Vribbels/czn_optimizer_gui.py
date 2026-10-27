@@ -410,6 +410,7 @@ class OptimizerGUI:
         self._apply_client_read()
         self._report_settings_repairs()
         self._report_sync_failures()
+        self._start_update_check()
         # Dev-only, off unless asked for. Must come after the reveal,
         # which under an audit leaves the window at alpha 0 but settled
         # and painted: the audit renders it.
@@ -1250,6 +1251,24 @@ class OptimizerGUI:
             self._warn("Game data problems", format_problem_report(problems))
         except Exception:
             pass
+
+    def _start_update_check(self):
+        """Ask GitHub for the latest release, and say so where it is
+        newer (`ui.update_check.StartupCheck`). Here rather than in the
+        Update Status panel, whose tab may not be built yet; the panel
+        is told when it is. Not under the audit, whose window nobody
+        looks at."""
+        if self._spacing_audit_wanted():
+            return
+        from ui.update_check import StartupCheck
+
+        def show(latest, when_iso, error):
+            tab = self.setup_tab_instance
+            if tab is not None:
+                tab.update_status.render(latest, when_iso, error)
+
+        self._update_check = StartupCheck(
+            self.root, self.colors, self.settings_manager, on_result=show)
 
     def _start_client_read(self, settings_dir):
         """What the game client says (`game_client`): the cache, where
