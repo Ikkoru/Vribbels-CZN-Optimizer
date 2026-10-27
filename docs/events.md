@@ -121,7 +121,12 @@ The same applies to a mission-tallied event: the write-down holds while the rows
 
 **A row with nothing read but its deadline asks `Finished?`** (`NOTHING_READ`): the collab coupon, the Carnival's Unigram message (`event_schedule_nm1_unigram`). Ticked, its deadline greens and it sorts down with the finished; the answer stands until the event ends.
 
-**The Events sort in four bands, each by deadline** (`event_rows`, `_event_rank`): a payment event stalled short of its last tier; anything owed; a row done for the day (`CYCLE_DONE`, orange), which comes back tomorrow; and the finished with the rows answered `Finished?`, an orange row answered so among them.
+**The Events sort in four bands, each by deadline** (`event_rows`, `_event_rank`):
+
+1. a payment event stalled short of its last tier;
+2. anything owed;
+3. a row done for the day (`CYCLE_DONE`, orange), which comes back tomorrow;
+4. the finished, with the rows answered `Finished?`; an orange row answered so sorts among them.
 
 **The Galactic Disaster is not one event but a season of them**: three parts of 21 days, each with a supply store, a medal screen, five pages of challenge missions, a story track, three distortion bosses and a Great Rift half. The Checklist gives it a column of its own, holding the season-long shop and a deadline; the weekly chaos progress and the seasonal score are rows in `Weekly`. Between one season's content and the next, the shop is shut and the two rows read `Not open` (`checklist_tab.disaster_off_season`). That stretch is the three weeks the new season's window spends in preseason, under the ended season's `DISASTER_SEASON_END` tail window. The medal screen, the challenge pages and the story track are read by nothing.
 

@@ -6,15 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.com/Vorbroker/Vribbels-CZN-Optimizer) at v1.7.0 (2026-02-07) and restarts versioning from v1.0.0. For the pre-fork history, see the upstream repository's CHANGELOG.
 
-## [2.6.3] - unreleased
+## [2.6.3] - Senectus Tracking, Distortion Adaptation
 
 ### Added
 
-- Chaos runs record every fight in order and whether Distortion Adaptation was on. `docs/chaos_runs.py` writes three more columns: `distortion`, `senectus`, the floor a Senectus broke in on, and `fights_before`, the fights before it.
+- Chaos runs record every fight in order, and Distortion Adaptation: whether it was on, and which partners it assigned. `docs/chaos_runs.py` writes them:
+  - `senectus`, the floor a Senectus broke in on, and `fights_before`, the fights before it;
+  - `distortion`, `on` or `off`, and `DA` after an assigned partner in `partners`.
 
 ### Changed
 
-- Checklist: events done for the day (orange) sort above the finished ones and the ones you ticked `Finished?`.
+- Checklist:
+  - Events done for the day (orange) sort above the finished ones and the ones you ticked `Finished?`.
+  - The season 5 estimate expects more Rare Species a Chaos run, measured over more runs.
 
 ### Fixed
 

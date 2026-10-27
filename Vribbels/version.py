@@ -4,7 +4,7 @@ Application version information.
 This module provides the single source of truth for the current application version.
 """
 
-__version__ = "v2.6.2 (forked from v1.7.0)"
+__version__ = "v2.6.3 (forked from v1.7.0)"
 
 # The day this version was released (UTC), and the Galactic Disaster
 # season live on it. Set by the release step. The Checklist's season
