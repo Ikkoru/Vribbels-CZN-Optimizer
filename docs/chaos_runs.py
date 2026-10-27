@@ -104,7 +104,8 @@ flagged.
 Senectus: the keyword is its spot's, and the spot is already counted on
 the Rare Species fight before it -- every one captured followed one on
 the same floor -- so it adds a second Rare Species payout, not a second
-Rare Species. `k0+k1`, season 3's Persona Card battle, is one mark.
+Rare Species. A season's own gimmick -- `k0+k1`, season 3's Persona
+Card battle -- is left out of the counts (`SEASON_ONLY`).
 Senectus is met once a run at most, so it is counted over runs; every
 other mark over the kinds of ordinary fight it has been met on -- the
 Aether Eater over battles alone, which is where the client puts all of
@@ -1156,14 +1157,22 @@ def identities(key):
     battle on the same floor. Counting the keyword again would count
     the spot twice. **A key `MARKS` names whole is one mark**: `k0+k1`,
     season 3's Persona Card battle, which carries both tags. Any other
-    key counts toward each of its marks."""
+    key counts toward each of its marks. **A season's own mark counts
+    toward nothing** (`SEASON_ONLY`): it is that season's gimmick, met
+    only on its map, and says nothing of the rates every season
+    shares."""
     if key in MARKS:
-        return [key]
-    parts = key.split("+")
-    return [part for part in parts if chaos_estimate.is_invasion(part)] \
-        or parts
+        found = [key]
+    else:
+        parts = key.split("+")
+        found = [part for part in parts
+                 if chaos_estimate.is_invasion(part)] or parts
+    return [mark for mark in found if mark not in SEASON_ONLY]
 
 
+# The marks of one season's gimmick, left out of the report's counts and
+# pay: season 3's Persona Card battles. The table still records them.
+SEASON_ONLY = ("k0+k1", "k0", "k1")
 FIGHT_SPOTS = ("battle", "elite")
 
 
@@ -1207,8 +1216,9 @@ def _group_facts(rows):
              "at": collections.defaultdict(collections.Counter),
              "spots": collections.Counter(), "met_runs": collections.Counter()}
     for row in rows:
-        for key, _spot, amount, _mark, _raw in base_payouts(row) or ():
-            facts["amounts"][key].add(amount)
+        for key, _spot, amount, mark, _raw in base_payouts(row) or ():
+            if not mark or identities(key):
+                facts["amounts"][key].add(amount)
         fought = counts_of(row.get("fought"))
         for spot in FIGHT_SPOTS:
             facts["spots"][spot] += fought.get(spot, 0)

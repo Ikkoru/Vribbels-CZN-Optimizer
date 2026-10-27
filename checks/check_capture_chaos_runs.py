@@ -1196,7 +1196,7 @@ def _the_report_counts_each_mark_once():
     keyword again counts the spot twice. Returns complaints."""
     tool = _tool()
     out = []
-    for key, want in (("b1+k5", ["b1"]), ("k0+k1", ["k0+k1"]),
+    for key, want in (("b1+k5", ["b1"]), ("k0+k1", []),
                       ("k5", ["k5"]), ("e+k5", ["e", "k5"])):
         if tool.identities(key) != want:
             out.append(f"chaos_runs.identities reads {key!r} as "
