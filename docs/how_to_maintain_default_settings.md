@@ -23,6 +23,8 @@ Three files, bundled from `default_settings/`, and a fourth that is not a settin
 
 Deleting the three from `default_settings/` and running the program copies your own `settings/` across — that is step 1, and it fires only for the ones missing there.
 
+`zCreate exe.bat` opens by saying which of the three that copy would change (`default_settings/normalize/compare_defaults.py`): those to delete, in orange, or `Delete nothing` in green. It compares them as the build ships them, so the per-user state below and the `name_hints` labels never count. It is a reminder, and the build goes on either way.
+
 `zCreate exe.bat` then runs `normalize_defaults.py`, which strips the per-user state that copy brings with it: exclude lists, the level-seen map, the levels you optimize at. Its line in the build output is step 3.
 
 **Review the diff before committing** — the copy takes your working state wholesale, so watch for anything you were mid-experiment on. The build fails outright while any of the three is missing, so you cannot ship without this.

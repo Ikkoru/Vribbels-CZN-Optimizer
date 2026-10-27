@@ -6,14 +6,15 @@ for /F %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
 set "RED=%ESC%[91m"
 set "OFF=%ESC%[0m"
 
+cd /d "%~dp0Vribbels" || (echo %RED%CANNOT FIND Vribbels NEXT TO THIS FILE%OFF% & pause & exit /b 1)
+
+REM Steps 1 and 2 come from comparing your settings\ with the shipped
+REM defaults: which files to delete, or nothing, in orange or green.
 echo Don't forget to:
 echo 0. Ensure the default settings are correct
-echo 1. Delete default json files: presets.json, character_preset.json, optimizer_settings.json
-echo 2. zRUN Vribbels
+python "./default_settings/normalize/compare_defaults.py"
 echo 3. Be happy
 echo.
-
-cd /d "%~dp0Vribbels" || (echo %RED%CANNOT FIND Vribbels NEXT TO THIS FILE%OFF% & pause & exit /b 1)
 
 REM Every step runs through this, which shows its warnings dark yellow
 REM and its errors red and hands back the step's own exit code.
