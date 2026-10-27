@@ -1068,7 +1068,8 @@ def _the_senectus_place(Addon):
     _setup(addon)
     steps = _Steps(addon, 900)
     steps.step("disaster/enter_disaster_chaos_stage",
-               {**DELEGATED, "is_chaos_level_mode": False},
+               {**DELEGATED, "is_chaos_level_mode": False,
+                "chaos_level_mode_custom_supporter_info": [True, False]},
                service_server_time=1790560000 - 1800)
     steps.fight(6, "SPOT_TYPE_BATTLE", "base_00160")
     steps.fight(9, "SPOT_TYPE_ELITE", "base_00161")
@@ -1084,6 +1085,18 @@ def _the_senectus_place(Addon):
             f"written senectus {row['senectus']!r}, fights_before "
             f"{row['fights_before']!r}, distortion {row['distortion']!r}: "
             f"not empty, every fight it had, and 'off'.")
+    # A partner Distortion Adaptation assigned in place of the player's
+    # own: its slot's flag, in team order (websocket_debug_20261027_202354,
+    # Sereniel's slot given the assigned Peko).
+    held = (run_.get("level_mode") or {}).get("custom_supporters")
+    written = _tool().partners_of({**run_, "partners": [[30076, 0],
+                                                        [30092, 0]]})
+    if held != [True, False] or not written.startswith("Peko LB0 DA, ") \
+            or written.endswith(" DA"):
+        out.append(f"a run whose first partner Distortion Adaptation "
+                   f"assigned keeps the flags {held!r} and writes "
+                   f"partners {written!r}: not [True, False], with `DA` "
+                   f"after the first partner alone.")
     if _tool().senectus_of({}) != ("?", "?"):
         out.append("a run filed before runs kept their fights in order "
                    "reads as one with no Senectus, not as `?`.")
@@ -1712,6 +1725,11 @@ FAULTS = [
      '                    "on": None,\n', "Distortion Adaptation off"),
     ("the fights after the Senectus counted before it",
      _report_fights_after, None, None, "a Senectus breaking in on floor 6"),
+    ("the assigned partners' flags not kept", "capture.manager:ADDON_TEMPLATE",
+     '                    "custom_supporters": sent.get(\n'
+     '                        "chaos_level_mode_custom_supporter_info")}',
+     '                    "custom_supporters": None}',
+     "Distortion Adaptation assigned keeps the flags"),
     ("a door without Distortion Adaptation read as unknown",
      _report_no_door_unknown, None, None, "a Zero System run is written"),
 ]

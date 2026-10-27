@@ -131,7 +131,8 @@ EXPLAIN_RAW = {
     "options": "Zero System map bonus/penalty option ids.",
     "rolled": "Bonus/penalties the run rolled, as effects.",
     "amplified": "Season currency +1% nodes owned.",
-    "partners": "Each combatant's partner and limit break.",
+    "partners": "Each combatant's partner and limit break. DA = one "
+                "Distortion Adaptation assigned instead of your own.",
     "invasion": "Senectus chance raise from Danger Intuition, in the game's "
                 "words (+8% LB0, +16% LB2 per partner). Empty: none.",
     "mode": "delegated = Delegation Module played it; ordinary = by hand.",

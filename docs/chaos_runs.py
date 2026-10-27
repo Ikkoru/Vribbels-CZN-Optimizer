@@ -80,7 +80,7 @@ The columns this script owns:
 | `options` | a Zero System map's bonus and penalty options: `b001 p112` |
 | `rolled`  | the bonus and penalties the run rolled, any door, as effects: `ELITE_ADD:p008 CREDIT_DOWN:p016` |
 | `amplified` | how many of the season's `Memory Resonance Amplification` nodes were in force: each pays +1% of the season's currency (`chaos_estimate.run_nodes`); `?` for a run filed before runs kept their effects |
-| `partners` | each combatant's partner and its limit break, in team order: `Sig LB2, Peko LB0, Nyx LB4`; `?` for a run filed before runs kept them |
+| `partners` | each combatant's partner and its limit break, in team order: `Sig LB2, Peko LB0, Nyx LB4`, `DA` after one Distortion Adaptation assigned in place of your own (`Peko LB0 DA`); `?` for a run filed before runs kept them |
 | `invasion` | what the partners' Exploration Passives raised the Invasion chance by, in the game's words: `+16%` of the base chance (`chaos_estimate.run_raise`); empty for none, and for a run played before the passives came; `?` where `partners` is |
 | `mode`    | `delegated`, played by the Delegation Module down one path, or `ordinary` |
 | `client`  | the game client and data patch it ran on: `cznlive 1.464 r688`  |
@@ -710,15 +710,23 @@ def amplified_of(run, season):
 
 def partners_of(run):
     """A run's partners as the `partners` column writes them, in team
-    order: `Sig LB2, Peko LB0, Nyx LB4`; `?` for a run filed before runs
-    kept their partners."""
+    order: `Sig LB2, Peko LB0, Nyx LB4`, `DA` after one Distortion
+    Adaptation assigned in place of the player's own (its slot's flag in
+    `chaos_level_mode_custom_supporter_info`, which runs in team order
+    as the partners do); `?` for a run filed before runs kept their
+    partners."""
     if "partners" not in run:
         return "?"
     from game_data.partners import PARTNERS
+    mode = run.get("level_mode")
+    assigned = (mode.get("custom_supporters") if isinstance(mode, dict)
+                else None) or ()
     return ", ".join(
-        "%s LB%s" % ((PARTNERS.get(res_id) or {}).get("name") or res_id,
-                     limit_break or 0)
-        for res_id, limit_break, *_rest in run["partners"])
+        "%s LB%s%s" % ((PARTNERS.get(res_id) or {}).get("name") or res_id,
+                       limit_break or 0,
+                       " DA" if i < len(assigned) and assigned[i] is True
+                       else "")
+        for i, (res_id, limit_break, *_rest) in enumerate(run["partners"]))
 
 
 def invasion_of(run):
