@@ -336,8 +336,10 @@ OWNED = ["date", "season", "part", "chaos", "door", "difficulty",
 # The opening event's rewards that set every enemy of the first 3
 # normal battles to 1 HP: the client's `nb_en_00658` adds stage effect
 # `scs_00041`, "For 3 Normal Battles, changes HP of all monsters to 1"
-# (`stagecs_mystery_01`), and "Accept the blessing" at Kyrken's
-# Messenger grants it beside +20% max HP.
+# (`stagecs_mystery_01`). It is no option's own reward: Kyrken's
+# Messenger adds it, as a bonus, to one of the three options it offers
+# (`god_opt_select_bonus_reward`), whatever that option's own reward --
+# +20% max HP, 100 Credits, a Rare Equipment and the rest.
 ONE_HP_START = ("nb_en_00658",)
 # The effect ids a run's rolled bonus and penalties come as, whichever
 # door it was entered by.

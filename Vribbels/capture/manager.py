@@ -4524,10 +4524,11 @@ class Addon:
         """Keep the option picked at the run's opening event -- the one
         on the map's PRE_START spot, Kyrken's Messenger -- in `opening`:
         `picked`, the options `offered`, and the `rewards` the pick gave,
-        each a res_id with the ids it links. One of them, "Accept the
-        blessing", grants the effect that sets every enemy of the first
-        3 normal battles to 1 HP: `docs/chaos_runs.py` reads it off the
-        rewards. A pick at any other event, or a second one, is not
+        each a res_id with the ids it links. The event adds, to one of
+        the three options, a bonus setting every enemy of the first 3
+        normal battles to 1 HP, beside that option's own reward:
+        `docs/chaos_runs.py` reads it off the rewards. A pick at any
+        other event, or a second one, is not
         kept."""
         result = data.get("result")
         info = result.get("info") if isinstance(result, dict) else None

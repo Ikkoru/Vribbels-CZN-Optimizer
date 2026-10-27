@@ -1031,7 +1031,7 @@ def _the_opening_and_nightmare(Addon):
                                         ["uk_sys_s02_01d_s1",
                                          "uk_sys_s02_01d_s6"]) \
             or "nb_en_00658" not in (opening.get("rewards") or ()):
-        out.append(f"a Nightmare Mode run picking Accept the blessing at "
+        out.append(f"a Nightmare Mode run picking the 1-HP bonus option at "
                    f"Kyrken's Messenger records nightmare "
                    f"{run_.get('nightmare')!r} and opening {opening}: True, "
                    f"and the pick at the PRE_START event with the 1-HP "
