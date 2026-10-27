@@ -69,6 +69,7 @@ Snapshots are the maintainer's captured game data. Read them; never write to `Vr
 | What the wire has sent that nothing reads | `docs/wire_catalogue.py`, over `settings/wire_catalogue.json`; `docs/wire_catalogue_backfill.py` folds in older captures |
 | Standings, lifetime counters, collections the wire sends and nothing shows | `docs/unread_stats.md` |
 | Event categories, how to classify one, and what the Checklist does with each | `docs/events.md`; `docs/events_replay.py` replays every login through its readers |
+| The Galactic Disaster tab: the season's challenge pages, what counts as done or locked, the lists | `docs/disaster_challenges.md` |
 | Tk threading, startup, display quirks | `docs/ui_runtime.md` |
 | Panel layout, spacing rules, the ledger, ttk styles | `docs/ui_spacing.md` |
 | Running a spacing audit and reading its table | `.claude/skills/spacing-audit/SKILL.md` |

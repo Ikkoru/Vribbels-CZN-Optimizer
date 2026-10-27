@@ -4130,6 +4130,12 @@ EXCEPTION_ENTRIES = {
     "Checklist: Expiring Items row -> row": "exception",
     # And the block division above it, the 16 the tab's blocks keep.
     "Checklist: tallest column -> Expiring Items": "exception",
+    # The Galactic Disaster tab is set in the Checklist's face on the
+    # Checklist's levers: its heading gap, its block division between
+    # requirements, and its row pitch between finished headings.
+    "Galactic Disaster: heading -> its first row": "exception",
+    "Galactic Disaster: requirement -> requirement": "exception",
+    "Galactic Disaster: finished heading -> finished heading": "exception",
     # A section's heading stands four further from the row above it
     # than rows do from one another. Marked at `HEADING_PAD`.
     "Overall Gacha Stats: row -> heading": "exception",
@@ -5103,6 +5109,196 @@ CHECKLIST_ENTRIES = [
 # where the lever is.
 EXPIRING_COLUMN_GAP_NAME = "Checklist: Expiring Items column -> column"
 
+
+# **The Galactic Disaster tab** draws only what a capture of the season's
+# challenge pages holds, and a snapshot from before the capture kept them
+# holds none. So its gaps are read in a scenario that hands it the live
+# season with Battle Report and Annihilation Reward finished: Mission
+# Records and Chaos Investigation open, every requirement on them still
+# to do, and the column of finished pages holding two headings.
+DISASTER_FINISHED_PAGES = ("disaster_battle", "penalty")
+
+
+def _disaster_pages(app):
+    import time as clock
+    import disaster_challenges as dc
+    import game_client
+    import schedules
+    raw = getattr(app.optimizer, "raw_data", None)
+    if not isinstance(raw, dict):
+        raise LookupError("no snapshot loaded")
+    season, _window = schedules.live(dc.SEASON_GROUP, raw, clock.time())
+    held = game_client.known_disaster_challenges().get(season or "")
+    if not held:
+        raise LookupError("no Galactic Disaster season the client lists is "
+                          "running in the snapshot")
+    _disaster_pages.kept = raw.get(dc.ACHIEVEMENTS_FIELD)
+    raw[dc.ACHIEVEMENTS_FIELD] = {season: {
+        a["id"]: {"res_id": a["id"], "score": a["count"], "complete_time": 1}
+        for a in held["achievements"]
+        if a["page"] in DISASTER_FINISHED_PAGES}}
+    tab = app.disaster_tab_instance
+    if tab is not None:
+        tab.refresh_disaster()
+
+
+def _restore_disaster_pages(app):
+    import disaster_challenges as dc
+    raw = getattr(app.optimizer, "raw_data", None)
+    if isinstance(raw, dict) and hasattr(_disaster_pages, "kept"):
+        if _disaster_pages.kept is None:
+            raw.pop(dc.ACHIEVEMENTS_FIELD, None)
+        else:
+            raw[dc.ACHIEVEMENTS_FIELD] = _disaster_pages.kept
+        del _disaster_pages.kept
+    tab = app.disaster_tab_instance
+    if tab is not None:
+        tab.refresh_disaster()
+
+
+sa.register_scenario("disaster_pages", _disaster_pages,
+                     _restore_disaster_pages)
+
+
+def _disaster_part(column, part):
+    """Locator: a part of one page column of the Galactic Disaster tab,
+    by position -- 0 its heading and count, 1 its Text. The tab's first
+    child holds the four page columns in the game's order, then the
+    finished pages' column."""
+    def find(app):
+        holders = sa.current_tab_widget(app).winfo_children()
+        if not holders:
+            raise LookupError("the Galactic Disaster tab has no columns")
+        return holders[0].winfo_children()[column].winfo_children()[part]
+    return find
+
+
+def _disaster_column(column):
+    """Locator: one column of the Galactic Disaster tab, by position;
+    -1 is the finished pages' column, made last."""
+    def find(app):
+        holders = sa.current_tab_widget(app).winfo_children()
+        if not holders:
+            raise LookupError("the Galactic Disaster tab has no columns")
+        return holders[0].winfo_children()[column]
+    return find
+
+
+def _disaster_finished(at):
+    """Locator: the `at`-th heading shown in the finished pages' column."""
+    def find(app):
+        shown = _disaster_column(-1)(app).pack_slaves()
+        if len(shown) <= at:
+            raise LookupError("the finished pages' column holds "
+                              f"{len(shown)} heading(s)")
+        return shown[at]
+    return find
+
+
+def _disaster_heading(column):
+    """Locator: one page column's heading Label itself, its count beside
+    it left out."""
+    def find(app):
+        return _disaster_part(column, 0)(app).winfo_children()[0]
+    return find
+
+
+def _heading_capital_to_first_capital(above, text):
+    """Resolver: a heading's first CAPITAL -> a Text's first row's.
+
+    `_gap_to_first_capital` reads the upper end off everything the
+    heading's frame paints, and under a heading with a count beside it
+    that is the count's slash, which hangs below the baseline -- a
+    reading that moves with the glyphs rather than with the lever. The
+    rule's reference is the baseline, so the scan is narrowed to the
+    heading's capital, as it is to the row's.
+    """
+    def resolve(cap, app):
+        band = _label_capital_box(cap, above(app))
+        if band is None:
+            return None, "no capital in the heading to measure from"
+        upper = sa.painted_extent_v(cap, band)
+        if upper is None:
+            return None, "the heading's capital painted nothing"
+        widget = text(app)
+        caps = _first_capital_band(widget)
+        if caps is None:
+            return None, "no capital on the first row to measure to"
+        lower = sa.painted_extent_v(cap, caps, {_widget_fill(widget)})
+        if lower is None:
+            return None, "the first capital painted nothing"
+        return sa.gap_between(upper[1], lower[0]), ""
+    return resolve
+
+
+def _capital_to_capital(above, below):
+    """Resolver: one Label's first CAPITAL -> the next one's, below it:
+    baseline to cap, whatever hangs below the first's baseline -- a
+    descender, or the slash of a count beside it."""
+    def resolve(cap, app):
+        ends = []
+        for locate in (above, below):
+            band = _label_capital_box(cap, locate(app))
+            extent = sa.painted_extent_v(cap, band) if band else None
+            if extent is None:
+                return None, "a heading with no capital painted"
+            ends.append(extent)
+        return sa.gap_between(ends[0][1], ends[1][0]), ""
+    return resolve
+
+
+def _disaster_pitch_tags(*names):
+    """The Galactic Disaster tab's line tags, looked up when the audit
+    runs, as `_checklist_pitch_tags` does the Checklist's."""
+    def tags():
+        from ui.tabs.disaster_tab import LINE_PITCH
+        missing = [n for n in names if n not in LINE_PITCH]
+        if missing:
+            raise LookupError(
+                f"the Galactic Disaster tab has no line tag {missing!r} -- "
+                f"it was renamed, and this entry would measure nothing")
+        return set(names)
+    return tags
+
+
+# (tab, name, target, rule, resolver, axis), every one in the
+# `disaster_pages` scenario. The columns are built by one function, so a
+# gap read in the first is the same gap in every other.
+DISASTER_ENTRIES = [
+    # The heading and its first row, on the Checklist's levers: its
+    # heading gap and its first row's pitch, marked at `HEADING_GAP`.
+    # Baseline to capital, 16.
+    ("Galactic Disaster", "Galactic Disaster: heading -> its first row", 16,
+     RULE_PANEL_UNRELATED_LABEL,
+     _heading_capital_to_first_capital(_disaster_heading(0),
+                                       _disaster_part(0, 1)), "v"),
+    # One requirement and the next, read between the requirements that
+    # take one line: a wrapped one is prose, not a row. The Checklist's
+    # block division, marked at `REQUIREMENT_PITCH`.
+    ("Galactic Disaster", "Galactic Disaster: requirement -> requirement",
+     16, RULE_LABEL_ROW_PITCH,
+     _text_line_pitch(_disaster_part(0, 1), label="Mission Records",
+                      kinds=_disaster_pitch_tags("requirement")), "v"),
+    # Box to box: a column's words wrap short of its edge by whatever the
+    # next word did not fit into, so their ink sits a distance off the
+    # lever that moves with the words.
+    ("Galactic Disaster", "Galactic Disaster: column -> column", 16,
+     RULE_CONTROL_GROUP,
+     _box_gap(_disaster_column(0), _disaster_column(1), "h"), "h"),
+    ("Galactic Disaster", "Galactic Disaster: window edge -> first column",
+     4, RULE_CONTENT_FRAME, _box_from_window_edge(_disaster_column(0)), "h"),
+    ("Galactic Disaster", "Galactic Disaster: finished pages -> window edge",
+     4, RULE_CONTENT_FRAME, _box_to_window_edge(_disaster_column(-1)), "h"),
+    # A finished page's heading under the one before it, marked at
+    # `FINISHED_PITCH`.
+    ("Galactic Disaster",
+     "Galactic Disaster: finished heading -> finished heading", 12,
+     RULE_LABEL_ROW_PITCH,
+     _capital_to_capital(
+         lambda app: _disaster_finished(0)(app).winfo_children()[0],
+         lambda app: _disaster_finished(1)(app).winfo_children()[0]), "v"),
+]
+
 MATERIALS_ENTRIES = [
     # Both ends are text and both were on their references: the dump
     # read the heading's ink stopping at its baseline and the name's
@@ -5735,6 +5931,15 @@ def register_all():
         scenario="expiring_columns",
         provisional=EXPIRING_COLUMN_GAP_NAME in AWAITING_FIRST_READING,
     )
+
+    # The Galactic Disaster tab, in the scenario that gives it pages.
+    for tab, name, target, rule, resolve, axis in DISASTER_ENTRIES:
+        sa.track(
+            name=name, tab=tab, rule=rule, target=target, resolve=resolve,
+            axis=axis, scenario="disaster_pages",
+            provisional=name in AWAITING_FIRST_READING,
+            target_source=EXCEPTION_ENTRIES.get(name, "rule"),
+        )
 
     # The same group read HORIZONTALLY, against the detail pane's
     # heading. Two entries and not one: the dropdown has a painted

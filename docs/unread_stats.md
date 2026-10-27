@@ -141,15 +141,14 @@ The Great Rift Stats list works the field out the same way, from the lowest subd
 
 ### The Galactic Disaster
 
-The Great Rift standings (`disaster_boss_rank_entities`) and the seasons (`disaster_entities`) are read by the Checklist. The rest of `disaster/get_list` is not kept:
+The Great Rift standings (`disaster_boss_rank_entities`) and the seasons (`disaster_entities`) are read by the Checklist. The challenge pages (`disaster_achievement_entities`) and the seasons' collections (`disaster_collection_entities`) are the Galactic Disaster tab's (`docs/disaster_challenges.md`). The rest of `disaster/get_list` is not kept:
 
 | Field | Holds |
 | ----- | ----- |
 | `board_entities` | one row per FINISHED season: the profile's Display Case -- *The Display Case*, below |
 | `disaster_boss_penalty_entities` | per season, per distortion boss: `highest_clear_level`, `best_score`, and `clear_penalty`, which penalty sets each level was cleared under |
 | `step1_clear_record` | the season's best Great Rift first step: `score`, `define_id`, `step1_turn`, `turn_bonus`, `heal_score` |
-| `disaster_achievement_entities` | the season's challenge pages, in the claimable-reward row shape, per season. Claimed by `achievement/acquire_disaster_achievement_reward_all`, answering under `achievement_entities` |
-| `disaster_collection_entities`, `disaster_chaos_entities`, `story_node_mission_disaster_entities` | what each season's Chaos stages have collected, their options, and the story track's conditions |
+| `disaster_chaos_entities`, `story_node_mission_disaster_entities` | each season's Chaos stages' options, and the story track's conditions |
 
 #### The Display Case
 

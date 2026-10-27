@@ -173,6 +173,16 @@ EPISODES_LISTED = "story_system/get_completed_episode_ids"
 EPISODE_CLEARED = "story_system/complete_episode"
 EPISODES_FIELD = "completed_episode_ids"
 
+# What a Chaos run says it has found, for the Galactic Disaster tab's
+# lists: the two archives every reply inside a run carries, how far down
+# a reply they are looked for, and the items kept, a codex page's and a
+# season collection's. Saved as `RUN_FINDS_FIELD`. See
+# `_note_challenges`.
+RUN_ARCHIVES = ("chaos_complete_archive", "disaster_complete_archive")
+RUN_FINDS_DEPTH = 3
+RUN_FIND_PREFIXES = ("chaos_", "disaster_")
+RUN_FINDS_FIELD = "chaos_run_finds"
+
 # How much of a payload the wire catalogue keeps as an example, and how
 # many entries it will hold. The sample says what SHAPE a field is, not
 # what is in it -- a reader who wants the whole thing turns debug
@@ -583,6 +593,14 @@ class Addon:
         self.login_tables = {}
         # {row id: row} -- the free Rescues issued and taken, by event.
         self.free_gacha = {}
+        # The Galactic Disaster's challenge pages: {season: {res_id:
+        # row}}, the Chaos codex, the seasons' collections, and a run's
+        # finds since the codex was last whole. None until seen. See
+        # `_note_challenges`.
+        self.disaster_achievements = None
+        self.chaos_codex = None
+        self.disaster_collections = None
+        self.chaos_run_finds = {}
         # {table: {res_id: row}} -- the lifetime counters, the
         # Achievements screen and the daily tasks; and {table: {res_id:
         # condition_type}}, what each row COUNTS, learned as rows move
@@ -853,6 +871,24 @@ class Addon:
         episodes = previous.get(EPISODES_FIELD)
         if isinstance(episodes, list):
             self.episodes = {str(e) for e in episodes}
+        # The challenge pages and their lists, which the login restates
+        # whole, as the standings: carried so a snapshot written before
+        # those tables arrive still holds them. A run's finds are what
+        # no login has restated yet.
+        held = previous.get("disaster_achievement_entities")
+        if isinstance(held, dict):
+            self.disaster_achievements = held
+        held = previous.get("chaos_archive_entities")
+        if isinstance(held, dict):
+            self.chaos_codex = held
+        held = previous.get("disaster_collection_entities")
+        if isinstance(held, list):
+            self.disaster_collections = held
+        held = previous.get(RUN_FINDS_FIELD)
+        if isinstance(held, dict):
+            self.chaos_run_finds = {
+                str(item): count for item, count in held.items()
+                if isinstance(count, int)}
         # Runs recorded before they had a file of their own rode in the
         # snapshot. See `_load_chaos_runs`.
         runs = previous.get("chaos_runs")
@@ -2353,6 +2389,10 @@ class Addon:
                             and s.get("res_id") == row["res_id"])] + [row]
                 self._save_pending = True
 
+        # The challenge pages and the lists they count, for the Galactic
+        # Disaster tab.
+        self._note_challenges(data)
+
         # The Gacha History: pages of the game's Rescue records, a
         # banner's rates, the pity counters. Its own file, not the
         # snapshot -- see `_merge_gacha` -- and a failure there must
@@ -3742,6 +3782,109 @@ class Addon:
             if isinstance(row, dict) and row.get("res_id") is not None:
                 self.missions[str(row["res_id"])] = row
 
+    def _note_challenges(self, data):
+        """Keep what the Galactic Disaster tab reads: each season's
+        challenge achievements, the Chaos codex and the seasons' own
+        collections, and what a Chaos run has found since the codex was
+        last sent whole. `docs/disaster_challenges.md` has the shapes.
+
+        * `disaster_achievement_entities`, {season: {res_id: row}}, comes
+          with the login's `disaster/get_list`, the table whole, and
+          replaces. A claim answers `achievement_entities`, the rows it
+          claimed with their `season_id`; progress made answers the
+          reply's `mission_condition.condition.disaster_achievement`,
+          the season as `group_id`. Each is folded into its season, and
+          a progress report's `complete_time` of 0 never unclaims a row.
+        * `chaos_archive_entities` (`stage/get_list`) and
+          `disaster_collection_entities` (`disaster/get_list`) are the
+          codex and the seasons' collections, whole at login.
+        * **A Chaos run states everything it has found so far** on nearly
+          every reply inside it, codex entries it already held included:
+          `chaos_complete_archive` and `disaster_complete_archive`, a
+          level or three down. The codex takes them in only at the next
+          login, so they are kept as each item's highest count until a
+          whole table of its kind replaces them.
+        """
+        table = data.get("disaster_achievement_entities")
+        if isinstance(table, dict):
+            self.disaster_achievements = {
+                str(season): dict(rows) for season, rows in table.items()
+                if isinstance(rows, dict)}
+            self._save_pending = True
+        moving = data.get("mission_condition")
+        moving = moving.get("condition") if isinstance(moving, dict) \\
+            else None
+        claimed = data.get("achievement_entities")
+        for row, season_field in (
+                [(row, "season_id") for row in (
+                    claimed if isinstance(claimed, list) else ())]
+                + [(row, "group_id") for row in (
+                    moving.get("disaster_achievement") or ()
+                    if isinstance(moving, dict) else ())]):
+            season = row.get(season_field) if isinstance(row, dict) else None
+            if not (isinstance(season, str) and season.startswith(
+                    "disaster_") and row.get("res_id") is not None):
+                continue
+            if self.disaster_achievements is None:
+                self.disaster_achievements = {}
+            rows = self.disaster_achievements.setdefault(season, {})
+            held = dict(rows.get(str(row["res_id"])) or {})
+            for field in ("res_id", "score", "issued_time", "version"):
+                if field in row:
+                    held[field] = row[field]
+            if row.get("complete_time"):
+                held["complete_time"] = row["complete_time"]
+            held.setdefault("complete_time", 0)
+            held.setdefault("season_id", season)
+            rows[str(row["res_id"])] = held
+            self._save_pending = True
+        codex = data.get("chaos_archive_entities")
+        if isinstance(codex, dict):
+            self.chaos_codex = codex
+            self._drop_run_finds("chaos_")
+        collections = data.get("disaster_collection_entities")
+        if isinstance(collections, list):
+            self.disaster_collections = collections
+            self._drop_run_finds("disaster_")
+        found = {}
+        self._run_finds(data, found, RUN_FINDS_DEPTH)
+        for item, count in found.items():
+            if count > self.chaos_run_finds.get(item, 0):
+                self.chaos_run_finds[item] = count
+                self._save_pending = True
+
+    def _drop_run_finds(self, prefix):
+        """A whole table arrived: the finds of its kind are in it now."""
+        self.chaos_run_finds = {item: count for item, count
+                                in self.chaos_run_finds.items()
+                                if not item.startswith(prefix)}
+        self._save_pending = True
+
+    @classmethod
+    def _run_finds(cls, value, out, depth):
+        """Every codex item a run's archives in `value` name, with its
+        count, into `out`: the highest each reaches. See
+        `_note_challenges`."""
+        if depth < 0:
+            return
+        if isinstance(value, list):
+            for part in value:
+                cls._run_finds(part, out, depth - 1)
+            return
+        if not isinstance(value, dict):
+            return
+        for key, part in value.items():
+            if key in RUN_ARCHIVES and isinstance(part, dict):
+                for kind in part.values():
+                    for item, count in (kind.items()
+                                        if isinstance(kind, dict) else ()):
+                        if (isinstance(count, int) and count > 0
+                                and str(item).startswith(RUN_FIND_PREFIXES)
+                                and count > out.get(str(item), 0)):
+                            out[str(item)] = count
+            elif isinstance(part, (dict, list)):
+                cls._run_finds(part, out, depth - 1)
+
     def _banners(self):
         """The gacha schedule, read from the ONE copy of it.
 
@@ -3871,6 +4014,12 @@ class Addon:
                 self.assault_char_achievements or None,
             "assault_char_title_entities": self.assault_char_titles or None,
             "disaster_entities": self.disaster_seasons,
+            # The Galactic Disaster tab's: the challenge pages, and the
+            # codex and collections their lists count.
+            "disaster_achievement_entities": self.disaster_achievements,
+            "chaos_archive_entities": self.chaos_codex,
+            "disaster_collection_entities": self.disaster_collections,
+            RUN_FINDS_FIELD: self.chaos_run_finds or None,
             # What the recurring tasks stand at. The Checklist tab
             # reads `point_entity` and `mission_entities`; the rest are
             # written so a capture taken before anything needs them

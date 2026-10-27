@@ -48,7 +48,7 @@ NAME = "tabs build"
 # it is here too.
 TAB_ATTRS = ("SetupTab", "CaptureTab", "InventoryTab", "OptimizerTab",
              "HeroesTab", "ScoringTab", "MaterialsTab",
-             "ChecklistTab", "GachaHistoryTab")
+             "ChecklistTab", "DisasterTab", "GachaHistoryTab")
 
 
 def _make_checkbox_forces_its_window():
@@ -2575,6 +2575,97 @@ def _checklist_short_names_keep_their_tip(tab):
             "nothing here was checked. Either SHORT_NAMES no longer "
             "matches anything the shops sell, or the labels stopped "
             "going through `product_label`.")
+    return out
+
+
+def _disaster_pages_move_when_finished(tab):
+    """A finished page's heading leaves its column for the one at the
+    right, green, its count blinking while a reward waits; an open page
+    keeps its column, its count orange with a reward waiting, its words
+    and locked lines in its Text, a list's items on a tip.
+
+    The tab is drawn from a hand-made `Board`, so this holds the drawing
+    whatever the snapshot holds. Returns a list of complaints.
+    """
+    import tkinter as tk
+    import disaster_challenges as dc
+    from ui.tabs import disaster_tab as mod
+    out = []
+    page = lambda key, done, total, unclaimed, rows=(), locked=(): dc.Page(  # noqa: E731
+        key, key.title(), done, total, unclaimed, rows, locked)
+    board = dc.Board("disaster_s09", (
+        page("disaster_collection", 1, 3, True,
+             rows=(dc.Row("a1", "Do the first thing", None),
+                   dc.Row("a2", "Collect them all", ("Owl", "Bat"))),
+             locked=("1 Part 2 achievement",)),
+        page("disaster_ingame", 2, 4, False,
+             rows=(dc.Row("c1", "Clear it", None),)),
+        page("disaster_battle", 5, 5, True),
+        page("penalty", 3, 3, False)), None)
+    tab.is_hidden = lambda: False
+    try:
+        # Every page open first, so a page finishing has a column to
+        # leave.
+        tab._draw(dc.Board("disaster_s09", tuple(
+            page(key, 0, 1, False) for key in dc.PAGES), None))
+        tab._draw(board)
+        orange = [tab.colors.get(n, n) for n in mod.WARN_BLINK_COLOURS]
+        for key in ("disaster_battle", "penalty"):
+            if tab._columns[key][0].winfo_manager():
+                out.append(f"the finished page {key!r} kept its column on "
+                           f"the Galactic Disaster tab")
+            if not tab._finished[key][0].winfo_manager():
+                out.append(f"the finished page {key!r} has no heading in the "
+                           f"column of finished pages")
+        battle = tab._finished["disaster_battle"][2]
+        if battle not in tab._blinking or str(
+                battle.cget("foreground")) not in orange:
+            out.append("a finished page with a reward waiting does not "
+                       "blink its count orange")
+        penalty = tab._finished["penalty"][2]
+        if penalty in tab._blinking or str(penalty.cget("foreground")) \
+                != tab.colors[mod.FINISHED_COLOUR]:
+            out.append("a finished page with nothing waiting is not green")
+        shown = [tab._finished[k][0] for k in ("disaster_battle", "penalty")]
+        if tab._finished_frame.pack_slaves() != shown:
+            out.append("the finished pages do not stack in the game's order")
+        for key in ("disaster_collection", "disaster_ingame"):
+            if tab._columns[key][0].winfo_manager() != "grid":
+                out.append(f"the open page {key!r} lost its column")
+        count = tab._columns["disaster_collection"][3]
+        if str(count.cget("foreground")) != tab.colors[mod.UNCLAIMED_COLOUR]:
+            out.append("an open page with a reward waiting does not show "
+                       "its count in orange")
+        text = tab._columns["disaster_collection"][4]
+        lines = text.get("1.0", "end-1c").split("\n")
+        if lines != ["Do the first thing", "Collect them all",
+                     "1 Part 2 achievement"]:
+            out.append(f"the open page's Text reads {lines}")
+        if mod.TIP_PREFIX + "a2" not in text.tag_names("2.0"):
+            out.append("a list achievement's words carry no tip")
+        if mod.LOCKED_TAG not in text.tag_names("3.0"):
+            out.append("a locked line is not drawn dim")
+        if text.tag_names("1.0")[:1] != (mod.FIRST_TAG,) or \
+                text.tag_names("2.0")[:1] != (mod.ROW_TAG,):
+            out.append("a page's first line does not take the heading's "
+                       "pitch, or the next a requirement's")
+        tab._draw(dc.Board("disaster_s09", (
+            page("disaster_collection", 1, 3, False),), None))
+        if tab._finished_frame.winfo_manager():
+            out.append("the column of finished pages shows with no page "
+                       "finished")
+    finally:
+        try:
+            del tab.is_hidden
+        except AttributeError:
+            pass
+        tab._blinking = []
+        tab._blink_restart()
+        if tab._tick_after is not None:
+            try:
+                tab.frame.after_cancel(tab._tick_after)
+            except tk.TclError:
+                pass
     return out
 
 
@@ -6431,6 +6522,9 @@ def run():
                 built["InventoryTab"]))
             failures.extend(
                 _log_filter_answers_are_per_slot(built["InventoryTab"]))
+        if "DisasterTab" in built:
+            failures.extend(
+                _disaster_pages_move_when_finished(built["DisasterTab"]))
         if "GachaHistoryTab" in built:
             failures.extend(
                 _gacha_history_draws_its_rows(built["GachaHistoryTab"]))
@@ -6528,4 +6622,19 @@ FAULTS = [
      "ui.tabs.checklist_tab:ChecklistTab._fill_expiring",
      "height=len(lines) * pitch)", "height=(len(lines) - 1) * pitch)",
      "clipped without a word"),
+    ("a finished page keeping its column",
+     "ui.tabs.disaster_tab:DisasterTab._lay_out",
+     "                column.grid_remove()", "                pass",
+     "kept its column"),
+    ("a waiting reward on a finished page not blinking",
+     "ui.tabs.disaster_tab:DisasterTab._draw",
+     "                self._blinking.append(count)", "                pass",
+     "does not blink its count"),
+    ("a list's tip not bound", "ui.tabs.disaster_tab:DisasterTab._fill_page",
+     "                tags.append(tag)", "                pass",
+     "carry no tip"),
+    ("the finished column shown with nothing finished",
+     "ui.tabs.disaster_tab:DisasterTab._lay_out",
+     "            self._finished_frame.grid_remove()", "            pass",
+     "shows with no page finished"),
 ]

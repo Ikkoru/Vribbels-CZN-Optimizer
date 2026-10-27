@@ -353,6 +353,29 @@ def shipped_source(client, partners=None):
     lines += [f"    {ascii(season)}: "
               f"{ascii(tuple(game_client.grown_season_nodes(kept.get(season), trees.get(season))))},"
               for season in sorted(set(kept) | set(trees))]
+    lines += ["}", "",
+              "# {season: {'pages', 'gates', 'achievements', 'lists'}}: "
+              "each Galactic",
+              "# Disaster season's challenge pages, an achievement and a "
+              "list item a line.",
+              "# See game_client.disaster_challenges.",
+              "DISASTER_CHALLENGES = {"]
+    for season, held in sorted(game_client.disaster_challenges(client).items()):
+        lines += [f"    {ascii(season)}: {{",
+                  f"        'pages': {ascii(held['pages'])},",
+                  f"        'gates': {ascii(held['gates'])},",
+                  "        'achievements': ["]
+        lines += [f"            {ascii(achievement)},"
+                  for achievement in held["achievements"]]
+        lines += ["        ],", "        'lists': {"]
+        for info, listed in sorted(held["lists"].items()):
+            lines.append(f"            {ascii(info)}: {{'kind': "
+                         f"{ascii(listed['kind'])}, 'collection': "
+                         f"{ascii(listed['collection'])}, 'items': [")
+            lines += [f"                {ascii(item)},"
+                      for item in listed["items"]]
+            lines.append("            ]},")
+        lines += ["        },", "    },"]
     words = client_words(client, partners)
     lines += ["}", "",
               "# The client's own words for what the program's tables "

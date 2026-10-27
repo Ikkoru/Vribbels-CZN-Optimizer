@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.com/Vorbroker/Vribbels-CZN-Optimizer) at v1.7.0 (2026-02-07) and restarts versioning from v1.0.0. For the pre-fork history, see the upstream repository's CHANGELOG.
 
+## [2.7.0] - unreleased
+
+### Added
+
+- **Galactic Disaster tab**, after the Checklist: what is left on the season's Challenge Mission pages. A column per page (Mission Records, Chaos Investigation, Battle Report and Annihilation Reward), with the requirements still to meet under it and a done/total count beside its name. It fills in from a capture of a login.
+  - Achievements for completing others count, and are not listed. Annihilation Reward lists its named achievements only.
+  - An achievement for collecting a list (Season Cards, Seasonal Equipment, Unidentified Areas, Memory Cards, Monster Exploration) names what is left to find in its tooltip.
+  - Locked achievements are counted by when they open: `6 Part 2 achievements`, or `1 achievement (in 2d)` for one opening during a part.
+  - A page with a reward waiting has its count in orange. A page with nothing left moves to a column at the right, green, its count blinking orange while a reward waits.
+
 ## [2.6.3] - Senectus Tracking, Distortion Adaptation
 
 ### Added

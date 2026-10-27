@@ -248,7 +248,7 @@ Icons double by NEAREST NEIGHBOUR at 200%, which is exact at a whole multiple --
 
 ## Fonts in use
 
-Body text is **Segoe UI 9**. The three panels of running prose are **Segoe UI Variable Small**, the optical size Windows draws small text at. The Checklist's rows are **Segoe UI 10**, a point up, that tab being read rather than scanned. `TkDefaultFont` is Segoe UI 9 and no ttk style overrides it, so an explicit `("Segoe UI", 9)` is the same face the default already gives.
+Body text is **Segoe UI 9**. The three panels of running prose are **Segoe UI Variable Small**, the optical size Windows draws small text at. The Checklist's rows are **Segoe UI 10**, a point up, that tab being read rather than scanned, and so are the Galactic Disaster tab's. `TkDefaultFont` is Segoe UI 9 and no ttk style overrides it, so an explicit `("Segoe UI", 9)` is the same face the default already gives.
 
 | Face                    | Tk pt   | Ascent | Descent | Linespace | Where                            |
 | ----------------------- | ------- | ------ | ------- | --------- | -------------------------------- |
@@ -564,6 +564,18 @@ A row that is right says only that. The detail behind a reading -- which lines i
 And a row with a checkbox at the END of it stands taller than its words. The widget sets the line's height and its ink sits inside that, so the gap above such a row and the gap below it each read a pixel wider at one `spacing1`. Measured down the Events block, they read 13, 14, 14, 13 against the 12 two rows of text sit at. `BOX_ROW_SLACK` is what gives those pixels back.
 
 Both ends of a line-to-line reading are the line's first CAPITAL. A capital's top IS the cap height and its bottom IS the baseline, so a gap taken between two of them is already on the references the rules name -- with no glyph table in it at all. Read off the whole line instead, each end moves with whatever the row happens to say: an ascender clears the cap by a pixel, a slash drops two below the baseline, and the same pitch reads 11 on one pair and 12 on the next. `_capital_band` narrows the scan; a line with no capital keeps its ink reading and the note names it.
+
+### The Galactic Disaster tab's breaks from `label row -> label row`
+
+The tab is set in the Checklist's face on the Checklist's levers, so its three exceptions are the Checklist's own, each marked at its site. Its gaps are read in the `disaster_pages` scenario, which hands the tab the live season with two pages finished: a snapshot from before the challenge pages were captured holds none to draw.
+
+| Gap | Target | Why |
+| --- | ------ | --- |
+| `Galactic Disaster: heading -> its first row` | 16 | `HEADING_GAP` and the first line's `ROW_PITCH`, read baseline to capital at the heading's own capital: the count beside the heading hangs a slash below the baseline, which a reading of the whole heading would start from |
+| `Galactic Disaster: requirement -> requirement` | 16 | the block division, `ROW_PITCH + BLOCK_PAD` (`REQUIREMENT_PITCH`). A requirement is a block of wrapped lines, and at the row pitch the gap between two reads as the gap inside one. Read between requirements that take one line |
+| `Galactic Disaster: finished heading -> finished heading` | 12 | the row pitch between two finished pages' headings, each a row of the column at the right (`FINISHED_PITCH`), capital to capital |
+
+The columns sit `control group ↔ control group` apart, read box to box: a column's words wrap short of its edge by whatever the next word did not fit into.
 
 ## The unruled rows, as a table
 

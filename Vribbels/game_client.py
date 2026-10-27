@@ -9,7 +9,8 @@ effect, the words of each combatant's own Potential nodes, every
 combatant's and partner's figures, the Chaos and Zero System names,
 the Normal Rescues' 5-stars, the exp each level and each Affinity
 level takes, the main stats each Memory Fragment slot carries, every
-item's rarity and every class's name.
+item's rarity and every class's name, and each Galactic Disaster
+season's challenge pages.
 `docs/client_data.md` says where each is kept and how it was held
 against what the program already knew; `docs/client_tables.py` is the
 maintainer's tool over the same reader. Reads only: nothing here writes
@@ -76,7 +77,7 @@ GAMERES = Path("bin") / "appdata" / "cznlive" / "gameres"
 # reader that changes what it reads raises this: every install then
 # reads its client again once, rather than at the next patch.
 CACHE_FILE = "game_client.json"
-CACHE_FORMAT = 22
+CACHE_FORMAT = 23
 
 # The manifest layout this reads. A different version is a different
 # layout until shown otherwise.
@@ -1850,6 +1851,181 @@ def grown_season_nodes(before, read):
     return before
 
 
+# The Galactic Disaster's Challenge Mission screen: a table per season,
+# a row per achievement. `main_category` is its page, these four in the
+# game's order; `score` is the weekly progress the Checklist reads and
+# `internal` the Display Case's tallies, neither a page. A `group` row,
+# and one whose condition is `CHALLENGE_CLEAR_ALL`, is an achievement for
+# finishing others: their ids in `link_disaster_achievement_id` or
+# `opt_1_multiple_link`. A `default` row is unnamed, the Annihilation
+# Reward's stack and score tiers.
+CHALLENGE_TABLE = re.compile(
+    r"disaster_achievement\((s\d+)\)@disaster_achievement")
+CHALLENGE_PAGES = ("disaster_collection", "disaster_ingame",
+                   "disaster_battle", "penalty")
+CHALLENGE_PAGE_NAME = "achievement_category_%s"
+CHALLENGE_CLEAR_ALL = "DISASTER_ACHIEVEMENT_CLEAR_ALL__ID"
+CHALLENGE_KINDS = {"group": "meta", "default": "generic"}
+# The newest seasons read, by number. The client keeps every past
+# season's table, and only the live one has pages to show: the season
+# before it covers a patch that lists the next one ahead of its start.
+CHALLENGE_SEASONS_KEPT = 2
+# **A row naming `schedule_link_condition_schedule_id` is locked** until
+# that schedule opens: a `condition_schedule` row naming a story chapter,
+# a Nebula Distortion boss or a Great Rift half, which opens that many
+# days into the season's own schedule by `disaster_constant_meta`. A
+# chapter's is `opt_2`, a boss's number ends its `opt_2_multiple_link`.
+CONDITION_SCHEDULES = "condition_schedule@condition_schedule"
+GATE_OPENS = {"EVENT_DISASTER_STORY__ID_CHAPTER": "open_story_%d",
+              "EVENT_DISASTER_PENALTY__ID_ID": "open_penalty_%d",
+              "EVENT_DISASTER_BOSS__ID_NUM": "open_boss_%d"}
+# An achievement for collecting a whole list names the list through its
+# info row: a Chaos's codex page (`chaos_collection`, its items the rows
+# of the page type's own table whose ids open with its key) or a
+# season's own collection (`disaster_collection`). A codex page's
+# `link_extra_tag_id` keeps the relics carrying that tag: the season's
+# own Equipment, out of every relic the Chaos drops.
+CHALLENGE_INFO_TABLE = "disaster_achievement_info@disaster_achievement_info"
+CHAOS_COLLECTIONS = "chaos_collection@chaos_collection"
+CHAOS_COLLECTION_ITEMS = "chaos_collection_%s@chaos_collection_%s"
+DISASTER_COLLECTIONS = "disaster_collection@disaster_collection"
+DISASTER_COLLECTION_ITEMS = {"DISASTER_CARD":
+                             "disaster_collection_card@disaster_collection_card"}
+COLLECTION_KINDS = {"COLLECTION_TYPE_CHAOS": "chaos",
+                    "COLLECTION_TYPE_DISASTER": "disaster"}
+RELIC_TABLE = re.compile(r"relic(?:\([^)]+\))?@relic")
+MONSTER_NAME = "monster@name@%s"
+
+
+def disaster_challenges(client):
+    """{season: {'pages', 'achievements', 'gates', 'lists'}} for every
+    season the client lists challenge pages for:
+
+    * `pages`: {page: its title in the game's words};
+    * `achievements`: [{'id', 'page', 'sort', 'kind', 'count', 'text',
+      'gate', 'children', 'list'}], page by page in the game's order.
+      `kind` is `named`, `meta` (for finishing `children`) or
+      `generic`; `gate` the schedule that unlocks it, or None; `list`
+      the info id of the list it collects, or None;
+    * `gates`: {schedule: days into the season's schedule it opens};
+    * `lists`: {info id: {'kind', 'collection', 'items'}}, `kind`
+      `chaos` or `disaster`, `collection` the wire's id for the page,
+      `items` [[item id, name, the most it counts, gate], ...].
+    """
+    texts = client.text()
+    tables = sorted((match.group(1) for match in (
+        CHALLENGE_TABLE.fullmatch(path[3:-3]) for path in client.archive.files
+        if path.startswith("db/") and path.endswith(".db")) if match),
+        key=lambda short: int(short[1:]))[-CHALLENGE_SEASONS_KEPT:]
+    constants = {row.get("id"): _figure(row.get("value"))
+                 for row in client.rows(DISASTER_CONSTANTS)}
+    opens = {}
+    for row in client.rows(CONDITION_SCHEDULES):
+        word = GATE_OPENS.get(row.get("condition_type"))
+        cells = (_ids(row.get("opt_2")) or [
+            cell.rpartition("_")[2]
+            for cell in _ids(row.get("opt_2_multiple_link"))])
+        if word and cells and cells[0].isdigit():
+            day = constants.get(word % int(cells[0]))
+            if isinstance(day, int):
+                opens[row["id"]] = day
+    infos = {row["id"]: row for row in client.rows(CHALLENGE_INFO_TABLE)}
+    out = {}
+    for short in tables:
+        rows = client.rows("disaster_achievement(%s)@disaster_achievement"
+                           % short)
+        achievements = []
+        for row in rows:
+            page = row.get("main_category")
+            if page not in CHALLENGE_PAGES:
+                continue
+            kind = ("meta" if row.get("condition_type") == CHALLENGE_CLEAR_ALL
+                    else CHALLENGE_KINDS.get(row.get("achievement_type"),
+                                             "named"))
+            children = _ids(row.get("link_disaster_achievement_id")) or (
+                _ids(row.get("opt_1_multiple_link")) if kind == "meta"
+                else [])
+            gate = row.get("schedule_link_condition_schedule_id")
+            info = row.get("link_disaster_achievement_info_id")
+            # A generic row's words are never shown, and there are a
+            # hundred and twenty of them a season.
+            achievements.append({
+                "id": row["id"], "page": page,
+                "sort": _figure(row.get("sort")) or 0, "kind": kind,
+                "count": _figure(row.get("count")) or 1,
+                "text": "" if kind == "generic"
+                else clean(texts.get(row.get("desc"))),
+                "gate": None if gate in NO_LINK else gate,
+                "children": children,
+                "list": info if info in infos else None})
+        if not achievements:
+            continue
+        achievements.sort(key=lambda a: (CHALLENGE_PAGES.index(a["page"]),
+                                         a["sort"], a["id"]))
+        lists = {}
+        for info in sorted({a["list"] for a in achievements if a["list"]}):
+            try:
+                held = _challenge_list(client, texts, infos[info])
+            except (KeyError, ValueError):
+                continue
+            if held:
+                lists[info] = held
+        gates = {a["gate"] for a in achievements if a["gate"]} | {
+            item[3] for held in lists.values() for item in held["items"]
+            if item[3]}
+        out["disaster_" + short] = {
+            "pages": {page: clean(texts.get(CHALLENGE_PAGE_NAME % page))
+                      for page in CHALLENGE_PAGES
+                      if texts.get(CHALLENGE_PAGE_NAME % page)},
+            "achievements": achievements,
+            "gates": {gate: opens[gate] for gate in sorted(gates)
+                      if gate in opens},
+            "lists": lists}
+    return out
+
+
+def _challenge_list(client, texts, info):
+    """{'kind', 'collection', 'items'} for one achievement info row: the
+    list an achievement collects, as `disaster_challenges` gives it.
+    Raises KeyError for a table the client does not hold."""
+    kind = COLLECTION_KINDS.get(info.get("collection_type"))
+    collection = info.get("collection_type_multiple_link")
+    if kind == "chaos":
+        page = {r["id"]: r for r in client.rows(CHAOS_COLLECTIONS)}[collection]
+        word = str(page.get("collection_type") or "").lower()
+        rows = client.rows(CHAOS_COLLECTION_ITEMS % (word, word))
+    elif kind == "disaster":
+        page = {r["id"]: r
+                for r in client.rows(DISASTER_COLLECTIONS)}[collection]
+        rows = client.rows(DISASTER_COLLECTION_ITEMS[page.get(
+            "collection_type")])
+    else:
+        return None
+    prefix = page.get("chaos_multiple_key") + "_"
+    tag = info.get("link_extra_tag_id")
+    tagged = None
+    if tag not in NO_LINK:
+        tagged = set()
+        for path in client.archive.files:
+            name = path[3:-3] if path.startswith("db/") else ""
+            if RELIC_TABLE.fullmatch(name):
+                tagged |= {r["id"] for r in client.rows(name)
+                           if tag in _ids(r.get("link_extra_tag_id"))}
+    items = []
+    for row in rows:
+        if not str(row.get("id", "")).startswith(prefix) \
+                or row.get("hide") == "YES":
+            continue
+        if tagged is not None and row.get("link_relic_id") not in tagged:
+            continue
+        name = clean(texts.get(row.get("info_desc_2")) or texts.get(
+            MONSTER_NAME % row.get("link_monster_id")))
+        gate = row.get("schedule_link_condition_schedule_id")
+        items.append([row["id"], name, _figure(row.get("max_count")) or 1,
+                      None if gate in NO_LINK else gate])
+    return {"kind": kind, "collection": collection, "items": items}
+
+
 def zero_specials(client):
     """{Zero System special option id: the game's name for it}."""
     texts = client.text()
@@ -2057,6 +2233,7 @@ def read_facts(install):
                                 in exploration_effects(client).items()},
         "card_skins": card_skins(client),
         "season_nodes": season_nodes(client),
+        "disaster_challenges": disaster_challenges(client),
     }
 
 
@@ -2509,6 +2686,24 @@ def known_season_nodes():
                 isinstance(n, int) for n in counts):
             out[str(season)] = tuple(grown_season_nodes(
                 out.get(str(season)), counts))
+    return out
+
+
+def known_disaster_challenges():
+    """{season: its challenge pages}: the shipped table, with what this
+    machine's client says over it, season by season. A season's entry
+    is replaced whole, never merged: a patch that opens a part rewrites
+    the season's achievements. See `disaster_challenges`."""
+    from game_data import from_client
+    out = {}
+    for source in (getattr(from_client, "DISASTER_CHALLENGES", {}),
+                   (_facts or {}).get("disaster_challenges") or {}):
+        for season, held in source.items():
+            if (isinstance(held, dict)
+                    and isinstance(held.get("achievements"), list)
+                    and all(isinstance(a, dict) and a.get("id")
+                            for a in held["achievements"])):
+                out[str(season)] = held
     return out
 
 

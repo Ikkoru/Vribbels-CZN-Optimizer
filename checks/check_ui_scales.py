@@ -65,7 +65,7 @@ TAB_ALIGNMENTS = ("left", "right", "center", "numeric")
 
 TAB_ATTRS = ("SetupTab", "CaptureTab", "InventoryTab", "OptimizerTab",
              "HeroesTab", "ScoringTab", "MaterialsTab",
-             "ChecklistTab", "GachaHistoryTab")
+             "ChecklistTab", "DisasterTab", "GachaHistoryTab")
 
 # The width handed to every label that rewraps itself on `<Configure>`.
 # Past every handler's floor even at 200%, so a wraplength wider than
