@@ -1144,9 +1144,19 @@ def _the_map_and_route(Addon):
                           "spot_id": 9},
                stage_info=_map_stage([(9, 4, "BATTLE", False),
                                       (10, 5, "BOSS", False)], area=1))
+    steps.step("battle/battle_start", snapshot={"cache": {
+        "battle_init_wt": {"battle_res_id": "base_00160", "floor": 4},
+        "battle_stage_wt": {"player": {"status": {"info": {
+            "S_CURRENT_HP": 2400, "S_HP": 3200}}}}}})
     steps.step("stage/clear_stage", service_server_time=1790480600,
                stage_id=100000)
     run_ = addon.chaos_runs[-1] if addon.chaos_runs else {}
+    if run_.get("hp") != [[4, 2400, 3200]] \
+            or _tool().hp_of(run_) != "75-75%":
+        out.append(f"a fight starting at 2400 of 3200 HP records hp "
+                   f"{run_.get('hp')!r}, written {_tool().hp_of(run_)!r}: "
+                   f"[[4, 2400, 3200]] and '75-75%', the party's HP off "
+                   f"the stage's player status (`Addon._chaos_hp`).")
     want_maps = {"0": {"spots": {"BATTLE": 1, "ELITE": 1, "UNKNOWN": 1,
                                  "BOSS": 1},
                        "keyword": {"BATTLE": 1},
@@ -1496,6 +1506,14 @@ FAULTS = [
     ("a spot entered twice counted once", "capture.manager:ADDON_TEMPLATE",
      "                route[spot] = route.get(spot, 0) + 1",
      "                route[spot] = 1", "each area's map as first sent"),
+    ("the party's HP not kept", "capture.manager:ADDON_TEMPLATE",
+     "                self._chaos_hp(run, cache)\n", "",
+     "a fight starting at 2400 of 3200 HP"),
+    ("the party's most HP read as its current",
+     "capture.manager:ADDON_TEMPLATE",
+     'current, most = info.get("S_CURRENT_HP"), info.get("S_HP")',
+     'current, most = info.get("S_HP"), info.get("S_HP")',
+     "a fight starting at 2400 of 3200 HP"),
     ("a map's spot events but the Rare Species dropped",
      "capture.manager:ADDON_TEMPLATE",
      "            if event:\n", "            if event == \"keyword_monster\":\n",

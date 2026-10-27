@@ -84,6 +84,7 @@ The columns this script owns:
 | `fought`  | the fights, by spot: `battle:11 elite:4 boss:3`; `unknown` is a fight a `?` encounter offered, `break_in` a hidden mini-boss |
 | `route`   | every spot entered, fight or not, by type: `battle:11 elite:3 unknown:9 safety:4 supply:2 boss:3`; `?` for a run filed before runs kept it |
 | `map`     | each area's map as first sent, by area id: `0: battle:20 elite:6 unknown:17 ... kw.battle:2`, `kw.` the spots marked `keyword_monster` (a Rare Species), `ev.` every spot event the map shows (season 4's Desire events are `ev.dis04_desire_insert`, season 3's Persona Card spots `ev.eidolon_reward`); `path` where the list held one spot a floor -- what a delegated run is sent, its route alone, so only a run played by hand shows the whole map (`capture.manager._chaos_map`); `?` for a run filed before runs kept it |
+| `hp`      | the party's lowest and highest HP, as a share of its most, as a fight started: `62-100%` (`capture.manager._chaos_hp`); `?` for a run filed before runs kept it |
 | `lost`    | where a lost run was lost: `floor:spot:non-boss fights left`, `+mark` for a mark |
 | `gaps`    | how much of the run a capture saw: empty for all of it; else `started elsewhere` and `resumed N`, what the clear's restatement `recovered`, and `partial:` what stays unknown -- `chaos_estimate.recovery` |
 | `SPOT_*`  | the payouts at each kind of spot, `+` between them              |
@@ -327,7 +328,7 @@ CURRENCY = {3920001: "s01", 3920002: "s02", 3920006: "s03", 3920031: "s04",
 OWNED = ["date", "season", "part", "chaos", "door", "difficulty",
          "floors", "special", "options", "rolled", "amplified", "partners",
          "invasion", "mode", "client", "total", "payouts", "marked",
-         "marked_at", "fought", "route", "map", "lost", "gaps"]
+         "marked_at", "fought", "route", "map", "hp", "lost", "gaps"]
 # The effect ids a run's rolled bonus and penalties come as, whichever
 # door it was entered by.
 ROLLED = (("zero_orb_bonus_", "b"), ("zero_orb_penalty_", "p"))
@@ -740,6 +741,20 @@ def map_of(run):
     return " | ".join(out)
 
 
+def hp_of(run):
+    """A run's party HP as the `hp` column writes it: the lowest and
+    highest share of its most HP it had as a fight started, `62-100%`;
+    `?` for a run filed before runs kept it, empty for one with no
+    fight started."""
+    if "hp" not in run:
+        return "?"
+    shares = [current * 100 / most for _floor, current, most
+              in run.get("hp") or () if most]
+    if not shares:
+        return ""
+    return "%d-%d%%" % (math.floor(min(shares)), math.floor(max(shares)))
+
+
 def maps_of(cell):
     """{area: {"spots": {type: n}, "keyword": {type: n}, "events":
     {event id: n}, "path": bool}} from a `map` cell; {} for `?` or
@@ -878,6 +893,7 @@ def row_of(run, source, parts, kinds=None):
                           sorted((run.get("route") or {}).items()))
                  if "route" in run else "?",
         "map": map_of(run),
+        "hp": hp_of(run),
         "lost": lost_token(run.get("lost")),
         "gaps": gaps_of(run, recovered, unknown),
         "log": source,

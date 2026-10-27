@@ -4331,6 +4331,7 @@ class Addon:
                 else None
             if isinstance(fight, dict):
                 self._chaos_fight(run, fight)
+                self._chaos_hp(run, cache)
         elif asked == CHAOS_PAYS:
             floor, spot, mark = self.chaos_spot
             for item in data.get("drop_item_result") or ():
@@ -4503,6 +4504,25 @@ class Addon:
         self.chaos_events = events
         self.chaos_fight_key = None
         self._save_open_chaos()
+
+    def _chaos_hp(self, run, cache):
+        """Keep the party's HP as each fight starts, in `hp`, `[floor,
+        current, most]` each: the stage's own player status
+        (`battle_stage_wt.player`), the HP the run carries from fight
+        to fight. Whether HP moves a rate is a question players ask, and
+        a fight's start is the one place the wire states it. A break-in
+        the Delegation Module resolves has no start of its own, and so
+        no line."""
+        info = cache if isinstance(cache, dict) else {}
+        for key in ("battle_stage_wt", "player", "status", "info"):
+            info = info.get(key) if isinstance(info, dict) else None
+        if not isinstance(info, dict):
+            return
+        current, most = info.get("S_CURRENT_HP"), info.get("S_HP")
+        if isinstance(current, (int, float)) and isinstance(
+                most, (int, float)) and most > 0:
+            run.setdefault("hp", []).append(
+                [self.chaos_spot[0], current, most])
 
     def _note_chaos_map(self, run, stage):
         """Keep each area's map in `maps`, by area id, as first sent
