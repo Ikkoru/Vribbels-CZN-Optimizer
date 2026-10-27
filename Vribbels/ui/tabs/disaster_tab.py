@@ -68,8 +68,9 @@ UNCLAIMED_COLOUR = "orange"
 # batch's countdown, and a gate opening, move with nothing else.
 TICK_MS = 60 * 1000
 
-# The grid column of the finished pages, after the four pages'.
-FINISHED_COLUMN = len(disaster_challenges.PAGES)
+# What a finished page's count's two halves each give back of a
+# label's inset, on the side where they meet: the label's own 2.
+COUNT_JOIN = 2
 # What `_drawn` keeps the split of open and finished pages under.
 _LAYOUT = "layout"
 
@@ -116,14 +117,22 @@ class DisasterTab(BaseTab):
         self._holder = columns
         for page in disaster_challenges.PAGES:
             self._columns[page] = self._build_page(columns)
+        # The finished pages: a grid of a row per page, its heading flush
+        # left, then its count in two halves, the done figure right-aligned
+        # and `/total` left-aligned, so every row's slash falls in one
+        # column. A row is gridded only while its page is finished.
         finished = ttk.Frame(columns)
         self._finished_frame = finished
         for page in disaster_challenges.PAGES:
-            head = ttk.Frame(finished)
-            heading = make_heading(head, "")
-            heading.pack(side=tk.LEFT, anchor=tk.S)
-            count = self._count_label(head)
-            self._finished[page] = (head, heading, count)
+            # NOT padding between two elements: the two halves of one
+            # count, each giving back its side of a label's own inset so
+            # the slash sits against the figure as in one string.
+            self._finished[page] = (
+                make_heading(finished, ""),
+                ttk.Label(finished, text="", font=HEADING_COUNTDOWN_FONT,
+                          anchor=tk.E, padding=px((0, 0, -COUNT_JOIN, 0))),
+                ttk.Label(finished, text="", font=HEADING_COUNTDOWN_FONT,
+                          anchor=tk.W, padding=px((-COUNT_JOIN, 0, 0, 0))))
         # What stands instead of the columns when there are no pages to
         # show, and why.
         self._note = ttk.Label(self.frame, text="", font=ROW_FONT,
@@ -205,14 +214,16 @@ class DisasterTab(BaseTab):
             self._fill_page(pages[page])
         self._blinking = []
         for page in done_pages:
-            head, heading, count = self._finished[page]
+            heading, done, total = self._finished[page]
             heading.config(text=pages[page].title,
                            foreground=self.colors[FINISHED_COLOUR])
-            count.config(text=self._count_words(pages[page]))
+            done.config(text="%d" % pages[page].done)
+            total.config(text="/%d" % pages[page].total)
             if pages[page].unclaimed:
-                self._blinking.append(count)
+                self._blinking.extend((done, total))
             else:
-                count.config(foreground=self.colors[FINISHED_COLOUR])
+                for half in (done, total):
+                    half.config(foreground=self.colors[FINISHED_COLOUR])
         self._lay_out(open_pages, done_pages)
         self._blink_restart()
 
@@ -263,35 +274,57 @@ class DisasterTab(BaseTab):
         if self._drawn.get(_LAYOUT) == split:
             return
         self._drawn[_LAYOUT] = split
-        laid = []
-        for index, page in enumerate(disaster_challenges.PAGES):
-            column = self._columns[page][0]
-            if page in open_pages:
-                self._holder.grid_columnconfigure(index, weight=1,
-                                                  uniform="pages")
-                laid.append((index, column, "nsew"))
-            else:
-                self._holder.grid_columnconfigure(index, weight=0,
-                                                  uniform="")
-                column.grid_remove()
         for page in disaster_challenges.PAGES:
-            head = self._finished[page][0]
-            head.pack_forget()
-        for at, page in enumerate(done_pages):
-            # spacing: exception -- label row -> label row -- heading, heading ↕
-            self._finished[page][0].pack(
-                anchor=tk.E, pady=px((FINISHED_PITCH if at else 0, 0)))
-        # Alone, the finished column still keeps to the right.
-        self._holder.grid_columnconfigure(
-            FINISHED_COLUMN, weight=0 if open_pages else 1, uniform="")
-        if done_pages:
-            laid.append((FINISHED_COLUMN, self._finished_frame, "ne"))
-        else:
+            if page not in open_pages:
+                self._columns[page][0].grid_remove()
+        self._lay_out_finished(done_pages)
+        if not done_pages:
             self._finished_frame.grid_remove()
-        for at, (index, widget, sticky) in enumerate(laid):
-            # spacing: control group ↔ control group -- run, run ↔
-            widget.grid(row=0, column=index, sticky=sticky,
-                        padx=px((COLUMN_GAP if at else 0, 0)))
+        laid = [self._columns[page][0] for page in open_pages] + (
+            [self._finished_frame] if done_pages else [])
+        # Content in the EVEN grid columns, a fixed spacer between each
+        # pair. A gap padded inside a cell of the uniform group widens
+        # that cell's share by the gap, and its column comes out
+        # narrower than the one without it.
+        for index in range(2 * len(disaster_challenges.PAGES) + 1):
+            self._holder.grid_columnconfigure(index, weight=0, uniform="",
+                                              minsize=0)
+        for at, widget in enumerate(laid):
+            if at:
+                # spacing: control group ↔ control group -- run, run ↔
+                self._holder.grid_columnconfigure(2 * at - 1,
+                                                  minsize=px(COLUMN_GAP))
+            if widget is self._finished_frame:
+                # Alone, the finished column still keeps to the right.
+                self._holder.grid_columnconfigure(
+                    2 * at, weight=0 if open_pages else 1)
+                widget.grid(row=0, column=2 * at, sticky="ne")
+            else:
+                self._holder.grid_columnconfigure(2 * at, weight=1,
+                                                  uniform="pages")
+                widget.grid(row=0, column=2 * at, sticky="nsew")
+
+    def _lay_out_finished(self, done_pages):
+        """A row per finished page, in the game's order; none for the
+        rest."""
+        for row, page in enumerate(disaster_challenges.PAGES):
+            heading, done, total = self._finished[page]
+            if page not in done_pages:
+                for widget in (heading, done, total):
+                    widget.grid_remove()
+                continue
+            above = FINISHED_PITCH if page != done_pages[0] else 0
+            # spacing: exception -- label row -> label row -- heading, heading ↕
+            heading.grid(row=row, column=0, sticky="sw",
+                         pady=px((above, 0)))
+            # The count on the heading's baseline, as on an open page.
+            # spacing: heading ↔ element -- heading, label ↔
+            # spacing: heading ↔ element -- heading, label ↕
+            done.grid(row=row, column=1, sticky="se",
+                      padx=px((HEADING_COUNTDOWN_GAP, 0)),
+                      pady=px((above, HEADING_COUNTDOWN_DROP)))
+            total.grid(row=row, column=2, sticky="sw",
+                       pady=px((above, HEADING_COUNTDOWN_DROP)))
 
     # ------------------------------------------------------------ clock
 

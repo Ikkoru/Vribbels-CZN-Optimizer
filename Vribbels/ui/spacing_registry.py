@@ -4844,27 +4844,32 @@ def _checklist_column(position):
     return find
 
 
-def _gap_to_first_capital(above, text):
-    """Resolver: a widget's ink -> the first CAPITAL of a Text's first row.
+def _heading_capital_to_first_capital(above, text):
+    """Resolver: a heading's first CAPITAL -> a Text's first row's.
 
-    `_gap` would read the lower end off the line's topmost INK, which
-    on these rows is a digit or an ascender as often as a capital --
-    and the two differ by a per-font pixel. The rules measure to the
-    capital, so the scan is narrowed to one.
+    Both ends narrowed to a capital, which puts them on the rules'
+    references, the heading's baseline and the row's cap height. A
+    reading of the heading's whole ink starts at whatever hangs lowest
+    under it -- the `y` of `Daily`, the `p` of `Expiring Items`, the
+    slash of a count beside it -- and moves with the words rather than
+    with the lever; at the row's end the topmost ink is a digit or an
+    ascender as often as a capital.
     """
     def resolve(cap, app):
-        top, widget = above(app), text(app)
-        band = _first_capital_band(widget)
+        band = _label_capital_box(cap, above(app))
         if band is None:
-            return None, "no capital on the first row to measure to"
-        colours = {_widget_fill(widget)}
-        extent = sa.painted_extent_v(cap, band, colours)
-        if extent is None:
-            return None, "the first capital painted nothing"
-        upper = sa.painted_extent_v(cap, sa.box_of(top))
+            return None, "no capital in the heading to measure from"
+        upper = sa.painted_extent_v(cap, band)
         if upper is None:
-            return None, "the heading painted nothing"
-        return sa.gap_between(upper[1], extent[0]), ""
+            return None, "the heading's capital painted nothing"
+        widget = text(app)
+        caps = _first_capital_band(widget)
+        if caps is None:
+            return None, "no capital on the first row to measure to"
+        lower = sa.painted_extent_v(cap, caps, {_widget_fill(widget)})
+        if lower is None:
+            return None, "the first capital painted nothing"
+        return sa.gap_between(upper[1], lower[0]), ""
     return resolve
 
 
@@ -5009,18 +5014,16 @@ sa.register_scenario("expiring_columns", _expiring_columns,
 # same gap in every other.
 CHECKLIST_ENTRIES = [
     # The heading against the first row under it. Text to text, so the
-    # reading runs baseline to capital.
-    # **12 rather than the rule's 10**, for the same reason the pitch
-    # below misses it: the tab's face is a point larger than the app's
-    # body text, so the heading's own box and the row's between them
-    # spend more than the rule's number before this lever adds
-    # anything. Read off the window and agreed; marked at
-    # `HEADING_GAP`.
-    ("Checklist", "Checklist: heading -> its first row", 12,
+    # reading runs baseline to capital, each end at a capital.
+    # **16 rather than the rule's 10**: the heading's own box and the
+    # row's between them spend more than the rule's number before this
+    # lever adds anything, the tab's face being a point larger and the
+    # heading 14pt. Marked at `HEADING_GAP`.
+    ("Checklist", "Checklist: heading -> its first row", 16,
      RULE_PANEL_UNRELATED_LABEL,
-     _gap_to_first_capital(
-         lambda app: _checklist_column(0)(app).winfo_children()[0],
-         _checklist_text), "v"),
+     _heading_capital_to_first_capital(
+         lambda app: _checklist_column(0)(app).winfo_children()[0]
+         .winfo_children()[0], _checklist_text), "v"),
     # And between the rows, which are LINES rather than widgets.
     #
     # **12 rather than the rule's 10**, the tab's face being a point
@@ -5074,10 +5077,11 @@ CHECKLIST_ENTRIES = [
     # **Expiring Items**, under the tallest column. Its heading and its
     # rows take the columns' own levers, so these read the same
     # distances as the two entries at the top of the list.
-    ("Checklist", "Checklist: Expiring Items heading -> its first row", 12,
+    ("Checklist", "Checklist: Expiring Items heading -> its first row", 16,
      RULE_PANEL_UNRELATED_LABEL,
-     _gap_to_first_capital(_expiring_part("_expiring_head"),
-                           _expiring_part("_expiring_text")), "v"),
+     _heading_capital_to_first_capital(_expiring_part("_expiring_head"),
+                                       _expiring_part("_expiring_text")),
+     "v"),
     ("Checklist", "Checklist: Expiring Items row -> row", 12,
      RULE_LABEL_ROW_PITCH,
      _text_line_pitch(_expiring_part("_expiring_text"),
@@ -5185,9 +5189,11 @@ def _disaster_column(column):
 
 
 def _disaster_finished(at):
-    """Locator: the `at`-th heading shown in the finished pages' column."""
+    """Locator: the `at`-th heading shown in the finished pages' column,
+    whose grid holds the headings in its first column, a row a page."""
     def find(app):
-        shown = _disaster_column(-1)(app).pack_slaves()
+        shown = sorted(_disaster_column(-1)(app).grid_slaves(column=0),
+                       key=lambda w: int(w.grid_info()["row"]))
         if len(shown) <= at:
             raise LookupError("the finished pages' column holds "
                               f"{len(shown)} heading(s)")
@@ -5203,32 +5209,6 @@ def _disaster_heading(column):
     return find
 
 
-def _heading_capital_to_first_capital(above, text):
-    """Resolver: a heading's first CAPITAL -> a Text's first row's.
-
-    `_gap_to_first_capital` reads the upper end off everything the
-    heading's frame paints, and under a heading with a count beside it
-    that is the count's slash, which hangs below the baseline -- a
-    reading that moves with the glyphs rather than with the lever. The
-    rule's reference is the baseline, so the scan is narrowed to the
-    heading's capital, as it is to the row's.
-    """
-    def resolve(cap, app):
-        band = _label_capital_box(cap, above(app))
-        if band is None:
-            return None, "no capital in the heading to measure from"
-        upper = sa.painted_extent_v(cap, band)
-        if upper is None:
-            return None, "the heading's capital painted nothing"
-        widget = text(app)
-        caps = _first_capital_band(widget)
-        if caps is None:
-            return None, "no capital on the first row to measure to"
-        lower = sa.painted_extent_v(cap, caps, {_widget_fill(widget)})
-        if lower is None:
-            return None, "the first capital painted nothing"
-        return sa.gap_between(upper[1], lower[0]), ""
-    return resolve
 
 
 def _capital_to_capital(above, below):
@@ -5294,9 +5274,7 @@ DISASTER_ENTRIES = [
     ("Galactic Disaster",
      "Galactic Disaster: finished heading -> finished heading", 12,
      RULE_LABEL_ROW_PITCH,
-     _capital_to_capital(
-         lambda app: _disaster_finished(0)(app).winfo_children()[0],
-         lambda app: _disaster_finished(1)(app).winfo_children()[0]), "v"),
+     _capital_to_capital(_disaster_finished(0), _disaster_finished(1)), "v"),
 ]
 
 MATERIALS_ENTRIES = [

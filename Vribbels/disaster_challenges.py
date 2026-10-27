@@ -42,12 +42,14 @@ PAGE_TITLES = {"disaster_collection": "Mission Records",
                "penalty": "Annihilation Reward"}
 
 # The snapshot's fields. The first three are the wire's own names; the
-# last is the capture's, every codex entry a Chaos run has found since
-# the last full codex (`docs/disaster_challenges.md`, *The lists*).
+# last two are the capture's: what the Chaos runs finished since the
+# last full codex found, added up, and what the open run has found
+# (`docs/disaster_challenges.md`, *The lists*).
 ACHIEVEMENTS_FIELD = "disaster_achievement_entities"
 CODEX_FIELD = "chaos_archive_entities"
 COLLECTIONS_FIELD = "disaster_collection_entities"
 RUN_FINDS_FIELD = "chaos_run_finds"
+RUN_OPEN_FIELD = "chaos_run_open"
 
 SEASON_GROUP = "DISASTER_SEASON"
 # A Supply round's page opens this many days into the season's
@@ -232,8 +234,9 @@ def _in(seconds):
 
 def _held_lists(raw):
     """{collection id: {item id: count}}: every codex page and season
-    collection the snapshot holds, a Chaos run's finds since the last
-    full codex laid over them. None where the snapshot holds neither."""
+    collection the snapshot holds, and under the run fields' own names
+    what the runs since the last full codex have found. None where the
+    snapshot holds neither table."""
     raw = raw or {}
     codex, collections = raw.get(CODEX_FIELD), raw.get(COLLECTIONS_FIELD)
     if not isinstance(codex, dict) and not isinstance(collections, list):
@@ -245,25 +248,29 @@ def _held_lists(raw):
     for row in collections if isinstance(collections, list) else ():
         if isinstance(row, dict) and isinstance(row.get("collection"), dict):
             out[str(row.get("res_id"))] = dict(row["collection"])
-    finds = raw.get(RUN_FINDS_FIELD)
-    out[RUN_FINDS_FIELD] = finds if isinstance(finds, dict) else {}
+    for field in (RUN_FINDS_FIELD, RUN_OPEN_FIELD):
+        finds = raw.get(field)
+        out[field] = finds if isinstance(finds, dict) else {}
     return out
 
 
 def _tip(held, achievement, lists, reading):
     """A list achievement's tip lines, or None for one collecting no
-    list. A run's finds count as found: a codex entry is never lost."""
+    list. An item's count is the codex's plus every run's since: the
+    codex takes each finished run in whole, so the next login's codex
+    reads the same sum, capped at the most it counts."""
     listed = (held.get("lists") or {}).get(achievement.get("list") or "")
     if not isinstance(listed, dict):
         return None
     if lists is None:
         return (TIP_UNREAD,)
     have = lists.get(listed.get("collection")) or {}
-    finds = lists.get(RUN_FINDS_FIELD) or {}
+    runs = (lists.get(RUN_FINDS_FIELD) or {}, lists.get(RUN_OPEN_FIELD) or {})
     lines, later = [], 0
     for item in listed.get("items") or ():
         item_id, name, most, gate = (list(item) + [None] * 4)[:4]
-        count = max(_number(have.get(item_id)), _number(finds.get(item_id)))
+        count = _number(have.get(item_id)) + sum(
+            _number(run.get(item_id)) for run in runs)
         most = most if _count(most) else 1
         if count >= most:
             continue

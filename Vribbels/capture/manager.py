@@ -176,12 +176,14 @@ EPISODES_FIELD = "completed_episode_ids"
 # What a Chaos run says it has found, for the Galactic Disaster tab's
 # lists: the two archives every reply inside a run carries, how far down
 # a reply they are looked for, and the items kept, a codex page's and a
-# season collection's. Saved as `RUN_FINDS_FIELD`. See
+# season collection's. Saved as `RUN_FINDS_FIELD`, the finished runs'
+# counts added up, and `RUN_OPEN_FIELD`, the open run's. See
 # `_note_challenges`.
 RUN_ARCHIVES = ("chaos_complete_archive", "disaster_complete_archive")
 RUN_FINDS_DEPTH = 3
 RUN_FIND_PREFIXES = ("chaos_", "disaster_")
 RUN_FINDS_FIELD = "chaos_run_finds"
+RUN_OPEN_FIELD = "chaos_run_open"
 
 # How much of a payload the wire catalogue keeps as an example, and how
 # many entries it will hold. The sample says what SHAPE a field is, not
@@ -594,13 +596,15 @@ class Addon:
         # {row id: row} -- the free Rescues issued and taken, by event.
         self.free_gacha = {}
         # The Galactic Disaster's challenge pages: {season: {res_id:
-        # row}}, the Chaos codex, the seasons' collections, and a run's
-        # finds since the codex was last whole. None until seen. See
+        # row}}, the Chaos codex, the seasons' collections, and the runs'
+        # finds since the codex was last whole: the finished runs' added
+        # up, and the open run's. None until seen. See
         # `_note_challenges`.
         self.disaster_achievements = None
         self.chaos_codex = None
         self.disaster_collections = None
         self.chaos_run_finds = {}
+        self.chaos_run_open = {}
         # {table: {res_id: row}} -- the lifetime counters, the
         # Achievements screen and the daily tasks; and {table: {res_id:
         # condition_type}}, what each row COUNTS, learned as rows move
@@ -884,11 +888,13 @@ class Addon:
         held = previous.get("disaster_collection_entities")
         if isinstance(held, list):
             self.disaster_collections = held
-        held = previous.get(RUN_FINDS_FIELD)
-        if isinstance(held, dict):
-            self.chaos_run_finds = {
-                str(item): count for item, count in held.items()
-                if isinstance(count, int)}
+        for field, attr in ((RUN_FINDS_FIELD, "chaos_run_finds"),
+                            (RUN_OPEN_FIELD, "chaos_run_open")):
+            held = previous.get(field)
+            if isinstance(held, dict):
+                setattr(self, attr, {
+                    str(item): count for item, count in held.items()
+                    if isinstance(count, int)})
         # Runs recorded before they had a file of their own rode in the
         # snapshot. See `_load_chaos_runs`.
         runs = previous.get("chaos_runs")
@@ -3801,10 +3807,18 @@ class Addon:
         * **A Chaos run states everything it has found so far** on nearly
           every reply inside it, codex entries it already held included:
           `chaos_complete_archive` and `disaster_complete_archive`, a
-          level or three down. The codex takes them in only at the next
-          login, so they are kept as each item's highest count until a
-          whole table of its kind replaces them.
+          level or three down, each item counted for THIS run alone, and
+          emptied once the run ends. The codex takes a finished run in
+          at its end and sends it at the next login: each item's count
+          there is the last login's plus every finished run's, to the
+          codex's own cap. So the open run's peak counts are kept apart
+          (`chaos_run_open`), and added to the finished runs'
+          (`chaos_run_finds`) when it ends -- its close, or the next run
+          opening -- until a whole table of their kind arrives.
         """
+        asked = self.qid_commands.get(data.get("qid"))
+        if asked in CHAOS_OPENS:
+            self._bank_run()
         table = data.get("disaster_achievement_entities")
         if isinstance(table, dict):
             self.disaster_achievements = {
@@ -3849,12 +3863,24 @@ class Addon:
         found = {}
         self._run_finds(data, found, RUN_FINDS_DEPTH)
         for item, count in found.items():
-            if count > self.chaos_run_finds.get(item, 0):
-                self.chaos_run_finds[item] = count
+            if count > self.chaos_run_open.get(item, 0):
+                self.chaos_run_open[item] = count
                 self._save_pending = True
+        if asked == CHAOS_CLOSES:
+            self._bank_run()
+
+    def _bank_run(self):
+        """The open run has ended: its counts join the finished runs'."""
+        for item, count in self.chaos_run_open.items():
+            self.chaos_run_finds[item] = (
+                self.chaos_run_finds.get(item, 0) + count)
+        if self.chaos_run_open:
+            self.chaos_run_open = {}
+            self._save_pending = True
 
     def _drop_run_finds(self, prefix):
-        """A whole table arrived: the finds of its kind are in it now."""
+        """A whole table arrived: the finished runs of its kind are in
+        it now. The open run is not: the codex takes a run at its end."""
         self.chaos_run_finds = {item: count for item, count
                                 in self.chaos_run_finds.items()
                                 if not item.startswith(prefix)}
@@ -3863,8 +3889,8 @@ class Addon:
     @classmethod
     def _run_finds(cls, value, out, depth):
         """Every codex item a run's archives in `value` name, with its
-        count, into `out`: the highest each reaches. See
-        `_note_challenges`."""
+        count, into `out`: the highest each reaches, the reply carrying
+        the run's archive more than once. See `_note_challenges`."""
         if depth < 0:
             return
         if isinstance(value, list):
@@ -4020,6 +4046,7 @@ class Addon:
             "chaos_archive_entities": self.chaos_codex,
             "disaster_collection_entities": self.disaster_collections,
             RUN_FINDS_FIELD: self.chaos_run_finds or None,
+            RUN_OPEN_FIELD: self.chaos_run_open or None,
             # What the recurring tasks stand at. The Checklist tab
             # reads `point_entity` and `mission_entities`; the rest are
             # written so a capture taken before anything needs them

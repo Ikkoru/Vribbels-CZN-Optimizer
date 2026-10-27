@@ -258,27 +258,63 @@ def _capture_failures():
     if (held.get("disaster_s09_105") or {}).get("complete_time") != 777:
         out.append("a claim's achievement_entities did not reach its row: "
                    "the reward reads as waiting until the next login")
-    # A run's finds, a level or three down, then the codex whole.
+    # Two Chaos runs, each killing two of one monster: each reply states
+    # the run's own count so far, a level or three down, and the reply
+    # closing the run states none. The codex then sends both whole.
     send({"chaos_archive_entities": {"chaos_14_02": {
         "res_id": "chaos_14_02",
         "collection": {"chaos_14_monster_01": 1}}}})
-    send({"actions": [{"chaos_complete_archive": {
-        "monster_resid": {"chaos_14_monster_01": 2},
-        "encounter_resid": {}}}],
-        "result": {"actions": [{"disaster_complete_archive": {
-            "disaster_card_resid": {"disaster_s09_memory_01": 1}}}]}})
-    if addon.chaos_run_finds.get("chaos_14_monster_01") != 2 \
-            or addon.chaos_run_finds.get("disaster_s09_memory_01") != 1:
-        out.append(f"a Chaos run's archives were not kept as finds: "
-                   f"{addon.chaos_run_finds}. A tip lists as missing what "
-                   f"the run found until the next login")
+    qid = [100]
+
+    def ask(command, reply):
+        qid[0] += 1
+        cmd, _, inner = command.partition("/")
+        addon.websocket_message(_Flow(
+            [{"cmd": cmd, "qid": qid[0], "params": {"cmd": inner}}],
+            from_client=True))
+        send(dict(reply, qid=qid[0]))
+
+    def archive(kills):
+        return {"actions": [{"chaos_complete_archive": {
+            "monster_resid": {"chaos_14_monster_01": kills},
+            "encounter_resid": {}}}],
+            "result": {"actions": [{"disaster_complete_archive": {
+                "disaster_card_resid": {"disaster_s09_memory_01": 1}}}]}}
+
+    for run in (1, 2):
+        ask("disaster/enter_disaster_chaos_stage", {})
+        ask("battle/battle_start", archive(1))
+        ask("battle/battle_start", archive(2))
+        if run == 1:
+            ask("stage/clear_stage", {"return_info": {}})
+    if (addon.chaos_run_finds.get("chaos_14_monster_01"),
+            addon.chaos_run_open.get("chaos_14_monster_01")) != (2, 2):
+        out.append(f"after one finished run and one open, each killing two, "
+                   f"the capture holds finished {addon.chaos_run_finds} and "
+                   f"open {addon.chaos_run_open}: a run's archive counts that "
+                   f"run alone, so the finished runs add up and the open "
+                   f"one stays apart")
+    ask("stage/clear_stage", {"return_info": {}})
+    if addon.chaos_run_finds.get("chaos_14_monster_01") != 4 \
+            or addon.chaos_run_open:
+        out.append(f"two finished runs of two kills each add up to "
+                   f"{addon.chaos_run_finds.get('chaos_14_monster_01')}, "
+                   f"not 4: the next login's codex counts both")
+    if addon.chaos_run_finds.get("disaster_s09_memory_01") != 2:
+        out.append("a season collection's finds were not kept with the "
+                   "codex's")
+    ask("disaster/enter_disaster_chaos_stage", {})
+    ask("battle/battle_start", archive(1))
     send({"chaos_archive_entities": {"chaos_14_02": {
         "res_id": "chaos_14_02",
-        "collection": {"chaos_14_monster_01": 2}}}})
+        "collection": {"chaos_14_monster_01": 4}}}})
     if "chaos_14_monster_01" in addon.chaos_run_finds \
             or "disaster_s09_memory_01" not in addon.chaos_run_finds:
-        out.append("a whole codex did not replace the codex finds before "
-                   "it, or took the season collection's with them")
+        out.append("a whole codex did not replace the finished runs' codex "
+                   "finds, or took the season collection's with them")
+    if addon.chaos_run_open.get("chaos_14_monster_01") != 1:
+        out.append("a whole codex dropped the open run's finds: the codex "
+                   "takes a run in only at its end")
     # Saved and seeded: a capture that starts without a login keeps them.
     addon.inventory_data = {"piece_items": []}
     addon.character_data = {"characters": []}
@@ -363,7 +399,10 @@ def _raw(wire=None):
             "c1": {"score": 0, "complete_time": 0}}},
         "chaos_archive_entities": {"chaos_14_02": {
             "collection": {"i1": 1, "i2": 1}}},
-        "chaos_run_finds": {"i1": 4},
+        # The codex's 1, two kills in finished runs and one in the open
+        # one: the four the codex wants.
+        "chaos_run_finds": {"i1": 2},
+        "chaos_run_open": {"i1": 1},
     }
 
 
@@ -410,16 +449,18 @@ def _model_failures():
     battle = pages.get("disaster_battle")
     tip = battle.rows[0].tip if battle and battle.rows else None
     if tip != ("Owl", "+1 more in a later part"):
-        out.append(f"the list's tip reads {tip}: a run's finds count as "
-                   f"found, a monster at its kill count is done, and one "
-                   f"opening later is counted, not named")
+        out.append(f"the list's tip reads {tip}: the codex's count, the "
+                   f"finished runs' and the open run's add up, a monster at "
+                   f"its kill count is done, and one opening later is "
+                   f"counted, not named")
     later = dc.board(_raw(), START + 43 * DAY, CHALLENGES, CONSTANTS)
     records = {p.page: p for p in later.pages}["disaster_collection"]
     if "l1" not in [row.id for row in records.rows]:
         out.append("an achievement whose gate's day has passed is still "
                    "shown as locked")
     bare = _raw()
-    del bare["chaos_archive_entities"], bare["chaos_run_finds"]
+    del bare["chaos_archive_entities"], bare["chaos_run_finds"], \
+        bare["chaos_run_open"]
     battle = {p.page: p for p in dc.board(
         bare, NOW, CHALLENGES, CONSTANTS).pages}["disaster_battle"]
     if battle.rows[0].tip != (dc.TIP_UNREAD,):
@@ -467,10 +508,23 @@ FAULTS = [
      "        claimed = None", "a claim's achievement_entities"),
     ("a run's archives ignored", "capture.manager:ADDON_TEMPLATE",
      "        self._run_finds(data, found, RUN_FINDS_DEPTH)", "",
-     "a Chaos run's archives were not kept"),
+     "after one finished run and one open"),
     ("the codex leaves stale finds", "capture.manager:ADDON_TEMPLATE",
      '            self._drop_run_finds("chaos_")', "            pass",
      "a whole codex did not replace"),
+    ("finished runs kept at their highest, not added",
+     "capture.manager:ADDON_TEMPLATE",
+     "                self.chaos_run_finds.get(item, 0) + count)",
+     "                max(self.chaos_run_finds.get(item, 0), count))",
+     "add up to"),
+    ("a run's close not ending it", "capture.manager:ADDON_TEMPLATE",
+     "        if asked == CHAOS_CLOSES:\n            self._bank_run()", "",
+     "add up to"),
+    ("the codex dropping the open run", "capture.manager:ADDON_TEMPLATE",
+     "                                if not item.startswith(prefix)}\n",
+     "                                if not item.startswith(prefix)}\n"
+     "        self.chaos_run_open = {}\n",
+     "dropped the open run's finds"),
     ("not seeded from the last snapshot", "capture.manager:ADDON_TEMPLATE",
      '        held = previous.get("disaster_achievement_entities")\n'
      '        if isinstance(held, dict):\n'
@@ -492,9 +546,14 @@ FAULTS = [
      "an unnamed reward waiting"),
     ("a Part read as a countdown", "disaster_challenges:_locked_lines",
      "elif day in parts:", "elif False:", "the locked lines read"),
-    ("a run's finds not counted", "disaster_challenges:_tip",
-     "count = max(_number(have.get(item_id)), _number(finds.get(item_id)))",
-     "count = _number(have.get(item_id))", "the list's tip reads"),
+    ("the open run not counted", "disaster_challenges:_tip",
+     "_number(run.get(item_id)) for run in runs)",
+     "_number(run.get(item_id)) for run in runs[:1])",
+     "the list's tip reads"),
+    ("the codex's own count left out", "disaster_challenges:_tip",
+     "count = _number(have.get(item_id)) + sum(",
+     "count = 0 * _number(have.get(item_id)) + sum(",
+     "the list's tip reads"),
     ("a wire row does not open a gate", "disaster_challenges:_Reading.open",
      "            or self.row(achievement) is not None", "",
      "taken as still locked"),

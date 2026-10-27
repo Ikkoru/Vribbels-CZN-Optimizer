@@ -2617,18 +2617,36 @@ def _disaster_pages_move_when_finished(tab):
             if not tab._finished[key][0].winfo_manager():
                 out.append(f"the finished page {key!r} has no heading in the "
                            f"column of finished pages")
-        battle = tab._finished["disaster_battle"][2]
-        if battle not in tab._blinking or str(
-                battle.cget("foreground")) not in orange:
-            out.append("a finished page with a reward waiting does not "
-                       "blink its count orange")
-        penalty = tab._finished["penalty"][2]
-        if penalty in tab._blinking or str(penalty.cget("foreground")) \
-                != tab.colors[mod.FINISHED_COLOUR]:
-            out.append("a finished page with nothing waiting is not green")
-        shown = [tab._finished[k][0] for k in ("disaster_battle", "penalty")]
-        if tab._finished_frame.pack_slaves() != shown:
+        for half in tab._finished["disaster_battle"][1:]:
+            if half not in tab._blinking or str(
+                    half.cget("foreground")) not in orange:
+                out.append("a finished page with a reward waiting does not "
+                           "blink its count orange")
+        for half in tab._finished["penalty"][1:]:
+            if half in tab._blinking or str(half.cget("foreground")) \
+                    != tab.colors[mod.FINISHED_COLOUR]:
+                out.append("a finished page with nothing waiting is not "
+                           "green")
+        halves = [w.cget("text") for w in tab._finished["disaster_battle"][1:]]
+        if halves != ["5", "/5"]:
+            out.append(f"a finished page's count reads {halves}, not the "
+                       f"done figure and `/total` in a column each")
+        rows = [int(tab._finished[k][0].grid_info().get("row", -1))
+                for k in ("disaster_battle", "penalty")]
+        if rows != sorted(rows) or len(set(rows)) != 2:
             out.append("the finished pages do not stack in the game's order")
+        columns = {int(tab._finished[k][n].grid_info().get("column", -1))
+                   for k in ("disaster_battle", "penalty") for n in (1, 2)}
+        if columns != {1, 2}:
+            out.append("the finished pages' counts are not in one pair of "
+                       "columns, so their slashes do not line up")
+        cells = [sum(int(p) for p in re.findall(
+                     r"\d+", str(tab._columns[k][0].grid_info().get("padx"))))
+                 for k in ("disaster_collection", "disaster_ingame")]
+        if any(cells):
+            out.append("an open page's column is padded inside its cell: "
+                       "the uniform group then gives it less room than the "
+                       "first column. The gap belongs to a spacer column")
         for key in ("disaster_collection", "disaster_ingame"):
             if tab._columns[key][0].winfo_manager() != "grid":
                 out.append(f"the open page {key!r} lost its column")
@@ -6624,12 +6642,22 @@ FAULTS = [
      "clipped without a word"),
     ("a finished page keeping its column",
      "ui.tabs.disaster_tab:DisasterTab._lay_out",
-     "                column.grid_remove()", "                pass",
-     "kept its column"),
+     "                self._columns[page][0].grid_remove()",
+     "                pass", "kept its column"),
     ("a waiting reward on a finished page not blinking",
      "ui.tabs.disaster_tab:DisasterTab._draw",
-     "                self._blinking.append(count)", "                pass",
-     "does not blink its count"),
+     "                self._blinking.extend((done, total))",
+     "                pass", "does not blink its count"),
+    ("the gap padded inside the uniform cells",
+     "ui.tabs.disaster_tab:DisasterTab._lay_out",
+     'widget.grid(row=0, column=2 * at, sticky="nsew")',
+     'widget.grid(row=0, column=2 * at, sticky="nsew",\n'
+     '                            padx=px((COLUMN_GAP if at else 0, 0)))',
+     "padded inside its cell"),
+    ("the count in one label", "ui.tabs.disaster_tab:DisasterTab._draw",
+     'total.config(text="/%d" % pages[page].total)',
+     'done.config(text="%d/%d" % (pages[page].done, pages[page].total))',
+     "a finished page's count reads"),
     ("a list's tip not bound", "ui.tabs.disaster_tab:DisasterTab._fill_page",
      "                tags.append(tag)", "                pass",
      "carry no tip"),

@@ -549,9 +549,9 @@ The division is two levers, not one. A boundary crossed from an ordinary row and
 
 | `Checklist: product -> product` | 5 | A shop product's label IS the checkbox, so the row has no capital to read and both this and the gap below are taken between painted boxes. The eye reads 12 on them, the same as every row beside them, measured capital to capital on the labels inside the widgets. `CHECKBOX_PITCH` |
 | `Checklist: shop heading -> its first product` | 5 | The first product sits under the heading's WORDS where the rest sit under another box, and a heading's ink stops at its baseline where a checkbox's stops at its own edge -- two apart at one `spacing1`. `CHECKBOX_UNDER_HEAD` |
-| `Checklist: heading -> its first row` | 12 | The heading's own box and the first row's spend more than the rule's 10 between them before `HEADING_GAP` adds anything, the tab's face being a point larger. |
+| `Checklist: heading -> its first row` | 16 | The heading's own box and the first row's spend more than the rule's 10 between them before `HEADING_GAP` adds anything, the tab's face being a point larger. Read at the heading's first capital, its baseline: a reading of its whole ink starts at the `y` of `Daily` and comes out four short. |
 
-The Expiring Items block under the columns takes the same `HEADING_GAP` and `ROW_PITCH`, so `Checklist: Expiring Items heading -> its first row` and `Checklist: Expiring Items row -> row` hold the same 12s. `Checklist: tallest column -> Expiring Items` is the block division's 16, on two levers for the same reason as the division's: `EXPIRING_GAP` under a column ending on words, `EXPIRING_GAP_FROM_BOX` under one ending on a shop product.
+The Expiring Items block under the columns takes the same `HEADING_GAP` and `ROW_PITCH`, so `Checklist: Expiring Items heading -> its first row` holds the same 16, read the same way past the `p` of `Expiring`, and `Checklist: Expiring Items row -> row` the rows' 12. `Checklist: tallest column -> Expiring Items` is the block division's 16, on two levers for the same reason as the division's: `EXPIRING_GAP` under a column ending on words, `EXPIRING_GAP_FROM_BOX` under one ending on a shop product.
 
 One entry, every instance of its gap. A reading that stands for a run of gaps (every row pitch in a column, every division in a block) reports the tightest and carries the rest as siblings, and **one sibling off the target fails the row**. Reporting a single number let the rest drift: the tightest stayed on target while a row two below it sat a pixel out. The **Materials** tab is the exception (`GRID_TABS`): its icons sit in a fixed grid, so a repeat that measures differently is the grid's shape rather than a distance that moved.
 
@@ -571,11 +571,13 @@ The tab is set in the Checklist's face on the Checklist's levers, so its three e
 
 | Gap | Target | Why |
 | --- | ------ | --- |
-| `Galactic Disaster: heading -> its first row` | 16 | `HEADING_GAP` and the first line's `ROW_PITCH`, read baseline to capital at the heading's own capital: the count beside the heading hangs a slash below the baseline, which a reading of the whole heading would start from |
+| `Galactic Disaster: heading -> its first row` | 16 | `HEADING_GAP` and the first line's `ROW_PITCH`, read as the Checklist's is, at the heading's capital: the count beside the heading hangs a slash below the baseline |
 | `Galactic Disaster: requirement -> requirement` | 16 | the block division, `ROW_PITCH + BLOCK_PAD` (`REQUIREMENT_PITCH`). A requirement is a block of wrapped lines, and at the row pitch the gap between two reads as the gap inside one. Read between requirements that take one line |
 | `Galactic Disaster: finished heading -> finished heading` | 12 | the row pitch between two finished pages' headings, each a row of the column at the right (`FINISHED_PITCH`), capital to capital |
 
-The columns sit `control group ↔ control group` apart, read box to box: a column's words wrap short of its edge by whatever the next word did not fit into.
+The columns sit `control group ↔ control group` apart, read box to box: a column's words wrap short of its edge by whatever the next word did not fit into, so the last column's words can end tens of pixels in from the window's edge while its box sits 4 from it. The gap is a spacer column's `minsize`, not a pad inside a column's cell, which the uniform group would take out of that column's width.
+
+The finished pages' column is a grid, a row a page: the heading flush left, then the count in two labels, the done figure right-aligned and `/total` left-aligned, so the slashes fall in one column. Each half gives back its side of a label's inset where they meet (`COUNT_JOIN`), so the figure and the slash sit as they do in one label.
 
 ## The unruled rows, as a table
 
