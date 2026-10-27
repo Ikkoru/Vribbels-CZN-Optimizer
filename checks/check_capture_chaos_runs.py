@@ -419,6 +419,7 @@ def run():
     failures.extend(_given_up(Addon))
     failures.extend(_what_the_entry_says(Addon))
     failures.extend(_the_partners(Addon))
+    failures.extend(_the_opening_and_nightmare(Addon))
     failures.extend(_the_map_and_route(Addon))
     failures.extend(_the_report_counts_each_mark_once())
     failures.extend(_the_report_pools_and_steps())
@@ -986,6 +987,63 @@ SIG_STEPS = {"30135": [["EFF_PARTNER_UNIQUE_SPARK", [[0, 1]]],
                        ["EFF_BREAK_IN_RATEUP_PCT_ADD", [[0, 0.56], [2, 1.12]]]]}
 
 
+def _the_opening_and_nightmare(Addon):
+    """A run records whether it was in Nightmare Mode -- the entry
+    request's `is_psychosis_mode` -- and the option picked at its
+    opening event, the map's PRE_START spot (Kyrken's Messenger), with
+    what it gave; a pick at a later event is not taken for it. The
+    table says whether the pick set the first 3 normal battles' enemies
+    to 1 HP. Returns complaints."""
+    out = []
+    addon = _new(Addon)
+    _setup(addon)
+    steps = _Steps(addon, 1800)
+    stage = {"stage": dict(_map_stage([(1, 1, "BATTLE", False)]),
+                           spot_list=[{"id": 7, "floor": -1,
+                                       "type": "SPOT_TYPE_UNKNOWN",
+                                       "type2": "SPOT_TYPE_PRE_START",
+                                       "spot_pool_id": "uk_sys_s02_01d"}])}
+    steps.step("disaster/enter_disaster_chaos_stage",
+               {"is_psychosis_mode": True}, service_server_time=1790490000,
+               stage_info=stage, **DISASTER_ENTRY)
+
+    def pick(event, option, rewards):
+        chosen = {"id": option, "encounter_id": event,
+                  "succ_rewards": [rewards]}
+        steps.step("encounter/select_option",
+                   {"info": {"select_id": option}},
+                   result={"info": {"history": [{
+                       "id": event, "selection": chosen,
+                       "all": [chosen, {"id": event + "_s6"}]}]}})
+
+    pick("uk_sys_s02_01d", "uk_sys_s02_01d_s1",
+         [{"res_id": "up_mhp_20p", "type": "MAX_HP_PCT", "value": 20},
+          {"res_id": "nbf_nb_en_00658", "type": "NB_EFF",
+           "link_res_ids": ["nb_en_00658"], "value": 1}])
+    pick("uk_evt_s01_01", "uk_evt_s01_01_s2",
+         [{"res_id": "other", "type": "GOLD", "value": 1}])
+    steps.step("stage/clear_stage", service_server_time=1790490600,
+               stage_id=100000)
+    run_ = addon.chaos_runs[-1] if addon.chaos_runs else {}
+    opening = run_.get("opening") or {}
+    if (run_.get("nightmare"), opening.get("picked"),
+            opening.get("offered")) != (True, "uk_sys_s02_01d_s1",
+                                        ["uk_sys_s02_01d_s1",
+                                         "uk_sys_s02_01d_s6"]) \
+            or "nb_en_00658" not in (opening.get("rewards") or ()):
+        out.append(f"a Nightmare Mode run picking Accept the blessing at "
+                   f"Kyrken's Messenger records nightmare "
+                   f"{run_.get('nightmare')!r} and opening {opening}: True, "
+                   f"and the pick at the PRE_START event with the 1-HP "
+                   f"effect among its rewards, not the later event's.")
+    row = _tool().row_of(run_, "x", {})
+    if (row["nightmare"], row["1hp_start"]) != ("on", "yes"):
+        out.append(f"chaos_runs.py writes nightmare {row['nightmare']!r} "
+                   f"and 1hp_start {row['1hp_start']!r} for it, not 'on' "
+                   f"and 'yes'.")
+    return out
+
+
 def _the_partners(Addon):
     """A run records each combatant's partner and its limit break, off
     the entry's `enter_supporters` -- or, for a run no capture saw
@@ -1506,6 +1564,17 @@ FAULTS = [
     ("a spot entered twice counted once", "capture.manager:ADDON_TEMPLATE",
      "                route[spot] = route.get(spot, 0) + 1",
      "                route[spot] = 1", "each area's map as first sent"),
+    ("Nightmare Mode not kept", "capture.manager:ADDON_TEMPLATE",
+     '                self.chaos_nightmare = sent.get("is_psychosis_mode")\n',
+     "", "a Nightmare Mode run picking"),
+    ("a later event's pick taken for the opening",
+     "capture.manager:ADDON_TEMPLATE",
+     ['            if (not isinstance(choice, dict) or "opening" in run\n',
+      '                    or choice.get("encounter_id") != '
+      'run.get("opening_event")):\n'],
+     ["            if (not isinstance(choice, dict)\n",
+      "                    or False):\n"],
+     "a Nightmare Mode run picking"),
     ("the party's HP not kept", "capture.manager:ADDON_TEMPLATE",
      "                self._chaos_hp(run, cache)\n", "",
      "a fight starting at 2400 of 3200 HP"),

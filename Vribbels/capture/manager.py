@@ -217,6 +217,9 @@ CHAOS_CLOSES = "stage/clear_stage"
 CHAOS_ENTERS = "stage/enter_spot"
 CHAOS_FIGHTS = "battle/battle_start"
 CHAOS_PAYS = "spot_reward/get_drop_item"
+# An event's option picked: the reply names it, the options offered and
+# their rewards.
+CHAOS_PICKS = "encounter/select_option"
 # How a fight ends: the reply to an accelerated fight states its result,
 # and a fight played by hand states its own in the `battle_end` the
 # client sends. This result is the run lost on that fight.
@@ -412,6 +415,12 @@ def _chaos_setup(data):
               if word.startswith("boss_list:")]
     out["bosses"] = bosses[0] if bosses else []
     stage = data.get("stage_info")
+    # The event the run opens with, before floor 1: its spot is the
+    # map's PRE_START, and the option picked there is `opening`'s.
+    inner = stage.get("stage") if isinstance(stage, dict) else None
+    for spot in (inner or {}).get("spot_list") or ():
+        if isinstance(spot, dict) and spot.get("type2") == "SPOT_TYPE_PRE_START":
+            out["opening_event"] = spot.get("spot_pool_id")
     team = stage.get("enter_supporters") if isinstance(stage, dict) else None
     if isinstance(team, list):
         out["partners"] = [[sup.get("res_id"), sup.get("limit_break")]
@@ -607,9 +616,11 @@ class Addon:
         # `_note_base_stats`. The builds come with them.
         self.base_battles = None
         self.base_builds = []
-        # Whether the run being opened is the Delegation Module's: said
-        # only in what the client sends to open it.
+        # Whether the run being opened is the Delegation Module's, and
+        # whether it is in Nightmare Mode: said only in what the client
+        # sends to open it.
         self.chaos_delegated = False
+        self.chaos_nightmare = None
         # Runs an older snapshot still carries, folded into the file
         # once; and whether the file can be written at all this session
         # -- not where it is there and will not read.
@@ -4261,6 +4272,7 @@ class Addon:
                               "client": self.client_version,
                               "via": asked.split("/", 1)[0],
                               "delegated": self.chaos_delegated,
+                              "nightmare": self.chaos_nightmare,
                               "fought": {}, "marked": {}, "marked_at": {},
                               "paid": []}
             self.chaos_run.update(_chaos_setup(data))
@@ -4332,6 +4344,8 @@ class Addon:
             if isinstance(fight, dict):
                 self._chaos_fight(run, fight)
                 self._chaos_hp(run, cache)
+        elif asked == CHAOS_PICKS:
+            self._chaos_opening(run, data)
         elif asked == CHAOS_PAYS:
             floor, spot, mark = self.chaos_spot
             for item in data.get("drop_item_result") or ():
@@ -4376,7 +4390,8 @@ class Addon:
             return
         # Kept as it stands after every step, for a capture that ends
         # before the run does.
-        if asked in (CHAOS_ENTERS, CHAOS_RESOLVES, CHAOS_FIGHTS, CHAOS_PAYS):
+        if asked in (CHAOS_ENTERS, CHAOS_RESOLVES, CHAOS_FIGHTS, CHAOS_PAYS,
+                     CHAOS_PICKS):
             self._save_open_chaos()
 
     def _open_chaos_path(self):
@@ -4504,6 +4519,35 @@ class Addon:
         self.chaos_events = events
         self.chaos_fight_key = None
         self._save_open_chaos()
+
+    def _chaos_opening(self, run, data):
+        """Keep the option picked at the run's opening event -- the one
+        on the map's PRE_START spot, Kyrken's Messenger -- in `opening`:
+        `picked`, the options `offered`, and the `rewards` the pick gave,
+        each a res_id with the ids it links. One of them, "Accept the
+        blessing", grants the effect that sets every enemy of the first
+        3 normal battles to 1 HP: `docs/chaos_runs.py` reads it off the
+        rewards. A pick at any other event, or a second one, is not
+        kept."""
+        result = data.get("result")
+        info = result.get("info") if isinstance(result, dict) else None
+        for entry in (info or {}).get("history") or ():
+            choice = entry.get("selection") if isinstance(entry, dict) \\
+                else None
+            if (not isinstance(choice, dict) or "opening" in run
+                    or choice.get("encounter_id") != run.get("opening_event")):
+                continue
+            rewards = []
+            for group in choice.get("succ_rewards") or ():
+                for reward in group if isinstance(group, list) else ():
+                    if isinstance(reward, dict):
+                        rewards.append(reward.get("res_id"))
+                        rewards += list(reward.get("link_res_ids") or ())
+            run["opening"] = {
+                "picked": choice.get("id"),
+                "offered": [option.get("id") for option in entry.get("all")
+                            or () if isinstance(option, dict)],
+                "rewards": rewards}
 
     def _chaos_hp(self, run, cache):
         """Keep the party's HP as each fight starts, in `hp`, `[floor,
@@ -4867,9 +4911,13 @@ class Addon:
                     == CHAOS_CLOSES and sent.get("is_emergency_exit")):
                 self.chaos_run["gave_up"] = True
             # A run the Delegation Module plays is asked for with its
-            # `acceleration_info`; one played by hand without it.
+            # `acceleration_info`; one played by hand without it. Nightmare
+            # Mode is `is_psychosis_mode`: the client's achievements count
+            # its clears as CLEAR_PSYCHOSIS__AREA, "Clear Chaos Interior
+            # {0} times in Nightmare Mode".
             if (isinstance(sent, dict)
                     and self.qid_commands.get(entry.get("qid")) in CHAOS_OPENS):
+                self.chaos_nightmare = sent.get("is_psychosis_mode")
                 chaos = sent.get("chaos_info")
                 accel = chaos.get("acceleration_info") \\
                     if isinstance(chaos, dict) else None
