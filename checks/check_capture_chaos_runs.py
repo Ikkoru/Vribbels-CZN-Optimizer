@@ -827,8 +827,8 @@ def _the_report_reads_at_zero_nodes():
     boss's floor -- so a run whose first boss was paid while no capture
     watched still has its others in place -- else off the order of the
     boss floors paid. A third boss paying other than 60, and another
-    boss paying 60, are flagged: the order and the pay no longer
-    agree. Returns complaints."""
+    boss paying 60, are flagged: the order and the pay disagree.
+    Returns complaints."""
     tool = _tool()
 
     def row(date, nodes, payouts, floors="0-34", season="s04"):

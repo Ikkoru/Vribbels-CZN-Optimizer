@@ -118,8 +118,8 @@ SHIPPED = {
         "bosses": {1: {1: 144, 2: 144, 3: 60}},
         "flat": (3,),
         "nodes": (13,),
-        # Over 3 whole runs of part 1.
-        "marks": {"k5": (48, 1.67), "b1": (0, 0.67), "b1+k5": (48, 0.33)},
+        # Over 7 whole runs of part 1.
+        "marks": {"k5": (48, 1.43), "b1": (0, 0.57), "b1+k5": (48, 0.14)},
     },
 }
 

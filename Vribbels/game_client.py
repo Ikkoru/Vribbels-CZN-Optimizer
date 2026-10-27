@@ -1231,7 +1231,8 @@ def period_items(client):
     days from the pickup (the Time-Limited Command Delegation Modules);
     `SCHEDULE_LINK`, until a schedule ends (a Galactic Disaster season's
     Time-Limited cores, until `disaster_s05`); `SUBSCRIPTION`, as long
-    as a subscription runs. Only the first two say when."""
+    as a subscription runs. Only `IMMEDIATELY` and `SCHEDULE_LINK`
+    say when."""
     out = {}
     for row in client.rows(PERIOD_TABLE):
         rid = _figure(row.get("id"))
