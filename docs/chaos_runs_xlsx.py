@@ -150,8 +150,8 @@ EXPLAIN_RAW = {
     "opening": "Option picked at the opening event (Kyrken's Messenger).",
     "1hp_start": "yes = that pick carried the bonus setting the first 3 "
                  "normal battles' enemies to 1 HP.",
-    "distortion": "Distortion Adaptation on or off (read from the game's "
-                  "Chaos Level mode flag).",
+    "distortion": "Distortion Adaptation on or off. Empty: the Zero "
+                  "System and a base-game Chaos, which lack it.",
     "senectus": "Floor the Senectus broke in on. Empty: none.",
     "fights_before": "Fights before the Senectus, by spot. No Senectus: "
                      "every fight of the run.",

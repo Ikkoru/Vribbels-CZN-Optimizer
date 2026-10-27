@@ -1087,6 +1087,18 @@ def _the_senectus_place(Addon):
     if _tool().senectus_of({}) != ("?", "?"):
         out.append("a run filed before runs kept their fights in order "
                    "reads as one with no Senectus, not as `?`.")
+    # The Zero System's entry request carries no `is_chaos_level_mode`
+    # (websocket_debug_20261002_154326): the door has no Distortion
+    # Adaptation, which is not the same as not knowing.
+    addon = _new(Addon)
+    _setup(addon)
+    _play_zero(addon, 1790560000)
+    run_ = addon.chaos_runs[-1] if addon.chaos_runs else {}
+    if _tool().distortion_of(run_) != "" or _tool().distortion_of({}) != "?":
+        out.append(f"a Zero System run is written distortion "
+                   f"{_tool().distortion_of(run_)!r} and a run with no "
+                   f"entry seen {_tool().distortion_of({})!r}: not empty "
+                   f"(the door has no Distortion Adaptation) and '?'.")
     return out
 
 
@@ -1221,6 +1233,20 @@ def _report_fights_after():
             return floors, " ".join("%s:%d" % pair
                                     for pair in sorted(counts.items()))
         tool.senectus_of = every
+        return tool
+    _tool = loaded
+
+
+def _report_no_door_unknown():
+    """Fault: chaos_runs.py writing `?` for a run whose door has no
+    Distortion Adaptation, as for one whose entry was never seen."""
+    global _tool
+    real = _tool
+
+    def loaded():
+        tool = real()
+        tool.distortion_of = lambda run: {True: "on", False: "off"}.get(
+            (run.get("level_mode") or {}).get("on"), "?")
         return tool
     _tool = loaded
 
@@ -1686,4 +1712,6 @@ FAULTS = [
      '                    "on": None,\n', "Distortion Adaptation off"),
     ("the fights after the Senectus counted before it",
      _report_fights_after, None, None, "a Senectus breaking in on floor 6"),
+    ("a door without Distortion Adaptation read as unknown",
+     _report_no_door_unknown, None, None, "a Zero System run is written"),
 ]
