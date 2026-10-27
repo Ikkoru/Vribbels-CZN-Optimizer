@@ -621,6 +621,7 @@ class Addon:
         # sends to open it.
         self.chaos_delegated = False
         self.chaos_nightmare = None
+        self.chaos_level_mode = None
         # Runs an older snapshot still carries, folded into the file
         # once; and whether the file can be written at all this session
         # -- not where it is there and will not read.
@@ -4273,8 +4274,9 @@ class Addon:
                               "via": asked.split("/", 1)[0],
                               "delegated": self.chaos_delegated,
                               "nightmare": self.chaos_nightmare,
+                              "level_mode": self.chaos_level_mode,
                               "fought": {}, "marked": {}, "marked_at": {},
-                              "paid": []}
+                              "fights": [], "paid": []}
             self.chaos_run.update(_chaos_setup(data))
             self.chaos_spot = (None, None, "")
             self.chaos_map = []
@@ -4596,6 +4598,9 @@ class Addon:
             spot = "BREAK_IN"
         self.chaos_spot = (floor, spot, mark)
         run["fought"][spot] = run["fought"].get(spot, 0) + 1
+        # In order, so where a Senectus broke in, and what was fought
+        # before it, can be read off a run.
+        run.setdefault("fights", []).append([floor, spot, mark])
         if mark:
             run["marked"][mark] = run["marked"].get(mark, 0) + 1
             # And by the spot it was met on: a map with more Elite
@@ -4915,10 +4920,17 @@ class Addon:
             # `acceleration_info`; one played by hand without it. Nightmare
             # Mode is `is_psychosis_mode`: the client's achievements count
             # its clears as CLEAR_PSYCHOSIS__AREA, "Clear Chaos Interior
-            # {0} times in Nightmare Mode".
+            # {0} times in Nightmare Mode". `is_chaos_level_mode`, with a
+            # flag per combatant in `chaos_level_mode_custom_supporter_info`,
+            # is taken for Distortion Adaptation, which sets combatants to
+            # the Chaos Level: on by default, and true in every run seen.
             if (isinstance(sent, dict)
                     and self.qid_commands.get(entry.get("qid")) in CHAOS_OPENS):
                 self.chaos_nightmare = sent.get("is_psychosis_mode")
+                self.chaos_level_mode = {
+                    "on": sent.get("is_chaos_level_mode"),
+                    "custom_supporters": sent.get(
+                        "chaos_level_mode_custom_supporter_info")}
                 chaos = sent.get("chaos_info")
                 accel = chaos.get("acceleration_info") \\
                     if isinstance(chaos, dict) else None

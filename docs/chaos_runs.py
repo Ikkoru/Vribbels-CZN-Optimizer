@@ -95,6 +95,9 @@ The columns this script owns:
 | `nightmare` | whether the run was in Nightmare Mode, `on` or `off`: the entry request's `is_psychosis_mode`; `?` for a run filed before runs kept it |
 | `opening` | the option picked at the run's opening event, Kyrken's Messenger: `uk_sys_s02_01d_s1` (`capture.manager._chaos_opening`); `?` where no capture saw the pick |
 | `1hp_start` | `yes` where that pick set every enemy of the first 3 normal battles to 1 HP (`ONE_HP_START`), else `no`; `?` as `opening` |
+| `distortion` | whether Distortion Adaptation was on, `on` or `off`: taken to be the entry request's `is_chaos_level_mode` (`capture.manager`, `level_mode`), unconfirmed until a run with it off is captured; `?` for a run filed before runs kept it |
+| `senectus` | the floor a Senectus broke in on; empty for none (`senectus_of`) |
+| `fights_before` | the fights before the Senectus, by spot: `battle:3 elite:1 unknown:1`; in a run without one, every fight it had. Both `?` for a run filed before runs kept their fights in order |
 | `lost`    | where a lost run was lost: `floor:spot:non-boss fights left`, `+mark` for a mark |
 | `gaps`    | how much of the run a capture saw: empty for all of it; else `started elsewhere` and `resumed N`, what the clear's restatement `recovered`, and `partial:` what stays unknown -- `chaos_estimate.recovery` |
 | `SPOT_*`  | the payouts at each kind of spot, `+` between them              |
@@ -345,7 +348,8 @@ OWNED = ["date", "season", "part", "chaos", "door", "difficulty",
          "floors", "special", "options", "rolled", "amplified", "partners",
          "invasion", "mode", "client", "total", "payouts", "marked",
          "marked_at", "fought", "route", "map", "hp", "nightmare",
-         "opening", "1hp_start", "lost", "gaps"]
+         "opening", "1hp_start", "distortion", "senectus", "fights_before",
+         "lost", "gaps"]
 # The opening event's rewards that set every enemy of the first 3
 # normal battles to 1 HP: the client's `nb_en_00658` adds stage effect
 # `scs_00041`, "For 3 Normal Battles, changes HP of all monsters to 1"
@@ -782,6 +786,25 @@ def hp_of(run):
     return "%d-%d%%" % (math.floor(min(shares)), math.floor(max(shares)))
 
 
+def senectus_of(run):
+    """(`senectus`, `fights_before`) as the columns write them: the
+    floor each Senectus broke in on, and the fights before the first,
+    by spot -- in a run without one, every fight it had, the run's
+    whole exposure. `?` both for a run filed before runs kept their
+    fights in order."""
+    if "fights" not in run:
+        return "?", "?"
+    fights = run.get("fights") or ()
+    floors = [str(floor) if floor is not None else "?"
+              for floor, spot, _mark in fights if spot == "BREAK_IN"]
+    first = next((i for i, (_f, spot, _m) in enumerate(fights)
+                  if spot == "BREAK_IN"), len(fights))
+    before = collections.Counter(spot.lower() for _f, spot, _m
+                                 in fights[:first])
+    return " ".join(floors), " ".join("%s:%d" % pair
+                                      for pair in sorted(before.items()))
+
+
 def maps_of(cell):
     """{area: {"spots": {type: n}, "keyword": {type: n}, "events":
     {event id: n}, "path": bool}} from a `map` cell; {} for `?` or
@@ -926,6 +949,10 @@ def row_of(run, source, parts, kinds=None):
         "1hp_start": ("yes" if set(ONE_HP_START) & set(
             run["opening"].get("rewards") or ()) else "no")
         if isinstance(run.get("opening"), dict) else "?",
+        "distortion": {True: "on", False: "off"}.get(
+            (run.get("level_mode") or {}).get("on"), "?"),
+        "senectus": senectus_of(run)[0],
+        "fights_before": senectus_of(run)[1],
         "lost": lost_token(run.get("lost")),
         "gaps": gaps_of(run, recovered, unknown),
         "log": source,

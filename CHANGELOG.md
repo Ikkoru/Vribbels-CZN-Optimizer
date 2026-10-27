@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.com/Vorbroker/Vribbels-CZN-Optimizer) at v1.7.0 (2026-02-07) and restarts versioning from v1.0.0. For the pre-fork history, see the upstream repository's CHANGELOG.
 
+## [2.6.3] - unreleased
+
+### Added
+
+- Chaos runs record every fight in order and whether Distortion Adaptation was on. `docs/chaos_runs.py` writes three more columns: `distortion`, `senectus`, the floor a Senectus broke in on, and `fights_before`, the fights before it.
+
 ## [2.6.2] - Expiring Items, Chaos Run Tracking
 
 ### Added

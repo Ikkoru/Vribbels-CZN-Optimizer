@@ -420,6 +420,7 @@ def run():
     failures.extend(_what_the_entry_says(Addon))
     failures.extend(_the_partners(Addon))
     failures.extend(_the_opening_and_nightmare(Addon))
+    failures.extend(_the_senectus_place(Addon))
     failures.extend(_the_map_and_route(Addon))
     failures.extend(_the_report_counts_each_mark_once())
     failures.extend(_the_report_pools_and_steps())
@@ -1044,6 +1045,51 @@ def _the_opening_and_nightmare(Addon):
     return out
 
 
+def _the_senectus_place(Addon):
+    """A run keeps its fights in order, so the table can say the floor
+    a Senectus broke in on and the fights before it -- every fight, in a
+    run without one; and whether Distortion Adaptation was on, off the
+    entry request's `is_chaos_level_mode`. Returns complaints."""
+    out = []
+    for told_twice in (False, True):
+        addon = _new(Addon)
+        _setup(addon)
+        _play_delegated_break_in(addon, 1790560000, told_twice)
+        run_ = addon.chaos_runs[-1] if addon.chaos_runs else {}
+        row = _tool().row_of(run_, "x", {})
+        if (row["senectus"], row["fights_before"]) != ("6", "battle:1"):
+            out.append(
+                f"a Senectus breaking in on floor 6 after one battle"
+                f"{', told of twice,' if told_twice else ''} is written "
+                f"senectus {row['senectus']!r}, fights_before "
+                f"{row['fights_before']!r}, not '6' and 'battle:1' "
+                f"(`fights`, `chaos_runs.senectus_of`).")
+    addon = _new(Addon)
+    _setup(addon)
+    steps = _Steps(addon, 900)
+    steps.step("disaster/enter_disaster_chaos_stage",
+               {**DELEGATED, "is_chaos_level_mode": False},
+               service_server_time=1790560000 - 1800)
+    steps.fight(6, "SPOT_TYPE_BATTLE", "base_00160")
+    steps.fight(9, "SPOT_TYPE_ELITE", "base_00161")
+    steps.fight(17, "SPOT_TYPE_BOSS", "base_00000")
+    steps.step("stage/clear_stage", service_server_time=1790560000,
+               stage_id=80000)
+    run_ = addon.chaos_runs[-1] if addon.chaos_runs else {}
+    row = _tool().row_of(run_, "x", {})
+    if (row["senectus"], row["fights_before"], row["distortion"]) != (
+            "", "battle:1 boss:1 elite:1", "off"):
+        out.append(
+            f"a run with no Senectus and Distortion Adaptation off is "
+            f"written senectus {row['senectus']!r}, fights_before "
+            f"{row['fights_before']!r}, distortion {row['distortion']!r}: "
+            f"not empty, every fight it had, and 'off'.")
+    if _tool().senectus_of({}) != ("?", "?"):
+        out.append("a run filed before runs kept their fights in order "
+                   "reads as one with no Senectus, not as `?`.")
+    return out
+
+
 def _the_partners(Addon):
     """A run records each combatant's partner and its limit break, off
     the entry's `enter_supporters` -- or, for a run no capture saw
@@ -1152,6 +1198,29 @@ def _report_any_third_pay():
     def loaded():
         tool = real()
         tool.THIRD_BOSS_PAYS = 59
+        return tool
+    _tool = loaded
+
+
+def _report_fights_after():
+    """Fault: chaos_runs.py counting every fight of a run as before
+    its Senectus."""
+    global _tool
+    real = _tool
+
+    def loaded():
+        tool = real()
+        held = tool.senectus_of
+
+        def every(run):
+            floors, _before = held(run)
+            if "fights" not in run:
+                return floors, _before
+            counts = tool.collections.Counter(
+                spot.lower() for _f, spot, _m in run["fights"])
+            return floors, " ".join("%s:%d" % pair
+                                    for pair in sorted(counts.items()))
+        tool.senectus_of = every
         return tool
     _tool = loaded
 
@@ -1609,4 +1678,12 @@ FAULTS = [
      'return invasion_raise(run["partners"]) if had_passives(run) else 0.0',
      'return invasion_raise(run["partners"])',
      "nothing before it"),
+    ("fights not kept in order", "capture.manager:ADDON_TEMPLATE",
+     '        run.setdefault("fights", []).append([floor, spot, mark])\n',
+     "", "a Senectus breaking in on floor 6"),
+    ("Distortion Adaptation not kept", "capture.manager:ADDON_TEMPLATE",
+     '                    "on": sent.get("is_chaos_level_mode"),\n',
+     '                    "on": None,\n', "Distortion Adaptation off"),
+    ("the fights after the Senectus counted before it",
+     _report_fights_after, None, None, "a Senectus breaking in on floor 6"),
 ]
