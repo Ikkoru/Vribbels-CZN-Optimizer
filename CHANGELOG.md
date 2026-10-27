@@ -6,31 +6,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.com/Vorbroker/Vribbels-CZN-Optimizer) at v1.7.0 (2026-02-07) and restarts versioning from v1.0.0. For the pre-fork history, see the upstream repository's CHANGELOG.
 
-## [2.7.0] - unreleased
+## [2.7.0] - Expiring Items, Chaos Run Tracking
 
 ### Added
 
-- Checklist: Expiring Items, under the columns. Every time-limited item you hold, soonest to expire first: how many, and the time left on the soonest.
-  - A line blinks orange inside a week and red inside two days.
-  - Command Delegation Modules stay in the Weekly column's rows.
+- Checklist:
+  - Expiring Items, under the columns: every time-limited item you hold, soonest first, with how many and the time left on the soonest. A line blinks orange inside a week and red inside two days. Command Delegation Modules stay in the Weekly column's rows.
+  - Three more events count their rewards:
+    - Free Rescues for logging in: the pulls taken against all the event gives. Red while pulls are waiting, orange once today's are taken.
+    - A Trauma Code's event: its rewards and sticker. Orange while what is left waits on a battle that opens on a later day.
+    - The Nightmare Carnival's gifts on its first page.
+  - The Nightmare Carnival's Exchange moves to the top of the Events when two days pass without a tier claimed.
+  - The season estimate counts Danger Intuition, Sig's and Peko's Exploration Passive, which makes a Senectus Invasion likelier. It uses the partners of your newest run of the season's Chaos.
 - Chaos runs record the partners you took and their limit breaks, Nightmare Mode, the opening pick, the party's HP at each fight's start, and the map.
-  - Checklist: the season estimate counts Danger Intuition, Sig's and Peko's Exploration Passive, which makes a Senectus Invasion likelier. It uses the partners of your newest run of the season's Chaos.
   - Running from source, `docs/chaos_runs.py` turns your runs into a table and a report, and `docs/chaos_runs_xlsx.py` into a spreadsheet. See [Tracking Chaos runs](README.md#tracking-chaos-runs).
-- Checklist: three more events count their rewards.
-  - Free Rescues for logging in: the pulls taken out of all the event gives, red while pulls are waiting, orange once today's are taken.
-  - A Trauma Code's event: its rewards and sticker. Orange while what is left waits on a battle that opens on a later day.
-  - The Nightmare Carnival's gifts on its first page.
-- Checklist: the Nightmare Carnival's Exchange moves to the top of the Events when two days pass without a tier claimed.
 - The program checks for a new release when it starts, and says when one is out: open the releases page, ignore it this time, or ignore it until you update.
 
 ### Changed
 
-- Checklist: a Trauma Code's battle openings (`schedule_trc_…_e_1` and on) no longer show as events of their own.
+- Checklist:
+  - A Trauma Code's battle openings (`schedule_trc_…_e_1` and on) are part of its event, not events of their own.
+  - The season 5 estimate expects fewer Rare Species a Chaos run, measured over more runs.
 
 ### Fixed
 
-- Time-limited items gained while capturing are counted straight away, not at the next login.
-- Checklist and Materials: the Delegation Module counts include the 7-day and 21-day modules, not only the 14-day one.
+- Checklist and Materials:
+  - Time-limited items gained while capturing count straight away, not at the next login.
+  - The Delegation Module counts include the 7-day and 21-day modules, not only the 14-day one.
 
 ## [2.6.0] - Rossweisse, Card Skin Packs, Season 5
 
