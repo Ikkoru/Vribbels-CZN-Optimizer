@@ -1300,6 +1300,7 @@ class OptimizerGUI:
             # stands where it is newer than the shipped names.
             game_client.use(held if held is not None
                             else game_client.fallback(settings_dir))
+            self.character_preset_manager.relink_names()
             self._presets_follow_client()
             return
 
@@ -1371,6 +1372,10 @@ class OptimizerGUI:
             return
         self._client_read = None
         game_client.use(facts)
+        # NOT redundant with the load's fold: a combatant only the
+        # client names was added by her name before this read, and the
+        # cached lookups predate her.
+        self.character_preset_manager.relink_names()
         self._presets_follow_client()
         self._refresh_client_tabs()
         self._report_defaults_updates()

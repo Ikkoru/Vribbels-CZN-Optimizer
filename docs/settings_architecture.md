@@ -64,7 +64,7 @@ Keyed by `str(res_id)`, NOT by name; `name_hints` exists purely for readability 
 
 **Why id-keyed:** a captured-but-unknown character is displayed as `"1055"` and later becomes `"Adelheid"`. Under name keys the user's assignment is silently lost at that moment; under id keys the res_id is stable and only the hint changes. For still-unknown characters the name-to-id resolver falls through to "if it looks numeric, use it".
 
-`character_preset_manager.normalize_to_v2()` is IDEMPOTENT, so it runs on every load and every sync rather than being gated on a version check. Numeric keys keep their value, name keys resolve via `CHARACTERS`, and a character carrying both resolves to whichever assignment is non-null. Mixed-version pairs normalize before the per-key merge, and both files are rewritten in v2 so later loads skip it.
+`character_preset_manager.normalize_to_v2()` is IDEMPOTENT, so it runs on every load and every sync rather than being gated on a version check. Numeric keys keep their value, name keys resolve via `CHARACTERS` (`fold_name_keys`), and a character carrying both resolves to whichever assignment is non-null, the id's where both are. A combatant only the game client names is filed by name until its read lands, so the main window calls `relink_names()` after every client read it applies (`checks/check_preset_name_keys.py`). Mixed-version pairs normalize before the per-key merge, and both files are rewritten in v2 so later loads skip it.
 
 ## Restore Defaults
 

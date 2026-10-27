@@ -11,7 +11,9 @@ copy would change: orange steps where any would, green where none.
 
 **Compared as the build will ship them**: the Optimizer settings go
 through `normalize_defaults.normalize` first, so the per-user state it
-strips (exclude lists, levels seen) never reads as a difference. The
+strips (exclude lists, levels seen) never reads as a difference, and
+the preset assignments through `normalize_to_v2`, as the program reads
+them. The
 `name_hints` / `name_hint` labels are left out too: the program writes
 them for every combatant it meets, so they differ after any capture
 and change nothing a player gets.
@@ -26,6 +28,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+# `Vribbels/`, for `character_preset_manager` and the game data it reads.
+sys.path.insert(1, str(Path(__file__).resolve().parents[2]))
 import normalize_defaults                                   # noqa: E402
 
 FILES = ("presets.json", "character_preset.json", "optimizer_settings.json")
@@ -53,6 +57,11 @@ def comparable(name, data):
     data = copy.deepcopy(data)
     if name == "optimizer_settings.json":
         normalize_defaults.normalize(data)
+    elif name == "character_preset.json":
+        # As the program reads it: a name key CHARACTERS resolves sits
+        # on its id, which the next launch writes back to the file.
+        from character_preset_manager import normalize_to_v2
+        data = normalize_to_v2(data)
     return _without_labels(data)
 
 

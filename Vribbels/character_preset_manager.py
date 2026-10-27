@@ -183,10 +183,39 @@ def migrate_v1_to_v2(name_keyed_assignments: dict) -> tuple:
     return assignments_by_id, name_hints
 
 
+def fold_name_keys(assignments: dict, name_hints: dict,
+                   name_to_id: dict) -> tuple:
+    """Move every name-keyed entry whose name now resolves to a res_id
+    onto that id: `(assignments, name_hints)`, new dicts.
+
+    A name key is how an entry is filed while its combatant is unknown
+    to CHARACTERS: one the game client names before the shipped tables
+    do is known only once the client's read lands, after the launch's
+    snapshot has already added her (`ensure_characters`). Left alone,
+    the name key sits beside the id key for good, and a default-settings
+    refresh ships it. On a collision the id key's assignment wins unless
+    it is null, as in `migrate_v1_to_v2`.
+    """
+    assignments, name_hints = dict(assignments), dict(name_hints)
+    for key in [k for k in assignments
+                if isinstance(k, str) and not k.isdigit()]:
+        rid = name_to_id.get(key)
+        if rid is None or rid == key:
+            continue
+        value = assignments.pop(key)
+        hint = name_hints.pop(key, key)
+        if rid not in assignments or (assignments[rid] is None
+                                      and value is not None):
+            assignments[rid] = value
+        if name_hints.get(rid, rid).isdigit():
+            name_hints[rid] = hint
+    return assignments, name_hints
+
+
 def normalize_to_v2(data: dict) -> dict:
-    """Return `data` in v2 form. If already v2, returns unchanged. If v1
-    (or missing version), runs `migrate_v1_to_v2` and returns the v2
-    structure.
+    """Return `data` in v2 form, every name key CHARACTERS resolves moved
+    onto its id (`fold_name_keys`). If v1 (or missing version), runs
+    `migrate_v1_to_v2` and returns the v2 structure.
 
     Pure function. Used by both the manager and defaults_sync.
     """
@@ -195,13 +224,14 @@ def normalize_to_v2(data: dict) -> dict:
                 "assignments": {}, "name_hints": {}}
     version = data.get("version", 1)
     if version >= 2:
-        # Already v2 -- ensure required keys exist.
-        out = {
+        assignments, name_hints = fold_name_keys(
+            data.get("assignments", {}), data.get("name_hints", {}),
+            _build_character_name_maps()[0])
+        return {
             "version": CHARACTER_PRESET_SCHEMA_VERSION,
-            "assignments": dict(data.get("assignments", {})),
-            "name_hints": dict(data.get("name_hints", {})),
+            "assignments": assignments,
+            "name_hints": name_hints,
         }
-        return out
     # v1 migration
     name_keyed = data.get("assignments", {})
     if not isinstance(name_keyed, dict):
@@ -250,6 +280,23 @@ class CharacterPresetManager:
         pick up the new mappings."""
         self._name_to_id_cache = None
         self._id_to_name_cache = None
+
+    def relink_names(self) -> bool:
+        """After CHARACTERS gained entries (the game client's read laid
+        over it): drop the cached lookups and move each name key that
+        now resolves onto its id (`fold_name_keys`), written at once.
+        True where anything moved."""
+        self.invalidate_name_cache()
+        if self.corrupted:
+            return False
+        assignments, hints = fold_name_keys(
+            self.assignments_by_id, self.name_hints,
+            self._get_character_name_maps()[0])
+        if assignments == self.assignments_by_id and hints == self.name_hints:
+            return False
+        self.assignments_by_id, self.name_hints = assignments, hints
+        self._write()
+        return True
 
     def _get_character_name_maps(self) -> tuple:
         """Lazy-init + cache for (name_to_id, id_to_name)."""
@@ -320,8 +367,10 @@ class CharacterPresetManager:
         self.assignments_by_id = v2["assignments"]
         self.name_hints = v2["name_hints"]
 
-        # Persist the migrated form so future loads skip the migration step.
-        if data.get("version", 1) < CHARACTER_PRESET_SCHEMA_VERSION:
+        # Persist the migrated or folded form, so the file on disk holds
+        # what the program uses.
+        if data.get("version", 1) < CHARACTER_PRESET_SCHEMA_VERSION \
+                or self.assignments_by_id != data.get("assignments"):
             self._write()
 
     def _mark_corrupted(self, reason: str):
@@ -380,8 +429,8 @@ class CharacterPresetManager:
             raise RuntimeError(UNREAD)
         rid = self._resolve_name_to_id(character_name)
         if rid is None:
-            # Truly unknown -- use the name as the key. Future migrations
-            # will fix it if CHARACTERS catches up.
+            # Unknown to CHARACTERS -- use the name as the key, which
+            # `fold_name_keys` moves onto the id once CHARACTERS knows it.
             rid = character_name
         self.assignments_by_id[rid] = preset_name
         self.name_hints[rid] = character_name
