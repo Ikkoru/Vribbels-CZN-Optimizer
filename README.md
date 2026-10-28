@@ -78,17 +78,26 @@ Pressing `Generate & Install Cert` adds a mitmproxy certificate to your trusted 
 
 ## Tracking Chaos runs
 
-While capture is on, every Chaos run is recorded: what it paid, every fight and what it carried (Rare Species, Aether Eater, Senectus), your partners and their limit breaks, Nightmare Mode, the opening pick at Kyrken's Messenger, the party's HP at each fight's start, and the map. Two scripts in `docs/` turn the records into a table and a spreadsheet. They run from source (see above); the spreadsheet also needs `pip install openpyxl`.
+While capture is on, every Chaos run is recorded: what it paid, every fight and what it carried (Rare Species, Aether Eater, Senectus), where a Senectus broke in, your partners and their limit breaks, Nightmare Mode, Distortion Adaptation, the opening pick at Kyrken's Messenger, the party's HP at each fight's start, and the map. Ticking **Debug WS** on the Capture tab also keeps a log of each session, which lets the scripts read old runs again for anything they learn to record later.
 
-1. Play Chaos runs with capture on. Ticking **Debug WS** on the Capture tab also keeps a log of each session, which lets the script read old runs again for anything it learns to record later.
-2. Make your table, and see its report:
+**The easy way**, with the program's exe or from source:
+
+1. Download the source code (on GitHub, **Code → Download ZIP**) and unzip it anywhere.
+2. Double-click `zRUN Chaos Runs Spreadsheet.cmd` in it. It checks for Python and the one add-on it needs, and says what to do if either is missing.
+3. When it asks, drag the folder holding `Vribbels_CZN_Optimizer_Ikkoru.exe` into the window and press Enter. Running the program from source, just press Enter.
+
+`my_chaos_runs.tsv` and `my_chaos_runs.xlsx` land on your Desktop. Run it again after more runs to add them. To combine several players' runs, paste every line but the first of one `.tsv` under another's and make the spreadsheet from that.
+
+**By hand**, from source (see above), with `pip install openpyxl`:
+
+1. Make your table, and see its report:
 
    ```
    docs\chaos_runs.cmd --out "%USERPROFILE%\Desktop\my_chaos_runs.tsv"
    ```
 
    `docs/chaos_runs.tsv` holds the maintainer's runs, so give `--out`, or your runs join theirs. `--all` reads every debug log again; `--full` shows the report without pooling; `--data "<folder>\snapshots"` reads the data a built program keeps beside its exe.
-3. Make the spreadsheet beside it (`my_chaos_runs.xlsx`):
+2. Make the spreadsheet beside it (`my_chaos_runs.xlsx`):
 
    ```
    docs\chaos_runs_xlsx.cmd "%USERPROFILE%\Desktop\my_chaos_runs.tsv"

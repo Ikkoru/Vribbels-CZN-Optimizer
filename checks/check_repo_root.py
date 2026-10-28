@@ -35,6 +35,7 @@ ALLOWED = {
     "requirements.txt",
     "tasks.md",
     "zCreate exe.bat",
+    "zRUN Chaos Runs Spreadsheet.cmd",
     "zRUN Checks.bat",
     "zRUN Spacing Audit Freeze.bat",
     "zRUN Spacing Audit Scales.bat",

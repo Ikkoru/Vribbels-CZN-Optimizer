@@ -19,6 +19,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - Every combatant you hold, with the dialogue options picked against all 36. Red: broken down and awaiting counseling, selected for you when a capture sees it happen. Orange: Crystals waiting to be claimed in the Counseling Records.
   - The selected combatant's three scenarios, each opener with its two follow-ups and the cure % each pair gives. Picked options are dimmed.
   - Click the two openers the game offers, one each side: each says how many counselings offering nothing new are still to come if picked, and the fewer is green, with the follow-up to take.
+- `zRUN Chaos Runs Spreadsheet.cmd` makes your Chaos runs table and spreadsheet with a double-click: it checks for Python and openpyxl, says how to get either, and asks for your program's folder. See [Tracking Chaos runs](README.md#tracking-chaos-runs).
 - **Tab colours**: a bar across the top of each tab in its group's colour, to find a tab at a glance. Blue for Optimizer, Memory Fragments, Gear Score and Combatants; green for Materials, Checklist and Galactic Disaster; purple for Capture and Setup & Settings; yellow for Stats & Gacha History and Epione.
 
 ### Changed
