@@ -1,2 +1,2 @@
 mitmproxy
-Pillow==12.2.0
+Pillow>=12.2.0

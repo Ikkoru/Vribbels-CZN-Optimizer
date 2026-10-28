@@ -70,7 +70,7 @@ Pressing `Generate & Install Cert` adds a mitmproxy certificate to your trusted 
 
 1. Download the source code, or clone this project using GitHub Desktop, or a similar program.
 
-2. Install Python (developed on 3.14).
+2. Install Python 3.12 or newer (developed on 3.14).
 
 3. Open a command line terminal in the folder where `requirements.txt` is and run `pip install -r requirements.txt`.
 
@@ -88,7 +88,7 @@ While capture is on, every Chaos run is recorded: what it paid, every fight and 
 
 `my_chaos_runs.tsv` and `my_chaos_runs.xlsx` land on your Desktop. Run it again after more runs to add them. To combine several players' runs, paste every line but the first of one `.tsv` under another's and make the spreadsheet from that.
 
-**By hand**, from source (see above), with `pip install openpyxl`:
+**By hand**, in the downloaded source, with Python 3.12 or newer and `pip install openpyxl` (the scripts need nothing from `requirements.txt`):
 
 1. Make your table, and see its report:
 
