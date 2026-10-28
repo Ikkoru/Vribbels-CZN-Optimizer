@@ -11,7 +11,7 @@ A combatant broken down by a Chaos run is counseled at the Epione Centre before 
 | A combatant's scenarios, each one's title, the line it opens on, its twelve options' words and the stability each adds | the client: `game_client.counseling`, shipped as `from_client.COUNSELING` (`docs/client_data.md`) |
 | The options picked, and which of their rewards are claimed | the wire: `counseling_archive`, in the login's roster payload |
 | Who is broken down, and so counseled next | the wire: a roster row's `psychosis_id` |
-| Which scenario is being played, and which two openers are offered | nothing: the game deals them, and tells the server only what was picked. The player marks them on the tab |
+| Which scenario is being played, and which two openers are offered | nothing while it plays. The scenario and the two options picked reach the server only once the counseling ends, in its own request, and the opener offered beside the one picked never does (*How a counseling crosses the wire*). The player marks them on the tab |
 
 ### The client's tables
 
@@ -50,6 +50,12 @@ Affinity rose by 10 more than `reward_friendship` in each of those captured: 25 
 - `mentalclinic/recover_char_counseling` is the counseling. Its request names the combatant (`char_res_id`) and the two options picked, under the start component the game dealt; its reply sends the combatant's record, the new options `false`, and its `friendship_exp`. The reply carries no roster row, so the capture takes the breakdown off the combatant its request named, and sets the Affinity.
 - `mentalclinic/get_counseling_reward` claims a scenario's waiting rewards and sends the record again, `true` now.
 - `mentalclinic/enter_recover_char_counseling` opens the Centre and says nothing of what is dealt.
+
+### How a counseling crosses the wire
+
+**The server is told the counseling after it is played, and is told only the path taken.** Read off every frame, both ways and pushed ones included, from each `enter_recover_char_counseling` to its `recover_char_counseling`, in all 26 captured counselings (2026-09-22 to 10-27): the client sends nothing in between but `update_boost_speed_idx`, and the server nothing but its bare `ok` replies, a `session` refresh, and empty `notice_rollings` and `content_locks`. The client deals the scenario and the openers itself; the server never names either before the picks.
+
+Then `recover_char_counseling` sends the scenario (its start component, `story_compo_<combatant>_start_<n>`), the two options picked and the end component the client worked out from their stabilities. That is all the server needs to pay: it answers the result whose tier holds the picks' total, `counseling_result_id`, and the Affinity with it. The opener offered beside the one picked is in no message, and the tab cannot learn it from a capture.
 
 A combatant whose roster row carries a `psychosis_id` awaits counseling. It stays set between logins: on 2026-10-21 three combatants broken down in the afternoon were still so at the evening's login.
 
