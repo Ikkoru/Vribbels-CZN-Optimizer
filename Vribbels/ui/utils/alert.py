@@ -2,14 +2,11 @@
 
 A background task reports into the Capture Log, which is on a tab the
 user is usually not on. The line is there, and nobody reads it. This
-puts a mark on the TAB until the tab is opened.
+blinks the TAB's group bar (`tab_bars.py`) in the alert colour until
+the tab is opened.
 
-**ttk has no per-tab colour.** `TNotebook.Tab` styles every tab of a
-notebook at once, and a tab's state is only `normal` / `disabled` /
-`hidden`, so no custom style state can be mapped either. What IS
-per-tab is `text`, `image`, `compound` and `underline` -- so the mark
-is an image, drawn here rather than loaded: a `PhotoImage` filled with
-`put`, sized through `px()` like every other distance.
+The bar in either colour is one width, so the blink moves nothing in
+the tab strip.
 
 Use it for a failure the user must act on. Anything that retries and
 carries on stays in the log, or the mark becomes wallpaper.
@@ -17,12 +14,11 @@ carries on stays in the log, or the mark becomes wallpaper.
 
 import tkinter as tk
 
-from ..scaling import px
+from .tab_bars import TabBars
 
-# The mark, and the pause between its two states. Slow enough to read
-# as a pulse rather than a flicker -- a fast blink reads as a fault in
-# the program rather than a message from it.
-DOT_PX = 9
+# The pause between the mark's two states. Slow enough to read as a
+# pulse rather than a flicker -- a fast blink reads as a fault in the
+# program rather than a message from it.
 BLINK_MS = 700
 
 
@@ -31,23 +27,19 @@ class TabAlert:
 
     One instance per tab. `raise_alert()` is idempotent: a second
     failure while the first is still showing does not start a second
-    blink.
+    blink. Raises LookupError on a notebook with no `TabBars`, which
+    has no bar to blink.
     """
 
     def __init__(self, notebook, frame, colour):
         self.notebook = notebook
         self.frame = frame
+        self.colour = colour
         self._after = None
         self._lit = False
-        size = px(DOT_PX)
-        # **Both images are held on the instance.** A `PhotoImage` with
-        # no Python reference is garbage-collected and the tab goes
-        # blank -- the widget keeps the name, Tk drops the pixels.
-        self._dot = tk.PhotoImage(master=notebook, width=size, height=size)
-        self._dot.put(colour, to=(0, 0, size, size))
-        # Same size, nothing drawn: swapping to a transparent image
-        # blinks the mark without the label shifting under it.
-        self._blank = tk.PhotoImage(master=notebook, width=size, height=size)
+        self.bars = TabBars.of(notebook)
+        if self.bars is None:
+            raise LookupError("the notebook has no tab bars to blink")
         notebook.bind("<<NotebookTabChanged>>", self._on_tab_changed, add="+")
 
     def is_current(self) -> bool:
@@ -76,8 +68,9 @@ class TabAlert:
             return True
         if self.is_current():
             return False
+        # Lit at once, and the first blink a pause later.
         self._show(True)
-        self._tick()
+        self._schedule()
         return True
 
     def clear(self):
@@ -96,6 +89,9 @@ class TabAlert:
 
     def _tick(self):
         self._show(not self._lit)
+        self._schedule()
+
+    def _schedule(self):
         try:
             self._after = self.notebook.after(BLINK_MS, self._tick)
         except tk.TclError:
@@ -103,32 +99,16 @@ class TabAlert:
             self._after = None
 
     def _show(self, lit):
-        """One blink. The dark half keeps the dot's WIDTH.
-
-        A tab carrying an image is wider than one without it, so
-        blinking by adding and removing the image would shuffle the
-        whole tab strip twice a second. The blank twin holds the space
-        instead, and only `_unmark` gives it back.
-        """
+        """One blink: the bar in the alert colour, or its group's."""
         self._lit = bool(lit)
         try:
-            self.notebook.tab(self.frame,
-                              image=self._dot if lit else self._blank,
-                              compound=tk.LEFT)
+            self.bars.mark(self.frame, self.colour if lit else None)
         except tk.TclError:
             pass
 
     def _unmark(self):
-        """Take the image off entirely, so the tab is its own width again.
-
-        Setting the blank here is what left a dot-shaped hole in the
-        tab strip for the rest of the session.
-        """
-        self._lit = False
-        try:
-            self.notebook.tab(self.frame, image="", compound=tk.NONE)
-        except tk.TclError:
-            pass
+        """The bar back in its group's colour."""
+        self._show(False)
 
     def _on_tab_changed(self, event):
         """Opening the tab is reading the message, so the mark comes off."""

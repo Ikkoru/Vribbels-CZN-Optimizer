@@ -299,7 +299,7 @@ class CaptureTab(BaseTab):
         try:
             self._alert = TabAlert(self.context.notebook, self.frame,
                                    self.colors["red"])
-        except tk.TclError:
+        except (tk.TclError, LookupError):
             self._alert = None
 
         # Auto-check prerequisites after UI setup

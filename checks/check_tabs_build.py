@@ -5839,13 +5839,28 @@ def _capture_hand_offs_never_wait(tab):
     return out
 
 
+def _rgb(colour):
+    return tuple(int(colour[i:i + 2], 16) for i in (1, 3, 5))
+
+
+def _tab_bar(notebook, page):
+    """(colour, width) of the bar `page`'s tab carries, or None."""
+    name = notebook.tab(page, "image")
+    name = name[0] if isinstance(name, tuple) else name
+    if not name:
+        return None
+    pixel = notebook.tk.splitlist(notebook.tk.call(name, "get", 0, 0))
+    return (tuple(int(v) for v in pixel),
+            int(notebook.tk.call("image", "width", name)))
+
+
 def _the_failure_mark_lights_and_clears(tab):
     """The tab's mark goes up on a failure and comes off when read.
 
-    Every way this breaks is silent. A `PhotoImage` nobody holds is
-    collected and the tab goes blank; a blink whose `after` is never
-    cancelled keeps firing at a widget that has gone; a mark that does
-    not clear on opening the tab is one the user learns to ignore.
+    Every way this breaks is silent. A bar not drawn in the alert
+    colour says nothing; a blink whose `after` is never cancelled keeps
+    firing at a widget that has gone; a mark that does not clear on
+    opening the tab is one the user learns to ignore.
 
     Returns a list of complaints.
     """
@@ -5912,13 +5927,26 @@ def _the_failure_mark_lights_and_clears(tab):
         out.append(
             "a second failure started a second blink, so two `after` "
             "chains now drive one mark and only one can be cancelled.")
-    for name in ("_dot", "_blank"):
-        image = getattr(alert, name, None)
-        if not isinstance(image, tk.PhotoImage):
-            out.append(
-                f"`{name}` is {type(image).__name__}, not a PhotoImage held "
-                f"on the alert. An image with no Python reference is "
-                f"garbage-collected and the tab goes blank.")
+    # As the failure left it, then the blink's other half and back.
+    # `_show` rather than `_tick`, which would start a second chain.
+    lit = _tab_bar(notebook, tab.frame)
+    alert._show(False)
+    dark = _tab_bar(notebook, tab.frame)
+    alert._show(True)
+    red = _rgb(alert.colour)
+    if lit is None or lit[0] != red:
+        out.append(
+            f"a failure did not draw the tab's bar in the alert colour "
+            f"(the bar reads {lit!r}). The mark IS the bar: without it, "
+            f"nothing on the tab says anything failed.")
+    if dark is None or dark[0] == red:
+        out.append(
+            f"the blink's dark half left the bar in the alert colour "
+            f"({dark!r}), so the mark does not blink.")
+    if lit and dark and lit[1] != dark[1]:
+        out.append(
+            f"the bar is {lit[1]}px wide lit and {dark[1]}px dark, so the "
+            f"whole tab strip shuffles twice a second while it blinks.")
     if tab._log_frame.cget("style") not in ("TLabelframe",
                                             "Alert.TLabelframe"):
         out.append(
@@ -5930,16 +5958,13 @@ def _the_failure_mark_lights_and_clears(tab):
         out.append(
             "`clear` left the blink running. Its `after` fires at a widget "
             "that may be gone by then.")
-    # The tab has to be its own width again. A tab carrying an image is
-    # wider than one without, so leaving the blank behind holds a
-    # dot-shaped hole open and shoves the label right for the rest of
-    # the session.
-    if notebook.tab(tab.frame, "image"):
+    cleared = _tab_bar(notebook, tab.frame)
+    group = _rgb(alert.bars.bar_colour(tab.frame) or "#000000")
+    if cleared is None or cleared[0] == red or cleared[0] != group:
         out.append(
-            f"the tab still carries an image after `clear` "
-            f"({notebook.tab(tab.frame, 'image')!r}). Blinking swaps the "
-            f"dot for a blank of the same size so the strip does not "
-            f"shuffle; clearing has to take the image off entirely.")
+            f"after `clear` the tab's bar reads {cleared!r}, not its "
+            f"group's colour {group!r}: the mark stays up, or the tab "
+            f"loses its bar, for the rest of the session.")
     tab._stop_title_blink()
     if tab._title_blink is not None:
         out.append("`_stop_title_blink` left its `after` pending.")
@@ -6397,6 +6422,10 @@ def run():
 
         notebook = ttk.Notebook(root)
         ctx.notebook = notebook
+        # As the app does before its tabs: the Capture tab's failure
+        # mark blinks its bar, and has none to blink without these.
+        from ui.utils.tab_bars import TabBars
+        TabBars(notebook, dict(gui.COLORS))
         built = {}
         for attr in TAB_ATTRS:
             cls = getattr(tabs_pkg, attr, None)
@@ -6582,6 +6611,11 @@ def run():
 # What this check must catch, for `checks/faults.py`.
 RESTORE = "ui.tabs.setup_tab:SetupTab._build_restore"
 FAULTS = [
+    ("the failure mark dark when it goes up",
+     "ui.utils.alert:TabAlert.raise_alert", "self._schedule()",
+     "self._tick()", "in the alert colour"),
+    ("the failure mark left up by clear", "ui.utils.alert:TabAlert._unmark",
+     "self._show(False)", "pass", "not its group's colour"),
     ("the switch's column at its content's height", RESTORE,
      "second.pack(side=tk.LEFT, anchor=tk.NW, fill=tk.Y,",
      "second.pack(side=tk.LEFT, anchor=tk.NW,",

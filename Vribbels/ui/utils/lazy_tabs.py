@@ -71,7 +71,11 @@ class TabSlot:
         # In the placeholder's place, and selected where it was, BEFORE
         # the placeholder goes: forgetting the selected page first
         # would have the notebook select some other tab in between.
-        notebook.insert(placeholder, frame, text=self.text)
+        # With the placeholder's image -- its group bar, `tab_bars.py`
+        # -- which a build no tab change follows would otherwise lose.
+        notebook.insert(placeholder, frame, text=self.text,
+                        image=notebook.tab(placeholder, "image"),
+                        compound=notebook.tab(placeholder, "compound"))
         selected = notebook.select() == str(placeholder)
         self.instance = instance
         self.placeholder = None

@@ -90,6 +90,7 @@ from optimizer.optimizer import SLOT5_ELEMENT_MAINS
 from config import AppConfig
 from ui import AppContext, MaterialsTab, SetupTab, CaptureTab, InventoryTab, OptimizerTab, HeroesTab, ScoringTab, ChecklistTab, DisasterTab, GachaHistoryTab
 from ui.utils.button_width import BUTTON_PAD_X
+from ui.utils import tab_bars
 from ui import scaling
 from ui.scaling import px
 # Used to augment "[LIVE] Upgraded" log lines with the post-upgrade
@@ -765,8 +766,9 @@ class OptimizerGUI:
         # side, which lands on top of each tab's own margins and can't be
         # tuned per tab. Borrowing the default theme's client element drops
         # the inset to zero; tabs that shouldn't move add the 2px back
-        # themselves. The derived Flush.TNotebook.Tab style inherits every
-        # TNotebook.Tab setting below, dynamic state maps included.
+        # themselves. The derived Flush.TNotebook.Tab style inherits the
+        # TNotebook.Tab colours below, and draws its tab for the group
+        # bars with its own layout and padding (`ui/utils/tab_bars.py`).
         try:
             self.style.element_create(
                 "flush.Notebook.client", "from", "default")
@@ -780,6 +782,8 @@ class OptimizerGUI:
             pass
         self.style.configure("TNotebook.Tab", background=self.colors["bg_light"], foreground=self.colors["fg"], padding=px([10, 5]))
         self.style.map("TNotebook.Tab", background=[("selected", self.colors["bg_lighter"])])
+        # After the colours above, which it reads.
+        tab_bars.configure(self.style)
         # spacing: unique -- Treeview internals, which are style options -- tree, text ↔↕
         # rather than anything a geometry manager can reach
         #
@@ -1094,6 +1098,10 @@ class OptimizerGUI:
         # tab-changed handler has to be the first one bound, so that a
         # switch has painting off before any tab's own handler runs.
         self.lazy_tabs = lazy = LazyTabs(self.root, self.notebook)
+        # Next, so that its tab-changed handler swaps the selected tab's
+        # bar with painting already off; and before the Capture tab,
+        # whose failure mark blinks its bar.
+        self.tab_bars = tab_bars.TabBars(self.notebook, self.colors)
         self.optimizer_tab_instance = OptimizerTab(self.notebook,
                                                    self.app_context)
         # Setup & Settings' Restore Defaults refreshes the Optimizer tab
@@ -1128,6 +1136,7 @@ class OptimizerGUI:
                           text="Capture")
         lazy.add("setup", "Setup & Settings", make(SetupTab))
         lazy.add("gacha", "Stats & Gacha History", make(GachaHistoryTab))
+        self.tab_bars.refresh()
 
         # First-launch default: switch to the Setup & Settings tab so the user lands
         # on the proxy/cert installation flow before trying to use the

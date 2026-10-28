@@ -17,7 +17,7 @@ import json
 import subprocess
 import sys
 
-from ._harness import SOURCE_ROOT, Skip
+from ._harness import SOURCE_ROOT, Skip, add_source_to_path
 
 NAME = "Tk's unscaled pixels are scaled at 200%"
 
@@ -27,7 +27,19 @@ NAME = "Tk's unscaled pixels are scaled at 200%"
 # size at 200%, and nothing else notices: the widget still draws.
 PIXEL_OPTIONS = ("padding", "labelmargins", "tabmargins", "focusthickness",
                  "arrowsize", "sliderlength", "indicatormargin",
-                 "indicatorsize", "sashthickness", "indent")
+                 "indicatorsize", "sashthickness", "indent", "space")
+
+
+def _fixed():
+    """Options whose value holds parts that stay one size at every
+    scale, by key, with those parts: the main tabs' padding carries
+    clam's tab inset, which Tk draws in device pixels whatever the
+    scale (`ui/utils/tab_bars.py`)."""
+    add_source_to_path()
+    from ui.utils import tab_bars
+    style = tab_bars.TAB_STYLE
+    return {f"{style}.padding": tab_bars.FIXED_PADDING,
+            f"{style}.map.padding.0": tab_bars.FIXED_PADDING}
 
 PROBE = r"""
 import json, sys
@@ -117,6 +129,7 @@ def run():
                            f"{low['classic'][key]}, not Tk's own {value}: the "
                            f"table no longer says what Tk does, or the 100% "
                            f"layout moved")
+    fixed = _fixed()
     for key, was in sorted(low["styles"].items()):
         # A distance: a pixel option, or anything the theme gives in
         # points. Every other option is a colour, a count or a width in
@@ -130,7 +143,9 @@ def run():
         one, two = _pixels(was), _pixels(now)
         if one is None:
             continue                     # not a distance at all
-        if two != [2 * value for value in one]:
+        held = list(fixed.get(key, ())) or [0] * len(one)
+        if len(held) != len(one) or two != [
+                2 * (value - part) + part for value, part in zip(one, held)]:
             out.append(f"at 200% the style option {key} reads {now!r} "
                        f"where 100% reads {was!r}: not twice it, so "
                        f"everything it spaces sits off its 100% distance "

@@ -211,6 +211,10 @@ The same tab's Banners list takes the window's spare width in its last column, a
 
 Pack hands out room in packing order. A list packed first, whose columns ask for more than its panel holds, takes the scrollbar's width as well, and the scrollbar is not drawn. It shows only where the panel is narrower than the list asks, as at a narrower window or another scale, so a list that fits at the default size hides it. `check_tabs_build` holds every scrollbar packed against the far side from an expanding list to being packed before it.
 
+## The main tabs' image is larger than any tab
+
+The main tabs are drawn by an image element (`ui/utils/tab_bars.py`), which fills a tab by tiling its image's middle, one copy per tile. So `TAB_IMAGE` looks oversized and is not: with the 1px middle a tab's look needs, every tab switch takes half a second. And the element is given `width` and `height`, which look redundant: they are its minimum size, otherwise the image's, which would make every tab that large. `check_tab_bars` holds the image to outsizing a tab at 200% and the strip to its own height.
+
 ## The frozen build re-launches itself for every worker
 
 Windows spawn relaunches the executable per multiprocessing worker. `multiprocessing.freeze_support()` must stay the FIRST statement in the `__main__` guard: it detects those launches and runs the multiprocessing bootstrap instead of the GUI. Every other side effect (single-instance lock, admin prompt, Tk roots) must stay inside `main()`, so a spawned worker importing the module never triggers them and never trips the single-instance lock. The parallel path keeps a persistent session pool, so the onefile spawn cost is paid once.
