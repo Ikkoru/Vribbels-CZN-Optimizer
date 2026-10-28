@@ -57,6 +57,8 @@ Affinity rose by 10 more than `reward_friendship` in each of those captured: 25 
 
 Then `recover_char_counseling` sends the scenario (its start component, `story_compo_<combatant>_start_<n>`), the two options picked and the end component the client worked out from their stabilities. That is all the server needs to pay: it answers the result whose tier holds the picks' total, `counseling_result_id`, and the Affinity with it. The opener offered beside the one picked is in no message, and the tab cannot learn it from a capture.
 
+Nothing earlier carries it either. No server frame in any debug capture names a start component, and every key the server sends naming counseling or psychosis is the records, a roster row's breakdown fields, or a battle's. The breakdown row a run's close sends does not predict the scenario: Mika (1039), broken down as `psychosis_1010_1` each time, was dealt scenarios 2, 3, 1, 1, 3 and 3. What the capture cannot rule out is a channel it does not see: it proxies the game server's WebSocket on port 13701 alone, where every `mentalclinic` command goes.
+
 A combatant whose roster row carries a `psychosis_id` awaits counseling. It stays set between logins: on 2026-10-21 three combatants broken down in the afternoon were still so at the evening's login.
 
 ## What the tab counts
