@@ -376,6 +376,26 @@ def shipped_source(client, partners=None):
                       for item in listed["items"]]
             lines.append("            ]},")
         lines += ["        },", "    },"]
+    lines += ["}", "",
+              "# {combatant res_id: {'scenarios', 'tiers', 'set'}}: each "
+              "combatant's",
+              "# counseling at the Epione Centre, a choice a line. See "
+              "game_client.counseling.",
+              "COUNSELING = {"]
+    for res_id, held in sorted(game_client.counseling(client).items()):
+        lines += [f"    {res_id}: {{",
+                  f"        'tiers': {ascii(held['tiers'])},",
+                  f"        'set': {ascii(held['set'])},",
+                  "        'scenarios': ["]
+        for scenario in held["scenarios"]:
+            lines.append("            {" + ", ".join(
+                f"{ascii(key)}: {ascii(scenario[key])}"
+                for key in ("id", "story", "title", "line", "reward"))
+                + ", 'choices': [")
+            lines += [f"                {ascii(choice)},"
+                      for choice in scenario["choices"]]
+            lines.append("            ]},")
+        lines += ["        ],", "    },"]
     words = client_words(client, partners)
     lines += ["}", "",
               "# The client's own words for what the program's tables "

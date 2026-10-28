@@ -70,6 +70,7 @@ Snapshots are the maintainer's captured game data. Read them; never write to `Vr
 | Standings, lifetime counters, collections the wire sends and nothing shows | `docs/unread_stats.md` |
 | Event categories, how to classify one, and what the Checklist does with each | `docs/events.md`; `docs/events_replay.py` replays every login through its readers |
 | The Galactic Disaster tab: the season's challenge pages, what counts as done or locked, the lists | `docs/disaster_challenges.md` |
+| The Epione tab: counseling options, the record of those picked, who awaits counseling, the whiff count | `docs/epione.md` |
 | Tk threading, startup, display quirks | `docs/ui_runtime.md` |
 | Panel layout, spacing rules, the ledger, ttk styles | `docs/ui_spacing.md` |
 | Running a spacing audit and reading its table | `.claude/skills/spacing-audit/SKILL.md` |

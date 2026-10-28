@@ -248,7 +248,7 @@ Icons double by NEAREST NEIGHBOUR at 200%, which is exact at a whole multiple --
 
 ## Fonts in use
 
-Body text is **Segoe UI 9**. The three panels of running prose are **Segoe UI Variable Small**, the optical size Windows draws small text at. The Checklist's rows are **Segoe UI 10**, a point up, that tab being read rather than scanned, and so are the Galactic Disaster tab's. `TkDefaultFont` is Segoe UI 9 and no ttk style overrides it, so an explicit `("Segoe UI", 9)` is the same face the default already gives.
+Body text is **Segoe UI 9**. The three panels of running prose are **Segoe UI Variable Small**, the optical size Windows draws small text at. The Checklist's rows are **Segoe UI 10**, a point up, that tab being read rather than scanned, and so are the Galactic Disaster tab's and the Epione tab's. `TkDefaultFont` is Segoe UI 9 and no ttk style overrides it, so an explicit `("Segoe UI", 9)` is the same face the default already gives.
 
 | Face                    | Tk pt   | Ascent | Descent | Linespace | Where                            |
 | ----------------------- | ------- | ------ | ------- | --------- | -------------------------------- |
@@ -579,6 +579,17 @@ The tab is set in the Checklist's face on the Checklist's levers, so its three e
 The columns sit `control group ↔ control group` apart, read box to box: a column's words wrap short of its edge by whatever the next word did not fit into, so the last column's words can end tens of pixels in from the window's edge while its box sits 4 from it. The gap is a spacer column's `minsize`, not a pad inside a column's cell, which the uniform group would take out of that column's width.
 
 The finished pages' column is a grid, a row a page: the heading flush left, then the count in two labels, the done figure right-aligned and `/total` left-aligned, so the slashes fall in one column. Each half gives back its side of a label's inset where they meet (`COUNT_JOIN`), so the figure and the slash sit as they do in one label.
+
+### The Epione tab's breaks from `label row -> label row`
+
+Set in the Checklist's face on the Galactic Disaster tab's levers, with the same two exceptions, each marked at its site. Its gaps are read in the `epione_offered` scenario, which hands the tab a combatant whose options are two words each, its first scenario's openers 1 and 3 marked: most of the game's options wrap inside a card, and a line pitch is read only between lines that take one line.
+
+| Gap | Target | Why |
+| --- | ------ | --- |
+| `Epione: heading -> first scenario` | 16 | the Galactic Disaster tab's heading gap, read baseline to capital. `FIRST_SCENARIO_GAP` is a pixel under its `HEADING_GAP + ROW_PITCH`: the first scenario's title is a Label, which carries a pixel more above its capitals than a Text's first line |
+| `Epione: option -> option` | 16 | the block division, `ROW_PITCH + BLOCK_PAD` (`OPTION_PITCH`), as between the Galactic Disaster tab's requirements: an option is a block of wrapped lines |
+
+A scenario is a row of four cards, filled Texts sitting `content frame -> content frame` apart, the two left-button openers' cards `control group ↔ control group` from the right-button ones'. A card's words sit `border edge -> first non-button element` in from its fill, and a follow-up's cure is right-aligned on a tab stop, its words `label ↔ its element` from it. The pads around the scenario titles are what their rules leave once the Labels' own boxes have spent theirs, read off the rendered tab.
 
 ## The unruled rows, as a table
 

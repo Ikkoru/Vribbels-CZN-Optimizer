@@ -15,7 +15,11 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - An achievement for collecting a list (Season Cards, Seasonal Equipment, Unidentified Areas, Memory Cards, Monster Exploration) names what is left to find in its tooltip.
   - Locked achievements are counted by when they open: `6 Part 2 achievements`, or `1 achievement (in 2d)` for one opening during a part.
   - A page with a reward waiting has its count in orange. A page with nothing left moves to a column at the right, green, its count blinking orange while a reward waits.
-- **Tab colours**: a bar across the top of each tab in its group's colour, to find a tab at a glance. Blue for Optimizer, Memory Fragments, Gear Score and Combatants; green for Materials, Checklist and Galactic Disaster; purple for Capture and Setup & Settings; yellow for Stats & Gacha History.
+- **Epione tab**, after Stats & Gacha History: each combatant's Therapy Counseling at the Epione Centre.
+  - Every combatant you hold, with the dialogue options picked against all 36. Red: broken down and awaiting counseling, selected for you when a capture sees it happen. Orange: Crystals waiting to be claimed in the Counseling Records.
+  - The selected combatant's three scenarios, each opener with its two follow-ups and the cure % each pair gives. Picked options are dimmed.
+  - Click the two openers the game offers, one each side: each says how many counselings offering nothing new are still to come if picked, and the fewer is green, with the follow-up to take.
+- **Tab colours**: a bar across the top of each tab in its group's colour, to find a tab at a glance. Blue for Optimizer, Memory Fragments, Gear Score and Combatants; green for Materials, Checklist and Galactic Disaster; purple for Capture and Setup & Settings; yellow for Stats & Gacha History and Epione.
 
 ### Changed
 

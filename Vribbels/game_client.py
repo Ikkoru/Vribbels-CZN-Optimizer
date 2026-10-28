@@ -9,8 +9,8 @@ effect, the words of each combatant's own Potential nodes, every
 combatant's and partner's figures, the Chaos and Zero System names,
 the Normal Rescues' 5-stars, the exp each level and each Affinity
 level takes, the main stats each Memory Fragment slot carries, every
-item's rarity and every class's name, and each Galactic Disaster
-season's challenge pages.
+item's rarity and every class's name, each Galactic Disaster
+season's challenge pages, and every combatant's counseling options.
 `docs/client_data.md` says where each is kept and how it was held
 against what the program already knew; `docs/client_tables.py` is the
 maintainer's tool over the same reader. Reads only: nothing here writes
@@ -77,7 +77,7 @@ GAMERES = Path("bin") / "appdata" / "cznlive" / "gameres"
 # reader that changes what it reads raises this: every install then
 # reads its client again once, rather than at the next patch.
 CACHE_FILE = "game_client.json"
-CACHE_FORMAT = 23
+CACHE_FORMAT = 24
 
 # The manifest layout this reads. A different version is a different
 # layout until shown otherwise.
@@ -2026,6 +2026,142 @@ def _challenge_list(client, texts, info):
     return {"kind": kind, "collection": collection, "items": items}
 
 
+# **Counseling at the Epione Centre.** A combatant has three scenarios,
+# each a row of `counseling_archive` (`<combatant>_<n>`) naming its story
+# (`counseling_<combatant>_0<n>`) and the record's title. The story's
+# choice lines are the scenario's twelve options: `choice` 1-4 the
+# openers, two filed `SCORE_CHOICE_L` and two `_R`; 5-12 the follow-ups,
+# each naming its opener in `use_choice`, one L and one R an opener. A
+# choice's wire id is the story's id and its number, which the newer
+# combatants' lines leave out of `link_story_choice_id`; its stability is
+# `counseling_story_choice`'s, and the two picked add up to the cure
+# result. The result's tier is `story_component_counseling`'s
+# `story_compo_<combatant>_end_<n>` range, paying `counseling_result`'s
+# `reward_friendship`. A choice's reward is `counseling_archive_contents`'
+# (`<combatant>_0<n>_<choice>`), a record's its archive row's, and all
+# three records' `counseling_archive_set`'s. `docs/epione.md` has the rest.
+COUNSELING_ARCHIVES = "counseling_archive@counseling_archive"
+COUNSELING_SETS = "counseling_archive_set@counseling_archive_set"
+COUNSELING_CHOICES = "counseling_story_choice@counseling_story_choice"
+COUNSELING_CONTENTS = ("counseling_archive_contents"
+                       "@counseling_archive_contents")
+COUNSELING_COMPONENTS = ("story_content_counseling"
+                         "@story_component_counseling")
+COUNSELING_RESULTS = "counseling_result@counseling_result"
+# The stories' table carries the date of the patch that last wrote it.
+COUNSELING_STORIES = re.compile(r"story_counseling_(\d+)@story")
+COUNSELING_SIDES = {"SCORE_CHOICE_L": "L", "SCORE_CHOICE_R": "R"}
+COUNSELING_END = re.compile(r"story_compo_(\d+)_end_\d+")
+
+
+def counseling(client):
+    """{combatant res_id: {'scenarios', 'tiers', 'set'}} for every
+    combatant the client gives counseling:
+
+    * `scenarios`: [{'id', 'story', 'title', 'line', 'reward',
+      'choices'}], the archive's order. `line` is the caption the
+      scenario opens on; `reward` [item, count] the record's;
+      `choices` [[number, opener number or 0, side, label, words,
+      stability, item, count], ...] by number, a follow-up's opener
+      first and its side `L` or `R`;
+    * `tiers`: [[lowest, highest, Affinity], ...], the cure results'
+      bands, highest first;
+    * `set`: [item, count] for all three records.
+
+    A scenario whose story does not hold four openers of two follow-ups
+    each is left out: the tab's whiff counts rest on that shape."""
+    texts = client.text()
+    names = [path[3:-3] for path in client.archive.files
+             if path.startswith("db/") and path.endswith(".db")]
+    dated = sorted((match.group(1), name) for match, name in (
+        (COUNSELING_STORIES.fullmatch(name), name) for name in names)
+        if match)
+    if not dated:
+        return {}
+    stories = {row["id"]: row.get("info") for row in client.rows(dated[-1][1])}
+    stability = {row["id"]: _figure(row.get("counseling_stability"))
+                 for row in client.rows(COUNSELING_CHOICES)}
+    contents = {row["id"]: row for row in client.rows(COUNSELING_CONTENTS)}
+    ranges = {}
+    for row in client.rows(COUNSELING_COMPONENTS):
+        match = COUNSELING_END.fullmatch(str(row.get("id")))
+        low, high = (_figure(row.get("stability_min")),
+                     _figure(row.get("stability_max")))
+        if match and isinstance(low, int) and isinstance(high, int):
+            ranges.setdefault(match.group(1), []).append((low, high))
+    tiers = {}
+    for row in client.rows(COUNSELING_RESULTS):
+        point = _figure(row.get("stability_point"))
+        owner = str(row.get("link_char_base_id"))
+        for low, high in ranges.get(owner, ()):
+            if isinstance(point, int) and low <= point <= high:
+                tiers.setdefault(owner, []).append(
+                    [low, high, _figure(row.get("reward_friendship")) or 0])
+    archives = {row["id"]: row for row in client.rows(COUNSELING_ARCHIVES)}
+    out = {}
+    for row in client.rows(COUNSELING_SETS):
+        owner = str(row.get("link_char_base_id"))
+        if not owner.isdigit():
+            continue
+        scenarios = []
+        for archive_id in _ids(row.get("link_counseling_archive_id")):
+            archive = archives.get(archive_id)
+            scenario = archive and _counseling_scenario(
+                archive, stories.get(archive.get("link_story_id")),
+                stability, contents, texts)
+            if scenario:
+                scenarios.append(scenario)
+        if scenarios:
+            out[int(owner)] = {
+                "scenarios": scenarios,
+                "tiers": sorted(tiers.get(owner, ()), reverse=True),
+                "set": [_figure(row.get("reward_link_item_id")),
+                        _figure(row.get("reward_item_count")) or 0]}
+    return out
+
+
+def _counseling_scenario(archive, info, stability, contents, texts):
+    """One scenario as `counseling` gives it, or None where its story is
+    missing or not the shape the tab counts on."""
+    try:
+        lines = json.loads(info or "")
+    except ValueError:
+        return None
+    story = archive.get("link_story_id")
+    line = next((clean(row.get("text_en")) for row in lines
+                 if row.get("text_type") == "CAPTION" and row.get("text_en")),
+                "")
+    choices = []
+    for row in lines:
+        side = COUNSELING_SIDES.get(row.get("text_type"))
+        number = _figure(row.get("choice"))
+        if side is None or not isinstance(number, int):
+            continue
+        wire = f"{story}_{number}"
+        label, _, words = str(row.get("text_en") or "").partition("<br>")
+        reward = contents.get(wire[len("counseling_"):]) or {}
+        held = stability.get(wire)
+        choices.append([
+            number, _figure(row.get("use_choice")) or 0, side, clean(label),
+            clean(words),
+            held if isinstance(held, int) else _figure(row.get("opt")) or 0,
+            _figure(reward.get("reward_link_item_id")),
+            _figure(reward.get("reward_item_count")) or 0])
+    choices.sort()
+    openers = [c[0] for c in choices if not c[1]]
+    shape = {opener: sorted(c[0] for c in choices if c[1] == opener)
+             for opener in openers}
+    if (len(openers) != 4 or any(len(kids) != 2 for kids in shape.values())
+            or len(choices) != 12
+            or sorted(c[2] for c in choices if not c[1]) != list("LLRR")):
+        return None
+    return {"id": archive["id"], "story": story,
+            "title": clean(texts.get(archive.get("title"))), "line": line,
+            "reward": [_figure(archive.get("reward_link_item_id")),
+                       _figure(archive.get("reward_item_count")) or 0],
+            "choices": choices}
+
+
 def zero_specials(client):
     """{Zero System special option id: the game's name for it}."""
     texts = client.text()
@@ -2234,6 +2370,8 @@ def read_facts(install):
         "card_skins": card_skins(client),
         "season_nodes": season_nodes(client),
         "disaster_challenges": disaster_challenges(client),
+        "counseling": {str(res_id): held for res_id, held
+                       in counseling(client).items()},
     }
 
 
@@ -2704,6 +2842,25 @@ def known_disaster_challenges():
                     and all(isinstance(a, dict) and a.get("id")
                             for a in held["achievements"])):
                 out[str(season)] = held
+    return out
+
+
+def known_counseling():
+    """{combatant res_id: its counseling}: the shipped table, with what
+    this machine's client says over it, combatant by combatant, each
+    replaced whole. See `counseling`."""
+    from game_data import from_client
+    out = {}
+    for source in (getattr(from_client, "COUNSELING", {}),
+                   (_facts or {}).get("counseling") or {}):
+        for res_id, held in source.items():
+            if (str(res_id).isdigit() and isinstance(held, dict)
+                    and isinstance(held.get("scenarios"), list)
+                    and all(isinstance(s, dict)
+                            and isinstance(s.get("choices"), list)
+                            and len(s["choices"]) == 12
+                            for s in held["scenarios"])):
+                out[int(res_id)] = held
     return out
 
 

@@ -48,7 +48,7 @@ NAME = "tabs build"
 # it is here too.
 TAB_ATTRS = ("SetupTab", "CaptureTab", "InventoryTab", "OptimizerTab",
              "HeroesTab", "ScoringTab", "MaterialsTab",
-             "ChecklistTab", "DisasterTab", "GachaHistoryTab")
+             "ChecklistTab", "DisasterTab", "GachaHistoryTab", "EpioneTab")
 
 
 def _make_checkbox_forces_its_window():
@@ -2684,6 +2684,107 @@ def _disaster_pages_move_when_finished(tab):
                 tab.frame.after_cancel(tab._tick_after)
             except tk.TclError:
                 pass
+    return out
+
+
+def _epione_marks_and_advises(tab):
+    """A combatant newly broken down is selected and red in the list;
+    clicking two openers, one each side, fills both cards and puts the
+    advice on the better one; a second opener on one side takes that
+    side's mark; a counseling since unmarks them; a combatant the client
+    gives no counseling says so.
+
+    Drawn from a hand-made snapshot and the check_epione counseling, so
+    this holds the drawing whatever the snapshot holds. Returns a list
+    of complaints.
+    """
+    import tkinter as tk
+    import epione
+    from ui.tabs import epione_tab as mod
+    from .check_epione import _held
+    out = []
+    first = "counseling_1003_01"
+    raw = {"characters": {
+        "characters": [{"res_id": 1003, "psychosis_id": "psychosis_1"}],
+        "counseling_archive": [{
+            "res_id": 1003, "counseling_choice_list": [{
+                "counseling_id": "1003_1", "counseling_story_choice_list": {
+                    f"{first}_1": True, f"{first}_5": True}}]}]}}
+    held = _held()
+    real = epione.combatants
+    kept = tab.context.optimizer
+    epione.combatants = lambda r, owned, counseling=None: real(
+        r, owned, {1003: held})
+    tab.context.optimizer = SimpleNamespace(raw_data=raw, character_info={
+        "Nia": SimpleNamespace(res_id=1003),
+        "Nobody": SimpleNamespace(res_id=1)})
+    colors = tab.colors
+
+    def lines(slot, scenario=0):
+        text = tab._blocks[scenario][2][slot]
+        return text.get("1.0", "end-1c").split("\n")
+
+    def fill(slot, scenario=0):
+        return str(tab._blocks[scenario][2][slot].cget("bg"))
+
+    # Another tab may be the notebook's selected one by now.
+    tab.is_hidden = lambda: False
+    try:
+        # Another combatant showing: a new breakdown still takes over.
+        tab._awaiting = set()
+        tab._shown = 1
+        tab.refresh_epione()
+        if tab._shown != 1003:
+            out.append(f"Epione: a combatant newly broken down was not "
+                       f"selected (showing {tab._shown}): the one the next "
+                       f"counseling is for is the one to show")
+        if "awaiting" not in tab._tree.item("1003", "tags"):
+            out.append("Epione: a combatant awaiting counseling is not red "
+                       "in the list")
+        if tab._tree.set("1", "done") != mod.NO_COUNSELING:
+            out.append("Epione: a combatant the client gives no counseling "
+                       "is not listed with nothing to count")
+        tab._on_card(0, 0)
+        tab._on_card(0, 2)
+        if fill(0) != colors[mod.OFFERED_FILL] \
+                or fill(2) != colors[mod.OFFERED_FILL] \
+                or fill(1) != colors[mod.CARD_FILL]:
+            out.append(f"Epione: after marking openers 1 and 3 the cards are "
+                       f"filled {[fill(s) for s in range(4)]}: the two "
+                       f"marked take the offered fill, the rest their own")
+        advised, other = lines(2)[-1], lines(0)[-1]
+        if not advised.startswith(mod.WHIFFS_ADVISED.split("%")[0]) \
+                or not other.endswith("whiffs to come") \
+                or other.startswith(mod.WHIFFS_ADVISED.split("%")[0]):
+            out.append(f"Epione: the offered cards end {other!r} and "
+                       f"{advised!r}: opener 3 keeps both sides two openers "
+                       f"deep and is the pick, each card saying its whiffs "
+                       f"to come")
+        tab._on_card(0, 1)
+        if fill(0) != colors[mod.CARD_FILL] \
+                or fill(1) != colors[mod.OFFERED_FILL]:
+            out.append("Epione: marking opener 2 left opener 1 marked too: "
+                       "the game offers one opener a side, so a second on "
+                       "one side takes its mark")
+        raw["characters"]["counseling_archive"][0][
+            "counseling_choice_list"][0]["counseling_story_choice_list"].update(
+            {f"{first}_2": False, f"{first}_7": False})
+        tab.refresh_epione()
+        if any(fill(s) != colors[mod.CARD_FILL] for s in range(4)) \
+                or any("whiffs" in lines(s)[-1] for s in range(4)):
+            out.append("Epione: a counseling since the openers were marked "
+                       "left them marked: the next counseling deals anew")
+        tab._select(1)
+        if mod.NOT_KNOWN % "Nobody" != str(tab._note.cget("text")):
+            out.append(f"Epione: a combatant the client gives no counseling "
+                       f"reads {tab._note.cget('text')!r}")
+    except (tk.TclError, LookupError, AttributeError) as e:
+        out.append(f"Epione: the tab broke drawing a hand-made combatant: "
+                   f"{type(e).__name__}: {e}")
+    finally:
+        epione.combatants = real
+        tab.context.optimizer = kept
+        del tab.is_hidden
     return out
 
 
@@ -6572,6 +6673,8 @@ def run():
         if "DisasterTab" in built:
             failures.extend(
                 _disaster_pages_move_when_finished(built["DisasterTab"]))
+        if "EpioneTab" in built:
+            failures.extend(_epione_marks_and_advises(built["EpioneTab"]))
         if "GachaHistoryTab" in built:
             failures.extend(
                 _gacha_history_draws_its_rows(built["GachaHistoryTab"]))
@@ -6699,4 +6802,21 @@ FAULTS = [
      "ui.tabs.disaster_tab:DisasterTab._lay_out",
      "            self._finished_frame.grid_remove()", "            pass",
      "shows with no page finished"),
+    ("a new breakdown not selected", "ui.tabs.epione_tab:EpioneTab.refresh_epione",
+     "        if newly:\n            self._select(newly[0])\n        elif",
+     "        if False:\n            pass\n        elif",
+     "newly broken down was not"),
+    ("a second left opener kept beside the first",
+     "ui.tabs.epione_tab:EpioneTab._on_card",
+     "            offered[opener.side] = opener.number",
+     "            offered[opener.number] = opener.side",
+     "after marking openers 1 and 3"),
+    ("the marks outliving a counseling",
+     "ui.tabs.epione_tab:EpioneTab._offered_pair",
+     "if not offered or self._marked_at != person.done:",
+     "if not offered:", "left them marked"),
+    ("the advice on the other card", "ui.tabs.epione_tab:EpioneTab._fill_card",
+     "advised = offered and advice.opener == number",
+     "advised = offered and advice.opener != number",
+     "opener 3 keeps both sides"),
 ]

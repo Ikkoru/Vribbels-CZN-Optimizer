@@ -4136,6 +4136,11 @@ EXCEPTION_ENTRIES = {
     "Galactic Disaster: heading -> its first row": "exception",
     "Galactic Disaster: requirement -> requirement": "exception",
     "Galactic Disaster: finished heading -> finished heading": "exception",
+    # The Epione tab is set in the same face on the same levers: the
+    # heading gap above its first scenario, and the block division
+    # between the options on a card.
+    "Epione: heading -> first scenario": "exception",
+    "Epione: option -> option": "exception",
     # A section's heading stands four further from the row above it
     # than rows do from one another. Marked at `HEADING_PAD`.
     "Overall Gacha Stats: row -> heading": "exception",
@@ -5277,6 +5282,191 @@ DISASTER_ENTRIES = [
      _capital_to_capital(_disaster_finished(0), _disaster_finished(1)), "v"),
 ]
 
+
+# **The Epione tab** draws whichever combatant is selected, and most of
+# the game's options wrap inside a card, where a line pitch is read only
+# between lines that take one line. So its gaps are read in a scenario
+# that hands it one combatant whose options are a few words each, with
+# its first scenario's openers 1 and 3 marked offered: every card a
+# column of one-line options, and the two offered ending on their whiff
+# lines.
+EPIONE_RES_ID = 1
+
+
+def _epione_held():
+    """A counseling in `game_client.counseling`'s shape: three scenarios,
+    every option two words."""
+    def scenario(n):
+        choices = []
+        for number in range(1, 13):
+            parent = 0 if number <= 4 else (number - 3) // 2
+            side = ("L" if number <= 2 else "R") if not parent \
+                else ("L" if number % 2 else "R")
+            choices.append([number, parent, side, "Ask", "Say so.",
+                            45 if not parent else 40, 2000004, 5])
+        return {"id": f"{EPIONE_RES_ID}_{n}",
+                "story": f"counseling_{EPIONE_RES_ID}_0{n}",
+                "title": f"Scenario {n}", "line": "Opens on this line.",
+                "reward": [2000004, 50], "choices": choices}
+    return {"scenarios": [scenario(n) for n in (1, 2, 3)],
+            "tiers": [[90, 110, 15], [0, 89, 1]], "set": [2000004, 150]}
+
+
+def _epione_offered(app):
+    import epione
+    tab = app.lazy_tabs.build("epione")
+    real = epione.combatants
+    _epione_offered.real = real
+    epione.combatants = lambda raw, owned, counseling=None: real(
+        raw, {"Audit": EPIONE_RES_ID}, {EPIONE_RES_ID: _epione_held()})
+    # Marked while another tab may be showing, which a refresh would
+    # otherwise skip; the tab draws them once shown.
+    tab.is_hidden = lambda: False
+    try:
+        tab._shown = EPIONE_RES_ID
+        tab.refresh_epione()
+        tab._on_card(0, 0)
+        tab._on_card(0, 2)
+    finally:
+        del tab.is_hidden
+
+
+def _restore_epione_offered(app):
+    import epione
+    if hasattr(_epione_offered, "real"):
+        epione.combatants = _epione_offered.real
+        del _epione_offered.real
+    tab = app.epione_tab_instance
+    if tab is not None:
+        tab._offered = {}
+        tab._shown = None
+        tab.refresh_epione()
+
+
+sa.register_scenario("epione_offered", _epione_offered,
+                     _restore_epione_offered)
+
+
+def _epione(attr, *path):
+    """Locator: an attribute of the Epione tab, then indices into it."""
+    def find(app):
+        tab = app.epione_tab_instance
+        if tab is None:
+            raise LookupError("the Epione tab is not built")
+        held = getattr(tab, attr)
+        for step in path:
+            held = held[step]
+        return held
+    return find
+
+
+def _epione_card(scenario, slot):
+    """Locator: one scenario's card, by its slot: 0 and 1 the left
+    openers, 2 and 3 the right."""
+    return _epione("_blocks", scenario, 2, slot)
+
+
+def _epione_title(scenario, part=0):
+    """Locator: one scenario's title line: 0 its title, 1 its count, 2
+    the line it opens on."""
+    return _epione("_blocks", scenario, 1, part)
+
+
+def _box_to_capital(above, below):
+    """Resolver: a filled box's bottom -> the first CAPITAL of a Label
+    under it: text under a panel, read at the cap height."""
+    def resolve(cap, app):
+        band = _label_capital_box(cap, below(app))
+        extent = sa.painted_extent_v(cap, band) if band else None
+        if extent is None:
+            return None, "no capital painted in the label below"
+        return sa.gap_between(sa.box_of(above(app)).bottom, extent[0]), ""
+    return resolve
+
+
+def _text_top_to_capital(locator):
+    """Resolver: a filled Text's top edge -> its first line's CAPITAL,
+    the rule's reference above; the bold first line's ascenders may
+    clear it."""
+    def resolve(cap, app):
+        widget = locator(app)
+        caps = _first_capital_band(widget)
+        if caps is None:
+            return None, "no capital on the first line"
+        extent = sa.painted_extent_v(cap, caps, {_widget_fill(widget)})
+        if extent is None:
+            return None, "the first capital painted nothing"
+        return sa.gap_between(_inside_border(widget).top - 1, extent[0]), ""
+    return resolve
+
+
+def _epione_pitch_tags(*names):
+    """The Epione tab's line tags, looked up when the audit runs."""
+    def tags():
+        from ui.tabs.epione_tab import LINE_PITCH
+        missing = [n for n in names if n not in LINE_PITCH]
+        if missing:
+            raise LookupError(
+                f"the Epione tab has no line tag {missing!r} -- it was "
+                f"renamed, and this entry would measure nothing")
+        return set(names)
+    return tags
+
+
+# (tab, name, target, rule, resolver, axis), every one in the
+# `epione_offered` scenario. The scenarios and their cards are built by
+# one function each, so a gap read in the first is the same in the rest.
+EPIONE_ENTRIES = [
+    ("Epione", "Epione: window edge -> list", 4, RULE_CONTENT_FRAME,
+     _box_from_window_edge(_epione("_tree")), "h"),
+    ("Epione", "Epione: list -> counseling", 4, RULE_CONTENT_FRAME,
+     _box_gap(lambda app: _epione("_tree")(app).master,
+              _epione("_detail"), "h"), "h"),
+    ("Epione", "Epione: last card -> window edge", 4, RULE_CONTENT_FRAME,
+     _box_to_window_edge(_epione_card(0, 3)), "h"),
+    ("Epione", "Epione: list -> window bottom", 4, RULE_CONTENT_FRAME,
+     _box_to_window_bottom(_epione("_tree")), "v"),
+    ("Epione", "Epione: tab list -> list", 6, RULE_TAB_LIST,
+     _tab_list_to_widget(_epione("_tree")), "v"),
+    ("Epione", "Epione: tab list -> heading", 6, RULE_TAB_LIST,
+     _tab_list_to_first_element(_epione("_heading")), "v"),
+    ("Epione", "Epione: heading count -> status", 14, RULE_HEADING_ELEMENT,
+     _gap(_epione("_count"), _epione("_status"), "h"), "h"),
+    # The heading and the first scenario's title, on the Checklist's
+    # levers: its heading gap and its row pitch, marked at the scenarios'
+    # frame. Baseline to capital, 16, as the Galactic Disaster tab's.
+    ("Epione", "Epione: heading -> first scenario", 16,
+     RULE_PANEL_UNRELATED_LABEL,
+     _capital_to_capital(_epione("_heading"), _epione_title(0)), "v"),
+    ("Epione", "Epione: scenario title -> its count", 5, RULE_LABEL_ELEMENT,
+     _gap(_epione_title(0), _epione_title(0, 1), "h"), "h"),
+    ("Epione", "Epione: scenario count -> its opening line", 14,
+     RULE_HEADING_ELEMENT,
+     _gap(_epione_title(0, 1), _epione_title(0, 2), "h"), "h"),
+    ("Epione", "Epione: scenario title -> its cards", 5, RULE_TITLE_ELEMENT,
+     _gap_below_capitals(_epione_title(0), _epione_card(0, 0)), "v"),
+    ("Epione", "Epione: cards -> next scenario", 10,
+     RULE_PANEL_UNRELATED_LABEL,
+     _box_to_capital(_epione_card(0, 0), _epione_title(1)), "v"),
+    ("Epione", "Epione: last cards -> note", 10, RULE_PANEL_UNRELATED_LABEL,
+     _box_to_capital(_epione_card(2, 0), _epione("_note")), "v"),
+    ("Epione", "Epione: card -> card", 4, RULE_CONTENT_FRAME,
+     _box_gap(_epione_card(0, 0), _epione_card(0, 1), "h"), "h"),
+    ("Epione", "Epione: left cards -> right cards", 16, RULE_CONTROL_GROUP,
+     _box_gap(_epione_card(0, 1), _epione_card(0, 2), "h"), "h"),
+    ("Epione", "Epione: card edge -> its words", 4, RULE_BORDER_EDGE_CONTENT,
+     _text_widget_inset(_epione_card(0, 1), "left"), "h"),
+    ("Epione", "Epione: card top -> its first line", 4,
+     RULE_BORDER_EDGE_CONTENT, _text_top_to_capital(_epione_card(0, 1)), "v"),
+    # One option and the next, the Checklist's block division, marked at
+    # `OPTION_PITCH`; read on an offered card, its whiff line among them.
+    ("Epione", "Epione: option -> option", 16, RULE_LABEL_ROW_PITCH,
+     _text_line_pitch(_epione_card(0, 0),
+                      kinds=_epione_pitch_tags("option")), "v"),
+    ("Epione", "Epione: cure result -> its words", 5, RULE_LABEL_ELEMENT,
+     _text_field_gap(_epione_card(0, 1), ("%",)), "h"),
+]
+
 MATERIALS_ENTRIES = [
     # Both ends are text and both were on their references: the dump
     # read the heading's ink stopping at its baseline and the name's
@@ -5915,6 +6105,15 @@ def register_all():
         sa.track(
             name=name, tab=tab, rule=rule, target=target, resolve=resolve,
             axis=axis, scenario="disaster_pages",
+            provisional=name in AWAITING_FIRST_READING,
+            target_source=EXCEPTION_ENTRIES.get(name, "rule"),
+        )
+
+    # The Epione tab, in the scenario that marks an offer.
+    for tab, name, target, rule, resolve, axis in EPIONE_ENTRIES:
+        sa.track(
+            name=name, tab=tab, rule=rule, target=target, resolve=resolve,
+            axis=axis, scenario="epione_offered",
             provisional=name in AWAITING_FIRST_READING,
             target_source=EXCEPTION_ENTRIES.get(name, "rule"),
         )

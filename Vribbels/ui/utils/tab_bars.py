@@ -1,9 +1,9 @@
 """A bar of colour across the top of each main tab, saying its group.
 
 The tabs fall into groups -- the gear tabs, the progress tabs, the
-program's own, and the Stats & Gacha History on its own -- and a
-group's colour along the top of its tabs finds a tab faster than
-reading their titles does.
+program's own, and the account's records (Stats & Gacha History,
+Epione) -- and a group's colour along the top of its tabs finds a tab
+faster than reading their titles does.
 
 **ttk has no per-tab colour.** `TNotebook.Tab` styles every tab of a
 notebook at once, and a tab's state is only `normal` / `disabled` /
@@ -55,6 +55,7 @@ TAB_GROUPS = {
     "Capture": "app",
     "Setup & Settings": "app",
     "Stats & Gacha History": "stats",
+    "Epione": "stats",
 }
 GROUP_COLOURS = {
     "gear": "accent",

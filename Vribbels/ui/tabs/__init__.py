@@ -10,5 +10,6 @@ from .scoring_tab import ScoringTab
 from .checklist_tab import ChecklistTab
 from .disaster_tab import DisasterTab
 from .gacha_history_tab import GachaHistoryTab
+from .epione_tab import EpioneTab
 
-__all__ = ['MaterialsTab', 'SetupTab', 'CaptureTab', 'InventoryTab', 'OptimizerTab', 'HeroesTab', 'ScoringTab', 'ChecklistTab', 'DisasterTab', 'GachaHistoryTab']
+__all__ = ['MaterialsTab', 'SetupTab', 'CaptureTab', 'InventoryTab', 'OptimizerTab', 'HeroesTab', 'ScoringTab', 'ChecklistTab', 'DisasterTab', 'GachaHistoryTab', 'EpioneTab']

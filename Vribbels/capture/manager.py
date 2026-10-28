@@ -185,6 +185,13 @@ RUN_FIND_PREFIXES = ("chaos_", "disaster_")
 RUN_FINDS_FIELD = "chaos_run_finds"
 RUN_OPEN_FIELD = "chaos_run_open"
 
+# A combatant's breakdown, the fields of its roster row a Chaos run's
+# close restates for each combatant it broke down (`psychosis_chars`).
+# `psychosis_id` set is a combatant awaiting counseling. See
+# `_note_counseling`.
+PSYCHOSIS_FIELDS = ("psychosis_id", "psychosis_recover_price_id",
+                    "psychosis_day_id", "psychosis_exp", "psychosis_exp_today")
+
 # How much of a payload the wire catalogue keeps as an example, and how
 # many entries it will hold. The sample says what SHAPE a field is, not
 # what is in it -- a reader who wants the whole thing turns debug
@@ -791,6 +798,14 @@ class Addon:
         # the server answers res='ok'. A set of qids; the request
         # carries nothing else worth keeping.
         self.pending_coffees = set()
+
+        # Tracks a counseling at the Epione Centre
+        # (mentalclinic/recover_char_counseling), qid -> the combatant's
+        # res_id. Its reply names no combatant and carries no roster
+        # row, so nothing in it ends the breakdown the roster still
+        # shows: the request says who, and the reply that it took. See
+        # `_note_counseling`.
+        self.pending_counselings = {}
 
         # What each gacha request asked for, by qid: ("history", banner,
         # cursor), ("get_rate", banner, None) or ("run", banner, None).
@@ -2399,6 +2414,10 @@ class Addon:
         # Disaster tab.
         self._note_challenges(data)
 
+        # The counseling records and who awaits counseling, for the
+        # Epione tab.
+        self._note_counseling(qid, data)
+
         # The Gacha History: pages of the game's Rescue records, a
         # banner's rates, the pity counters. Its own file, not the
         # snapshot -- see `_merge_gacha` -- and a failure there must
@@ -3869,6 +3888,79 @@ class Addon:
         if asked == CHAOS_CLOSES:
             self._bank_run()
 
+    def _note_counseling(self, qid, data):
+        """Keep what the Epione tab reads current through a session: the
+        counseling records, and which combatants await counseling.
+        `docs/epione.md` has the shapes.
+
+        * The login's `counseling_archive` is every combatant's records,
+          a list inside the roster's payload (`character_data`). One
+          combatant's entry, a dict under the same key, answers a
+          counseling and a claim of its rewards; a Chaos run's close
+          lists the entries of the combatants it broke down under
+          `changed_counseling_archive_array`. Each replaces its
+          combatant's entry in the cached list.
+        * A breakdown is a roster row's `psychosis_id`. The run's close
+          sends each combatant it broke down under `psychosis_chars`,
+          whose breakdown fields go onto the cached row. A counseling's
+          reply sends no row: once it answers, the combatant its request
+          named (`pending_counselings`) has the breakdown taken off, and
+          its Affinity set to the reply's `friendship_exp`.
+        """
+        roster = self.character_data
+        if not isinstance(roster, dict):
+            return
+        entries = data.get("changed_counseling_archive_array")
+        entries = list(entries) if isinstance(entries, list) else []
+        if isinstance(data.get("counseling_archive"), dict):
+            entries.append(data["counseling_archive"])
+        for entry in entries:
+            if not (isinstance(entry, dict) and entry.get("res_id") is not None
+                    and isinstance(entry.get("counseling_list"), list)):
+                continue
+            held = roster.get("counseling_archive")
+            if not isinstance(held, list):
+                held = roster["counseling_archive"] = []
+            for index, old in enumerate(held):
+                if isinstance(old, dict) and str(old.get("res_id")) == str(
+                        entry["res_id"]):
+                    if old != entry:
+                        held[index] = entry
+                        self._save_pending = True
+                    break
+            else:
+                held.append(entry)
+                self._save_pending = True
+        broken = data.get("psychosis_chars")
+        for row in broken if isinstance(broken, list) else ():
+            if isinstance(row, dict) and row.get("res_id") is not None:
+                if self._patch_combatant(row["res_id"], {
+                        field: row[field] for field in PSYCHOSIS_FIELDS
+                        if field in row}):
+                    self._save_pending = True
+        res_id = self.pending_counselings.pop(qid, None) \
+            if qid is not None else None
+        if res_id is not None:
+            fields = {"psychosis_id": None, "psychosis_recover_price_id": None}
+            if isinstance(data.get("friendship_exp"), int):
+                fields["friendship_exp"] = data["friendship_exp"]
+            if self._patch_combatant(res_id, fields):
+                self._save_pending = True
+
+    def _patch_combatant(self, res_id, fields):
+        """Set `fields` on the cached roster row of combatant `res_id`.
+        Returns whether anything changed. A combatant's row carries no
+        instance `id`; a partner card's does, and is never this."""
+        rows = (self.character_data or {}).get("characters")
+        for row in rows if isinstance(rows, list) else ():
+            if (isinstance(row, dict) and "id" not in row
+                    and str(row.get("res_id")) == str(res_id)):
+                changed = any(row.get(key) != value
+                              for key, value in fields.items())
+                row.update(fields)
+                return changed
+        return False
+
     def _bank_run(self):
         """The open run has ended: its counts join the finished runs'."""
         for item, count in self.chaos_run_open.items():
@@ -5029,12 +5121,14 @@ class Addon:
         """
         self.qid_sent.clear()
         if not (self.pending_disassembles or self.pending_unequips
-                or self.pending_coffees or self.gacha_requests):
+                or self.pending_coffees or self.gacha_requests
+                or self.pending_counselings):
             return
         self.pending_disassembles.clear()
         self.pending_unequips.clear()
         self.pending_coffees.clear()
         self.gacha_requests.clear()
+        self.pending_counselings.clear()
 
     def _track_client_request(self, parsed):
         """Scan a parsed client message for command(s) we want to remember
@@ -5154,6 +5248,11 @@ class Addon:
 
             elif inner_cmd == "order_coffee":
                 self.pending_coffees.add(qid)
+
+            elif inner_cmd == "recover_char_counseling":
+                res_id = params.get("char_res_id")
+                if isinstance(res_id, int) or str(res_id).isdigit():
+                    self.pending_counselings[qid] = int(res_id)
 
             elif entry.get("cmd") == "gacha" and inner_cmd in (
                     "history", "get_rate", "run"):

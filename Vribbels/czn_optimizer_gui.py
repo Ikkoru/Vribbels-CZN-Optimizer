@@ -88,7 +88,7 @@ from optimizer import GearOptimizer
 # same set.
 from optimizer.optimizer import SLOT5_ELEMENT_MAINS
 from config import AppConfig
-from ui import AppContext, MaterialsTab, SetupTab, CaptureTab, InventoryTab, OptimizerTab, HeroesTab, ScoringTab, ChecklistTab, DisasterTab, GachaHistoryTab
+from ui import AppContext, MaterialsTab, SetupTab, CaptureTab, InventoryTab, OptimizerTab, HeroesTab, ScoringTab, ChecklistTab, DisasterTab, GachaHistoryTab, EpioneTab
 from ui.utils.button_width import BUTTON_PAD_X
 from ui.utils import tab_bars
 from ui import scaling
@@ -1136,6 +1136,7 @@ class OptimizerGUI:
                           text="Capture")
         lazy.add("setup", "Setup & Settings", make(SetupTab))
         lazy.add("gacha", "Stats & Gacha History", make(GachaHistoryTab))
+        lazy.add("epione", "Epione", make(EpioneTab))
         self.tab_bars.refresh()
 
         # First-launch default: switch to the Setup & Settings tab so the user lands
@@ -1158,6 +1159,7 @@ class OptimizerGUI:
     disaster_tab_instance = property(lambda self: self._lazy_tab("disaster"))
     setup_tab_instance = property(lambda self: self._lazy_tab("setup"))
     gacha_tab_instance = property(lambda self: self._lazy_tab("gacha"))
+    epione_tab_instance = property(lambda self: self._lazy_tab("epione"))
 
     def _lazy_tab(self, name):
         lazy = getattr(self, "lazy_tabs", None)
@@ -1580,6 +1582,7 @@ class OptimizerGUI:
         """Redraw the built tabs that show what the client says."""
         for name, method in (("checklist", "refresh_checklist"),
                              ("disaster", "refresh_disaster"),
+                             ("epione", "refresh_epione"),
                              ("heroes", "refresh_heroes")):
             tab = self._lazy_tab(name)
             if tab is not None:
@@ -1796,7 +1799,8 @@ class OptimizerGUI:
                              ("materials", "refresh_materials"),
                              ("checklist", "refresh_checklist"),
                              ("disaster", "refresh_disaster"),
-                             ("gacha", "refresh_standings")):
+                             ("gacha", "refresh_standings"),
+                             ("epione", "refresh_epione")):
             tab = self._lazy_tab(name)
             if tab is not None:
                 getattr(tab, method)()

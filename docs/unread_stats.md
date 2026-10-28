@@ -223,9 +223,10 @@ What the client cannot say, read off captures:
 | `tower_entities` | `tower/get_tower`; a clear's `return_info.tower_result.tower_entity` | no | per Tower (`spiral_tower_01`): `last_cleared_floor` and `restart_floor`. The clear's `tower_result.item_result` is what those floors paid, and is read. `tower_clear_info_entities` beside it has always been `{}` |
 | `zero_orb_archive_entities`, `zero_orb_codex_entities`, `zero_orb_codex_special_entities` | `zero_orb/get_list` | no | the Chaos Matrix's archive (`complete_time` per entry), codex pieces (`lv`, `coordinate`, options) and special codex counts. `zero_orb_entity` itself is read |
 | `card_archive` | `load/user` | in `characters` | every card id the account has seen |
-| `counseling_archive` | `load/user`; `mentalclinic/*` answers with one combatant's | in `characters` | per combatant, each counseling and whether its reward was taken |
 | `archive_gift_data`, `archive_supporters` | `load/user` | in `characters` | per combatant the gift items given and rewards received; the supporters recorded |
 | `chaos_complete_archive`, `chaos_week_reward_reward_info` | `chaos_report_reward/get_chaos_reward_info` | no | a finished run's collection, and the week's Chaos report rewards as `[res_id, amount]` pairs |
+
+The counseling records (`counseling_archive`, in `characters`) and a combatant's breakdown (its roster row's `psychosis_id`) are the Epione tab's (`docs/epione.md`).
 
 ## The town
 
