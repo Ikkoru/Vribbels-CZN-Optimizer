@@ -25,6 +25,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 ### Changed
 
 - Capture: a failure while you are on another tab blinks the Capture tab's bar red, in place of a red dot beside its name.
+- About: Support Development offers the maintainer's Ko-fi, and still credits the original creator's.
 
 ## [2.6.3] - Senectus Tracking, Distortion Adaptation
 

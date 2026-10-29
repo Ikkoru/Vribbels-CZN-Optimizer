@@ -124,3 +124,11 @@ Chaos Zero Nightmare and all related assets are property of their respective own
 ---
 
 **Note**: This is a third-party tool and is not affiliated with or endorsed by the developers of Chaos Zero Nightmare.
+
+## Support
+
+This is free and stays free. If it saved you time and you'd like to say thanks, a tip is welcome but never expected:
+
+- [Ko-fi](https://ko-fi.com/eepycoding)
+
+To thank the original creator of this project as well: https://ko-fi.com/H2H21PHYKW

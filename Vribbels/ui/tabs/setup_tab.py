@@ -1323,9 +1323,11 @@ class SetupTab(BaseTab):
         def show_donation_message():
             messagebox.showinfo(
                 "Support Development",
-                "Currently not accepting donations.\n\n"
-                "If you wish to instead donate to the original creator of "
-                "this project, feel free to do so at:\n"
+                "This is free and stays free. If it saved you time and "
+                "you'd like to say thanks, a tip is welcome but never "
+                "expected:\n"
+                "https://ko-fi.com/eepycoding\n\n"
+                "To thank the original creator of this project as well:\n"
                 "https://ko-fi.com/H2H21PHYKW"
             )
 
