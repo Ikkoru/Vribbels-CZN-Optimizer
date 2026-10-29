@@ -27,7 +27,6 @@ NAME = "no junk at the repo root"
 
 ALLOWED = {
     ".gitattributes",
-    ".github",
     ".gitignore",
     "CHANGELOG.md",
     "CLAUDE.md",
