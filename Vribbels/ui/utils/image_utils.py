@@ -305,6 +305,18 @@ def preload_art(pairs, size=None):
     threading.Thread(target=work, daemon=True).start()
 
 
+def create_badge(name, height, background):
+    """The picture `name` under `IMAGES_DIR` at `height` pixels, its
+    shape kept, flattened onto `background`: a link drawn as an image
+    rather than a button. None if the file cannot be read."""
+    try:
+        img = _image(IMAGES_DIR / name)
+    except OSError:
+        return None
+    size = (max(1, round(img.width * height / img.height)), height)
+    return ImageTk.PhotoImage(_flattened(_resized(img, size), background))
+
+
 def create_blank_icon(background, size=None):
     """An icon's size of `background` and nothing else, as a PhotoImage.
 

@@ -68,7 +68,10 @@ from ui.scaling import px, px_after
 from ui import scaling
 from ui.update_check import (
     GITHUB_REPO, RELEASES_HTML_URL, UpdateStatus, current_version)
+from ..utils.image_utils import create_badge
 
+# The maintainer's Ko-fi page, which the Links panel's badge opens.
+KOFI_URL = "https://ko-fi.com/eepycoding"
 
 _RENAME_PLACEHOLDER = "Rename current preset to..."
 
@@ -1317,23 +1320,48 @@ class SetupTab(BaseTab):
         for text, url in (
                 ("View Releases on GitHub", RELEASES_HTML_URL),
                 ("Report an Issue", f"https://github.com/{GITHUB_REPO}/issues"),
-                ("Documentation", f"https://github.com/{GITHUB_REPO}#readme"),
-                # The README's Support section, which credits the original
-                # creator's Ko-fi beside this fork's.
-                ("Donations Welcome", f"https://github.com/{GITHUB_REPO}#support")):
+                ("Documentation", f"https://github.com/{GITHUB_REPO}#readme")):
             self._link_button(text, lambda u=url: webbrowser.open(u))
+        self._build_donation_row()
 
-    def _link_button(self, text, command):
-        """One flat link button, in the Links panel."""
+    def _build_donation_row(self):
+        """The Ko-fi badge, then a button to the README's Support
+        section, which credits the original creator's Ko-fi beside this
+        fork's. The badge is as tall as the button beside it."""
+        # spacing: TBD -- the Links panel's own button styling and pitch
+        row = tk.Frame(self._links_panel, bg=self.colors["bg"])
+        row.pack(fill=tk.X, pady=px(2))
+        button = self._link_button(
+            "Donations Welcome",
+            lambda: webbrowser.open(f"https://github.com/{GITHUB_REPO}#support"),
+            parent=row, pack=False)
+        # A measured height: the font's scaling already carried it, so
+        # no `px` (.claude/rules/ui.md).
+        self._kofi_image = create_badge("support_me_on_kofi_blue.png",
+                                        button.winfo_reqheight(), self.colors["bg"])
+        if self._kofi_image is not None:
+            badge = tk.Label(row, image=self._kofi_image, bg=self.colors["bg"],
+                             cursor="hand2", borderwidth=0)
+            badge.bind("<Button-1>", lambda _e: webbrowser.open(KOFI_URL))
+            Tooltip(self.colors).bind(badge, KOFI_URL)
+            # spacing: TBD -- the Links panel's own button styling and pitch
+            badge.pack(side=tk.LEFT, padx=(0, px(4)))
+        button.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+    def _link_button(self, text, command, parent=None, pack=True):
+        """One flat link button, in the Links panel or in `parent`."""
         # spacing: TBD -- the Links panel's own button styling and pitch
         # A flat `tk.Button` with its own padding, filling the panel's
         # width. Only the panel's inset answers to a rule so far.
-        tk.Button(
-            self._links_panel, text=text, command=command,
+        button = tk.Button(
+            parent or self._links_panel, text=text, command=command,
             bg=self.colors["bg_lighter"], fg=self.colors["accent"],
             font=("Segoe UI", 9), relief=tk.FLAT,
             padx=px(10), pady=px(5), cursor="hand2", anchor="w",
-        ).pack(fill=tk.X, pady=px(2))
+        )
+        if pack:
+            button.pack(fill=tk.X, pady=px(2))
+        return button
 
     def _build_app_info(self, parent):
         """Application Information: what this build is, centred.
