@@ -1317,21 +1317,11 @@ class SetupTab(BaseTab):
         for text, url in (
                 ("View Releases on GitHub", RELEASES_HTML_URL),
                 ("Report an Issue", f"https://github.com/{GITHUB_REPO}/issues"),
-                ("Documentation", f"https://github.com/{GITHUB_REPO}#readme")):
+                ("Documentation", f"https://github.com/{GITHUB_REPO}#readme"),
+                # The README's Support section, which credits the original
+                # creator's Ko-fi beside this fork's.
+                ("Donations Welcome", f"https://github.com/{GITHUB_REPO}#support")):
             self._link_button(text, lambda u=url: webbrowser.open(u))
-
-        def show_donation_message():
-            messagebox.showinfo(
-                "Support Development",
-                "This is free and stays free. If it saved you time and "
-                "you'd like to say thanks, a tip is welcome but never "
-                "expected:\n"
-                "https://ko-fi.com/eepycoding\n\n"
-                "To thank the original creator of this project as well:\n"
-                "https://ko-fi.com/H2H21PHYKW"
-            )
-
-        self._link_button("Support Development", show_donation_message)
 
     def _link_button(self, text, command):
         """One flat link button, in the Links panel."""
