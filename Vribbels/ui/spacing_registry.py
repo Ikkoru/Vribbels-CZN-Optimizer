@@ -4141,6 +4141,7 @@ EXCEPTION_ENTRIES = {
     # between the options on a card.
     "Epione: heading -> first scenario": "exception",
     "Epione: option -> option": "exception",
+    "Epione: card top -> its first line": "exception",
     # A section's heading stands four further from the row above it
     # than rows do from one another. Marked at `HEADING_PAD`.
     "Overall Gacha Stats: row -> heading": "exception",
@@ -5295,15 +5296,18 @@ EPIONE_RES_ID = 1
 
 def _epione_held():
     """A counseling in `game_client.counseling`'s shape: three scenarios,
-    every option two words."""
+    every option two words. Each opener's first follow-up cures 100% and
+    its second 90%: the cure result's gap is read on the widest result,
+    and the left inset on a line that does not open on a `1`."""
     def scenario(n):
         choices = []
         for number in range(1, 13):
             parent = 0 if number <= 4 else (number - 3) // 2
             side = ("L" if number <= 2 else "R") if not parent \
                 else ("L" if number % 2 else "R")
+            stability = 50 if not parent or number % 2 else 40
             choices.append([number, parent, side, "Ask", "Say so.",
-                            45 if not parent else 40, 2000004, 5])
+                            stability, 2000004, 5])
         return {"id": f"{EPIONE_RES_ID}_{n}",
                 "story": f"counseling_{EPIONE_RES_ID}_0{n}",
                 "title": f"Scenario {n}", "line": "Opens on this line.",
@@ -5438,8 +5442,8 @@ EPIONE_ENTRIES = [
     ("Epione", "Epione: heading -> first scenario", 16,
      RULE_PANEL_UNRELATED_LABEL,
      _capital_to_capital(_epione("_heading"), _epione_title(0)), "v"),
-    ("Epione", "Epione: scenario title -> its count", 5, RULE_LABEL_ELEMENT,
-     _gap(_epione_title(0), _epione_title(0, 1), "h"), "h"),
+    ("Epione", "Epione: status -> note", 16, RULE_CONTROL_GROUP,
+     _gap(_epione("_status"), _epione("_note"), "h"), "h"),
     ("Epione", "Epione: scenario count -> its opening line", 14,
      RULE_HEADING_ELEMENT,
      _gap(_epione_title(0, 1), _epione_title(0, 2), "h"), "h"),
@@ -5448,15 +5452,18 @@ EPIONE_ENTRIES = [
     ("Epione", "Epione: cards -> next scenario", 10,
      RULE_PANEL_UNRELATED_LABEL,
      _box_to_capital(_epione_card(0, 0), _epione_title(1)), "v"),
-    ("Epione", "Epione: last cards -> note", 10, RULE_PANEL_UNRELATED_LABEL,
-     _box_to_capital(_epione_card(2, 0), _epione("_note")), "v"),
     ("Epione", "Epione: card -> card", 4, RULE_CONTENT_FRAME,
      _box_gap(_epione_card(0, 0), _epione_card(0, 1), "h"), "h"),
     ("Epione", "Epione: left cards -> right cards", 16, RULE_CONTROL_GROUP,
      _box_gap(_epione_card(0, 1), _epione_card(0, 2), "h"), "h"),
     ("Epione", "Epione: card edge -> its words", 4, RULE_BORDER_EDGE_CONTENT,
-     _text_widget_inset(_epione_card(0, 1), "left"), "h"),
-    ("Epione", "Epione: card top -> its first line", 4,
+     # On a follow-up's line, the opener's being centred: the second's,
+     # `90%`. The first's `100%` opens on a `1`, whose ink starts a pixel
+     # inside its advance.
+     _text_widget_inset(_epione_card(0, 1), "left", line=5), "h"),
+    # The opener's 14pt label is the card's first line, and its line box
+    # alone stands 7 above its capitals. Marked at `CARD_PADY`.
+    ("Epione", "Epione: card top -> its first line", 7,
      RULE_BORDER_EDGE_CONTENT, _text_top_to_capital(_epione_card(0, 1)), "v"),
     # One option and the next, the Checklist's block division, marked at
     # `OPTION_PITCH`; read on an offered card, its whiff line among them.

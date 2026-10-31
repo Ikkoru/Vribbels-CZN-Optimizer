@@ -79,38 +79,55 @@ SIDE_GAP = 16           # spacing: control group ↔ control group -- frame, fra
 FIRST_SCENARIO_GAP = HEADING_GAP + ROW_PITCH - 1
 # A scenario's title above its cards, as a panel's title above it: the
 # title's line box spends the whole 5.
-TITLE_TO_CARDS = 0      # spacing: title above, element below -- label, frame ↕
+TITLE_TO_CARDS = 0      # spacing: title above, element below -- heading, frame ↕
 # One scenario's cards above the next one's title, text under a panel.
-CARDS_TO_TITLE = 4      # spacing: panel ↕ unrelated label -- frame, label ↕
-# The note under the last scenario's cards, the same.
-CARDS_TO_NOTE = 3       # spacing: panel ↕ unrelated label -- frame, label ↕
-# A scenario's title, its count and the line it opens on: a label and
-# what it labels, then the block's title and its subtext.
-TITLE_TO_COUNT = 0      # spacing: label ↔ its element -- label, label ↔
-COUNT_TO_LINE = 10      # spacing: heading ↔ element -- label, label ↔
-# The heading's count and the status beside it, as `make_tab_header`'s
+CARDS_TO_TITLE = 4      # spacing: panel ↕ unrelated label -- frame, heading ↕
+# The line a scenario opens on, beside its title's count, and the status
+# beside the combatant's: each heading's subtext, as `make_tab_header`'s
 # subtitle sits from its heading.
+COUNT_TO_LINE = 10      # spacing: heading ↔ element -- label, label ↔
 COUNT_TO_STATUS = 10    # spacing: heading ↔ element -- label, label ↔
+# How to use the cards, after the status on the heading's line: two
+# separate things said on one line, as groups of controls stand apart.
+STATUS_TO_NOTE = 12     # spacing: control group ↔ control group -- label, label ↔
 
-# Inside a card: the words' inset from the card's edge on every side,
-# the first line's capitals as its top, which its line box already
-# sets 4 down.
+# Inside a card: the words' inset from the card's edge on every side.
+# The top is an exception at 7: the first line is the opener's label in
+# the 14pt face, whose line box stands 7 above its capitals, and a
+# Text's `pady` cannot go below 0 to take any of it back.
 CARD_PADX = 4           # spacing: border edge -> first non-button element -- frame, run ↔
-CARD_PADY = 0           # spacing: border edge -> first non-button element -- frame, run ↕
+CARD_PADY = 0           # spacing: exception -- border edge -> first non-button element -- frame, run ↕
 # One option against the next. Each is a block of wrapped lines, so they
 # part at the Checklist's block division, as the Galactic Disaster tab's
 # requirements do, and not at its row pitch.
 OPTION_PITCH = ROW_PITCH + BLOCK_PAD
-# A follow-up's cure result against its words: a value and what it
-# belongs to. Between the two tab stops, the `%`'s ink stopping a pixel
-# short of its advance.
+# A follow-up's cure result against its label: a value and what it
+# belongs to. Past the widest result's advance, its `%`'s ink stopping a
+# pixel short of that.
 RESULT_GAP = 4          # spacing: label ↔ its element -- run, run ↔
 
 # One tag per line for its `spacing1`, as on the Checklist: two tags
-# setting one option resolve by priority, not sum.
+# setting one option resolve by priority, not sum. An option's words
+# take the line under its label, at the font's own line spacing: the
+# two are one block.
 FIRST_TAG = "first"
 OPTION_TAG = "option"
-LINE_PITCH = {FIRST_TAG: 0, OPTION_TAG: OPTION_PITCH}
+WORDS_TAG = "words"
+LINE_PITCH = {FIRST_TAG: 0, OPTION_TAG: OPTION_PITCH, WORDS_TAG: 0}
+# The opener heads its card, centred: its label in the tab headings'
+# face, its words on the line under it.
+OPENER_FONT = ("Segoe UI", 14, "bold")
+CENTRED_TAG = "centred"
+# A follow-up's label wraps under itself, past its cure result, and its
+# words take the line under it there too.
+HANGING_TAG = "hanging"
+INDENT_TAG = "indent"
+# The opener's words, in the bold that set the opener apart.
+BOLD_TAG = "bold"
+# A cure result's colour by its tier, the best first, as the client's
+# tiers are ordered (`epione.tier`): what Affinity the cure pays.
+TIER_COLOURS = ("green", "yellow", "red", "fg_dim")
+TIER_TAG = "tier%d"
 # What an option's words are drawn as: its state, then the advice over
 # it. Created in this order, so a later one wins where two set a colour.
 NEW_TAG = "new"
@@ -228,18 +245,22 @@ class EpioneTab(BaseTab):
         self._status.pack(side=tk.LEFT, anchor=tk.S,
                           padx=px((COUNT_TO_STATUS, 0)),
                           pady=px((0, HEADING_COUNTDOWN_DROP)))
+        self._note = ttk.Label(head, text="", font=ROW_FONT,
+                               foreground=self.colors["fg_dim"])
+        # spacing: header subtext -- label, label ↔
+        # spacing: control group ↔ control group -- label, label ↔
+        self._note.pack(side=tk.LEFT, anchor=tk.S,
+                        padx=px((STATUS_TO_NOTE, 0)),
+                        pady=px((0, HEADING_COUNTDOWN_DROP)))
         self._scenarios = ttk.Frame(detail)
-        # spacing: exception -- panel ↕ unrelated label -- heading, label ↕
+        # spacing: exception -- panel ↕ unrelated label -- heading, heading ↕
         self._scenarios.pack(fill=tk.BOTH, expand=True,
                              pady=px((FIRST_SCENARIO_GAP, 0)))
-        self._note = ttk.Label(detail, text="", font=ROW_FONT,
-                               foreground=self.colors["fg_dim"])
-        # spacing: panel ↕ unrelated label -- frame, label ↕
-        self._note.pack(anchor=tk.W, pady=px((CARDS_TO_NOTE, 0)))
         bold = tkfont.Font(font=ROW_FONT)
         bold.configure(weight="bold")
         # **Held**: a named font Tk deletes once the Python object goes.
         self._bold = bold
+        self._opener_font = tkfont.Font(font=OPENER_FONT)
         self._row_font = tkfont.Font(font=ROW_FONT)
 
     def _build_list(self, parent):
@@ -275,24 +296,30 @@ class EpioneTab(BaseTab):
         while len(self._blocks) <= index:
             at = len(self._blocks)
             frame = ttk.Frame(self._scenarios)
-            # spacing: panel ↕ unrelated label -- frame, label ↕
+            # spacing: panel ↕ unrelated label -- frame, heading ↕
             frame.pack(fill=tk.BOTH, expand=True,
                        pady=px((CARDS_TO_TITLE if at else 0, 0)))
             head = ttk.Frame(frame)
             head.pack(fill=tk.X)
-            title = ttk.Label(head, text="", font=self._bold)
+            # Each scenario's title in the combatant's heading's face,
+            # its count and opening line beside it as that one's are.
+            title = make_heading(head, "")
             title.pack(side=tk.LEFT, anchor=tk.S)
-            count = ttk.Label(head, text="", font=ROW_FONT)
-            # spacing: label ↔ its element -- label, label ↔
+            count = ttk.Label(head, text="", font=HEADING_COUNTDOWN_FONT)
+            # spacing: heading ↔ element -- heading, label ↔
+            # spacing: heading ↔ element -- heading, label ↕
             count.pack(side=tk.LEFT, anchor=tk.S,
-                       padx=px((TITLE_TO_COUNT, 0)))
+                       padx=px((HEADING_COUNTDOWN_GAP, 0)),
+                       pady=px((0, HEADING_COUNTDOWN_DROP)))
             line = ttk.Label(head, text="", font=ROW_FONT,
                              foreground=self.colors["fg_dim"])
+            # spacing: header subtext -- label, label ↔
             # spacing: heading ↔ element -- label, label ↔
             line.pack(side=tk.LEFT, anchor=tk.S,
-                      padx=px((COUNT_TO_LINE, 0)))
+                      padx=px((COUNT_TO_LINE, 0)),
+                      pady=px((0, HEADING_COUNTDOWN_DROP)))
             cards = ttk.Frame(frame)
-            # spacing: title above, element below -- label, frame ↕
+            # spacing: title above, element below -- heading, frame ↕
             cards.pack(fill=tk.BOTH, expand=True,
                        pady=px((TITLE_TO_CARDS, 0)))
             cards.grid_rowconfigure(0, weight=1)
@@ -332,7 +359,14 @@ class EpioneTab(BaseTab):
             text.tag_configure(tag, spacing1=px(pitch))
         for tag, colour in STATE_COLOURS.items():
             text.tag_configure(tag, foreground=self.colors[colour])
-        text.tag_configure(OPENER_TAG, font=self._bold)
+        # After the states, so a cure keeps its tier's colour on a picked
+        # or advised line.
+        for index, colour in enumerate(TIER_COLOURS):
+            text.tag_configure(TIER_TAG % index,
+                               foreground=self.colors[colour])
+        text.tag_configure(OPENER_TAG, font=self._opener_font)
+        text.tag_configure(BOLD_TAG, font=self._bold)
+        text.tag_configure(CENTRED_TAG, justify=tk.CENTER)
         self._tips.bind_tag(text, WHIFF_TAG, WHIFFS_TIP)
         text.config(state=tk.DISABLED)
         return text
@@ -517,7 +551,7 @@ class EpioneTab(BaseTab):
         for index, scenario in enumerate(person.scenarios):
             frame, head, texts = self._block(index)
             if not frame.winfo_manager():
-                # spacing: panel ↕ unrelated label -- frame, label ↕
+                # spacing: panel ↕ unrelated label -- frame, heading ↕
                 frame.pack(fill=tk.BOTH, expand=True,
                            pady=px((CARDS_TO_TITLE if index else 0, 0)))
             title, count, line = head
@@ -538,13 +572,23 @@ class EpioneTab(BaseTab):
         number = opener.option.number
         offered = advice is not None and number in advice.whiffs
         advised = offered and advice.opener == number
-        lines = [(self._state(opener.option, advised), OPENER_TAG,
-                  "%s: %s" % (opener.option.label, opener.option.words))]
+        # Each line: (its runs as (words, tags), the line's own tags).
+        state = self._state(opener.option, advised)
+        lines = [(((opener.option.label, (state,)),),
+                  (FIRST_TAG, CENTRED_TAG, OPENER_TAG)),
+                 (((opener.option.words, (state,)),),
+                  (WORDS_TAG, CENTRED_TAG, BOLD_TAG))]
         for kid in opener.follow_ups:
-            lines.append((self._state(
-                kid, advised and advice.follow_up == kid.number), None,
-                "\t%s\t%s: %s" % (RESULT % min(kid.result, 100), kid.label,
-                                  kid.words)))
+            state = self._state(kid,
+                                advised and advice.follow_up == kid.number)
+            band = epione.tier(kid.result, person.tiers)
+            cure = (state,) if band is None else \
+                (state, TIER_TAG % min(band, len(TIER_COLOURS) - 1))
+            lines.append((((RESULT % min(kid.result, 100), cure),
+                           ("\t" + kid.label, (state,))),
+                          (OPTION_TAG, HANGING_TAG)))
+            lines.append((((kid.words, (state,)),),
+                          (WORDS_TAG, INDENT_TAG)))
         if offered:
             whiffs = advice.whiffs[number]
             if advice.whiff:
@@ -555,8 +599,8 @@ class EpioneTab(BaseTab):
                 words = NOTHING_NEW
             else:
                 words = (WHIFFS_ADVISED if advised else WHIFFS) % whiffs
-            lines.append((ADVISED_TAG if advised else PICKED_TAG, WHIFF_TAG,
-                          words))
+            lines.append((((words, (ADVISED_TAG if advised else PICKED_TAG,
+                                    WHIFF_TAG)),), (OPTION_TAG,)))
         fill = self.colors[OFFERED_FILL if offered or self._is_marked(
             person, opener) else CARD_FILL]
         drawn = (tuple(lines), fill)
@@ -564,23 +608,25 @@ class EpioneTab(BaseTab):
         if self._drawn.get(key) == drawn:
             return
         self._drawn[key] = drawn
-        # Two right-aligned results line up on their `%`, and a follow-up's
-        # wrapped lines hang under its words. Measured, so not through
-        # `px`; the gap is.
-        result = self._row_font.measure(WIDEST_RESULT)
-        words_at = result + px(RESULT_GAP)
+        # Every follow-up's label starts on one stop past the widest
+        # result, and its wrapped lines and its words hang there. The
+        # results start at the card's inset: a right-aligned one would
+        # sit a tab's least width, a space, further in. Measured, so not
+        # through `px`; the gap is.
+        words_at = self._row_font.measure(WIDEST_RESULT) + px(RESULT_GAP)
         # spacing: label ↔ its element -- run, run ↔
-        text.config(state=tk.NORMAL, bg=fill,
-                    tabs=(result, tk.RIGHT, words_at, tk.LEFT))
-        text.tag_configure("follow_up", lmargin2=words_at)
+        text.config(state=tk.NORMAL, bg=fill, tabs=(words_at, tk.LEFT))
+        text.tag_configure(HANGING_TAG, lmargin2=words_at)
+        text.tag_configure(INDENT_TAG, lmargin1=words_at, lmargin2=words_at)
         text.delete("1.0", tk.END)
-        for index, (state, kind, words) in enumerate(lines):
-            tags = [FIRST_TAG if index == 0 else OPTION_TAG, state]
-            if kind:
-                tags.append(kind)
-            elif index:
-                tags.append("follow_up")
-            text.insert(tk.END, ("\n" if index else "") + words, tuple(tags))
+        for index, (runs, line_tags) in enumerate(lines):
+            if index:
+                # Untagged: the newline ends the line above, and a line's
+                # pitch, margins and alignment are read off its own first
+                # character.
+                text.insert(tk.END, "\n")
+            for words, tags in runs:
+                text.insert(tk.END, words, tags + line_tags)
         text.config(state=tk.DISABLED)
 
     def _is_marked(self, person, opener):

@@ -2744,6 +2744,20 @@ def _epione_marks_and_advises(tab):
         if tab._tree.set("1", "done") != mod.NO_COUNSELING:
             out.append("Epione: a combatant the client gives no counseling "
                        "is not listed with nothing to count")
+        # Opener 1's follow-ups cure 105 and 85: the best tier's colour on
+        # the first's `100%`, the next tier's on the second's `85%`.
+        card = tab._blocks[0][2][0]
+        for needle, tier in (("100%", 0), ("85%", 1)):
+            where = card.search(needle, "1.0", tk.END)
+            if not where or mod.TIER_TAG % tier not in card.tag_names(where):
+                out.append(f"Epione: the cure {needle} does not carry tier "
+                           f"{tier}'s colour: a cure's colour says the "
+                           f"Affinity it pays")
+        if card.get("2.0", "2.end") != "words1" \
+                or mod.CENTRED_TAG not in card.tag_names("2.0"):
+            out.append(f"Epione: a card's second line reads "
+                       f"{card.get('2.0', '2.end')!r}: the opener's words, "
+                       f"centred, under its label")
         tab._on_card(0, 0)
         tab._on_card(0, 2)
         if fill(0) != colors[mod.OFFERED_FILL] \
@@ -6815,6 +6829,9 @@ FAULTS = [
      "ui.tabs.epione_tab:EpioneTab._offered_pair",
      "if not offered or self._marked_at != person.done:",
      "if not offered:", "left them marked"),
+    ("a cure without its tier's colour", "ui.tabs.epione_tab:EpioneTab._fill_card",
+     "(state, TIER_TAG % min(band, len(TIER_COLOURS) - 1))", "(state,)",
+     "does not carry tier"),
     ("the advice on the other card", "ui.tabs.epione_tab:EpioneTab._fill_card",
      "advised = offered and advice.opener == number",
      "advised = offered and advice.opener != number",
