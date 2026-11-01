@@ -24,6 +24,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 
 ### Changed
 
+- A darker highlight for selected rows and text, offered Epione cards, and hovered headings and scrollbars.
 - Capture: a failure while you are on another tab blinks the Capture tab's bar red, in place of a red dot beside its name.
 - About: Support Development is now two links: a Support me on Ko-fi badge, and Donate through GitHub, to GitHub Sponsors.
 

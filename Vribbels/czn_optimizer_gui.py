@@ -152,7 +152,7 @@ COLORS = {
     # Selected rows and text, and hover on headings and scrollbars. Dark
     # enough that a row keeping its own colour when selected -- rarity,
     # a warning -- still reads on it.
-    "select": "#254266",
+    "select": "#091018",
     # `yellow` darkened at the same hue, for a value that is present but
     # is not the one to read -- the FLOOR of a potential range, against
     # the ceiling beside it. A second foreground rather than a second
