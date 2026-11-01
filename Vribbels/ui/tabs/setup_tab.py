@@ -72,6 +72,8 @@ from ..utils.image_utils import create_badge
 
 # The maintainer's Ko-fi page, which the Links panel's badge opens.
 KOFI_URL = "https://ko-fi.com/eepycoding"
+# And the maintainer's GitHub Sponsors page, which the button beside it opens.
+SPONSORS_URL = "https://github.com/sponsors/Ikkoru"
 
 _RENAME_PLACEHOLDER = "Rename current preset to..."
 
@@ -1325,15 +1327,13 @@ class SetupTab(BaseTab):
         self._build_donation_row()
 
     def _build_donation_row(self):
-        """The Ko-fi badge, then a button to the README's Support
-        section, which credits the original creator's Ko-fi beside this
-        fork's. The badge is as tall as the button beside it."""
+        """The Ko-fi badge, then a button to the maintainer's GitHub
+        Sponsors page. The badge is as tall as the button beside it."""
         # spacing: TBD -- the Links panel's own button styling and pitch
         row = tk.Frame(self._links_panel, bg=self.colors["bg"])
         row.pack(fill=tk.X, pady=px(2))
         button = self._link_button(
-            "Donations Welcome",
-            lambda: webbrowser.open(f"https://github.com/{GITHUB_REPO}#support"),
+            "Donate through GitHub", lambda: webbrowser.open(SPONSORS_URL),
             parent=row, pack=False)
         # A measured height: the font's scaling already carried it, so
         # no `px` (.claude/rules/ui.md).
