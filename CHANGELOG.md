@@ -16,7 +16,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - Locked achievements are counted by when they open: `6 Part 2 achievements`, or `1 achievement (in 2d)` for one opening during a part.
   - A page with a reward waiting has its count in orange. A page with nothing left moves to a column at the right, green, its count blinking orange while a reward waits.
 - **Epione tab**, after Stats & Gacha History: each combatant's Therapy Counseling at the Epione Centre.
-  - Every combatant you hold, with the dialogue options picked against all 36. Red: broken down and awaiting counseling, selected for you when a capture sees it happen. Orange: Crystals waiting to be claimed in the Counseling Records.
+  - Every combatant you hold, named in its Element's colour, with the dialogue options picked against all 36. The count is red while broken down and awaiting counseling (selected for you when a capture sees it happen), orange with Crystals waiting in the Counseling Records, green at 36/36.
   - The selected combatant's three scenarios, each opener with its two follow-ups and the cure % each pair gives, coloured by the Affinity it pays: green 90%+, yellow 80s, red 70s, grey below. Picked options are dimmed.
   - Click the two openers the game offers, one each side: each says how many counselings offering nothing new are still to come if picked, and the fewer is green, with the follow-up to take.
 - `zRUN Chaos Runs Spreadsheet.cmd` makes your Chaos runs table and spreadsheet with a double-click: it checks for Python and openpyxl, says how to get either, and asks for your program's folder. See [Tracking Chaos runs](README.md#tracking-chaos-runs).

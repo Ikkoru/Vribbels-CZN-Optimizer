@@ -2738,12 +2738,25 @@ def _epione_marks_and_advises(tab):
             out.append(f"Epione: a combatant newly broken down was not "
                        f"selected (showing {tab._shown}): the one the next "
                        f"counseling is for is the one to show")
-        if "awaiting" not in tab._tree.item("1003", "tags"):
+        if "awaiting" not in tab._done_tree.item("1003", "tags"):
             out.append("Epione: a combatant awaiting counseling is not red "
                        "in the list")
-        if tab._tree.set("1", "done") != mod.NO_COUNSELING:
+        from game_data.characters import get_character
+        element = get_character(1003).get("attribute")
+        if element not in tab._tree.item("1003", "tags"):
+            out.append(f"Epione: a combatant's name does not carry its "
+                       f"Element ({element}), the colour the Combatants tab "
+                       f"names it in")
+        if tab._done_tree.set("1", "done") != mod.NO_COUNSELING:
             out.append("Epione: a combatant the client gives no counseling "
                        "is not listed with nothing to count")
+        # Picking a row in the counts' list picks it in the names' too.
+        tab._done_tree.selection_set("1")
+        tab._on_select(tab._done_tree)
+        if tab._tree.selection() != ("1",) or tab._shown != 1:
+            out.append("Epione: a row picked in the Completed column left "
+                       "the name column on another row")
+        tab._select(1003)
         # Opener 1's follow-ups cure 105 and 85: the best tier's colour on
         # the first's `100%`, the next tier's on the second's `85%`.
         card = tab._blocks[0][2][0]

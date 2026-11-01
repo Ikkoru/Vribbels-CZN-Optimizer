@@ -25,6 +25,8 @@ from tkinter import font as tkfont
 from tkinter import ttk
 
 import epione
+from game_data import ATTRIBUTE_COLORS
+from game_data.characters import get_character
 
 from ..base_tab import BaseTab
 from ..scaling import px, px_after, px_spans
@@ -40,9 +42,14 @@ from .checklist_tab import (BLOCK_PAD, COLUMNS_PADX, COLUMNS_PADY,
 # `Heidemarie` and for `Completed` in the list's own font.
 LIST_COLUMNS = (("name", "Combatant", 110, tk.W),
                 ("done", "Completed", 78, tk.CENTER))
-# A row's colour, by what it says: broken down and counseled next, a
-# reward waiting to be claimed, nothing left at all. One tag a row,
-# the first that applies.
+# **Two lists side by side**, the names and the counts, scrolled and
+# selected together: a Treeview colours a whole row, never a cell, and a
+# name takes its Element's colour as on the Combatants tab while its
+# count takes its state's.
+#
+# A count's colour, by what it says: broken down and counseled next, a
+# reward waiting to be claimed, every option picked. One tag a row, the
+# first that applies.
 ROW_AWAITING = "awaiting"
 ROW_UNCLAIMED = "unclaimed"
 ROW_FINISHED = "finished"
@@ -112,8 +119,12 @@ RESULT_GAP = 4          # spacing: label ↔ its element -- run, run ↔
 # two are one block.
 FIRST_TAG = "first"
 OPTION_TAG = "option"
+LABEL_TAG = "label"
 WORDS_TAG = "words"
-LINE_PITCH = {FIRST_TAG: 0, OPTION_TAG: OPTION_PITCH, WORDS_TAG: 0}
+# A follow-up's label line and the whiff line take one pitch; the label
+# reads a pixel short of it, its bold capital standing that much taller.
+LINE_PITCH = {FIRST_TAG: 0, OPTION_TAG: OPTION_PITCH,
+              LABEL_TAG: OPTION_PITCH, WORDS_TAG: 0}
 # The opener heads its card, centred: its label in the tab headings'
 # face, its words on the line under it.
 OPENER_FONT = ("Segoe UI", 14, "bold")
@@ -270,25 +281,42 @@ class EpioneTab(BaseTab):
         holder.grid(row=0, column=0, sticky="ns",
                     pady=(px(LIST_TOP), px_after(
                         COLUMNS_PADY[1], COLUMNS_FOOT - COLUMNS_PADY[1])))
-        tree = ttk.Treeview(holder, columns=[c[0] for c in LIST_COLUMNS],
-                            show="headings", selectmode="browse")
-        bar = ttk.Scrollbar(holder, orient=tk.VERTICAL, command=tree.yview)
-        tree.configure(yscrollcommand=bar.set)
-        # The scrollbar packed FIRST, so the list's columns cannot take
+        bar = ttk.Scrollbar(holder, orient=tk.VERTICAL,
+                            command=lambda *a: [t.yview(*a)
+                                                for t in self._trees])
+        # The scrollbar packed FIRST, so the lists' columns cannot take
         # its width.
         bar.pack(side=tk.RIGHT, fill=tk.Y)
-        tree.pack(side=tk.LEFT, fill=tk.Y)
+        self._trees = []
         for (key, title, _width, anchor), width in zip(
                 LIST_COLUMNS, px_spans([c[2] for c in LIST_COLUMNS])):
+            tree = ttk.Treeview(holder, columns=(key,), show="headings",
+                                selectmode="browse")
+            # Side by side, as one list's two columns.
+            tree.pack(side=tk.LEFT, fill=tk.Y)
             tree.heading(key, text=title, anchor=anchor,
                          command=lambda k=key: self._sort_by(k))
             tree.column(key, width=width, minwidth=width, anchor=anchor,
                         stretch=False)
+            tree.configure(yscrollcommand=lambda first, last, me=tree:
+                           self._on_scroll(me, bar, first, last))
+            tree.bind("<<TreeviewSelect>>",
+                      lambda _e, me=tree: self._on_select(me))
+            tree.bind("<KeyPress>", self._on_key)
+            self._trees.append(tree)
+        self._tree, self._done_tree = self._trees
+        for element, colour in ATTRIBUTE_COLORS.items():
+            self._tree.tag_configure(element, foreground=colour)
         for tag, colour in ROW_COLOURS.items():
-            tree.tag_configure(tag, foreground=self.colors[colour])
-        tree.bind("<<TreeviewSelect>>", self._on_select)
-        tree.bind("<KeyPress>", self._on_key)
-        self._tree = tree
+            self._done_tree.tag_configure(tag, foreground=self.colors[colour])
+
+    def _on_scroll(self, tree, bar, first, last):
+        """One list scrolled, by the wheel or the keys: the scrollbar and
+        the other list follow it."""
+        bar.set(first, last)
+        for other in self._trees:
+            if other is not tree and other.yview()[0] != float(first):
+                other.yview_moveto(first)
 
     def _block(self, index):
         """The `index`-th scenario's row: its title line and its four
@@ -416,15 +444,21 @@ class EpioneTab(BaseTab):
         if self._drawn.get("list") == listed:
             return
         self._drawn["list"] = listed
-        tree = self._tree
-        tree.delete(*tree.get_children())
+        for tree in self._trees:
+            tree.delete(*tree.get_children())
         for res_id, name, done, total, tag in listed:
-            tree.insert("", tk.END, iid=str(res_id), tags=(tag,) if tag else (),
-                        values=(name, NO_COUNSELING if total is None
-                                else "%d/%d" % (done, total)))
+            element = get_character(res_id).get("attribute")
+            self._tree.insert(
+                "", tk.END, iid=str(res_id), values=(name,),
+                tags=(element,) if element in ATTRIBUTE_COLORS else ())
+            self._done_tree.insert(
+                "", tk.END, iid=str(res_id), tags=(tag,) if tag else (),
+                values=(NO_COUNSELING if total is None
+                        else "%d/%d" % (done, total),))
         self._order = [r[0] for r in listed]
-        if self._shown is not None and tree.exists(str(self._shown)):
-            tree.selection_set(str(self._shown))
+        if self._shown is not None and self._tree.exists(str(self._shown)):
+            for tree in self._trees:
+                tree.selection_set(str(self._shown))
 
     def _row_tag(self, res_id):
         person = self._people.get(res_id)
@@ -434,7 +468,7 @@ class EpioneTab(BaseTab):
             return ROW_AWAITING
         if person.unclaimed:
             return ROW_UNCLAIMED
-        if not person.left:
+        if person.done >= person.total:
             return ROW_FINISHED
         return None
 
@@ -444,17 +478,24 @@ class EpioneTab(BaseTab):
         self._fill_list()
 
     def _select(self, res_id):
-        tree = self._tree
-        if res_id is not None and tree.exists(str(res_id)):
+        if res_id is not None and self._tree.exists(str(res_id)):
             # Fires <<TreeviewSelect>>, which draws.
-            tree.selection_set(str(res_id))
-            tree.see(str(res_id))
+            for tree in self._trees:
+                tree.selection_set(str(res_id))
+            self._tree.see(str(res_id))
         self._show(res_id)
 
-    def _on_select(self, _event=None):
-        chosen = self._tree.selection()
-        if chosen:
-            self._show(int(chosen[0]))
+    def _on_select(self, tree=None):
+        """A row chosen in either list: the other selects it too."""
+        tree = tree or self._tree
+        chosen = tree.selection()
+        if not chosen:
+            return
+        for other in self._trees:
+            # Guarded: setting a selection fires the other's event.
+            if other is not tree and other.selection() != chosen:
+                other.selection_set(chosen)
+        self._show(int(chosen[0]))
 
     def _on_key(self, event):
         """Type-ahead, as the Combatants list has it."""
@@ -585,8 +626,8 @@ class EpioneTab(BaseTab):
             cure = (state,) if band is None else \
                 (state, TIER_TAG % min(band, len(TIER_COLOURS) - 1))
             lines.append((((RESULT % min(kid.result, 100), cure),
-                           ("\t" + kid.label, (state,))),
-                          (OPTION_TAG, HANGING_TAG)))
+                           ("\t" + kid.label, (state, BOLD_TAG))),
+                          (LABEL_TAG, HANGING_TAG)))
             lines.append((((kid.words, (state,)),),
                           (WORDS_TAG, INDENT_TAG)))
         if offered:

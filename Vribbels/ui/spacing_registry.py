@@ -4141,6 +4141,7 @@ EXCEPTION_ENTRIES = {
     # between the options on a card.
     "Epione: heading -> first scenario": "exception",
     "Epione: option -> option": "exception",
+    "Epione: option -> whiff line": "exception",
     "Epione: card top -> its first line": "exception",
     # A section's heading stands four further from the row above it
     # than rows do from one another. Marked at `HEADING_PAD`.
@@ -5467,7 +5468,13 @@ EPIONE_ENTRIES = [
      RULE_BORDER_EDGE_CONTENT, _text_top_to_capital(_epione_card(0, 1)), "v"),
     # One option and the next, the Checklist's block division, marked at
     # `OPTION_PITCH`; read on an offered card, its whiff line among them.
-    ("Epione", "Epione: option -> option", 16, RULE_LABEL_ROW_PITCH,
+    # A follow-up's bold label reads a pixel short of the pitch, its
+    # capital standing that much taller than a regular one; the whiff
+    # line under the last holds it. One lever, `OPTION_PITCH`.
+    ("Epione", "Epione: option -> option", 15, RULE_LABEL_ROW_PITCH,
+     _text_line_pitch(_epione_card(0, 0),
+                      kinds=_epione_pitch_tags("label")), "v"),
+    ("Epione", "Epione: option -> whiff line", 16, RULE_LABEL_ROW_PITCH,
      _text_line_pitch(_epione_card(0, 0),
                       kinds=_epione_pitch_tags("option")), "v"),
     ("Epione", "Epione: cure result -> its words", 5, RULE_LABEL_ELEMENT,
