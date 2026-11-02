@@ -808,7 +808,7 @@ NAME_RARITY = {
 }
 
 
-# Every table above, in the order a lookup should try them. The five
+# Every table above, in the order a lookup should try them. They
 # differ in what their second field means -- an Element, a class, what
 # a material levels, or nothing at all -- so a caller wanting only the
 # art goes through `item_art` rather than unpacking a row itself.
