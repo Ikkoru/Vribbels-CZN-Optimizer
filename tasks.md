@@ -129,6 +129,14 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
 ### Documentation Improvement
 
+- **I45 — Structural doc fixes the sweeps cannot find**, each moving or removing content, so each needs the maintainer's yes:
+  - `events.md` numbers its questions twice, `## The four questions, in order` and `## Knowing an event: three questions…`, which disagree on numbering; `### Answering question 3` resolves only by coincidence. One list replaces the other.
+  - `events.md`'s worklist sits inside reference: `### reward_step and version — … not yet measured` and `## Still open`. Move them to `docs/wire_hunt.tsv` rows or a worklist section kept apart.
+  - `wire_hunt.md` § Events repeats `events.md`'s floor rule ("worth repeating here"). Reduce it to a pointer naming what `events.md` owns.
+  - `capture_pipeline.md`'s `[SYNC] saved` paragraph and its Sortie report-screen paragraph ("why every Sortie finished in silence") narrate the failure; restate each as the rule, the do-nots with their symptoms, and the guard.
+  - `ui_spacing.md`'s `Gap now` column is readings that `docs/spacing_baseline.json` holds, and its Treeview padding sweep is an experiment record for `past_plans/`. Mind the parsed headings and tables (`CLAUDE.md`).
+  - `events.md` and `ui_spacing.md` run past 500 lines with no heading index at the top.
+
 - `ui_spacing.md`:
 
   > In general, what do you think should be done about the rule names and the rules? They were originally designed to standardize distances between typical element pairs across the program and for the spacing audit to use them, so that:
