@@ -30,7 +30,8 @@ from game_data.characters import get_character
 
 from ..base_tab import BaseTab
 from ..scaling import px, px_after, px_spans
-from ..utils.tab_header import make_heading
+from ..utils.style_once import first_time
+from ..utils.tab_header import HEADING_FONT, make_heading
 from ..utils.tooltip import Tooltip
 from ..utils.type_ahead import TypeAhead, find
 from .checklist_tab import (BLOCK_PAD, COLUMNS_PADX, COLUMNS_PADY,
@@ -55,6 +56,11 @@ ROW_UNCLAIMED = "unclaimed"
 ROW_FINISHED = "finished"
 ROW_COLOURS = {ROW_AWAITING: "red", ROW_UNCLAIMED: "orange",
                ROW_FINISHED: "green"}
+# The two lists' styles, each `Treeview`'s inset (`LIST_INSET`, the
+# base style's 3) on its outer side alone, so they meet as one list's
+# columns do (`_style_lists`).
+LIST_STYLES = ("EpioneNames.Treeview", "EpioneCounts.Treeview")
+LIST_INSET = 3
 # What the Completed column says for a combatant the client gives no
 # counseling.
 NO_COUNSELING = "-"
@@ -272,6 +278,7 @@ class EpioneTab(BaseTab):
         # **Held**: a named font Tk deletes once the Python object goes.
         self._bold = bold
         self._opener_font = tkfont.Font(font=OPENER_FONT)
+        self._heading_font = tkfont.Font(font=HEADING_FONT)
         self._row_font = tkfont.Font(font=ROW_FONT)
 
     def _build_list(self, parent):
@@ -288,10 +295,12 @@ class EpioneTab(BaseTab):
         # its width.
         bar.pack(side=tk.RIGHT, fill=tk.Y)
         self._trees = []
-        for (key, title, _width, anchor), width in zip(
-                LIST_COLUMNS, px_spans([c[2] for c in LIST_COLUMNS])):
+        self._style_lists()
+        for (key, title, _width, anchor), width, style in zip(
+                LIST_COLUMNS, px_spans([c[2] for c in LIST_COLUMNS]),
+                LIST_STYLES):
             tree = ttk.Treeview(holder, columns=(key,), show="headings",
-                                selectmode="browse")
+                                selectmode="browse", style=style)
             # Side by side, as one list's two columns.
             tree.pack(side=tk.LEFT, fill=tk.Y)
             tree.heading(key, text=title, anchor=anchor,
@@ -309,6 +318,21 @@ class EpioneTab(BaseTab):
             self._tree.tag_configure(element, foreground=colour)
         for tag, colour in ROW_COLOURS.items():
             self._done_tree.tag_configure(tag, foreground=self.colors[colour])
+
+    @staticmethod
+    def _style_lists():
+        """The two lists' styles: `Treeview`'s, without its inset where
+        the two meet. The inset is the tree area's padding, and with no
+        field element drawn behind it, its 3 on each side of the join
+        showed as a strip of window between the columns. Once per
+        interpreter (`ui/utils/style_once.py`)."""
+        style = ttk.Style()
+        if not first_time(style, LIST_STYLES[0]):
+            return
+        for name, sides in zip(LIST_STYLES,
+                               ((LIST_INSET, 0), (0, LIST_INSET))):
+            # spacing: unique -- Treeview internals, which are style options -- tree, text ↔
+            style.configure(name, padding=px((sides[0], 0, sides[1], 0)))
 
     def _on_scroll(self, tree, bar, first, last):
         """One list scrolled, by the wheel or the keys: the scrollbar and
@@ -330,20 +354,24 @@ class EpioneTab(BaseTab):
             head = ttk.Frame(frame)
             head.pack(fill=tk.X)
             # Each scenario's title in the combatant's heading's face,
-            # its count and opening line beside it as that one's are.
+            # its count and opening line beside it as that one's are. The
+            # title's column is as wide as the widest title, so every
+            # count stands in one column, whoever is shown (`_draw`).
             title = make_heading(head, "")
-            title.pack(side=tk.LEFT, anchor=tk.S)
+            title.grid(row=0, column=0, sticky="sw")
             count = ttk.Label(head, text="", font=HEADING_COUNTDOWN_FONT)
             # spacing: heading ↔ element -- heading, label ↔
             # spacing: heading ↔ element -- heading, label ↕
-            count.pack(side=tk.LEFT, anchor=tk.S,
+            # From the title column's edge: a shorter title leaves the
+            # column's slack before it.
+            count.grid(row=0, column=1, sticky="sw",
                        padx=px((HEADING_COUNTDOWN_GAP, 0)),
                        pady=px((0, HEADING_COUNTDOWN_DROP)))
             line = ttk.Label(head, text="", font=ROW_FONT,
                              foreground=self.colors["fg_dim"])
             # spacing: header subtext -- label, label ↔
             # spacing: heading ↔ element -- label, label ↔
-            line.pack(side=tk.LEFT, anchor=tk.S,
+            line.grid(row=0, column=2, sticky="sw",
                       padx=px((COUNT_TO_LINE, 0)),
                       pady=px((0, HEADING_COUNTDOWN_DROP)))
             cards = ttk.Frame(frame)
@@ -606,6 +634,37 @@ class EpioneTab(BaseTab):
                 self._fill_card(texts[slot], person, opener, advice)
         for frame, _head, _texts in self._blocks[len(person.scenarios):]:
             frame.pack_forget()
+        # Once the titles' new words have their requested widths.
+        self.frame.after_idle(self._align_counts)
+
+    def _align_counts(self):
+        """Hold every scenario title's column at the widest title's
+        width, so each count stands in one column. Measured, so not
+        through `px`: the widest title in the title's face, plus the
+        Label's own inset around its words."""
+        widest = self._widest_title()
+        for _frame, (title, _count, _line), _texts in self._blocks:
+            try:
+                inset = title.winfo_reqwidth() - self._heading_font.measure(
+                    str(title.cget("text")))
+                title.master.grid_columnconfigure(0, minsize=widest + inset)
+            except tk.TclError:
+                return                   # the tab went away
+
+    def _widest_title(self):
+        """The widest scenario title any combatant has, in the title's
+        face: the whole client's, so the counts stand in one column
+        whichever combatant is shown. Worked out again only once the
+        client's facts are read anew (`game_client.generation`)."""
+        import game_client
+        key = game_client.generation()
+        if self._drawn.get("widest") != key:
+            self._drawn["widest"] = key
+            self._widest = max(
+                (self._heading_font.measure(s["title"])
+                 for held in game_client.known_counseling().values()
+                 for s in held["scenarios"]), default=0)
+        return self._widest
 
     def _fill_card(self, text, person, opener, advice):
         """One card's options, and its whiff line where its opener is

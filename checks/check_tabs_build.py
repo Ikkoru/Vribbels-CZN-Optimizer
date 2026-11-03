@@ -2750,6 +2750,26 @@ def _epione_marks_and_advises(tab):
         if tab._done_tree.set("1", "done") != mod.NO_COUNSELING:
             out.append("Epione: a combatant the client gives no counseling "
                        "is not listed with nothing to count")
+        # The two lists meet with no inset at the join: each style's
+        # padding is on its outer side alone.
+        from tkinter import ttk as _ttk
+        import re as _re
+        joint = [[int(n) for n in _re.findall(r"-?\d+", str(
+            _ttk.Style().lookup(name, "padding")))]
+            for name in mod.LIST_STYLES]
+        if len(joint) != 2 or joint[0][2:3] != [0] or joint[1][0:1] != [0]:
+            out.append(f"Epione: the two lists' paddings read {joint}: an "
+                       f"inset where they meet shows as a strip of window "
+                       f"between the Combatant and Completed columns")
+        # Every scenario's count stands in one column: the title column
+        # held at the widest title's width, the same in every block.
+        tab._align_counts()
+        widths = {int(block[1][0].master.grid_columnconfigure(0)["minsize"])
+                  for block in tab._blocks}
+        if len(widths) != 1 or not min(widths):
+            out.append(f"Epione: the scenario titles' columns are held at "
+                       f"{sorted(widths)}: one width, the widest title's, "
+                       f"lines every count up")
         # Picking a row in the counts' list picks it in the names' too.
         tab._done_tree.selection_set("1")
         tab._on_select(tab._done_tree)
@@ -6842,6 +6862,12 @@ FAULTS = [
      "ui.tabs.epione_tab:EpioneTab._offered_pair",
      "if not offered or self._marked_at != person.done:",
      "if not offered:", "left them marked"),
+    ("the lists inset where they meet", "ui.tabs.epione_tab:EpioneTab._style_lists",
+     "((LIST_INSET, 0), (0, LIST_INSET))",
+     "((LIST_INSET, LIST_INSET), (LIST_INSET, LIST_INSET))",
+     "the two lists' paddings"),
+    ("the counts left unaligned", "ui.tabs.epione_tab:EpioneTab._align_counts",
+     "minsize=widest + inset)", "minsize=0)", "titles' columns are held"),
     ("a cure without its tier's colour", "ui.tabs.epione_tab:EpioneTab._fill_card",
      "(state, TIER_TAG % min(band, len(TIER_COLOURS) - 1))", "(state,)",
      "does not carry tier"),
