@@ -134,6 +134,10 @@ LINE_PITCH = {FIRST_TAG: 0, OPTION_TAG: OPTION_PITCH,
 # The opener heads its card, centred: its label in the tab headings'
 # face, its words on the line under it.
 OPENER_FONT = ("Segoe UI", 14, "bold")
+# A scenario's count and the line it opens on, beside its title: a point
+# over the tab's rows, the line being how a counseling's scenario is
+# recognised at a glance.
+SCENARIO_LINE_FONT = ("Segoe UI", 11)
 CENTRED_TAG = "centred"
 # A follow-up's label wraps under itself, past its cure result, and its
 # words take the line under it there too.
@@ -359,7 +363,7 @@ class EpioneTab(BaseTab):
             # count stands in one column, whoever is shown (`_draw`).
             title = make_heading(head, "")
             title.grid(row=0, column=0, sticky="sw")
-            count = ttk.Label(head, text="", font=HEADING_COUNTDOWN_FONT)
+            count = ttk.Label(head, text="", font=SCENARIO_LINE_FONT)
             # spacing: heading ↔ element -- heading, label ↔
             # spacing: heading ↔ element -- heading, label ↕
             # From the title column's edge: a shorter title leaves the
@@ -367,8 +371,7 @@ class EpioneTab(BaseTab):
             count.grid(row=0, column=1, sticky="sw",
                        padx=px((HEADING_COUNTDOWN_GAP, 0)),
                        pady=px((0, HEADING_COUNTDOWN_DROP)))
-            line = ttk.Label(head, text="", font=ROW_FONT,
-                             foreground=self.colors["fg_dim"])
+            line = ttk.Label(head, text="", font=SCENARIO_LINE_FONT)
             # spacing: header subtext -- label, label ↔
             # spacing: heading ↔ element -- label, label ↔
             line.grid(row=0, column=2, sticky="sw",

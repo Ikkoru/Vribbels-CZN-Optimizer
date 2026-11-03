@@ -253,7 +253,7 @@ Body text is **Segoe UI 9**. The three panels of running prose are **Segoe UI Va
 | Face                    | Tk pt   | Ascent | Descent | Linespace | Where                            |
 | ----------------------- | ------- | ------ | ------- | --------- | -------------------------------- |
 | Segoe UI                | 9       | 12     | 3       | 15        | body text everywhere, bold included |
-| Segoe UI                | 11      | 16     | 4       | 20        | Setup Status; Capture's `Ready`  |
+| Segoe UI                | 11      | 16     | 4       | 20        | Setup Status; Capture's `Ready`; the Epione tab's scenario counts and opening lines |
 | Segoe UI                | 14 bold | 20     | 5       | 25        | the tab headings, the Materials tab's three column headings, Application Information's first two lines |
 | Segoe UI Variable Small | 11      | 16     | 4       | 20        | Capture Log; Setup Instructions; How Gear Score Works |
 | Segoe UI                | 12 bold | 17     | 4       | 21        | the Materials tab's Element names |
