@@ -2579,9 +2579,10 @@ def _checklist_short_names_keep_their_tip(tab):
 
 
 def _disaster_rows_light(tab):
-    """A requirement's Equipment name is red and its button's words a
-    green line of their own, lit or not; on its Event the rest of its
-    words are orange under those two, and its page scrolls to it, once.
+    """A requirement's Equipment name is red, a combatant's purple and
+    its button's words a green line of their own, lit or not; on its
+    Event the rest of its words are orange under those, and its page
+    scrolls to it, once.
 
     Drawn from a hand-made `Board`, so this holds the drawing whatever
     the snapshot holds. Returns a list of complaints.
@@ -2590,14 +2591,14 @@ def _disaster_rows_light(tab):
     import disaster_challenges as dc
     from ui.tabs import disaster_tab as mod
     out = []
-    words = "Obtain equipment Hammer in the Long Road"
+    words = "Obtain equipment Hammer with Nine, not Ninety"
 
     def draw(lit, extra=()):
         tab._draw(dc.Board("disaster_s09", (dc.Page(
             "disaster_ingame", "Page", 0, 3, False,
             (dc.Row("r1", "Clear it", None),
              dc.Row("r2", words, None, ("Take it", "Leave it"), ("Hammer",),
-                    lit),
+                    lit, ("Nine",)),
              dc.Row("r3", "Then this", None)) + extra, ()),), None))
 
     text = tab._columns["disaster_ingame"][4]
@@ -2616,6 +2617,12 @@ def _disaster_rows_light(tab):
             out.append("an Equipment name is not marked red")
         if mod.EQUIPMENT_TAG in text.tag_names("2.0"):
             out.append("a requirement's other words are marked as Equipment")
+        nine = "2.%d" % words.index("Nine")
+        if mod.COMBATANT_TAG not in text.tag_names(nine):
+            out.append("a combatant name is not marked purple")
+        if mod.COMBATANT_TAG in text.tag_names(
+                "2.%d" % words.index("Ninety")):
+            out.append("a combatant name was marked inside a longer word")
         for line in ("3.0", "4.0"):
             tags = text.tag_names(line)
             if mod.OPTION_TAG not in tags:
@@ -2624,6 +2631,7 @@ def _disaster_rows_light(tab):
                 out.append("a button's line takes a requirement's pitch: it "
                            "reads as a requirement of its own")
         for tag, colour in ((mod.EQUIPMENT_TAG, mod.EQUIPMENT_COLOUR),
+                            (mod.COMBATANT_TAG, mod.COMBATANT_COLOUR),
                             (mod.OPTION_TAG, mod.OPTION_COLOUR),
                             (mod.LIT_TAG, mod.LIT_COLOUR)):
             if str(text.tag_cget(tag, "foreground")) != tab.colors[colour]:
@@ -2640,6 +2648,10 @@ def _disaster_rows_light(tab):
         if {mod.EQUIPMENT_TAG, mod.LIT_TAG} <= set(names) and \
                 names.index(mod.EQUIPMENT_TAG) < names.index(mod.LIT_TAG):
             out.append("a lit row's orange covers its Equipment name")
+        names = list(text.tag_names(nine))
+        if {mod.COMBATANT_TAG, mod.LIT_TAG} <= set(names) and \
+                names.index(mod.COMBATANT_TAG) < names.index(mod.LIT_TAG):
+            out.append("a lit row's orange covers its combatant's name")
         if mod.LIT_TAG in text.tag_names("3.0"):
             out.append("a lit row's orange covers the button's green")
         if seen != ["2.0"]:
@@ -6937,8 +6949,25 @@ FAULTS = [
      "carry no tip"),
     ("an Equipment name not marked",
      "ui.tabs.disaster_tab:DisasterTab._fill_page",
-     "                self._tag_words(text, name, start)",
+     "                self._tag_words(text, EQUIPMENT_TAG, name, start)",
      "                pass", "an Equipment name is not marked red"),
+    ("a combatant name not marked",
+     "ui.tabs.disaster_tab:DisasterTab._fill_page",
+     "                self._tag_words(text, COMBATANT_TAG, name, start)",
+     "                pass", "a combatant name is not marked purple"),
+    ("a name marked inside a longer word",
+     "ui.tabs.disaster_tab:DisasterTab._tag_words",
+     'pattern = r"\\y%s\\y" % re.escape(words)',
+     'pattern = re.escape(words)', "inside a longer word"),
+    ("orange over a lit row's combatant name",
+     "ui.tabs.disaster_tab:DisasterTab._build_page",
+     "for tag, colour in ((LIT_TAG, LIT_COLOUR),\n"
+     "                            (EQUIPMENT_TAG, EQUIPMENT_COLOUR),\n"
+     "                            (COMBATANT_TAG, COMBATANT_COLOUR),",
+     "for tag, colour in ((COMBATANT_TAG, COMBATANT_COLOUR),\n"
+     "                            (LIT_TAG, LIT_COLOUR),\n"
+     "                            (EQUIPMENT_TAG, EQUIPMENT_COLOUR),",
+     "covers its combatant's name"),
     ("a button's line taking a requirement's pitch",
      "ui.tabs.disaster_tab:DisasterTab._fill_page",
      '"\\n" + OPTION_LINE % option, (OPTION_TAG,))',

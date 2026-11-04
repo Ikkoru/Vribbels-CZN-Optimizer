@@ -77,7 +77,7 @@ GAMERES = Path("bin") / "appdata" / "cznlive" / "gameres"
 # reader that changes what it reads raises this: every install then
 # reads its client again once, rather than at the next patch.
 CACHE_FILE = "game_client.json"
-CACHE_FORMAT = 25
+CACHE_FORMAT = 26
 
 # The manifest layout this reads. A different version is a different
 # layout until shown otherwise.
@@ -1933,13 +1933,14 @@ def disaster_challenges(client):
 
     * `pages`: {page: its title in the game's words};
     * `achievements`: [{'id', 'page', 'sort', 'kind', 'count', 'text',
-      'gate', 'children', 'list', 'events', 'options', 'equipment'}],
-      page by page in the game's order. `kind` is `named`, `meta` (for
-      finishing `children`) or `generic`; `gate` the schedule that
-      unlocks it, or None; `list` the info id of the list it collects,
-      or None; `events` the Events it is done on, a step's as its
-      Event's; `options` the words on the button to pick there;
-      `equipment` the Equipment names its `text` holds;
+      'gate', 'children', 'list', 'events', 'options', 'equipment',
+      'combatants'}], page by page in the game's order. `kind` is
+      `named`, `meta` (for finishing `children`) or `generic`; `gate`
+      the schedule that unlocks it, or None; `list` the info id of the
+      list it collects, or None; `events` the Events it is done on, a
+      step's as its Event's; `options` the words on the button to pick
+      there; `equipment` and `combatants` the Equipment and combatant
+      names its `text` holds;
     * `gates`: {schedule: days into the season's schedule it opens};
     * `lists`: {info id: {'kind', 'collection', 'items'}}, `kind`
       `chaos` or `disaster`, `collection` the wire's id for the page,
@@ -1965,6 +1966,7 @@ def disaster_challenges(client):
     infos = {row["id"]: row for row in client.rows(CHALLENGE_INFO_TABLE)}
     events = _challenge_events(client, texts)
     seasons = {row["id"]: row for row in _rows_of(client, (SEASON_TABLE,))}
+    people = _combatant_names(client, texts)
     out = {}
     for short in tables:
         rows = client.rows("disaster_achievement(%s)@disaster_achievement"
@@ -1998,7 +2000,9 @@ def disaster_challenges(client):
                 "children": children,
                 "list": info if info in infos else None,
                 "events": where, "options": options,
-                "equipment": _equipment_named(row, words, relics, texts)})
+                "equipment": _equipment_named(row, words, relics, texts),
+                "combatants": [name for name in people if re.search(
+                    r"\b%s\b" % re.escape(name), words)]})
         if not achievements:
             continue
         achievements.sort(key=lambda a: (CHALLENGE_PAGES.index(a["page"]),
@@ -2109,6 +2113,17 @@ def _challenge_event(row, words, events):
     if not where and named:
         where = events["named"].get(named.group(1)) or []
     return sorted(set(where)), options
+
+
+def _combatant_names(client, texts):
+    """The name of every combatant the game lets a player use, as
+    `combatants` picks them, without the stats it reads beside them."""
+    playable = {row["id"] for row in _rows_of(client, ("char_base@char_base",))
+                if row.get("char_use_playable") == "YES"}
+    names = (clean(texts.get(COMBATANT_NAME % row["id"]))
+             for row in _rows_of(client, ("char_base@char_combatant",))
+             if row["id"] in playable)
+    return sorted({name for name in names if name})
 
 
 def _equipment_named(row, words, relics, texts):

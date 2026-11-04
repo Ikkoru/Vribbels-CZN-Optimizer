@@ -16,6 +16,7 @@ What is left on the live season's Challenge Mission pages. Weekly Progress is th
 | What has been found | the codex, `chaos_archive_entities`, and the seasons' collections, `disaster_collection_entities`, with a Chaos run's finds laid over them (below) |
 | The Events an achievement is done on, and the button to pick there | its `condition_type` and `opt_1_multiple_link`, read through the `encounter(...)` tables (*Events*, below) |
 | The Equipment names in its words | the season's `new_link_relic_id` (`event_disaster@event_disaster`) and what a `GET_EQUIPMENT__ID` row asks for, each named by `relic@name@<id>` |
+| The combatant names in its words | every combatant with `char_use_playable` `YES` (`char_base@char_combatant`, `char_base@char_base`), named by `char_base@name@<id>`, as whole words |
 | The Event the player stands on | the capture, while it runs (*Events*, below) |
 
 The client lists a later part's achievements before their words: until the patch that opens the part they read `To be updated soon.`, or name a combatant that part brings. They are locked, so the tab counts them rather than writing them out.
@@ -47,7 +48,7 @@ No captured codex or collection, and a tip says so rather than listing every ite
 
 ## Events
 
-A requirement's Equipment names are red, and the words on the game's button for it (`simple_flavor_text`) follow in green, a line each, starting `> `. While the player stands on an Event the requirement is done on, the rest of its words are orange and its page scrolls to it.
+A requirement's Equipment names are red, its combatant names purple, and the words on the game's button for it (`simple_flavor_text`) follow in green, a line each, starting `> `. While the player stands on an Event the requirement is done on, the rest of its words are orange and its page scrolls to it.
 
 | Condition | What it names | Its Events and buttons |
 | --------- | ------------- | ---------------------- |

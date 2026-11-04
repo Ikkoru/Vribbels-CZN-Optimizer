@@ -80,7 +80,9 @@ CLIENT_TEXT = {
     "disaster_achievement@desc@disaster_s09_203":
         "Obtain legendary equipment Hammer",
     "disaster_achievement@desc@disaster_s09_204":
-        "Check [Diary] in Unidentified Area [Long Road]",
+        "Check [Diary] in Unidentified Area [Long Road] with Nine",
+    "char_base@name@1001": "Nine", "char_base@name@1002": "Diary",
+    "char_base@name@1003": "Lon",
     "achievement_category_disaster_collection": "Mission Records",
     "monster@name@m1": "Wolf", "monster@name@m2": "Hidden",
     "relic@name@eq_a": "Hammer", "relic@name@eq_b": "Other season's",
@@ -152,6 +154,14 @@ CLIENT_TABLES = {
         {"id": "get_eq_a", "reward_multiple_link": "eq_a"}],
     "event_disaster@event_disaster": [
         {"id": SEASON, "new_link_relic_id": "[eq_a,eq_b]"}],
+    # A combatant named in the words, one no player can use, and one
+    # whose name is only the start of a word there.
+    "char_base@char_base": [
+        {"id": "1001", "char_use_playable": "YES"},
+        {"id": "1002", "char_use_playable": "NO"},
+        {"id": "1003", "char_use_playable": "YES"}],
+    "char_base@char_combatant": [
+        {"id": "1001"}, {"id": "1002"}, {"id": "1003"}],
     "disaster_achievement(s07)@disaster_achievement": [
         _row("disaster_s07_101", "disaster_collection", 1)],
     "disaster_constant_meta@disaster_constant_meta": [
@@ -271,6 +281,11 @@ def _reader_failures():
                    f"a name in the words stays uncoloured")
     if (by_id.get("disaster_s09_101") or {}).get("events") != []:
         out.append("a row no Event serves reads as served by one")
+    named = (by_id.get("disaster_s09_204") or {}).get("combatants")
+    if named != ["Nine"]:
+        out.append(f"the combatants named by disaster_s09_204 read {named}, "
+                   f"not ['Nine']: a name is whole words, and a character no "
+                   f"player can use is no combatant to colour")
     return out
 
 
@@ -293,6 +308,8 @@ def _shipped_failures():
             out.append(f"{season} carries no option's words on any row")
         if not any(a.get("equipment") for a in rows):
             out.append(f"{season} carries no Equipment name on any row")
+        if not any(a.get("combatants") for a in rows):
+            out.append(f"{season} carries no combatant name on any row")
     return out
 
 
@@ -512,11 +529,12 @@ def _marker_failures():
 # ------------------------------------------------------------ the model
 
 def _achievement(rid, page, kind="named", count=1, gate=None, children=(),
-                 listed=None, text=None, events=(), options=(), equipment=()):
+                 listed=None, text=None, events=(), options=(), equipment=(),
+                 combatants=()):
     return {"id": rid, "page": page, "sort": 0, "kind": kind, "count": count,
             "text": text or rid, "gate": gate, "children": list(children),
             "list": listed, "events": list(events), "options": list(options),
-            "equipment": list(equipment)}
+            "equipment": list(equipment), "combatants": list(combatants)}
 
 
 CHALLENGES = {SEASON: {
@@ -546,7 +564,8 @@ CHALLENGES = {SEASON: {
         _achievement("c1", "disaster_ingame", gate="part2"),
         _achievement("e1", "disaster_ingame", events=("uk_a",),
                      options=("Take it",), equipment=("Hammer",),
-                     text="Obtain equipment Hammer"),
+                     combatants=("Nine",),
+                     text="Obtain equipment Hammer with Nine"),
         _achievement("e2", "disaster_ingame", events=("uk_b", "uk_c")),
     ],
     "lists": {"info_b1": {"kind": "chaos", "collection": "chaos_14_02",
@@ -636,10 +655,11 @@ def _model_failures():
             out.append(f"standing on {event!r} lights {lit(event)}, not "
                        f"{want}: {why}")
     shown = {r.id: r for r in investigation.rows}.get("e1")
-    if shown is None or (shown.options, shown.equipment) != (
-            ("Take it",), ("Hammer",)):
-        out.append(f"a row reads {shown}: its button's words and Equipment "
-                   f"name show whether or not the player is on its Event")
+    if shown is None or (shown.options, shown.equipment, shown.combatants) \
+            != (("Take it",), ("Hammer",), ("Nine",)):
+        out.append(f"a row reads {shown}: its button's words and its "
+                   f"Equipment and combatant names show whether or not the "
+                   f"player is on its Event")
     battle = pages.get("disaster_battle")
     tip = battle.rows[0].tip if battle and battle.rows else None
     if tip != ("Owl", "+1 more in a later part"):
@@ -777,6 +797,15 @@ FAULTS = [
      "disaster_s09_204 read"),
     ("Equipment names not looked for", "game_client:_equipment_named",
      "if name and name in words", "if False", "the Equipment named by"),
+    ("a combatant's name found inside a word",
+     "game_client:disaster_challenges",
+     'r"\\b%s\\b" % re.escape(name), words)',
+     're.escape(name), words)', "the combatants named by"),
+    ("a character no player can use taken for a combatant",
+     "game_client:_combatant_names",
+     'if row.get("char_use_playable") == "YES"', "", "the combatants named by"),
+    ("combatant names dropped from a row", "disaster_challenges:board",
+     'tuple(a.get("combatants") or ()))', "())", "a row reads"),
     ("no row given its Events", "game_client:_challenge_event",
      'return sorted(set(where)), options', 'return [], options',
      "disaster_s09_201 read"),

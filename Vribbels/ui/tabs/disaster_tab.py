@@ -14,14 +14,16 @@ pages still open share the width it leaves. A page with a reward waiting
 to be claimed has its count in orange, blinking once the page has moved.
 
 **A requirement says what to pick.** Equipment names in its words are
-red, and the words on the game's button for it follow in green, a line
-each. While the capture says the player stands on an Event it is done
-on, the rest of its words are orange, and its page scrolls to it.
+red, combatant names purple, and the words on the game's button for it
+follow in green, a line each. While the capture says the player stands
+on an Event it is done on, the rest of its words are orange, and its
+page scrolls to it.
 
 `disaster_challenges.board` reads the snapshot; this only draws it.
 `docs/disaster_challenges.md` has both.
 """
 
+import re
 import time
 import tkinter as tk
 from tkinter import ttk
@@ -64,23 +66,27 @@ LINE_PITCH = {FIRST_TAG: ROW_PITCH, ROW_TAG: REQUIREMENT_PITCH}
 LOCKED_TAG = "locked"
 TIP_PREFIX = "tip:"
 # A requirement lit by the Event the player stands on, an Equipment name
-# in its words, and a line of the button to pick for it. **Configured in
-# this order**: a later tag's colour wins, so a lit row keeps its red
-# and green. An option line takes no pitch: it is the requirement's own
-# next line, as its words' wrapped ones are.
+# and a combatant name in its words, and a line of the button to pick
+# for it. **Configured in this order**: a later tag's colour wins, so a
+# lit row keeps its red, purple and green. An option line takes no
+# pitch: it is the requirement's own next line, as its words' wrapped
+# ones are.
 LIT_TAG = "lit"
 EQUIPMENT_TAG = "equipment"
+COMBATANT_TAG = "combatant"
 OPTION_TAG = "option"
 # What opens an option's line, setting it off from the words above it.
 OPTION_LINE = "> %s"
 
 # The colours: a finished page's heading; a count with a reward waiting,
 # steady on an open page and blinking on a finished one; a requirement
-# the player's Event serves, an Equipment name, the button to pick.
+# the player's Event serves, an Equipment name, a combatant name, the
+# button to pick.
 FINISHED_COLOUR = "green"
 UNCLAIMED_COLOUR = "orange"
 LIT_COLOUR = "orange"
 EQUIPMENT_COLOUR = "red"
+COMBATANT_COLOUR = "purple"
 OPTION_COLOUR = "green"
 
 # How often the tab rereads the clock while it is showing: a locked
@@ -183,6 +189,7 @@ class DisasterTab(BaseTab):
         text.tag_configure(LOCKED_TAG, foreground=self.colors["fg_dim"])
         for tag, colour in ((LIT_TAG, LIT_COLOUR),
                             (EQUIPMENT_TAG, EQUIPMENT_COLOUR),
+                            (COMBATANT_TAG, COMBATANT_COLOUR),
                             (OPTION_TAG, OPTION_COLOUR)):
             text.tag_configure(tag, foreground=self.colors[colour])
         text.config(state=tk.DISABLED)
@@ -289,7 +296,9 @@ class DisasterTab(BaseTab):
             start = text.index("end-1c")
             text.insert(tk.END, row.text, tuple(tags))
             for name in row.equipment:
-                self._tag_words(text, name, start)
+                self._tag_words(text, EQUIPMENT_TAG, name, start)
+            for name in row.combatants:
+                self._tag_words(text, COMBATANT_TAG, name, start)
             for option in row.options:
                 text.insert(tk.END, "\n" + OPTION_LINE % option, (OPTION_TAG,))
             if row.lit and row.id not in was_lit and newly_lit is None:
@@ -306,13 +315,15 @@ class DisasterTab(BaseTab):
         if newly_lit is not None:
             text.see(newly_lit)
 
-    def _tag_words(self, text, words, start):
-        """Mark every `words` in `text` from `start` on as Equipment."""
-        found = text.search(words, start, stopindex=tk.END, exact=True)
+    def _tag_words(self, text, tag, words, start):
+        """Give `tag` to every `words` in `text` from `start` on, as
+        whole words: a combatant called Nine is not in Ninety."""
+        pattern = r"\y%s\y" % re.escape(words)
+        found = text.search(pattern, start, stopindex=tk.END, regexp=True)
         while found:
             end = "%s+%dc" % (found, len(words))
-            text.tag_add(EQUIPMENT_TAG, found, end)
-            found = text.search(words, end, stopindex=tk.END, exact=True)
+            text.tag_add(tag, found, end)
+            found = text.search(pattern, end, stopindex=tk.END, regexp=True)
 
     def _lay_out(self, open_pages, done_pages):
         """Grid the open pages left to right, sharing the width, and the

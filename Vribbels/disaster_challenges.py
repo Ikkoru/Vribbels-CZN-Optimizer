@@ -89,11 +89,11 @@ NO_CAPTURE = ("No capture holds this season's challenge pages yet: log in "
 # included.
 Page = namedtuple("Page", "page title done total unclaimed rows locked")
 # `tip`: a list achievement's items still to find, one line each, or
-# None. `options`: the words on the buttons to pick for it. `equipment`:
-# the Equipment names in `text`. `lit`: the player stands on an Event
-# it is done on.
-Row = namedtuple("Row", "id text tip options equipment lit",
-                 defaults=((), (), False))
+# None. `options`: the words on the buttons to pick for it. `equipment`
+# and `combatants`: the Equipment and combatant names in `text`. `lit`:
+# the player stands on an Event it is done on.
+Row = namedtuple("Row", "id text tip options equipment lit combatants",
+                 defaults=((), (), False, ()))
 Board = namedtuple("Board", "season pages note")
 
 
@@ -146,7 +146,8 @@ def board(raw, now, challenges=None, constants=None, event=None):
                 _tip(held, a, lists, reading),
                 tuple(a.get("options") or ()),
                 tuple(a.get("equipment") or ()),
-                here in (a.get("events") or ()))
+                here in (a.get("events") or ()),
+                tuple(a.get("combatants") or ()))
             for a in counted
             if a.get("kind") == "named" and not reading.done(a)
             and reading.open(a))
