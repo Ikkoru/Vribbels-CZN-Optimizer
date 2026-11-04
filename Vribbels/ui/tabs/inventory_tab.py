@@ -41,6 +41,9 @@ import time
 import tkinter as tk
 from tkinter import ttk
 from tkinter import font as tkfont
+import fragment_costs
+import game_client
+import item_amounts
 from game_data import EQUIPMENT_SLOTS, RARITY_COLORS, SETS, set_bonus
 from game_data.sets import named_sets, set_named, set_pieces
 # Aliased: `set_name` is what the set filter's loops call each name.
@@ -89,6 +92,21 @@ SETS_PANEL_MIN_W = 741
 # See the call site. The Level caption takes the same trim on its RIGHT,
 # where its ink has to end level with the Slots panel's border.
 PRESET_LABEL_TRIM = -3
+
+# The rows under Main Stats: their distance below the panel, and what
+# each of a sentence's two labels gives back of a label's inset where
+# they meet.
+UNITS_ROWS_DROP = 5
+UNITS_WORDS_JOIN = 2
+# The words after each figure. The first sentence's end is its own
+# label, in the colour of the `Rare` rarity.
+UNITS_NEEDED_WORDS = "Units needed to level all to 3 + use up all "
+UNITS_CORE_WORDS = "Core of Memory"
+UNITS_CORE_RARITY = 3
+UNITS_SPARE_WORDS = "Units to spare"
+UNITS_SHORT_WORDS = "Units needed."
+UNITS_RUNS_WORDS = ("Units needed. Apx. %s x6 runs of "
+                    "Growth - Unit - Difficulty 6.")
 
 # The Level filter: one level, or every level. The levels run from 0 to
 # the highest any rarity reaches, so a rarity capped lower simply has no
@@ -435,16 +453,24 @@ class InventoryTab(BaseTab):
         make_all_none_row(set_frame, self.select_all_sets,
                           self.select_no_sets)
 
+        # What stands right of the Sets panel: Main Stats, the options
+        # beside it, and the Units rows under both. A grid, so the rows
+        # can run on under the options rather than widen the panel; the
+        # options span both grid rows, which centres them as before.
+        right_col = ttk.Frame(filter_frame)
+        right_col.pack(side=tk.LEFT, fill=tk.Y)
+        right_col.rowconfigure(1, weight=1)
+
         # ----- Main Stats filter -----------------------------------------
         # spacing: border edge -> first non-button element -- panel, checkbox ↔↕
-        main_frame = ttk.LabelFrame(filter_frame, text="Main Stats", padding=px((0, 2, 0, 3)))
+        main_frame = ttk.LabelFrame(right_col, text="Main Stats", padding=px((0, 2, 0, 3)))
         # spacing: content frame -> content frame -- frame, frame ↔
         # Trailing 0, so this panel's two sides answer to two rules
         # without sharing a lever: what follows it is not another panel
         # but the options column, whose distance from this border is
         # bought on `opt_frame` below.
-        main_frame.pack(side=tk.LEFT, padx=(px_after(2, 2), px(0)),
-                        anchor=tk.N)
+        main_frame.grid(row=0, column=0, sticky=tk.N,
+                        padx=(px_after(2, 2), px(0)))
 
         self.inv_main_stat_frame_inner = ttk.Frame(main_frame)
         self.inv_main_stat_frame_inner.pack(anchor=tk.W)
@@ -503,7 +529,7 @@ class InventoryTab(BaseTab):
         self._refresh_main_stat_availability()
 
         # ----- Options ---------------------------------------------------
-        opt_frame = ttk.Frame(filter_frame)
+        opt_frame = ttk.Frame(right_col)
         # spacing: border edge -> first non-button element -- panel, checkbox ↔
         # spacing: content frame -> content frame -- frame, frame ↔
         # LEADING is the lever for every checkbox in this column at
@@ -516,7 +542,8 @@ class InventoryTab(BaseTab):
         # rule -- the two sides are stated apart so neither nudge moves
         # the other.
         # The trailing half ends the run filter_frame's 2 began.
-        opt_frame.pack(side=tk.LEFT, padx=(px(2), px_after(2, 2)))
+        opt_frame.grid(row=0, column=1, rowspan=2,
+                       padx=(px(2), px_after(2, 2)))
 
         self.inv_unequipped_var = tk.BooleanVar(value=False)
         make_checkbox(opt_frame, self.colors, text="Unequipped Only",
@@ -568,6 +595,8 @@ class InventoryTab(BaseTab):
                       command=self._on_use_log_filters_toggle).pack(
                           anchor=tk.W, pady=px((0, 0)))
         self._sync_assigned_only()
+
+        self._build_units_rows(right_col)
 
         # ----- Treeview ---------------------------------------------------
         tree_frame = ttk.Frame(self.frame)
@@ -639,6 +668,69 @@ class InventoryTab(BaseTab):
         # an empty box a fraction of its real width on a fresh install,
         # and every panel beside it sat at the wrong size with it.
         self.populate_set_filters()
+
+    # ----- Units rows ----------------------------------------------------
+
+    def _build_units_rows(self, parent):
+        """The two rows under Main Stats: a column of right-aligned
+        figures, so the two last digits line up, and the words after
+        each. Filled by `_refresh_units`."""
+        rows = ttk.Frame(parent)
+        # spacing: panel ↕ unrelated label -- panel, label ↕
+        # spacing: content frame -> content frame -- frame, label ↔
+        # The leading pad is Main Stats' own, so the rows start at its
+        # border.
+        rows.grid(row=1, column=0, columnspan=2, sticky=tk.NW,
+                  padx=(px_after(2, 2), px(0)),
+                  pady=px((UNITS_ROWS_DROP, 0)))
+        # `PRESET_LABEL_TRIM`: the figure's ink, not its box, starts at
+        # the border.
+        self.units_needed_label = ttk.Label(
+            rows, text="", padding=px((PRESET_LABEL_TRIM, 0, 0, 0)))
+        self.units_spare_label = ttk.Label(
+            rows, text="", padding=px((PRESET_LABEL_TRIM, 0, 0, 0)))
+        words = ttk.Frame(rows)
+        # NOT padding between two elements: one sentence in two colours,
+        # each label giving back its side of a label's own inset.
+        self.units_needed_words = ttk.Label(
+            words, text="", padding=px((0, 0, -UNITS_WORDS_JOIN, 0)))
+        self.units_core_words = ttk.Label(
+            words, text="", foreground=RARITY_COLORS[UNITS_CORE_RARITY],
+            padding=px((-UNITS_WORDS_JOIN, 0, 0, 0)))
+        self.units_needed_words.pack(side=tk.LEFT)
+        self.units_core_words.pack(side=tk.LEFT)
+        self.units_spare_words = ttk.Label(rows, text="")
+        self.units_needed_label.grid(row=0, column=0, sticky=tk.E)
+        words.grid(row=0, column=1, sticky=tk.W)
+        # spacing: label row -> label row -- label, label ↕
+        # No pad: a label's own height is the rule's distance.
+        self.units_spare_label.grid(row=1, column=0, sticky=tk.E)
+        self.units_spare_words.grid(row=1, column=1, sticky=tk.W)
+
+    def _refresh_units(self):
+        """Read the two rows off the loaded snapshot. Every fragment
+        held counts, whatever the filters show: blank with none."""
+        fragments = [(f.rarity_num, f.level) for f in self.optimizer.fragments]
+        if not fragments:
+            for label in (self.units_needed_label, self.units_needed_words,
+                          self.units_core_words, self.units_spare_label,
+                          self.units_spare_words):
+                label.config(text="")
+            return
+        read = fragment_costs.reading(
+            fragments, item_amounts.held(self.optimizer.raw_data),
+            game_client.known_fragment_costs(),
+            game_client.known_limits().get("unit_drop"))
+        self.units_needed_label.config(text=f"{read.needed:,}")
+        self.units_needed_words.config(text=UNITS_NEEDED_WORDS)
+        self.units_core_words.config(text=UNITS_CORE_WORDS)
+        self.units_spare_label.config(
+            text=f"{read.spare:,}",
+            foreground=self.colors["red" if read.spare < 0 else "green"])
+        self.units_spare_words.config(
+            text=UNITS_SPARE_WORDS if read.spare >= 0
+            else UNITS_SHORT_WORDS if read.runs is None
+            else UNITS_RUNS_WORDS % f"{read.runs:,}")
 
     # ----- Slot filter ---------------------------------------------------
 
@@ -1098,6 +1190,7 @@ class InventoryTab(BaseTab):
             self._stale = True
             return
         self._stale = False
+        self._refresh_units()
         # The tree is NOT cleared here: _display_inventory_sorted() clears
         # it right after reading the current selection, so the highlight
         # can be restored onto the same fragments. Clearing here as well

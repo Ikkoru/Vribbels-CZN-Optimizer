@@ -434,13 +434,20 @@ def _readers():
              "legend_value": "[1.2,1.3]", "ratio": "70"},
             {"group": gc.PIECE_ROLL_GROUP,
              "link_stat_list_id": "S_HP_INC_ADD_OUT", "legend_value": "[x]"}],
-        gc.PIECE_LEVEL_TABLE: [{"id": "reinforce_legend_0"},
-                               {"id": "reinforce_legend_5"},
-                               {"id": "reinforce_rare_4"}, {"id": "other"}]})
+        gc.PIECE_LEVEL_TABLE: [
+            {"id": "reinforce_legend_0", "reinforce_cost": "8000"},
+            {"id": "reinforce_legend_3", "reinforce_cost": "32000",
+             "reinforce_1_link_item_id": "3200001",
+             "reinforce_1_item_cost": "30",
+             "reinforce_2_link_item_id": str(gc.CORE_OF_MEMORY),
+             "reinforce_2_item_cost": "4"},
+            {"id": "reinforce_legend_5", "reinforce_cost": "-1"},
+            {"id": "reinforce_rare_4"}, {"id": "other"}]})
     wanted = {"mains": {1: [["S_ATK_INC_ADD_OUT", 12, 2]]},
               "rolls": {"S_CRI_INC_ADD": [1.2, 1.3]},
               "draws": {"S_CRI_INC_ADD": 70},
-              "max_levels": {4: 5, 3: 4}}
+              "max_levels": {4: 5, 3: 4},
+              "costs": {4: [[8000, 0], [32000, 4]]}}
     if gc.fragment_stats(pieces) != wanted:
         out.append(f"on synthetic Memory Fragment options, "
                    f"`game_client.fragment_stats` reads "

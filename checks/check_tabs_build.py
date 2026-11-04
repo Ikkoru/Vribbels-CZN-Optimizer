@@ -5006,6 +5006,90 @@ def _checklist_records_while_hidden(tab):
     return out
 
 
+def _units_rows_read(tab):
+    """The two rows under Main Stats say what `fragment_costs` works out:
+    the figure in a column of its own, right-aligned, so the two last
+    digits line up; green and spare, or red with a minus and the runs;
+    blank with nothing loaded; and every list refresh reads them.
+
+    Drawn from a hand-made holding, so this holds whatever the snapshot
+    holds. Returns a list of complaints.
+    """
+    from types import SimpleNamespace
+    import fragment_costs as fc
+    import game_client
+    from game_data import RARITY_COLORS
+    from ui.tabs import inventory_tab as mod
+    out = []
+    real, hidden = tab.context.optimizer, tab.is_hidden
+    calls = []
+    tab.is_hidden = lambda: False
+    was = tab._refresh_units
+    tab._refresh_units = lambda: calls.append(1)
+    try:
+        tab.refresh_inventory()
+    finally:
+        tab._refresh_units = was
+    if not calls:
+        out.append("a list refresh does not read the Units rows: they keep "
+                   "the first load's figures all session")
+    cost = sum(step[0] for step in
+               game_client.known_fragment_costs()[4][:fc.LEVEL_FLOOR])
+
+    def show(units):
+        tab.context.optimizer = SimpleNamespace(
+            fragments=[SimpleNamespace(rarity_num=4, level=0)],
+            raw_data={"characters": {"currencies": {
+                str(fc.UNITS): {"amount": units}}}})
+        tab._refresh_units()
+
+    try:
+        show(cost + 500)
+        if tab.units_needed_label.cget("text") != f"{cost:,}":
+            out.append(f"the upper row reads "
+                       f"{tab.units_needed_label.cget('text')!r}, not "
+                       f"{cost:,}")
+        if tab.units_needed_words.cget("text") != mod.UNITS_NEEDED_WORDS \
+                or tab.units_core_words.cget("text") != mod.UNITS_CORE_WORDS:
+            out.append("the upper row's words are missing")
+        if str(tab.units_core_words.cget("foreground")) != RARITY_COLORS[3]:
+            out.append("Core of Memory is not in the Rare rarity's blue")
+        if (tab.units_spare_label.cget("text"),
+                str(tab.units_spare_label.cget("foreground")),
+                tab.units_spare_words.cget("text")) != (
+                "500", tab.colors["green"], mod.UNITS_SPARE_WORDS):
+            out.append("Units over the sum do not read green and spare")
+        show(0)
+        if (tab.units_spare_label.cget("text"),
+                str(tab.units_spare_label.cget("foreground"))) != (
+                f"-{cost:,}", tab.colors["red"]):
+            out.append(f"a shortfall reads "
+                       f"{tab.units_spare_label.cget('text')!r} in "
+                       f"{tab.units_spare_label.cget('foreground')}, not red "
+                       f"with a minus")
+        if tab.units_spare_words.cget("text") != mod.UNITS_RUNS_WORDS % "1":
+            out.append(f"a shortfall's words read "
+                       f"{tab.units_spare_words.cget('text')!r}")
+        for label in (tab.units_needed_label, tab.units_spare_label):
+            if "e" not in str(label.grid_info().get("sticky")) \
+                    or int(label.grid_info().get("column", -1)) != 0:
+                out.append("a figure is not right-aligned in the column "
+                           "they share: the last digits part")
+        tab.context.optimizer = SimpleNamespace(fragments=[], raw_data={})
+        tab._refresh_units()
+        if tab.units_needed_label.cget("text") \
+                or tab.units_spare_words.cget("text"):
+            out.append("the rows read figures with nothing loaded")
+    finally:
+        tab.context.optimizer = real
+        tab._refresh_units()
+        try:
+            del tab.is_hidden
+        except AttributeError:
+            tab.is_hidden = hidden
+    return out
+
+
 def _inventory_catches_up_when_shown(tab):
     """The Memory Fragments list skips a hidden refresh and makes it up.
 
@@ -6800,6 +6884,7 @@ def run():
             failures.extend(
                 _expiring_items_fit_under_the_columns(built["ChecklistTab"]))
         if "InventoryTab" in built:
+            failures.extend(_units_rows_read(built["InventoryTab"]))
             failures.extend(
                 _level_filter_keeps_one_level(built["InventoryTab"]))
             failures.extend(
@@ -6947,6 +7032,26 @@ FAULTS = [
     ("a list's tip not bound", "ui.tabs.disaster_tab:DisasterTab._fill_page",
      "                tags.append(tag)", "                pass",
      "carry no tip"),
+    ("the Units rows not read on a refresh",
+     "ui.tabs.inventory_tab:InventoryTab.refresh_inventory",
+     "        self._refresh_units()\n", "", "does not read the Units rows"),
+    ("a shortfall drawn green",
+     "ui.tabs.inventory_tab:InventoryTab._refresh_units",
+     'self.colors["red" if read.spare < 0 else "green"]',
+     'self.colors["green"]', "a shortfall reads"),
+    ("the runs left out of a shortfall",
+     "ui.tabs.inventory_tab:InventoryTab._refresh_units",
+     'else UNITS_SHORT_WORDS if read.runs is None',
+     'else UNITS_SHORT_WORDS if True', "a shortfall's words read"),
+    ("a figure left-aligned",
+     "ui.tabs.inventory_tab:InventoryTab._build_units_rows",
+     "self.units_spare_label.grid(row=1, column=0, sticky=tk.E)",
+     "self.units_spare_label.grid(row=1, column=0, sticky=tk.W)",
+     "not right-aligned"),
+    ("Core of Memory in the wrong colour",
+     "ui.tabs.inventory_tab:InventoryTab._build_units_rows",
+     "foreground=RARITY_COLORS[UNITS_CORE_RARITY]",
+     "foreground=RARITY_COLORS[4]", "the Rare rarity's blue"),
     ("an Equipment name not marked",
      "ui.tabs.disaster_tab:DisasterTab._fill_page",
      "                self._tag_words(text, EQUIPMENT_TAG, name, start)",

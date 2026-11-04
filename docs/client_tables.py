@@ -264,7 +264,8 @@ def shipped_source(client, partners=None):
     lines += ["# Memory Fragment stats by stat id: each slot's main stats for a",
               "# Legendary (stat, level-0 value, each level-up's), every roll a",
               "# substat can give one, each substat's weight in a new one's",
-              "# draw, and each rarity's top level. See",
+              "# draw, each rarity's top level and what leaving each level",
+              "# costs. See",
               "# game_client.fragment_stats; game_data.client_overlay lays the",
               "# mains over SLOT_MAIN_STATS and the draws over SUBSTAT_DRAW.",
               "FRAGMENT_STATS = {", "    'mains': {"]
@@ -278,6 +279,7 @@ def shipped_source(client, partners=None):
     lines += ["    },",
               f"    'draws': {ascii(fragments['draws'])},",
               f"    'max_levels': {ascii(fragments['max_levels'])},",
+              f"    'costs': {ascii(fragments['costs'])},",
               "}", ""]
     rarities = {}
     for res_id, word in sorted(game_client.item_rarities(client).items()):

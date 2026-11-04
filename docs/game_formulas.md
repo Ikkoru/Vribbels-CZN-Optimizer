@@ -130,6 +130,16 @@ Memory Fragments come in three of the game's five rarity tiers — Mythic and No
 
 Visible in captured data: a piece's `stat_list` holds `1 + starting_substats + level` entries.
 
+### What levelling costs
+
+Each level-up takes Units and Particles of Memory, and from level 3 on Cores of Memory too (`piece_reinforce`, shipped as `FRAGMENT_STATS`' `costs`). The Memory Fragments tab's rows under Main Stats add up the Units alone, by `fragment_costs.py`:
+
+- **Every fragment held to level 3**, whatever the tab's filters show, Uncommon included. One that tops out below 3 stops at its top.
+- **Then the Cores held**, spent where they max the most fragments: the fragments needing fewest first, so one already at level 4 before one at 3, and a fragment under 3 counting as at 3.
+- **What is left short of a whole fragment goes on single levels**, as far as any level can take it. A Core no level can use is left over.
+
+The second row is the Units held less that sum. A shortfall reads in x6 runs of Growth - Unit - Difficulty 6, rounded up: a run is six drops, each paying the middle of `drop_item_grade`'s `drop_min_count` and `drop_max_count` for that stage, which are equal. An Overclock's doubled runs are not counted.
+
 ## 3. Damage formulas
 
 A character is ATK-scaling or DEF-scaling. The **ATK/DEF Split** slider exists for hybrid kits where part of the damage uses each.

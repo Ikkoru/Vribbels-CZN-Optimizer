@@ -1053,6 +1053,9 @@ GACHA_SORTIE_TITLE = "Sortie Stats"
 GACHA_RIFT_TITLE = "Great Rift Stats"
 GACHA_OFFENSIVE_TITLE = "Full-Scale Offensive Stats"
 
+# The upper Units row's words, whatever the figures beside them read.
+UNITS_ROWS_CAPTION = "Units needed to level"
+
 PANEL_OVER_TEXT_ENTRIES = [
     ("Capture", "Status -> Server Region title", 10, None,
      _panel_gap("Status", "Server Region", "v")),
@@ -1060,6 +1063,8 @@ PANEL_OVER_TEXT_ENTRIES = [
      _panel_over_label("Slots", "Preset:")),
     ("Memory Fragments", "Slots -> Level caption", 10, None,
      _panel_over_label("Slots", LEVEL_CAPTION)),
+    ("Memory Fragments", "Main Stats -> Units rows", 10, None,
+     _panel_over_label("Main Stats", UNITS_ROWS_CAPTION)),
 
     # A panel above, the next panel's title below.
     ("Optimizer", "Important Settings -> Set Configuration title", 10, None,
@@ -5071,6 +5076,13 @@ CHECKLIST_ENTRIES = [
     # it had no entry at all, so the gap went unwatched.
     ("Memory Fragments", "window edge -> active preset label", 4,
      RULE_CONTENT_FRAME, _from_window_edge(_by_text("Preset:")), "h"),
+    # Found by the attribute where the words change with the holdings.
+    # Called at the run: `_capital_to_capital` is defined further down.
+    ("Memory Fragments", "Units rows: row -> row", 10, RULE_LABEL_ROW_PITCH,
+     lambda cap, app: _capital_to_capital(
+         _by_text(UNITS_ROWS_CAPTION),
+         _tab_attr("inventory_tab_instance", "units_spare_words"))(cap, app),
+     "v"),
     # BOX to box, which is what the content-frame rule is measured
     # as. A column reserves room for the widest reading any of its
     # rows COULD show, so its last painted pixel lands wherever the

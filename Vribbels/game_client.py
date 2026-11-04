@@ -77,7 +77,7 @@ GAMERES = Path("bin") / "appdata" / "cznlive" / "gameres"
 # reader that changes what it reads raises this: every install then
 # reads its client again once, rather than at the next patch.
 CACHE_FILE = "game_client.json"
-CACHE_FORMAT = 26
+CACHE_FORMAT = 27
 
 # The manifest layout this reads. A different version is a different
 # layout until shown otherwise.
@@ -369,6 +369,15 @@ PIECE_LEVEL_TABLE = "piece_reinforce@piece_reinforce"
 PIECE_LEVEL_ROW = re.compile(r"reinforce_([a-z]+)_(\d+)")
 PIECE_RARITIES = {"common": 1, "uncommon": 2, "rare": 3, "legend": 4,
                   "unique": 5}
+# What a level-up takes beside its Units (`reinforce_cost`, -1 on the
+# top level's row): up to four materials, each an id and a count.
+PIECE_LEVEL_ITEMS = 4
+CORE_OF_MEMORY = 3200002
+# What one drop of Growth - Unit - Difficulty 6 pays: a row of the drop
+# table by content and difficulty, its least and most.
+DROP_TABLE = "drop_item_grade@drop_item_grade"
+UNIT_DROP_CONTENT = "[CONTENT_GROWTH_GOLD]"
+UNIT_DROP_DIFFICULTY = "DIFFICULTY_LEVEL_6"
 # The classes, a row each in the game's order, `class_name` the text
 # id of its English name; `CLASS_NAMES` stands in where the text holds
 # none.
@@ -950,7 +959,9 @@ def limits(client):
     * `visit_tickets`: the Communication Passes a day grants before
       town research;
     * `visit_research`: {research node: [what the node adds at level
-      1, 2, ...]}.
+      1, 2, ...]};
+    * `unit_drop`: the Units one drop of Growth - Unit - Difficulty 6
+      pays, the middle of its least and most.
     """
     readers = {
         "activity": lambda: max(_figure(row.get("point_count")) or 0
@@ -983,6 +994,11 @@ def limits(client):
                                            VISIT_TICKET_BASE),
         "visit_research": lambda: _research_levels(client,
                                                    VISIT_TICKET_EFFECT),
+        "unit_drop": lambda: next(
+            (_figure(row["drop_min_count"]) + _figure(row["drop_max_count"]))
+            // 2 for row in client.rows(DROP_TABLE)
+            if row.get("contents_type_new") == UNIT_DROP_CONTENT
+            and row.get("difficulty_level") == UNIT_DROP_DIFFICULTY),
     }
     out = {}
     for kind, read in readers.items():
@@ -2446,8 +2462,9 @@ def fragment_stats(client):
     `mains`, {slot: [[stat, level-0 value, what each level-up adds],
     ...]} for a Legendary, in the table's order; `rolls`, {stat: every
     value one roll gives a Legendary}; `draws`, {stat: its weight in
-    the draw of a new substat}; and `max_levels`, {rarity tier: its top
-    level}."""
+    the draw of a new substat}; `max_levels`, {rarity tier: its top
+    level}; and `costs`, {rarity tier: [[Units, Cores of Memory], ...]},
+    what leaving each level takes, level 0 first."""
     mains, rolls, draws = {}, {}, {}
     for row in client.rows(PIECE_OPTION_TABLE):
         stat, group = row.get("link_stat_list_id"), row.get("group") or ""
@@ -2462,15 +2479,24 @@ def fragment_stats(client):
             share = _figure(row.get("ratio"))
             if isinstance(share, (int, float)) and share > 0:
                 draws[stat] = share
-    max_levels = {}
+    max_levels, steps = {}, {}
     for row in client.rows(PIECE_LEVEL_TABLE):
         match = PIECE_LEVEL_ROW.fullmatch(str(row.get("id")))
         tier = PIECE_RARITIES.get(match.group(1)) if match else None
         if tier:
-            max_levels[tier] = max(max_levels.get(tier, 0),
-                                   int(match.group(2)))
+            level = int(match.group(2))
+            max_levels[tier] = max(max_levels.get(tier, 0), level)
+            units = _figure(row.get("reinforce_cost"))
+            if isinstance(units, int) and units >= 0:
+                steps.setdefault(tier, {})[level] = [units, sum(
+                    _figure(row.get(f"reinforce_{n}_item_cost")) or 0
+                    for n in range(1, PIECE_LEVEL_ITEMS + 1)
+                    if _figure(row.get(f"reinforce_{n}_link_item_id"))
+                    == CORE_OF_MEMORY)]
     return {"mains": mains, "rolls": rolls, "draws": draws,
-            "max_levels": max_levels}
+            "max_levels": max_levels,
+            "costs": {tier: [levels[level] for level in sorted(levels)]
+                      for tier, levels in steps.items()}}
 
 
 def read_facts(install):
@@ -2719,6 +2745,20 @@ def known_limits():
                     out[kind] = value
         _limits = out
     return _limits
+
+
+def known_fragment_costs():
+    """{rarity tier: [[Units, Cores of Memory], ...]}: the shipped
+    table, with what this machine's client says over it, tier by tier.
+    See `fragment_stats`."""
+    from game_data import from_client
+    out = {}
+    for source in (getattr(from_client, "FRAGMENT_STATS", {}),
+                   (_facts or {}).get("fragment_stats") or {}):
+        for tier, steps in (source.get("costs") or {}).items():
+            if str(tier).isdigit() and isinstance(steps, list):
+                out[int(tier)] = steps
+    return out
 
 
 def known_trial_slots():

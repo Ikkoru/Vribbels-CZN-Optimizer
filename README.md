@@ -39,6 +39,7 @@ In the results, scores run 0–100 with the run's best build at 100. `(E)` marks
 ## Other things worth knowing
 
 - **Gear Score** weights are per-combatant presets. Assign them on the **Combatants** tab, edit the weights on the **Gear Score** tab.
+- **The Memory Fragments tab** adds up the Units needed to level every fragment to 3 and use up your Core of Memory, and says what you hold against that, or how many x6 runs of Growth - Unit - Difficulty 6 cover the rest.
 - **Double-click** or select a preset and press Apply in the **Gear Score** tab to change the GS and Potential values in the **Memory Fragments** tab. Useful for finding good MFs to level and bad MFs to dismantle.
 - **The optimizer uses every CPU core.** Change that with **Optimizer cores** in the **Setup & Settings** tab's Settings panel. It applies on the next launch.
 - **Affinity, potential nodes and Partner bonuses** are all counted in the stats the optimizer scores.

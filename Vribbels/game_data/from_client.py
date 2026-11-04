@@ -603,6 +603,7 @@ LIMITS = {
     'simulation': {
         'content_boss': 3,
     },
+    'unit_drop': 32000,
     'visit_research': {
         '126': [1],
         '149': [1],
@@ -2957,7 +2958,8 @@ AFFINITY = {
 # Memory Fragment stats by stat id: each slot's main stats for a
 # Legendary (stat, level-0 value, each level-up's), every roll a
 # substat can give one, each substat's weight in a new one's
-# draw, and each rarity's top level. See
+# draw, each rarity's top level and what leaving each level
+# costs. See
 # game_client.fragment_stats; game_data.client_overlay lays the
 # mains over SLOT_MAIN_STATS and the draws over SUBSTAT_DRAW.
 FRAGMENT_STATS = {
@@ -3008,6 +3010,7 @@ FRAGMENT_STATS = {
     },
     'draws': {'S_ATK_INC_ADD_OUT': 100, 'S_DEF_INC_ADD_OUT': 100, 'S_HP_INC_ADD_OUT': 100, 'S_ATK_INC_RATE_OUT': 90, 'S_DEF_INC_RATE_OUT': 90, 'S_HP_INC_RATE_OUT': 90, 'S_CRI_INC_ADD': 70, 'S_CRI_DMG_RATE_INC_ADD': 70, 'S_CHARGING_POWER_INC_ADD': 70, 'S_ADDI_ATK_DMG_RATE_INC_ADD': 80, 'S_DOT_ATK_DMG_RATE_INC_ADD': 80},
     'max_levels': {1: 2, 2: 3, 3: 4, 4: 5, 5: 5},
+    'costs': {1: [[1000, 0], [1500, 0]], 2: [[2000, 0], [3000, 0], [4000, 0]], 3: [[4000, 0], [6000, 0], [8000, 0], [13000, 2]], 4: [[8000, 0], [12000, 0], [16000, 0], [32000, 4], [54000, 6]], 5: [[16000, 0], [24000, 0], [32000, 0], [62000, 8], [102000, 12]]},
 }
 
 # {rarity: its items' res_ids}. See game_client.item_rarities;
