@@ -100,12 +100,12 @@ UNITS_ROWS_DROP = 5
 UNITS_WORDS_JOIN = 2
 # The words after each figure. The first sentence's end is its own
 # label, in the colour of the `Rare` rarity.
-UNITS_NEEDED_WORDS = "Units needed to level all to 3 + use up all "
+UNITS_NEEDED_WORDS = "Units needed to level all to Lv3 + use up all "
 UNITS_CORE_WORDS = "Core of Memory"
 UNITS_CORE_RARITY = 3
 UNITS_SPARE_WORDS = "Units to spare"
 UNITS_SHORT_WORDS = "Units needed."
-UNITS_RUNS_WORDS = ("Units needed. Apx. %s x6 runs of "
+UNITS_RUNS_WORDS = ("Units needed. Equal to %s x6 runs of "
                     "Growth - Unit - Difficulty 6.")
 
 # The Level filter: one level, or every level. The levels run from 0 to
