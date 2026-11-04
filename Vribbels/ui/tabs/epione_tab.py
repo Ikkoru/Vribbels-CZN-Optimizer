@@ -115,9 +115,8 @@ CARD_PADY = 0           # spacing: exception -- border edge -> first non-button 
 # requirements do, and not at its row pitch.
 OPTION_PITCH = ROW_PITCH + BLOCK_PAD
 # A follow-up's cure result against its label: a value and what it
-# belongs to. Past the widest result's advance, its `%`'s ink stopping a
-# pixel short of that.
-RESULT_GAP = 4          # spacing: label ↔ its element -- run, run ↔
+# belongs to. Past the widest result's advance.
+RESULT_GAP = 5          # spacing: label ↔ its element -- run, run ↔
 
 # One tag per line for its `spacing1`, as on the Checklist: two tags
 # setting one option resolve by priority, not sum. An option's words
@@ -125,12 +124,8 @@ RESULT_GAP = 4          # spacing: label ↔ its element -- run, run ↔
 # two are one block.
 FIRST_TAG = "first"
 OPTION_TAG = "option"
-LABEL_TAG = "label"
 WORDS_TAG = "words"
-# A follow-up's label line and the whiff line take one pitch; the label
-# reads a pixel short of it, its bold capital standing that much taller.
-LINE_PITCH = {FIRST_TAG: 0, OPTION_TAG: OPTION_PITCH,
-              LABEL_TAG: OPTION_PITCH, WORDS_TAG: 0}
+LINE_PITCH = {FIRST_TAG: 0, OPTION_TAG: OPTION_PITCH, WORDS_TAG: 0}
 # The opener heads its card, centred: its label in the tab headings'
 # face, its words on the line under it.
 OPENER_FONT = ("Segoe UI", 14, "bold")
@@ -145,6 +140,10 @@ HANGING_TAG = "hanging"
 INDENT_TAG = "indent"
 # The opener's words, in the bold that set the opener apart.
 BOLD_TAG = "bold"
+# A follow-up's cure and label, a point over its words.
+CURE_TAG = "cure"
+FOLLOW_UP_TAG = "follow_up"
+FOLLOW_UP_FONT = ("Segoe UI", 11, "bold")
 # A cure result's colour by its tier, the best first, as the client's
 # tiers are ordered (`epione.tier`): what Affinity the cure pays.
 TIER_COLOURS = ("green", "yellow", "red", "fg_dim")
@@ -283,7 +282,8 @@ class EpioneTab(BaseTab):
         self._bold = bold
         self._opener_font = tkfont.Font(font=OPENER_FONT)
         self._heading_font = tkfont.Font(font=HEADING_FONT)
-        self._row_font = tkfont.Font(font=ROW_FONT)
+        self._cure_font = tkfont.Font(font=SCENARIO_LINE_FONT)
+        self._follow_up_font = tkfont.Font(font=FOLLOW_UP_FONT)
 
     def _build_list(self, parent):
         holder = ttk.Frame(parent)
@@ -425,6 +425,8 @@ class EpioneTab(BaseTab):
                                foreground=self.colors[colour])
         text.tag_configure(OPENER_TAG, font=self._opener_font)
         text.tag_configure(BOLD_TAG, font=self._bold)
+        text.tag_configure(CURE_TAG, font=self._cure_font)
+        text.tag_configure(FOLLOW_UP_TAG, font=self._follow_up_font)
         text.tag_configure(CENTRED_TAG, justify=tk.CENTER)
         self._tips.bind_tag(text, WHIFF_TAG, WHIFFS_TIP)
         text.config(state=tk.DISABLED)
@@ -685,11 +687,11 @@ class EpioneTab(BaseTab):
             state = self._state(kid,
                                 advised and advice.follow_up == kid.number)
             band = epione.tier(kid.result, person.tiers)
-            cure = (state,) if band is None else \
-                (state, TIER_TAG % min(band, len(TIER_COLOURS) - 1))
+            cure = (state, CURE_TAG) if band is None else \
+                (state, CURE_TAG, TIER_TAG % min(band, len(TIER_COLOURS) - 1))
             lines.append((((RESULT % min(kid.result, 100), cure),
-                           ("\t" + kid.label, (state, BOLD_TAG))),
-                          (LABEL_TAG, HANGING_TAG)))
+                           ("\t" + kid.label, (state, FOLLOW_UP_TAG))),
+                          (OPTION_TAG, HANGING_TAG)))
             lines.append((((kid.words, (state,)),),
                           (WORDS_TAG, INDENT_TAG)))
         if offered:
@@ -716,7 +718,7 @@ class EpioneTab(BaseTab):
         # results start at the card's inset: a right-aligned one would
         # sit a tab's least width, a space, further in. Measured, so not
         # through `px`; the gap is.
-        words_at = self._row_font.measure(WIDEST_RESULT) + px(RESULT_GAP)
+        words_at = self._cure_font.measure(WIDEST_RESULT) + px(RESULT_GAP)
         # spacing: label ↔ its element -- run, run ↔
         text.config(state=tk.NORMAL, bg=fill, tabs=(words_at, tk.LEFT))
         text.tag_configure(HANGING_TAG, lmargin2=words_at)
