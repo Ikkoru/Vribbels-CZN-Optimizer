@@ -73,7 +73,8 @@ retires the answer and asks again. See `_mark_finished`.
 every item held on a clock, soonest first, each line blinking orange
 inside a week and red inside two days. It starts under the tallest
 column and fills the room down to the window's foot, a column at a
-time, left to right. See `EXPIRING_HEADING`.
+time, left to right. Hovering a Core's name says what it does. See
+`EXPIRING_HEADING`.
 
 The columns are built the way the Materials tab's are: content in the
 EVEN grid columns with an empty expanding one between each pair, so the
@@ -3421,6 +3422,29 @@ EXPIRING_LATER = LATER
 # at all reads `NO_DATA` instead: nothing held and nothing read are
 # different answers.
 EXPIRING_NONE = "None"
+# What hovering an item's name says it does. Keyed on the name the line
+# shows, so every copy of an item shares its words: a Core sold outright,
+# one marked Time-Limited, and one a later season adds under a new id. An
+# item not named here is listed without a tip.
+EXPIRING_TIP_PREFIX = "expiringtip:"
+EXPIRING_TIPS = {
+    "Core of the Reverse": "Duplicate",
+    "Core of Annihilation": "Remove",
+    "Colorless Core": "Common Epiphany",
+    "Abyssal Core": "Divine Epiphany",
+    "Core of Archetype": "Add missing Signature Card",
+    "Core of Potential": "Signature Epiphany",
+    "Core of Variables": "Random Equipment",
+    "Core of Phase": "Equipment",
+    "Core of Resonance": "Add Neutral Card",
+    "Core of Mutation": "Add Mutation effect to deck",
+    "Diallos's Radiance": "Diallos's Divine Epiphany",
+    "Vytor's Bloodletting": "Vytor's Divine Epiphany",
+    "Nihilum's Encroachment": "Nihilum's Divine Epiphany",
+    "Kyrken's Embrace": "Kyrken's Divine Epiphany",
+    "Sekred's Ember": "Sekred's Divine Epiphany",
+    "Caligo's Judgment": "Caligo's Divine Epiphany",
+}
 
 # The town's daily block: the coffee flag and the day's Communication
 # Passes. **Neither carries a date of its own**, so nothing in them
@@ -4103,6 +4127,9 @@ class ChecklistTab(BaseTab):
         # What the Expiring Items block has drawn, which a redraw is
         # decided on as a column's is. See `_fill_expiring`.
         self._expiring_drawn = None
+        # {tag: its tip's words} for the Expiring Items names given a
+        # tip so far. See `_expiring_tip`.
+        self._expiring_tips = {}
         # How tall a line holding a checkbox is. See `_checkbox_line`.
         self._box_line = None
         self._box_overhead = None
@@ -5108,13 +5135,35 @@ class ChecklistTab(BaseTab):
         for index, line in enumerate(lines):
             if index:
                 text.insert(tk.END, LINE_SEP, ("row",))
-            for column, (_key, segments) in enumerate(line):
+            for column, (key, segments) in enumerate(line):
                 for field, (words, state) in enumerate(segments):
-                    text.insert(tk.END,
-                                (COLUMN_SEP if column or field else "")
-                                + words,
-                                ("row",) + ((state,) if state else ()))
+                    # Apart from the words: a tip's underline and hover
+                    # end at the name, and this tab would reach back
+                    # across the gap before a later column's.
+                    if column or field:
+                        text.insert(tk.END, COLUMN_SEP, ("row",))
+                    tip = () if field else self._expiring_tip(key, words)
+                    text.insert(tk.END, words,
+                                ("row",) + ((state,) if state else ()) + tip)
         text.config(state=tk.DISABLED)
+
+    def _expiring_tip(self, key, name):
+        """The tags that put an item's tip on its name: one, or none for
+        a name `EXPIRING_TIPS` has no words for.
+
+        Bound the first time a row is drawn and never again. A tag and
+        its bindings outlive the text deleted from under it, and
+        `bind_tag` adds a handler each call, so one bound per rewrite
+        would arm a tip once for every rewrite so far.
+        """
+        words = EXPIRING_TIPS.get(name)
+        if words is None:
+            return ()
+        tag = EXPIRING_TIP_PREFIX + key
+        if tag not in self._expiring_tips:
+            self._expiring_tips[tag] = words
+            self._tips.bind_tag(self._expiring_text, tag, words)
+        return (tag,)
 
     def _tallest_column(self):
         """(how tall the tallest column stands, the gap the Expiring

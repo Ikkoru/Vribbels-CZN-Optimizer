@@ -2640,13 +2640,23 @@ def _run():
 def _expiring(now):
     """The Expiring Items block: what it lists, in what order and state,
     and how its columns stand side by side."""
+    import period_items
+    from game_data.constants import item_names
     from ui.scaling import px
     from ui.tabs.checklist_tab import (
         EXPIRING_COLUMN_GAP, EXPIRING_KEY_PREFIX, EXPIRING_LATER,
-        EXPIRING_NONE, LABEL_TO_VALUE, MUTED, NO_DATA, SEGMENT_GAP, SOON,
-        TEXT_INSET, UNKNOWN, WARN_BLINK, countdown_words, expiring_layout,
-        expiring_rows)
+        EXPIRING_NONE, EXPIRING_TIPS, LABEL_TO_VALUE, MUTED, NO_DATA,
+        SEGMENT_GAP, SOON, TEXT_INSET, UNKNOWN, WARN_BLINK,
+        countdown_words, expiring_layout, expiring_rows)
     failures = []
+
+    # A tip is found by the name a line shows, so a key no item carries
+    # is a tip that never comes up, with nothing on screen to say so.
+    shown = {period_items.bare_name(name) for name in item_names().values()}
+    unmatched = sorted(set(EXPIRING_TIPS) - shown)
+    if unmatched:
+        failures.append(f"EXPIRING_TIPS has words for {unmatched}, which "
+                        f"no item is called: those tips never come up")
 
     def copies(res_id, *pairs):
         return {"res_id": res_id, "value": [
@@ -2792,4 +2802,9 @@ FAULTS = [
      "ui.tabs.checklist_tab:expiring_layout",
      "start = end + px(EXPIRING_COLUMN_GAP)", "start = end",
      "plus the gap"),
+    ("an Expiring Items tip keyed on a name nothing carries",
+     "ui.tabs.checklist_tab:EXPIRING_TIPS",
+     "\"Core of Phase\": \"Equipment\",",
+     "\"Core of Phases\": \"Equipment\",",
+     "tips never come up"),
 ]

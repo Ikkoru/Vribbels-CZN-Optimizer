@@ -3363,6 +3363,67 @@ def _the_checklist_fits_its_window(tab):
     return out
 
 
+def _expiring_tips_sit_on_the_names(tab):
+    """Each drawn Expiring Items name carries its own tip and nothing
+    else does, and a rewrite adds no second handler.
+
+    Called with the block holding every Time-Limited item a season's
+    shop sells, in two columns: a second column's names follow a tab,
+    which a tagged insert would pull into the underline.
+
+    Returns a list of complaints.
+    """
+    import period_items
+    from ui.tabs.checklist_tab import (
+        EXPIRING_TIP_PREFIX, EXPIRING_TIPS, item_name)
+
+    text, out = tab._expiring_text, []
+    held = {}
+    for res_id in range(3920033, 3920047):
+        name = period_items.bare_name(item_name(res_id))
+        held[EXPIRING_TIP_PREFIX + "expiring:%d" % res_id] = name
+    for tag, name in held.items():
+        ranges = text.tag_ranges(tag)
+        spans = [text.get(start, end)
+                 for start, end in zip(ranges[::2], ranges[1::2])]
+        if spans != [name]:
+            out.append(f"{name!r}'s tip sits on {spans}, not on its name "
+                       f"alone: the underline and the hover say where the "
+                       f"tip is, and they end at the name.")
+        if tab._expiring_tips.get(tag) != EXPIRING_TIPS.get(name):
+            out.append(f"{name!r}'s tip says "
+                       f"{tab._expiring_tips.get(tag)!r}, not "
+                       f"{EXPIRING_TIPS.get(name)!r}.")
+    tab._expiring_drawn = None
+    tab.refresh_checklist()
+    for tag, name in held.items():
+        handlers = len(str(text.tag_bind(tag, "<Enter>", None))
+                       .strip().splitlines())
+        if handlers != 1:
+            out.append(f"{name!r} holds {handlers} hover handlers after a "
+                       f"rewrite: its tag outlives the text, so binding it "
+                       f"again arms the tip once more per rewrite.")
+    # The pointer on a name, through the Text's own hit test: what the
+    # tags above are all for. Armed rather than shown, so no tip window.
+    tab.frame.update_idletasks()
+    armed = []
+    kept = tab._tips.schedule
+    tab._tips.schedule = lambda widget, words: armed.append(words)
+    try:
+        for tag, name in held.items():
+            where = text.bbox(text.tag_ranges(tag)[0])
+            if where is None:
+                continue
+            del armed[:]
+            text.event_generate("<Motion>", x=where[0] + 1, y=where[1] + 1)
+            if armed != [EXPIRING_TIPS.get(name)]:
+                out.append(f"the pointer on {name!r} armed {armed}, not "
+                           f"{[EXPIRING_TIPS.get(name)]}.")
+    finally:
+        tab._tips.schedule = kept
+    return out
+
+
 def _expiring_items_fit_under_the_columns(tab):
     """The Expiring Items block has to start just under the tallest
     column and end inside the window, with every line it reserves drawn.
@@ -3453,6 +3514,7 @@ def _expiring_items_fit_under_the_columns(tab):
             out.append(f"the Expiring Items block asks for {bottom - foot}px "
                        f"more than the room down to the foot of the tab, "
                        f"which cuts its last lines off")
+        out.extend(_expiring_tips_sit_on_the_names(tab))
     finally:
         if kept is None:
             raw.pop("inventory", None)
@@ -6997,6 +7059,26 @@ FAULTS = [
      "ui.tabs.gacha_history_tab:GachaHistoryTab._overall_rows",
      "Beside(PRISM_ONLY, SKINS_ONLY, halves=True),",
      "PRISM_ONLY, SKINS_ONLY,", "sheet's headings read"),
+    ("an Expiring Items tip reaching back across the column gap",
+     "ui.tabs.checklist_tab:ChecklistTab._fill_expiring",
+     "text.insert(tk.END, COLUMN_SEP, (\"row\",))",
+     "text.insert(tk.END, COLUMN_SEP, (\"row\",) + (() if field else "
+     "self._expiring_tip(key, words)))",
+     "not on its name"),
+    ("an Expiring Items tip on the whole line",
+     "ui.tabs.checklist_tab:ChecklistTab._fill_expiring",
+     "tip = () if field else self._expiring_tip(key, words)",
+     "tip = self._expiring_tip(key, segments[0][0])",
+     "not on its name"),
+    ("an Expiring Items tip saying the name, not what it does",
+     "ui.tabs.checklist_tab:ChecklistTab._expiring_tip",
+     "self._tips.bind_tag(self._expiring_text, tag, words)",
+     "self._tips.bind_tag(self._expiring_text, tag, name)",
+     "the pointer on"),
+    ("Expiring Items tips bound again at each rewrite",
+     "ui.tabs.checklist_tab:ChecklistTab._expiring_tip",
+     "if tag not in self._expiring_tips:", "if True:",
+     "hover handlers after a"),
     ("Expiring Items fitted to the whole tab, columns ignored",
      "ui.tabs.checklist_tab:ChecklistTab._expiring_fit",
      "room = (height - tallest - self._expiring_head.winfo_reqheight()",
