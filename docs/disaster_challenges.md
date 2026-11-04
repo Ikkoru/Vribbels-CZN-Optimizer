@@ -14,6 +14,9 @@ What is left on the live season's Challenge Mission pages. Weekly Progress is th
 | Progress | the wire's `disaster_achievement_entities` (below) |
 | A list achievement's items | its `link_disaster_achievement_info_id`: an info row naming a Chaos codex page (`chaos_collection`, its items the rows of the page type's table, `chaos_collection_<type>`, whose ids open with its `chaos_multiple_key`) or a season's own collection (`disaster_collection`, with `disaster_collection_card`). An info row's `link_extra_tag_id` keeps the relics whose own `link_extra_tag_id` carries the tag. An item's name is its `info_desc_2` text, a boss's its monster name |
 | What has been found | the codex, `chaos_archive_entities`, and the seasons' collections, `disaster_collection_entities`, with a Chaos run's finds laid over them (below) |
+| The Events an achievement is done on, and the button to pick there | its `condition_type` and `opt_1_multiple_link`, read through the `encounter(...)` tables (*Events*, below) |
+| The Equipment names in its words | the season's `new_link_relic_id` (`event_disaster@event_disaster`) and what a `GET_EQUIPMENT__ID` row asks for, each named by `relic@name@<id>` |
+| The Event the player stands on | the capture, while it runs (*Events*, below) |
 
 The client lists a later part's achievements before their words: until the patch that opens the part they read `To be updated soon.`, or name a combatant that part brings. They are locked, so the tab counts them rather than writing them out.
 
@@ -41,3 +44,19 @@ A list achievement's tip names each item still to find, a monster with its kills
 So the capture keeps the open run's peak counts as `chaos_run_open`, and adds them to `chaos_run_finds`, the finished runs' sums, when the run ends: its close (`stage/clear_stage`), or the next run opening. A whole table arriving drops the finished runs of its kind, the codex the `chaos_` items and a collection the `disaster_` ones; the open run stays, the codex taking a run only at its end. An item's count is the codex's, plus both.
 
 No captured codex or collection, and a tip says so rather than listing every item.
+
+## Events
+
+A requirement's Equipment names are red, and the words on the game's button for it (`simple_flavor_text`) follow in green, a line each, starting `> `. While the player stands on an Event the requirement is done on, the rest of its words are orange and its page scrolls to it.
+
+| Condition | What it names | Its Events and buttons |
+| --------- | ------------- | ---------------------- |
+| `ENCOUNTER_CHOICE__ID`, `ENCOUNTER_CHOICE__ID_CHAR`, `DICE_ROLL_ENCOUNTER_SUCCESS__OPTION` | an option | the option's own `link_encounter_id` and button |
+| `GET_EQUIPMENT__ID`, `GET_CARD__ID` | what is paid | every option whose success effect (`reward<n>_multiple_link`) names an `encounter_reward` row paying it (`reward_multiple_link`) |
+| `ENTER_ENCOUNTER__ID` | an Event, or a step of one | the Event; for a step, the option reaching it |
+
+**A step is an Event moved on to on the same spot**, `<event>-<n>`, and a row of a step lights on its Event: the player is on the spot before the step exists. The client links no option to the step it reaches. The options whose effect's `overview_eff_desc` opens `Event Encounter:` are the ways on, and the nth of them by `order` reaches step n. Held to the captures of 2026-10-31 to 2026-11-03, every option seen moving on to a step fits; each went to a step 1, so a step 2 rests on the order alone.
+
+**An inspected object has no button and no Event in the client.** Its option is an interactor (`encounter(interactor)`), which links no Event and has no `simple_flavor_text`, so the row shows no green line. Its Event is the one the row's words name (`Unidentified Area [...]`), every variant of that name, so it can light on a variant that does not hold the object. A locked row whose condition the client has not filled in yet reads the same way. The wire's `enc_info.interactors` says which Event holds which object, for a visit already captured.
+
+**Where the player stands is not in a snapshot.** `stage/enter_spot` states the Event (`spot_info.enc_info.id`), `encounter/next_encounter` the step moved on to, and `encounter/get_info` both, to a capture that saw no entry; a Supply spot can carry one too. `encounter/exit_encounter`, a run opening or closing, the capture stopping and its proxy dying each leave it. A fight the Event starts does not: the Event carries on after it. `Addon._note_event` says each move with `EVENT_MARKER`, `CaptureManager.chaos_event` keeps it, and `disaster_challenges.board` is told it, a step counting as its Event.

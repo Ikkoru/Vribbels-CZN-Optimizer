@@ -14,6 +14,8 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - Achievements for completing others count, and are not listed. Annihilation Reward lists its named achievements only.
   - An achievement for collecting a list (Season Cards, Seasonal Equipment, Unidentified Areas, Memory Cards, Monster Exploration) names what is left to find in its tooltip.
   - Locked achievements are counted by when they open: `6 Part 2 achievements`, or `1 achievement (in 2d)` for one opening during a part.
+  - Equipment names are red, and the game's own option text for an achievement follows it in green.
+  - While capturing, achievements you can do on the Event you are standing on turn orange.
   - A page with a reward waiting has its count in orange. A page with nothing left moves to a column at the right, green, its count blinking orange while a reward waits.
 - **Epione tab**, after Stats & Gacha History: each combatant's Therapy Counseling at the Epione Centre.
   - Every combatant you hold, named in its Element's colour, with the dialogue options picked against all 36. The count is red while broken down and awaiting counseling (selected for you when a capture sees it happen), orange with Crystals waiting in the Counseling Records, green at 36/36.

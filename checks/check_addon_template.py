@@ -46,6 +46,18 @@ def _save_marker_matches(failures):
             "for exactly the login-burst saves that carry the shops.")
 
 
+def _event_marker_matches(failures):
+    """The reader's copy of the Event marker must equal the addon's, for
+    the save marker's reason: drift is silent, and the Galactic Disaster
+    rows then never light."""
+    from capture.manager import ADDON_TEMPLATE, EVENT_MARKER
+    if f'EVENT_MARKER = "{EVENT_MARKER}"' not in ADDON_TEMPLATE:
+        failures.append(
+            f"the reader watches for {EVENT_MARKER!r} and the addon "
+            f"template prints something else. No Galactic Disaster row "
+            f"would light on its Event, and no error would say so.")
+
+
 def run():
     failures = []
     add_source_to_path()
@@ -82,7 +94,16 @@ def run():
             "file rather than an error saying what happened."
         )
     _save_marker_matches(failures)
+    _event_marker_matches(failures)
     return failures
+
+
+FAULTS = [
+    ("the addon's Event marker apart from the reader's",
+     "capture.manager:ADDON_TEMPLATE",
+     'EVENT_MARKER = "[SYNC] event"', 'EVENT_MARKER = "[SYNC] spot"',
+     "the reader watches for"),
+]
 
 
 def _save_writes_atomically(source):

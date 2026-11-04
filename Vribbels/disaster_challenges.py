@@ -23,6 +23,10 @@ own -- its row is issued only when it is claimed -- so it is done once
 every one it names is. Done and unclaimed is a reward waiting, which
 the page's count says in orange.
 
+**A row knows the Events it is done on**, and the words on the button
+to pick there. The Event the player stands on is no part of the
+snapshot: `board` is told it, and marks the rows it serves `lit`.
+
 No Tk and no managers: this takes the snapshot dict and returns data.
 """
 
@@ -85,8 +89,11 @@ NO_CAPTURE = ("No capture holds this season's challenge pages yet: log in "
 # included.
 Page = namedtuple("Page", "page title done total unclaimed rows locked")
 # `tip`: a list achievement's items still to find, one line each, or
-# None.
-Row = namedtuple("Row", "id text tip")
+# None. `options`: the words on the buttons to pick for it. `equipment`:
+# the Equipment names in `text`. `lit`: the player stands on an Event
+# it is done on.
+Row = namedtuple("Row", "id text tip options equipment lit",
+                 defaults=((), (), False))
 Board = namedtuple("Board", "season pages note")
 
 
@@ -96,13 +103,15 @@ def finished(page):
     return page.done >= page.total
 
 
-def board(raw, now, challenges=None, constants=None):
+def board(raw, now, challenges=None, constants=None, event=None):
     """The tab's reading of `raw` at `now`: a `Board`, its `pages` in
     the game's order, or none and a `note` saying why.
 
     `challenges` is `game_client.known_disaster_challenges()` and
     `constants` the Galactic Disaster's `disaster_constants` limits,
-    both read off the client where not given."""
+    both read off the client where not given. `event` is the Event the
+    player stands on, as the wire names it, or None: a step of an Event
+    (`<event>-<n>`) is on that Event's spot, and lights its rows."""
     if challenges is None or constants is None:
         import game_client
         if challenges is None:
@@ -124,6 +133,7 @@ def board(raw, now, challenges=None, constants=None):
     start = window.get("start_time")
     reading = _Reading(held, wire, start, now)
     lists = _held_lists(raw)
+    here = (event or "").partition("-")[0]
     pages = []
     for page in PAGES:
         listed = [a for a in held.get("achievements") or ()
@@ -133,7 +143,10 @@ def board(raw, now, challenges=None, constants=None):
             continue
         rows = tuple(
             Row(a["id"], a.get("text") or a["id"],
-                _tip(held, a, lists, reading))
+                _tip(held, a, lists, reading),
+                tuple(a.get("options") or ()),
+                tuple(a.get("equipment") or ()),
+                here in (a.get("events") or ()))
             for a in counted
             if a.get("kind") == "named" and not reading.done(a)
             and reading.open(a))

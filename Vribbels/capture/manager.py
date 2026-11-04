@@ -65,6 +65,10 @@ SAVE_MARKER = "[SYNC] saved"
 # tab. Held equal to the addon's by the same check.
 GACHA_MARKER = "[SYNC] gacha"
 
+# The same for the Event the player stands on, which follows it. Held
+# equal to the addon's by the same check.
+EVENT_MARKER = "[SYNC] event"
+
 # What opens the timing the addon puts after a line under Debug WS:
 # when the request went out, when its reply came in, when the line was
 # printed. The reader takes it off before anything else reads the line;
@@ -141,6 +145,12 @@ SAVE_MARKER = "[SYNC] saved"
 # the same way. The app refreshes that one tab on it: a history page is
 # no reason to reload the whole snapshot, which a `[LIVE]` line costs.
 GACHA_MARKER = "[SYNC] gacha"
+
+# Printed when the player steps on or off an Event, the Event's id after
+# it and nothing on leaving; consumed the same way. Where the player
+# stands is no part of a snapshot: it is true only while it is said, and
+# an Event moves nothing a save would be made for.
+EVENT_MARKER = "[SYNC] event"
 
 # Put after every line printed while a reply is handled, in debug mode
 # only: when its request went out, when the reply came in and when the
@@ -239,6 +249,12 @@ CHAOS_PAYS = "spot_reward/get_drop_item"
 # An event's option picked: the reply names it, the options offered and
 # their rewards.
 CHAOS_PICKS = "encounter/select_option"
+# What says which Event the player stands on: entering its spot
+# (`spot_info.enc_info`), and these replies' `result.info`, a step moved
+# on to or an Event asked after with no entry seen. Leaving it says so
+# only here: a spot with no Event on it comes after the leaving.
+EVENT_SAYS = ("encounter/get_info", "encounter/next_encounter")
+EVENT_LEAVES = "encounter/exit_encounter"
 # How a fight ends: the reply to an accelerated fight states its result,
 # and a fight played by hand states its own in the `battle_end` the
 # client sends. This result is the run lost on that fight.
@@ -538,11 +554,11 @@ class Addon:
         self.qid_sent = {}
 
         def remember(msg, *args, **kwargs):
-            # **The save marker is not a line for this purpose.** It
-            # goes out on every save, so remembering it would put it
-            # between two identical reports and stop either from
-            # reading as a repeat.
-            if msg != SAVE_MARKER:
+            # **The save and Event markers are not lines for this
+            # purpose.** They go out between saves, so remembering one
+            # would put it between two identical reports and stop
+            # either from reading as a repeat.
+            if msg != SAVE_MARKER and not msg.startswith(EVENT_MARKER):
                 self._last_line = msg
             if self.debug_mode and self._reply_times is not None:
                 sent, got = self._reply_times
@@ -634,6 +650,9 @@ class Addon:
         self.chaos_run = None
         self.chaos_spot = (None, None, "")
         self.chaos_map = []
+        # The Event the player stands on, as the wire names it: see
+        # `_note_event`.
+        self.chaos_event = None
         # The run's `used_spot_event` as its stage last stated it: grows
         # as the run goes on, so a run taken up again holds the one kept
         # as its start (`_resume_chaos`).
@@ -1233,6 +1252,7 @@ class Addon:
         # pieces were destroyed by matching the response qid to the
         # request we tracked earlier.
         qid = data.get("qid")
+        self._note_event(self.qid_commands.get(qid), data)
         self._note_chaos(self.qid_commands.get(qid), data)
         self._note_savedata(data)
         self._note_base_stats(self.qid_commands.get(qid), data)
@@ -4496,6 +4516,30 @@ class Addon:
             pass
         self.client_version = version
 
+    def _note_event(self, asked, data):
+        """Say which Event the player stands on, as it changes.
+
+        `EVENT_MARKER` takes it to the app, which lights the Galactic
+        Disaster rows that Event serves. Not kept with a run: an Event
+        can be asked after by a capture that saw no run open. A spot's
+        fight leaves its Event standing until the next spot or the
+        run's end says otherwise, the Event carrying on after it."""
+        if asked == CHAOS_ENTERS:
+            spot = data.get("spot_info")
+            found = spot.get("enc_info") if isinstance(spot, dict) else None
+        elif asked in EVENT_SAYS:
+            result = data.get("result")
+            found = result.get("info") if isinstance(result, dict) else None
+        elif asked == EVENT_LEAVES or asked == CHAOS_CLOSES \\
+                or asked in CHAOS_OPENS:
+            found = None
+        else:
+            return
+        event = found.get("id") if isinstance(found, dict) else None
+        if event != self.chaos_event:
+            self.chaos_event = event
+            self.log_callback("%s %s" % (EVENT_MARKER, event or ""))
+
     def _note_chaos(self, asked, data):
         """Follow the Chaos run in progress, and file it when it clears.
 
@@ -5373,6 +5417,10 @@ class CaptureManager:
         # Called when the addon has written the Gacha History's file.
         # Set by the main window; runs on the proxy-reader thread.
         self.gacha_update_callback = None
+        # The Event the player stands on, as the addon last said, and
+        # what is called when that moves: likewise.
+        self.chaos_event = None
+        self.event_update_callback = None
 
         self.capturing = False
         self.proxy_process = None
@@ -5944,6 +5992,10 @@ addons =[Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode},
                     if self.gacha_update_callback:
                         self.gacha_update_callback()
                     continue
+                if EVENT_MARKER in line:
+                    self._set_chaos_event(
+                        line.partition(EVENT_MARKER)[2].strip() or None)
+                    continue
                 if "[GACHA]" in line:
                     self._log_line(line, "info", stamp)
                     continue
@@ -5972,6 +6024,9 @@ addons =[Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode},
                 else:
                     self._log_line(line, None, stamp)
 
+            # A proxy that died says nothing more of where the player is.
+            self._set_chaos_event(None)
+
             # Check exit code when process ends
             if self.proxy_process:
                 exit_code = self.proxy_process.poll()
@@ -5979,6 +6034,15 @@ addons =[Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode},
                     self.log_callback(f"[proxy] Process exited with code {exit_code}", "error")
         except Exception as e:
             self.log_callback(f"[proxy] Output reader error: {e}", "error")
+
+    def _set_chaos_event(self, event):
+        """Keep the Event the addon says the player stands on, and tell
+        the main window if it moved. `event_update_callback` runs on the
+        caller's thread, the proxy reader's among them."""
+        if event != self.chaos_event:
+            self.chaos_event = event
+            if self.event_update_callback:
+                self.event_update_callback()
 
     def start_capture(self, debug_mode: bool = False):
         """
@@ -6146,6 +6210,8 @@ addons =[Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode},
 
         self.capturing = False
         self._drop_empty_debug_logs()
+        # Nothing says where the player stands now.
+        self._set_chaos_event(None)
 
         if self.status_callback:
             self.status_callback("[O] Stopped")

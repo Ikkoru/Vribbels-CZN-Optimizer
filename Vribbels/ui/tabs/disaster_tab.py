@@ -13,6 +13,11 @@ of its own at the tab's right, absent while no page is finished, and the
 pages still open share the width it leaves. A page with a reward waiting
 to be claimed has its count in orange, blinking once the page has moved.
 
+**A requirement says what to pick.** Equipment names in its words are
+red, and the words on the game's button for it follow in green, a line
+each. While the capture says the player stands on an Event it is done
+on, the rest of its words are orange, and its page scrolls to it.
+
 `disaster_challenges.board` reads the snapshot; this only draws it.
 `docs/disaster_challenges.md` has both.
 """
@@ -58,11 +63,25 @@ LINE_PITCH = {FIRST_TAG: ROW_PITCH, ROW_TAG: REQUIREMENT_PITCH}
 # A locked batch's line, and a tip's range, plus the row's id.
 LOCKED_TAG = "locked"
 TIP_PREFIX = "tip:"
+# A requirement lit by the Event the player stands on, an Equipment name
+# in its words, and a line of the button to pick for it. **Configured in
+# this order**: a later tag's colour wins, so a lit row keeps its red
+# and green. An option line takes no pitch: it is the requirement's own
+# next line, as its words' wrapped ones are.
+LIT_TAG = "lit"
+EQUIPMENT_TAG = "equipment"
+OPTION_TAG = "option"
+# What opens an option's line, setting it off from the words above it.
+OPTION_LINE = "> %s"
 
 # The colours: a finished page's heading; a count with a reward waiting,
-# steady on an open page and blinking on a finished one.
+# steady on an open page and blinking on a finished one; a requirement
+# the player's Event serves, an Equipment name, the button to pick.
 FINISHED_COLOUR = "green"
 UNCLAIMED_COLOUR = "orange"
+LIT_COLOUR = "orange"
+EQUIPMENT_COLOUR = "red"
+OPTION_COLOUR = "green"
 
 # How often the tab rereads the clock while it is showing: a locked
 # batch's countdown, and a gate opening, move with nothing else.
@@ -162,6 +181,10 @@ class DisasterTab(BaseTab):
         for tag, pitch in LINE_PITCH.items():
             text.tag_configure(tag, spacing1=px(pitch))
         text.tag_configure(LOCKED_TAG, foreground=self.colors["fg_dim"])
+        for tag, colour in ((LIT_TAG, LIT_COLOUR),
+                            (EQUIPMENT_TAG, EQUIPMENT_COLOUR),
+                            (OPTION_TAG, OPTION_COLOUR)):
+            text.tag_configure(tag, foreground=self.colors[colour])
         text.config(state=tk.DISABLED)
         return column, head, heading, count, text
 
@@ -179,12 +202,14 @@ class DisasterTab(BaseTab):
 
     def refresh_disaster(self):
         """Read the loaded snapshot and draw it. Called after every load,
-        after the game client is read, and whenever the tab is shown.
-        Nothing here records, so a hidden tab waits to be shown."""
+        after the game client is read, when the player steps on or off
+        an Event, and whenever the tab is shown. Nothing here records,
+        so a hidden tab waits to be shown."""
         if self.is_hidden():
             return
         raw = getattr(self.optimizer, "raw_data", None) or {}
-        self._draw(disaster_challenges.board(raw, time.time()))
+        event = getattr(self.context.capture_manager, "chaos_event", None)
+        self._draw(disaster_challenges.board(raw, time.time(), event=event))
         self._tick_restart()
 
     def _draw(self, board):
@@ -238,14 +263,16 @@ class DisasterTab(BaseTab):
         count.config(text=self._count_words(page),
                      foreground=self.colors[UNCLAIMED_COLOUR
                                             if page.unclaimed else "fg"])
-        lines = tuple((row.text, row.tip, row.id) for row in page.rows) \
-            + tuple((words, None, None) for words in page.locked)
+        lines = tuple(page.rows) + tuple(page.locked)
         if self._drawn.get(page.page) == lines:
             return
+        was_lit = {row.id for row in self._drawn.get(page.page) or ()
+                   if isinstance(row, disaster_challenges.Row) and row.lit}
         self._drawn[page.page] = lines
         top = text.yview()[0]
         text.config(state=tk.NORMAL)
         text.delete("1.0", tk.END)
+        newly_lit = None
         for index, row in enumerate(page.rows):
             tags = [FIRST_TAG if index == 0 else ROW_TAG]
             if row.tip:
@@ -255,16 +282,37 @@ class DisasterTab(BaseTab):
                     self._tips.bind_tag(
                         text, tag, lambda t=tag: self._tip_words.get(t))
                 tags.append(tag)
-            text.insert(tk.END, ("\n" if index else "") + row.text,
-                        tuple(tags))
+            if row.lit:
+                tags.append(LIT_TAG)
+            if index:
+                text.insert(tk.END, "\n", tuple(tags))
+            start = text.index("end-1c")
+            text.insert(tk.END, row.text, tuple(tags))
+            for name in row.equipment:
+                self._tag_words(text, name, start)
+            for option in row.options:
+                text.insert(tk.END, "\n" + OPTION_LINE % option, (OPTION_TAG,))
+            if row.lit and row.id not in was_lit and newly_lit is None:
+                newly_lit = start
         for index, words in enumerate(page.locked):
             first = not page.rows and index == 0
             text.insert(tk.END, ("" if first else "\n") + words,
                         (FIRST_TAG if first else ROW_TAG, LOCKED_TAG))
         text.config(state=tk.DISABLED)
         # A rewrite keeps where the reader had scrolled to: a long page
-        # runs past the window's foot and is read with the wheel.
+        # runs past the window's foot and is read with the wheel. A row
+        # just lit is the exception, being what the reader is here for.
         text.yview_moveto(top)
+        if newly_lit is not None:
+            text.see(newly_lit)
+
+    def _tag_words(self, text, words, start):
+        """Mark every `words` in `text` from `start` on as Equipment."""
+        found = text.search(words, start, stopindex=tk.END, exact=True)
+        while found:
+            end = "%s+%dc" % (found, len(words))
+            text.tag_add(EQUIPMENT_TAG, found, end)
+            found = text.search(words, end, stopindex=tk.END, exact=True)
 
     def _lay_out(self, open_pages, done_pages):
         """Grid the open pages left to right, sharing the width, and the

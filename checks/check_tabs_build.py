@@ -2578,6 +2578,95 @@ def _checklist_short_names_keep_their_tip(tab):
     return out
 
 
+def _disaster_rows_light(tab):
+    """A requirement's Equipment name is red and its button's words a
+    green line of their own, lit or not; on its Event the rest of its
+    words are orange under those two, and its page scrolls to it, once.
+
+    Drawn from a hand-made `Board`, so this holds the drawing whatever
+    the snapshot holds. Returns a list of complaints.
+    """
+    import tkinter as tk
+    import disaster_challenges as dc
+    from ui.tabs import disaster_tab as mod
+    out = []
+    words = "Obtain equipment Hammer in the Long Road"
+
+    def draw(lit, extra=()):
+        tab._draw(dc.Board("disaster_s09", (dc.Page(
+            "disaster_ingame", "Page", 0, 3, False,
+            (dc.Row("r1", "Clear it", None),
+             dc.Row("r2", words, None, ("Take it", "Leave it"), ("Hammer",),
+                    lit),
+             dc.Row("r3", "Then this", None)) + extra, ()),), None))
+
+    text = tab._columns["disaster_ingame"][4]
+    seen = []
+    tab.is_hidden = lambda: False
+    text.see = seen.append
+    try:
+        draw(False)
+        lines = text.get("1.0", "end-1c").split("\n")
+        if lines != ["Clear it", words, "> Take it", "> Leave it",
+                     "Then this"]:
+            out.append(f"a requirement with options reads {lines}: each "
+                       f"button's words take a line under its words")
+        hammer = "2.%d" % words.index("Hammer")
+        if mod.EQUIPMENT_TAG not in text.tag_names(hammer):
+            out.append("an Equipment name is not marked red")
+        if mod.EQUIPMENT_TAG in text.tag_names("2.0"):
+            out.append("a requirement's other words are marked as Equipment")
+        for line in ("3.0", "4.0"):
+            tags = text.tag_names(line)
+            if mod.OPTION_TAG not in tags:
+                out.append("a button's words are not marked green")
+            if set(tags) & set(mod.LINE_PITCH):
+                out.append("a button's line takes a requirement's pitch: it "
+                           "reads as a requirement of its own")
+        for tag, colour in ((mod.EQUIPMENT_TAG, mod.EQUIPMENT_COLOUR),
+                            (mod.OPTION_TAG, mod.OPTION_COLOUR),
+                            (mod.LIT_TAG, mod.LIT_COLOUR)):
+            if str(text.tag_cget(tag, "foreground")) != tab.colors[colour]:
+                out.append(f"{tag} is not drawn {colour}")
+        if mod.LIT_TAG in text.tag_names("2.0") or seen:
+            out.append("a requirement off its Event reads lit")
+        draw(True)
+        if mod.LIT_TAG not in text.tag_names("2.0"):
+            out.append("a requirement on its Event is not lit")
+        if mod.LIT_TAG in text.tag_names("1.0") \
+                or mod.LIT_TAG in text.tag_names("5.0"):
+            out.append("a requirement off the Event lit with its neighbour")
+        names = list(text.tag_names(hammer))
+        if {mod.EQUIPMENT_TAG, mod.LIT_TAG} <= set(names) and \
+                names.index(mod.EQUIPMENT_TAG) < names.index(mod.LIT_TAG):
+            out.append("a lit row's orange covers its Equipment name")
+        if mod.LIT_TAG in text.tag_names("3.0"):
+            out.append("a lit row's orange covers the button's green")
+        if seen != ["2.0"]:
+            out.append(f"a row just lit scrolled to {seen}, not its own "
+                       f"line: a long page hides it below the window's foot")
+        del seen[:]
+        draw(True, extra=(dc.Row("r4", "One more", None),))
+        if seen:
+            out.append("a rewrite with the same row lit scrolled again: the "
+                       "reader's place is lost every time a score moves")
+        draw(False)
+        if mod.LIT_TAG in text.tag_names("2.0"):
+            out.append("a requirement stayed lit off its Event")
+    finally:
+        del text.see
+        try:
+            del tab.is_hidden
+        except AttributeError:
+            pass
+        if tab._tick_after is not None:
+            try:
+                tab.frame.after_cancel(tab._tick_after)
+            except tk.TclError:
+                pass
+    return out
+
+
 def _disaster_pages_move_when_finished(tab):
     """A finished page's heading leaves its column for the one at the
     right, green, its count blinking while a reward waits; an open page
@@ -6720,6 +6809,7 @@ def run():
         if "DisasterTab" in built:
             failures.extend(
                 _disaster_pages_move_when_finished(built["DisasterTab"]))
+            failures.extend(_disaster_rows_light(built["DisasterTab"]))
         if "EpioneTab" in built:
             failures.extend(_epione_marks_and_advises(built["EpioneTab"]))
         if "GachaHistoryTab" in built:
@@ -6845,6 +6935,33 @@ FAULTS = [
     ("a list's tip not bound", "ui.tabs.disaster_tab:DisasterTab._fill_page",
      "                tags.append(tag)", "                pass",
      "carry no tip"),
+    ("an Equipment name not marked",
+     "ui.tabs.disaster_tab:DisasterTab._fill_page",
+     "                self._tag_words(text, name, start)",
+     "                pass", "an Equipment name is not marked red"),
+    ("a button's line taking a requirement's pitch",
+     "ui.tabs.disaster_tab:DisasterTab._fill_page",
+     '"\\n" + OPTION_LINE % option, (OPTION_TAG,))',
+     '"\\n" + OPTION_LINE % option, (OPTION_TAG, ROW_TAG))',
+     "takes a requirement's pitch"),
+    ("a lit row not lit", "ui.tabs.disaster_tab:DisasterTab._fill_page",
+     "                tags.append(LIT_TAG)", "                pass",
+     "on its Event is not lit"),
+    ("orange over a lit row's Equipment name",
+     "ui.tabs.disaster_tab:DisasterTab._build_page",
+     "for tag, colour in ((LIT_TAG, LIT_COLOUR),\n"
+     "                            (EQUIPMENT_TAG, EQUIPMENT_COLOUR),",
+     "for tag, colour in ((EQUIPMENT_TAG, EQUIPMENT_COLOUR),\n"
+     "                            (LIT_TAG, LIT_COLOUR),",
+     "covers its Equipment name"),
+    ("a row just lit left below the foot",
+     "ui.tabs.disaster_tab:DisasterTab._fill_page",
+     "            text.see(newly_lit)", "            pass",
+     "a row just lit scrolled to"),
+    ("every rewrite scrolling to the lit row",
+     "ui.tabs.disaster_tab:DisasterTab._fill_page",
+     "if row.lit and row.id not in was_lit and newly_lit is None:",
+     "if row.lit and newly_lit is None:", "scrolled again"),
     ("the finished column shown with nothing finished",
      "ui.tabs.disaster_tab:DisasterTab._lay_out",
      "            self._finished_frame.grid_remove()", "            pass",

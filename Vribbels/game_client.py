@@ -77,7 +77,7 @@ GAMERES = Path("bin") / "appdata" / "cznlive" / "gameres"
 # reader that changes what it reads raises this: every install then
 # reads its client again once, rather than at the next patch.
 CACHE_FILE = "game_client.json"
-CACHE_FORMAT = 24
+CACHE_FORMAT = 25
 
 # The manifest layout this reads. A different version is a different
 # layout until shown otherwise.
@@ -1895,6 +1895,36 @@ COLLECTION_KINDS = {"COLLECTION_TYPE_CHAOS": "chaos",
                     "COLLECTION_TYPE_DISASTER": "disaster"}
 RELIC_TABLE = re.compile(r"relic(?:\([^)]+\))?@relic")
 MONSTER_NAME = "monster@name@%s"
+# What ties an achievement to the Events it is done on, and to the
+# option to pick there. A condition of `CHALLENGE_PICKS` names an
+# option, whose row gives its Event and the words on its button; one of
+# `CHALLENGE_GETS` names what an option pays, through its effect's
+# rewards; `CHALLENGE_ENTERS` names an Event, or a step of one.
+#
+# **A step is an Event moved on to on the same spot**: `<event>-<n>`.
+# The client links no option to the step it reaches. The options whose
+# effect says `ENCOUNTER_MOVES_ON` are the ways on, and the nth of them, in
+# their `order`, reaches step n: `docs/disaster_challenges.md`.
+#
+# **An interactor's option links no Event and has no button words**: an
+# object in the Event's scene (`encounter(interactor)`). Its Event is
+# the one the achievement's words name, every variant of that name.
+CHALLENGE_PICKS = ("ENCOUNTER_CHOICE__ID", "ENCOUNTER_CHOICE__ID_CHAR",
+                   "DICE_ROLL_ENCOUNTER_SUCCESS__OPTION")
+CHALLENGE_GETS = ("GET_EQUIPMENT__ID", "GET_CARD__ID")
+CHALLENGE_ENTERS = "ENTER_ENCOUNTER__ID"
+ENCOUNTER_TABLE = "encounter(disaster)@encounter"
+ENCOUNTER_OPTIONS = ("encounter(disaster)@encounter_option",
+                     "encounter(interactor)@encounter_option")
+ENCOUNTER_EFFECTS = ("encounter(disaster)@encounter_option_eff",
+                     "encounter(interactor)@encounter_option_eff")
+ENCOUNTER_REWARDS = re.compile(r"encounter_reward\([^)]+\)@encounter_reward")
+ENCOUNTER_MOVES_ON = "Event Encounter:"
+ENCOUNTER_NAMED = re.compile(r"Unidentified Area \[([^\]]+)\]")
+# A season's own Equipment, for finding its names in an achievement's
+# words: `new_link_relic_id` on the season's row.
+SEASON_TABLE = "event_disaster@event_disaster"
+RELIC_NAME = "relic@name@%s"
 
 
 def disaster_challenges(client):
@@ -1903,10 +1933,13 @@ def disaster_challenges(client):
 
     * `pages`: {page: its title in the game's words};
     * `achievements`: [{'id', 'page', 'sort', 'kind', 'count', 'text',
-      'gate', 'children', 'list'}], page by page in the game's order.
-      `kind` is `named`, `meta` (for finishing `children`) or
-      `generic`; `gate` the schedule that unlocks it, or None; `list`
-      the info id of the list it collects, or None;
+      'gate', 'children', 'list', 'events', 'options', 'equipment'}],
+      page by page in the game's order. `kind` is `named`, `meta` (for
+      finishing `children`) or `generic`; `gate` the schedule that
+      unlocks it, or None; `list` the info id of the list it collects,
+      or None; `events` the Events it is done on, a step's as its
+      Event's; `options` the words on the button to pick there;
+      `equipment` the Equipment names its `text` holds;
     * `gates`: {schedule: days into the season's schedule it opens};
     * `lists`: {info id: {'kind', 'collection', 'items'}}, `kind`
       `chaos` or `disaster`, `collection` the wire's id for the page,
@@ -1930,10 +1963,14 @@ def disaster_challenges(client):
             if isinstance(day, int):
                 opens[row["id"]] = day
     infos = {row["id"]: row for row in client.rows(CHALLENGE_INFO_TABLE)}
+    events = _challenge_events(client, texts)
+    seasons = {row["id"]: row for row in _rows_of(client, (SEASON_TABLE,))}
     out = {}
     for short in tables:
         rows = client.rows("disaster_achievement(%s)@disaster_achievement"
                            % short)
+        relics = _ids((seasons.get("disaster_" + short) or {}).get(
+            "new_link_relic_id"))
         achievements = []
         for row in rows:
             page = row.get("main_category")
@@ -1949,15 +1986,19 @@ def disaster_challenges(client):
             info = row.get("link_disaster_achievement_info_id")
             # A generic row's words are never shown, and there are a
             # hundred and twenty of them a season.
+            words = "" if kind == "generic" \
+                else clean(texts.get(row.get("desc")))
+            where, options = _challenge_event(row, words, events)
             achievements.append({
                 "id": row["id"], "page": page,
                 "sort": _figure(row.get("sort")) or 0, "kind": kind,
                 "count": _figure(row.get("count")) or 1,
-                "text": "" if kind == "generic"
-                else clean(texts.get(row.get("desc"))),
+                "text": words,
                 "gate": None if gate in NO_LINK else gate,
                 "children": children,
-                "list": info if info in infos else None})
+                "list": info if info in infos else None,
+                "events": where, "options": options,
+                "equipment": _equipment_named(row, words, relics, texts)})
         if not achievements:
             continue
         achievements.sort(key=lambda a: (CHALLENGE_PAGES.index(a["page"]),
@@ -1982,6 +2023,102 @@ def disaster_challenges(client):
                       if gate in opens},
             "lists": lists}
     return out
+
+
+def _rows_of(client, names):
+    """Every row of the tables `names`. A table the client lacks, or
+    holds as an empty stub, gives none."""
+    out = []
+    for name in names:
+        try:
+            out += client.rows(name)
+        except (KeyError, IndexError):
+            continue
+    return out
+
+
+def _challenge_events(client, texts):
+    """What `_challenge_event` reads an achievement's Events off:
+
+    * `options`: {option id: (its Event or None, its button's words)};
+    * `awards`: {what is paid: [ids of the options paying it]};
+    * `steps`: {Event: [ids of the options moving it on, in order]};
+    * `named`: {an Event's name: [the Events of that name]}.
+    """
+    effects = {row["id"]: row for row in _rows_of(client, ENCOUNTER_EFFECTS)}
+    pays = {row["id"]: _ids(row.get("reward_multiple_link"))
+            for row in _rows_of(client, sorted(
+                path[3:-3] for path in client.archive.files
+                if path.startswith("db/") and path.endswith(".db")
+                and ENCOUNTER_REWARDS.fullmatch(path[3:-3])))}
+    options, awards, steps = {}, {}, {}
+    for row in sorted(_rows_of(client, ENCOUNTER_OPTIONS), key=lambda r: (
+            r.get("link_encounter_id") or "", _figure(r.get("order")) or 0)):
+        event = row.get("link_encounter_id")
+        event = None if event in NO_LINK else event
+        options[row["id"]] = (event and event.partition("-")[0],
+                              clean(texts.get(row.get("simple_flavor_text"))))
+        effect = effects.get(row.get("success_link_encounter_option_eff_id"),
+                             {})
+        for column, cell in effect.items():
+            if column.startswith("reward") \
+                    and column.endswith("_multiple_link"):
+                for reward in _ids(cell):
+                    for paid in pays.get(reward) or ():
+                        awards.setdefault(paid, []).append(row["id"])
+        if clean(texts.get(effect.get("overview_eff_desc"))).startswith(
+                ENCOUNTER_MOVES_ON):
+            steps.setdefault(event, []).append(row["id"])
+    named = {}
+    for row in _rows_of(client, (ENCOUNTER_TABLE,)):
+        events = named.setdefault(clean(texts.get(row.get("name"))), [])
+        event = row["id"].partition("-")[0]
+        if event not in events:
+            events.append(event)
+    return {"options": options, "awards": awards, "steps": steps,
+            "named": named}
+
+
+def _challenge_event(row, words, events):
+    """(the Events an achievement `row` is done on, the words on the
+    buttons to pick there), off `_challenge_events`'s `events`. Both
+    empty for a row no Event serves."""
+    kind = row.get("condition_type")
+    links = _ids(row.get("opt_1_multiple_link"))
+    picks, where = [], []
+    if kind in CHALLENGE_PICKS:
+        picks += links
+    elif kind in CHALLENGE_GETS:
+        for link in links:
+            picks += events["awards"].get(link) or ()
+    elif kind == CHALLENGE_ENTERS:
+        for link in links:
+            event, _, step = link.partition("-")
+            where.append(event)
+            ways = events["steps"].get(event) or ()
+            if step.isdigit() and 0 < int(step) <= len(ways):
+                picks.append(ways[int(step) - 1])
+    options = []
+    for option in picks:
+        event, label = events["options"].get(option, (None, ""))
+        if event:
+            where.append(event)
+        if label and label not in options:
+            options.append(label)
+    named = ENCOUNTER_NAMED.search(words)
+    if not where and named:
+        where = events["named"].get(named.group(1)) or []
+    return sorted(set(where)), options
+
+
+def _equipment_named(row, words, relics, texts):
+    """The Equipment names in an achievement's `words`: the season's
+    `relics`, and what the row itself asks to be obtained."""
+    own = _ids(row.get("opt_1_multiple_link")) \
+        if row.get("condition_type") == "GET_EQUIPMENT__ID" else []
+    names = (clean(texts.get(RELIC_NAME % relic))
+             for relic in list(relics) + own)
+    return sorted({name for name in names if name and name in words})
 
 
 def _challenge_list(client, texts, info):

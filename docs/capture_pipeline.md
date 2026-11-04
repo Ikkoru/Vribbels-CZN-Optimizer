@@ -64,6 +64,8 @@ The schedule is kept ONCE, as the GACHA group of `event_schedules`; `_banners()`
 
 The app refreshes the Stats & Gacha History tab's pull history on `GACHA_MARKER`, not `SAVE_MARKER`: a history page is no reason to reload the whole snapshot, which a `[LIVE]` line would also cost. The tab's standings sheets are the snapshot's, redrawn on every load. The file's location and name are handed to the generated addon from `gacha_history.py` rather than spelled twice. Everything else -- the wire shapes, the write, the reading -- is in `docs/gacha_history.md`.
 
+`EVENT_MARKER` carries the Event the player stands on to the Galactic Disaster tab, and is the one marker saying something a snapshot does not hold: `docs/disaster_challenges.md`, *Events*.
+
 ## The Chaos runs are kept in a file of their own
 
 A Chaos run is followed through its commands, from `disaster/enter_disaster_chaos_stage`, `zero_orb/enter_zero_stage` or `chaos/enter_embody_chaos_stage` -- a base-game Chaos from its own screen -- to `stage/clear_stage`, and is **learned, not received**. One record per run holds:

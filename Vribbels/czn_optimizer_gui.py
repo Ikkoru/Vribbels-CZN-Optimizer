@@ -372,6 +372,7 @@ class OptimizerGUI:
         # `_poll_capture` on the UI thread. See `_want_live_update`.
         self._live_update_wanted = False
         self._gacha_written = False
+        self._event_moved = False
         # Set from the thread reading old captures for stats, acted on
         # by `_poll_capture` the same way.
         self._stats_written = False
@@ -1116,6 +1117,7 @@ class OptimizerGUI:
         # and a worker must not reach Tk directly -- see
         # `_on_gacha_written`.
         self.capture_manager.gacha_update_callback = self._on_gacha_written
+        self.capture_manager.event_update_callback = self._on_event_moved
 
         def make(cls):
             return lambda: cls(self.notebook, self.app_context)
@@ -1813,6 +1815,14 @@ class OptimizerGUI:
         """
         self._gacha_written = True
 
+    def _on_event_moved(self):
+        """The player stepped on or off an Event.
+
+        Runs on the proxy-reader thread, so it only sets a flag for
+        `_poll_capture` -- see `_want_live_update`.
+        """
+        self._event_moved = True
+
     def _want_live_update(self):
         """The capture saved: reload once the UI thread gets to it.
 
@@ -1849,6 +1859,14 @@ class OptimizerGUI:
                 self._stats_written = False
                 if gacha is not None:
                     gacha.refresh_standings()
+            # Likewise a Galactic Disaster tab not built yet: it reads
+            # the Event from the capture when it is. Before the reload,
+            # which would hold the row back for as long as it takes.
+            if self._event_moved:
+                self._event_moved = False
+                disaster = self.disaster_tab_instance
+                if disaster is not None:
+                    disaster.refresh_disaster()
             if self._live_update_wanted:
                 self._live_update_wanted = False
                 self._handle_live_update()

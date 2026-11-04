@@ -7,15 +7,17 @@ Three parts, each wrong without a sound:
   requirement the player has no single thing to do for; a gate read as
   no gate shows a Part 3 achievement as open; a list built off the wrong
   rows puts the wrong items in a tip.
-* **The capture** (`Addon._note_challenges`). The login sends the table
-  whole and nothing after it but claims and moved scores: a claim or a
-  move not folded in leaves the tab on the login's reading all session,
-  and a progress report's `complete_time` of 0 copied over a claim
-  unclaims it. A run's codex finds not kept leave a tip listing what
-  was found an hour ago.
+* **The capture** (`Addon._note_challenges`, `Addon._note_event`). The
+  login sends the table whole and nothing after it but claims and moved
+  scores: a claim or a move not folded in leaves the tab on the login's
+  reading all session, and a progress report's `complete_time` of 0
+  copied over a claim unclaims it. A run's codex finds not kept leave a
+  tip listing what was found an hour ago. An Event's leaving not heard
+  leaves its rows lit on the next spot.
 * **The model** (`disaster_challenges.board`). What counts as done --
   claimed, a score at its target, or every child of a meta done -- and
-  what is locked, by when, decides every number on the tab.
+  what is locked, by when, decides every number on the tab. A row lit
+  off its Event sends the player looking for a button that is not there.
 
 No Tk, no snapshot and no client needed: the cases are synthetic.
 """
@@ -62,6 +64,30 @@ def _row(rid, page, sort, **extra):
     return row
 
 
+def _option(rid, event, order, words):
+    """An Event option's row, with its button's `words` in `CLIENT_TEXT`
+    under its own id."""
+    CLIENT_TEXT[f"encounter_option@simple_flavor_text@{rid}"] = words
+    return {"id": rid, "link_encounter_id": event, "order": str(order),
+            "simple_flavor_text":
+                f"encounter_option@simple_flavor_text@{rid}",
+            "success_link_encounter_option_eff_id": f"{rid}_o"}
+
+
+CLIENT_TEXT = {
+    "disaster_achievement@desc@disaster_s09_101":
+        "Clear <#6AA5E2>Stage 1</>",
+    "disaster_achievement@desc@disaster_s09_203":
+        "Obtain legendary equipment Hammer",
+    "disaster_achievement@desc@disaster_s09_204":
+        "Check [Diary] in Unidentified Area [Long Road]",
+    "achievement_category_disaster_collection": "Mission Records",
+    "monster@name@m1": "Wolf", "monster@name@m2": "Hidden",
+    "relic@name@eq_a": "Hammer", "relic@name@eq_b": "Other season's",
+    "encounter@name@uk_a": "Long Road", "encounter@name@uk_c": "Elsewhere",
+    "moves_1": "Event Encounter: [Into It]",
+    "moves_2": "Event Encounter: [Further In]",
+}
 CLIENT_TABLES = {
     "disaster_achievement(s08)@disaster_achievement": [
         _row("disaster_s08_101", "disaster_collection", 1)],
@@ -84,7 +110,48 @@ CLIENT_TABLES = {
              link_disaster_achievement_info_id="achieve_info_s09_106"),
         _row("disaster_s09_010", "penalty", 1, achievement_type="default",
              schedule_link_condition_schedule_id="event_disaster_009_penalty_2"),
+        # Five ways to an Event: an option, a step reached by the second
+        # way on, Equipment an option pays, an inspected object, and an
+        # Event entered.
+        _row("disaster_s09_201", "disaster_ingame", 2,
+             condition_type="ENCOUNTER_CHOICE__ID",
+             opt_1_multiple_link="[uk_a_s2]"),
+        _row("disaster_s09_202", "disaster_ingame", 3,
+             condition_type="ENTER_ENCOUNTER__ID",
+             opt_1_multiple_link="[uk_a-2]"),
+        _row("disaster_s09_203", "disaster_ingame", 4,
+             condition_type="GET_EQUIPMENT__ID",
+             opt_1_multiple_link="[eq_a]"),
+        _row("disaster_s09_204", "disaster_ingame", 5,
+             condition_type="ENCOUNTER_CHOICE__ID",
+             opt_1_multiple_link="[i_uk_s1]"),
+        _row("disaster_s09_205", "disaster_ingame", 6,
+             condition_type="ENTER_ENCOUNTER__ID",
+             opt_1_multiple_link="[uk_b]"),
     ],
+    "encounter(disaster)@encounter": [
+        {"id": "uk_a", "name": "encounter@name@uk_a"},
+        {"id": "uk_a-1", "name": "encounter@name@uk_a"},
+        {"id": "uk_a-2", "name": "encounter@name@uk_a"},
+        {"id": "uk_b", "name": "encounter@name@uk_a"},
+        {"id": "uk_c", "name": "encounter@name@uk_c"}],
+    "encounter(disaster)@encounter_option": [
+        _option("uk_a_s4", "uk_a", 4, "Walk on"),
+        _option("uk_a_s2", "uk_a", 2, "Threaten them"),
+        _option("uk_a_s1", "uk_a", 1, "Go in"),
+        _option("uk_a-2_s1", "uk_a-2", 1, "Take it")],
+    "encounter(interactor)@encounter_option": [
+        {"id": "i_uk_s1", "link_encounter_id": "none", "order": "1",
+         "simple_flavor_text": "none",
+         "success_link_encounter_option_eff_id": "i_uk_s1_o"}],
+    "encounter(disaster)@encounter_option_eff": [
+        {"id": "uk_a_s1_o", "overview_eff_desc": "moves_1"},
+        {"id": "uk_a_s4_o", "overview_eff_desc": "moves_2"},
+        {"id": "uk_a-2_s1_o", "reward1_multiple_link": "get_eq_a"}],
+    "encounter_reward(planet)@encounter_reward": [
+        {"id": "get_eq_a", "reward_multiple_link": "eq_a"}],
+    "event_disaster@event_disaster": [
+        {"id": SEASON, "new_link_relic_id": "[eq_a,eq_b]"}],
     "disaster_achievement(s07)@disaster_achievement": [
         _row("disaster_s07_101", "disaster_collection", 1)],
     "disaster_constant_meta@disaster_constant_meta": [
@@ -126,13 +193,6 @@ CLIENT_TABLES = {
     "relic(disaster)@relic": [
         {"id": "eq_a", "link_extra_tag_id": "[ds09]"},
         {"id": "eq_b", "link_extra_tag_id": "[ds08]"}],
-}
-CLIENT_TEXT = {
-    "disaster_achievement@desc@disaster_s09_101":
-        "Clear <#6AA5E2>Stage 1</>",
-    "achievement_category_disaster_collection": "Mission Records",
-    "monster@name@m1": "Wolf", "monster@name@m2": "Hidden",
-    "relic@name@eq_a": "Hammer", "relic@name@eq_b": "Other season's",
 }
 
 
@@ -185,6 +245,54 @@ def _reader_failures():
     if (season.get("pages") or {}).get("disaster_collection") \
             != "Mission Records":
         out.append("a page's title was not read off the client's text")
+    for rid, events, options, why in (
+            ("disaster_s09_201", ["uk_a"], ["Threaten them"],
+             "an option's row gives its Event and its button's words"),
+            ("disaster_s09_202", ["uk_a"], ["Walk on"],
+             "step n is reached by the nth option moving the Event on, in "
+             "their order, and a step's Event is the one it moves on from"),
+            ("disaster_s09_203", ["uk_a"], ["Take it"],
+             "Equipment is tied to the options whose effect pays it, through "
+             "encounter_reward"),
+            ("disaster_s09_204", ["uk_a", "uk_b"], [],
+             "an interactor links no Event, so every Event of the name its "
+             "words give is its Event"),
+            ("disaster_s09_205", ["uk_b"], [],
+             "an Event entered has no option to pick")):
+        got = by_id.get(rid) or {}
+        if (got.get("events"), got.get("options")) != (events, options):
+            out.append(f"{rid} read Events {got.get('events')} and options "
+                       f"{got.get('options')}, not {events} and {options}: "
+                       f"{why}. The row lights on the wrong spot, or names "
+                       f"the wrong button")
+    if (by_id.get("disaster_s09_203") or {}).get("equipment") != ["Hammer"]:
+        out.append(f"the Equipment named by disaster_s09_203 read "
+                   f"{(by_id.get('disaster_s09_203') or {}).get('equipment')}: "
+                   f"a name in the words stays uncoloured")
+    if (by_id.get("disaster_s09_101") or {}).get("events") != []:
+        out.append("a row no Event serves reads as served by one")
+    return out
+
+
+def _shipped_failures():
+    """Every shipped season's rows reach the tab's Events: a client whose
+    tables moved would leave them dark with nothing to say so."""
+    from game_data import from_client
+    out = []
+    held = getattr(from_client, "DISASTER_CHALLENGES", {})
+    for season, tables in sorted(held.items()):
+        rows = [a for a in tables["achievements"] if a["kind"] == "named"]
+        dark = [a["id"] for a in rows if "Unidentified Area [" in a["text"]
+                and not a.get("events")]
+        if dark:
+            out.append(f"{season}'s {dark} name an Unidentified Area and "
+                       f"carry no Event: they never light. Is "
+                       f"`from_client.py` shipped from the reader that fills "
+                       f"`events`? `python docs/client_tables.py --ship`")
+        if not any(a.get("options") for a in rows):
+            out.append(f"{season} carries no option's words on any row")
+        if not any(a.get("equipment") for a in rows):
+            out.append(f"{season} carries no Equipment name on any row")
     return out
 
 
@@ -315,6 +423,34 @@ def _capture_failures():
     if addon.chaos_run_open.get("chaos_14_monster_01") != 1:
         out.append("a whole codex dropped the open run's finds: the codex "
                    "takes a run in only at its end")
+    # Stepping on an Event, moving on to its step, leaving it; the
+    # marker saying each, and only each, and a fight leaving it standing.
+    said = []
+    addon.log_callback = lambda line, *a, **k: said.append(line)
+    event = lambda name: {"spot_info": {"enc_info": {"id": name}}}  # noqa: E731
+    for command, reply, want in (
+            ("stage/enter_spot", event("uk_a"), "uk_a"),
+            ("encounter/get_info", {"result": {"info": {"id": "uk_a"}}},
+             "uk_a"),
+            ("encounter/next_encounter", {"result": {"info": {"id": "uk_a-1"}}},
+             "uk_a-1"),
+            ("battle/battle_start", {}, "uk_a-1"),
+            ("encounter/exit_encounter", {"result": {"step": 7}}, None),
+            ("stage/enter_spot", {"spot_info": {"spot_type": "BATTLE"}}, None),
+            ("encounter/get_info", {"result": {"info": {"id": "uk_b"}}},
+             "uk_b"),
+            ("stage/clear_stage", {"return_info": {}}, None)):
+        ask(command, reply)
+        if addon.chaos_event != want:
+            out.append(f"after {command} the capture says the player stands "
+                       f"on {addon.chaos_event!r}, not {want!r}: the row "
+                       f"lights on the wrong spot, or stays lit off it")
+    told = [line for line in said if line.startswith("[SYNC] event")]
+    if told != ["[SYNC] event uk_a", "[SYNC] event uk_a-1", "[SYNC] event ",
+                "[SYNC] event uk_b", "[SYNC] event "]:
+        out.append(f"the capture said {told} of those moves: once for each "
+                   f"change, or the app is not told, or redraws for nothing")
+    addon.log_callback = lambda *a, **k: None
     # Saved and seeded: a capture that starts without a login keeps them.
     addon.inventory_data = {"piece_items": []}
     addon.character_data = {"characters": []}
@@ -341,13 +477,46 @@ def _capture_failures():
     return out
 
 
+def _marker_failures():
+    """The reader takes the addon's Event marker for the app: consumed,
+    with its timing off, and nothing said where nothing moved."""
+    from types import SimpleNamespace
+    import capture.manager as manager
+    held = manager.CaptureManager.__new__(manager.CaptureManager)
+    held.chaos_event = None
+    moves, shown = [], []
+    held.event_update_callback = lambda: moves.append(held.chaos_event)
+    held._log_line = lambda line, *a: shown.append(line)
+    for name in ("status_callback", "live_update_callback",
+                 "gacha_update_callback", "region_callback"):
+        setattr(held, name, None)
+    held._debug_mode = True
+    held.log_callback = lambda *a, **k: None
+    held.proxy_process = SimpleNamespace(poll=lambda: 0, stdout=[
+        f"{manager.EVENT_MARKER} uk_a{manager.LAG_MARKER}1.0,2.0,3.0]\n",
+        f"{manager.EVENT_MARKER} uk_a\n",
+        f"{manager.EVENT_MARKER} uk_a-1\n",
+        f"{manager.EVENT_MARKER} \n",
+        f"{manager.EVENT_MARKER} uk_b\n"])
+    held._read_proxy_output()
+    out = []
+    if moves != ["uk_a", "uk_a-1", None, "uk_b", None]:
+        out.append(f"the reader told the app of {moves}: each Event, a "
+                   f"leaving as None, and None when the proxy ends. The row "
+                   f"stays dark, or stays lit after the capture has stopped")
+    if shown:
+        out.append(f"the Event marker reached the Capture Log: {shown}")
+    return out
+
+
 # ------------------------------------------------------------ the model
 
 def _achievement(rid, page, kind="named", count=1, gate=None, children=(),
-                 listed=None, text=None):
+                 listed=None, text=None, events=(), options=(), equipment=()):
     return {"id": rid, "page": page, "sort": 0, "kind": kind, "count": count,
             "text": text or rid, "gate": gate, "children": list(children),
-            "list": listed}
+            "list": listed, "events": list(events), "options": list(options),
+            "equipment": list(equipment)}
 
 
 CHALLENGES = {SEASON: {
@@ -372,8 +541,13 @@ CHALLENGES = {SEASON: {
         _achievement("p1", "penalty"),
         _achievement("g1", "penalty", kind="generic"),
         # Chaos Investigation: gated by Part 2, but with a row on the
-        # wire -- the gate is open.
+        # wire -- the gate is open. Then one done on an Event, and one
+        # done on two others.
         _achievement("c1", "disaster_ingame", gate="part2"),
+        _achievement("e1", "disaster_ingame", events=("uk_a",),
+                     options=("Take it",), equipment=("Hammer",),
+                     text="Obtain equipment Hammer"),
+        _achievement("e2", "disaster_ingame", events=("uk_b", "uk_c")),
     ],
     "lists": {"info_b1": {"kind": "chaos", "collection": "chaos_14_02",
                           "items": [["i1", "Wolf", 4, None],
@@ -443,9 +617,29 @@ def _model_failures():
         out.append("a finished page with an unnamed reward waiting does not "
                    "say so: its count would not blink")
     investigation = pages.get("disaster_ingame")
-    if investigation is None or [r.id for r in investigation.rows] != ["c1"]:
+    if investigation is None or "c1" not in [r.id for r in investigation.rows]:
         out.append("an achievement with a row on the wire was taken as "
                    "still locked by its gate")
+
+    def lit(event):
+        page = {p.page: p for p in dc.board(
+            _raw(), NOW, CHALLENGES, CONSTANTS, event=event).pages}
+        return [r.id for r in page["disaster_ingame"].rows if r.lit]
+
+    for event, want, why in (
+            (None, [], "no Event stood on lights nothing"),
+            ("uk_a", ["e1"], "its Event lights a row"),
+            ("uk_a-1", ["e1"], "a step of an Event is that Event's spot"),
+            ("uk_c", ["e2"], "any of a row's Events lights it"),
+            ("uk_z", [], "an Event the rows name nowhere lights nothing")):
+        if lit(event) != want:
+            out.append(f"standing on {event!r} lights {lit(event)}, not "
+                       f"{want}: {why}")
+    shown = {r.id: r for r in investigation.rows}.get("e1")
+    if shown is None or (shown.options, shown.equipment) != (
+            ("Take it",), ("Hammer",)):
+        out.append(f"a row reads {shown}: its button's words and Equipment "
+                   f"name show whether or not the player is on its Event")
     battle = pages.get("disaster_battle")
     tip = battle.rows[0].tip if battle and battle.rows else None
     if tip != ("Owl", "+1 more in a later part"):
@@ -481,7 +675,17 @@ def _model_failures():
 
 def run():
     add_source_to_path()
-    return _reader_failures() + _capture_failures() + _model_failures()
+    return _reader_failures() + _shipped_failures() + _capture_failures() \
+        + _marker_failures() + _model_failures()
+
+
+def _strip_shipped_events():
+    """A fault: `from_client.py` shipped before its rows had Events."""
+    add_source_to_path()
+    from game_data import from_client
+    for held in from_client.DISASTER_CHALLENGES.values():
+        for achievement in held["achievements"]:
+            achievement["events"] = []
 
 
 FAULTS = [
@@ -557,4 +761,49 @@ FAULTS = [
     ("a wire row does not open a gate", "disaster_challenges:_Reading.open",
      "            or self.row(achievement) is not None", "",
      "taken as still locked"),
+    ("options in the table's order, not the game's",
+     "game_client:_challenge_events",
+     'r.get("link_encounter_id") or "", _figure(r.get("order")) or 0)):',
+     'r.get("link_encounter_id") or "", 0)):', "disaster_s09_202 read"),
+    ("a step's Event left as the step", "game_client:_challenge_event",
+     'event, _, step = link.partition("-")\n            where.append(event)',
+     'event, _, step = link.partition("-")\n            where.append(link)',
+     "disaster_s09_202 read"),
+    ("an award not traced", "game_client:_challenge_events",
+     "awards.setdefault(paid, []).append(row[\"id\"])", "pass",
+     "disaster_s09_203 read"),
+    ("an interactor's Event not read off the words",
+     "game_client:_challenge_event", "if not where and named:", "if False:",
+     "disaster_s09_204 read"),
+    ("Equipment names not looked for", "game_client:_equipment_named",
+     "if name and name in words", "if False", "the Equipment named by"),
+    ("no row given its Events", "game_client:_challenge_event",
+     'return sorted(set(where)), options', 'return [], options',
+     "disaster_s09_201 read"),
+    ("the shipped table without Events", _strip_shipped_events, None, None,
+     "carry no Event"),
+    ("a step not on its Event's spot", "disaster_challenges:board",
+     'here = (event or "").partition("-")[0]', 'here = event or ""',
+     "lights []"),
+    ("a leaving not heard", "capture.manager:ADDON_TEMPLATE",
+     "        elif asked == EVENT_LEAVES or asked == CHAOS_CLOSES \\\\\n",
+     "        elif asked == CHAOS_CLOSES \\\\\n", "after encounter/exit_encounter"),
+    ("a step moved on to not heard", "capture.manager:ADDON_TEMPLATE",
+     'EVENT_SAYS = ("encounter/get_info", "encounter/next_encounter")',
+     'EVENT_SAYS = ("encounter/get_info",)',
+     "after encounter/next_encounter"),
+    ("the marker shown in the log, not read",
+     "capture.manager:CaptureManager._read_proxy_output",
+     "                if EVENT_MARKER in line:", "                if False:",
+     "the reader told the app of"),
+    ("a dead proxy leaving the row lit",
+     "capture.manager:CaptureManager._read_proxy_output",
+     "            self._set_chaos_event(None)\n", "",
+     "the reader told the app of"),
+    ("every reply said, moved or not", "capture.manager:ADDON_TEMPLATE",
+     "        if event != self.chaos_event:\n            self.chaos_event = event\n"
+     '            self.log_callback("%s %s" % (EVENT_MARKER, event or ""))',
+     "        self.chaos_event = event\n"
+     '        self.log_callback("%s %s" % (EVENT_MARKER, event or ""))',
+     "the capture said"),
 ]
