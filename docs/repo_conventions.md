@@ -1,6 +1,6 @@
 # Repo conventions
 
-How `tasks.md`, `plan.md`, `CHANGELOG.md` and the release notes are kept. Nothing here affects the program.
+How `tasks.md`, `plan.md`, `CHANGELOG.md`, the release notes and the topic docs are kept. Nothing here affects the program.
 
 ## `tasks.md` — the triaged backlog
 
@@ -115,6 +115,14 @@ Two things override those cuts:
 What survives is written tab first; a panel inside it can come later: *"Setup & Settings: archive info and settings are in the Settings panel."* Group by tab, each group under the tab's name as a bold mini header of its own line (`**Optimizer**`), in every section. Order by importance within each, and give a new tab one line saying what it is for. The header names one or two themes. `Added`, `Fixed` and `Changed` may end up empty.
 
 A tiny sprinkle of whimsy at the top is welcome, and nowhere else.
+
+## Topic docs — how a fact is written
+
+These hold for what is written or edited, with no sweep of what stands.
+
+- **A doc stating an invariant says whether a check enforces it**, with a `Guard: checks/<file>` line. Where no check does, the line is left out, never written as "unpinned".
+- **The owner of a fact never links back to the places quoting it.** It carries a one-line scope header naming the file that owns the neighbouring topic.
+- **A new section suits this shape, taking only the parts it needs**: the rule in one bold sentence, then its mechanism, then `Do not X. <symptom>` lines, then `Code:` and `Guard:`.
 
 ## Keeping the settings docs in step
 
