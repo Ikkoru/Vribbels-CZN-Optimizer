@@ -1729,6 +1729,7 @@ class Addon:
                     "mission_trauma_code_event_entities",
                     "story_trauma_code_event_entities",
                     "story_node_mission_disaster_entities",
+                    "mission_event_node_list_story_node_entities",
                     "chapter_reward_entities"):
             if isinstance(data.get(key), (dict, list)) and data[key]:
                 self.login_tables[key] = data[key]

@@ -24,6 +24,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Memory Fragments tab: two rows under Main Stats. The Units needed to level every fragment to 3 and use up your Core of Memory, then what you hold against that: spare in green, or short in red with the x6 runs of Growth - Unit - Difficulty 6 it comes to.
 - Checklist tab: hovering a Core in Expiring Items says what it does.
 - Checklist tab: each Galactic Disaster story chapter's stars are an Event, from the day the chapter opens to the season's end: the stars earned out of 30, red until every star reward is claimed. The star battles leave with the season, rewards unclaimed with them.
+  - A Node List event's story chapters with star rewards get the same row, until the event ends. These are apart from the event's own mission rewards.
 - `zRUN Chaos Runs Spreadsheet.cmd` makes your Chaos runs table and spreadsheet with a double-click: it checks for Python and openpyxl, says how to get either, and asks for your program's folder. See [Tracking Chaos runs](README.md#tracking-chaos-runs).
 - **Tab colours**: a bar across the top of each tab in its group's colour, to find a tab at a glance. Blue for Optimizer, Memory Fragments, Gear Score and Combatants; green for Materials, Checklist and Galactic Disaster; purple for Capture and Setup & Settings; yellow for Stats & Gacha History and Epione.
 

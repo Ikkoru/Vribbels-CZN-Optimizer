@@ -374,21 +374,43 @@ def _story_stars(gc):
             {"id": "event_disaster_005_chapter_2",
              "condition_type": gc.CHAPTER_GATE,
              "opt_1_multiple_link": "[disaster_s05]", "opt_2": "[3]"}],
-    }, {"name_1": "Resolution"}))
+        # A Node List: one chapter with a ladder opening two days in,
+        # one without.
+        gc.NODELIST_TABLE: [{"id": "event_nodelist_008",
+                             "node_0_day": "0",
+                             "node_0_multiple_link": "event_chapter_30075_01",
+                             "node_1_day": "2",
+                             "node_1_multiple_link": "event_chapter_30075_02"}],
+        gc.EVENT_CHAPTER_TABLE: [
+            {"id": "event_chapter_30075_01", "number": "1", "name": "vac",
+             "link_story_map_node_key": "event_node_1",
+             gc.STAR_LADDER: "none"},
+            {"id": "event_chapter_30075_02", "number": "2", "name": "neg",
+             "link_story_map_node_key": "event_node_2",
+             gc.STAR_LADDER: "disaster_s05_01"}],
+        gc.EVENT_NODE_TABLE: [dict(node(2, 3, "ev"), id="event_node_2_03")],
+    }, {"name_1": "Resolution", "neg": "Negotiation"}))
+    disaster = ("disaster_s05", "DISASTER_SEASON")
     want = {
         "disaster_s05_01": {
-            "season": "disaster_s05", "number": 1,
+            "owner": disaster[0], "group": disaster[1], "number": 1,
             "name": "Resolution - Stars", "opens": 21,
             "stars": ["sim_01_1", "sim_01_2", "sim_01_3"], "total": 3},
         "disaster_s05_02": {
-            "season": "disaster_s05", "number": 2,
+            "owner": disaster[0], "group": disaster[1], "number": 2,
             "name": "Chapter 2 - Stars", "opens": 42, "stars": [],
-            "total": None}}
+            "total": None},
+        "event_chapter_30075_02": {
+            "owner": "event_nodelist_008", "group": "EVENT_NODELIST_PAGE",
+            "number": 2, "name": "Negotiation - Stars", "opens": 2,
+            "stars": ["ev_1", "ev_2", "ev_3"], "total": 3}}
     if got != want:
         return [f"the story chapters' stars read {got}, not {want}. A "
                 f"chapter's stars are its battles' conditions under a "
                 f"ladder and none without one, its total the ladder's top, "
-                f"and it opens by its gate, else with the season's content."]
+                f"and it opens by its gate, else with the season's content; "
+                f"a Node List's chapter opens on its day in the list, and "
+                f"one with no ladder is not listed."]
     return []
 
 
@@ -956,10 +978,11 @@ FAULTS = [
     ("a placeholder chapter's stars counted", "game_client:story_stars",
      "if node.get(column) not in NO_LINK] if held else []",
      "if node.get(column) not in NO_LINK]", "the story chapters' stars read"),
-    ("a chapter's gate ignored", "game_client:story_stars",
-     "\"opens\": gates.get((season, number),\n"
-     "                               constants.get(STAR_FIRST_OPENS)),",
-     "\"opens\": constants.get(STAR_FIRST_OPENS),",
+    ("a chapter's gate ignored", "game_client:_disaster_stars",
+     "gates.get((season, number),", "{}.get((season, number),",
+     "the story chapters' stars read"),
+    ("a Node List chapter's day ignored", "game_client:story_stars",
+     "_figure(define.get(\"node_%s_day\" % found.group(1))))", "0)",
      "the story chapters' stars read"),
     ("tiers in the table's order", "game_client:payment_events",
      "for tier in sorted(held, key=lambda t: int(",

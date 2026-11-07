@@ -813,11 +813,19 @@ def _chapter_stars(ct):
     season = {"start_time": NOW - 30 * DAY, "end_time": NOW + 40 * DAY}
     stars = ["star_%d" % n for n in range(1, 5)]
 
-    def raw_with(earned=(), moved=(), login=None, doc=None):
-        raw = {"event_schedules": {"DISASTER_SEASON": {
-                   "disaster_s05": season}},
-               ct.STARS_EARNED_FIELD: {"disaster_s05": {
+    def raw_with(earned=(), moved=(), login=None, doc=None, listed=()):
+        disaster, nodelist = ct.STARS_EARNED_FIELDS.values()
+        raw = {"event_schedules": {
+                   "DISASTER_SEASON": {"disaster_s05": season},
+                   # A Node List three days in: its second chapter, a
+                   # day in, is open, its third not.
+                   "EVENT_NODELIST_PAGE": {"event_nodelist_008": {
+                       "start_time": NOW - 3 * DAY,
+                       "end_time": NOW + 10 * DAY}}},
+               disaster: {"disaster_s05": {
                    star: {"score": 1} for star in earned}},
+               nodelist: {"event_nodelist_008": {
+                   star: {"score": 1} for star in listed}},
                ct.STARS_MOVED_FIELD: {star: {"score": 1} for star in moved}}
         if login is not None:
             raw["chapter_reward_entities"] = [
@@ -832,11 +840,21 @@ def _chapter_stars(ct):
         return ct._event_stars(raw, chapter, {}, NOW)
 
     try:
+        def chapter(owner, group, opens, held, total):
+            return {"owner": owner, "group": group, "opens": opens,
+                    "stars": held, "total": total}
+
         gc.use({"story_stars": {
-            "disaster_s05_01": {"season": "disaster_s05", "opens": 21,
-                                "stars": stars, "total": 4},
-            "disaster_s05_02": {"season": "disaster_s05", "opens": 42,
-                                "stars": [], "total": None}}})
+            "disaster_s05_01": chapter("disaster_s05", "DISASTER_SEASON",
+                                       21, stars, 4),
+            "disaster_s05_02": chapter("disaster_s05", "DISASTER_SEASON",
+                                       42, [], None),
+            "event_chapter_30075_02": chapter(
+                "event_nodelist_008", "EVENT_NODELIST_PAGE", 2,
+                ["node_star_1", "node_star_2"], 2),
+            "event_chapter_30075_03": chapter(
+                "event_nodelist_008", "EVENT_NODELIST_PAGE", 4,
+                ["node_star_3"], 1)}})
         for raw, want, why in (
                 (raw_with(), ("0/4", ct.TODO), "nothing earned"),
                 (raw_with(stars[:1], stars[1:2]), ("2/4", ct.TODO),
@@ -858,15 +876,35 @@ def _chapter_stars(ct):
             out.append(f"a chapter with no ladder in the client read "
                        f"{got!r}: its total falls back, and another "
                        f"chapter's claim is not its own.")
-        rows = [key for key, _label, _widest in ct.event_rows(raw_with(), NOW)]
-        if rows != [ct.EVENT_KEY_PREFIX + "disaster_s05_01"]:
-            out.append(f"the Events listed {rows!r} on a season's day 30: "
-                       f"a chapter gets its row on the day it opens.")
+        got = read(raw_with(listed=["node_star_1"], moved=["node_star_2"]),
+                   "event_chapter_30075_02")
+        if got != [("2/2", ct.TODO)]:
+            out.append(f"a Node List chapter's stars read {got!r}, not "
+                       f"'2/2': its list's login table and a clear's stars "
+                       f"both count.")
+
+        # Only this probe's chapters: the shipped table's own sit beside
+        # them, the game's real Node List among them.
+        mine = {"disaster_s05_01", "disaster_s05_02",
+                "event_chapter_30075_02", "event_chapter_30075_03"}
+
+        def chapter_rows(raw):
+            return sorted(key[len(ct.EVENT_KEY_PREFIX):] for key, _l, _w
+                          in ct.event_rows(raw, NOW)
+                          if key[len(ct.EVENT_KEY_PREFIX):] in mine)
+
+        rows = chapter_rows(raw_with())
+        if rows != ["disaster_s05_01", "event_chapter_30075_02"]:
+            out.append(f"the Events listed {rows!r} on a season's day 30 "
+                       f"and a Node List's day 3: a chapter gets its row "
+                       f"on the day it opens.")
         over = raw_with()
-        over["event_schedules"]["DISASTER_SEASON"]["disaster_s05"] = {
-            "start_time": NOW - 90 * DAY, "end_time": NOW - DAY}
-        if ct.event_rows(over, NOW):
-            out.append("a chapter kept its row past its season's end.")
+        for group, owner in (("DISASTER_SEASON", "disaster_s05"),
+                             ("EVENT_NODELIST_PAGE", "event_nodelist_008")):
+            over["event_schedules"][group][owner] = {
+                "start_time": NOW - 90 * DAY, "end_time": NOW - DAY}
+        if chapter_rows(over):
+            out.append("a chapter kept its row past its owner's end.")
         got = dict(ct._readings(raw_with(), NOW))
         left = got.get(ct.EVENT_KEY_PREFIX + "disaster_s05_01") or [()]
         if left[-1][:1] != (ct.countdown_words(40 * DAY),):
@@ -948,7 +986,11 @@ FAULTS = [
      "no ladder in the client"),
     ("a chapter listed before it opens",
      "ui.tabs.checklist_tab:_open_chapters",
-     "and opens <= now:", "and opens:", "a chapter gets its row"),
+     "if opens <= now:", "if opens:", "a chapter gets its row"),
+    ("a Node List's chapters unread", "ui.tabs.checklist_tab:_event_stars",
+     "earned_field = STARS_EARNED_FIELDS.get(group)",
+     "earned_field = STARS_EARNED_FIELDS['DISASTER_SEASON']",
+     "a Node List chapter's stars read"),
     ("a chapter asked Finished?",
      "ui.tabs.checklist_tab:ChecklistTab._mark_finished",
      "not_asked |= set(game_client.known_story_stars())", "pass",

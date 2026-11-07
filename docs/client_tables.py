@@ -170,8 +170,8 @@ def shipped_source(client, partners=None):
               for key, event in sorted(
                   game_client.login_rewards(client).items())]
     lines += ["}", "",
-              "# {chapter id: {'season', 'number', 'name', 'opens', 'stars', "
-              "'total'}}. See game_client.story_stars.",
+              "# {chapter id: {'owner', 'group', 'number', 'name', 'opens', "
+              "'stars', 'total'}}. See game_client.story_stars.",
               "STORY_STARS = {"]
     lines += [f"    {ascii(key)}: {ascii(chapter)},"
               for key, chapter in sorted(

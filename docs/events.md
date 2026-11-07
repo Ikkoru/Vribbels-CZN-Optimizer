@@ -132,6 +132,8 @@ The same applies to a mission-tallied event: the write-down holds while the rows
 
 **A story chapter's stars are an Events row of their own**, `<chapter name> - Stars`, in a group the program makes (`STORY_STARS_GROUP`), since no schedule names a chapter. Each numbered chapter of the season's story (`disaster_s05_01`) has ten star battles of three stars, and a reward ladder on the stars earned. The battles go when the season does: the client marks every past season's `no_use`. So the row runs from the day the chapter opens to the season's end.
 
+**A Node List's story chapters have the same stars**, where the client gives the chapter a ladder (Guardian Angel's Vacation's three, Love Gathered at the Wingtips' three, The Shadow Under the Willow's first three). They are not the list's own `Clear all missions` rewards, which its row counts: the two are claimed apart. Such a row runs from its chapter's day in the list (`event_nodelist_define`'s `node_<n>_day`, the chapter its `node_<n>_multiple_link`) to the list's end. Its chapters are in `story_map(event)@story_map_chapter` and `@story_map_node`, and the stars earned at login in `event / get_list`'s `mission_event_node_list_story_node_entities`, `{list: {condition id: row}}`; a clear's report names the list as `group_id`.
+
 | Side | Where | What |
 | ---- | ----- | ---- |
 | Client | `story_map@story_map_chapter` | the chapter: `number`, its battles' node key, its ladder (`link_story_map_collect_star_reward_key`) |
@@ -143,7 +145,7 @@ The same applies to a mission-tallied event: the write-down holds while the rows
 | Wire, at login | `mission / get_list`'s `chapter_reward_entities` | `{res_id: chapter, count}`, `count` the stars the last step claimed took |
 | Wire, a claim | `story_system / get_star_reward` with `chapter_id` | every step reached, answering `reward_doc` in the same shape, kept with the Basin's in `reward_entities` |
 
-The row reads stars earned out of the total, red until the last step is claimed: `30/30` in red is rewards to claim. It asks no `Finished?`, the claims being proof. **A chapter the client has not opened has no ladder, and its battles carry the chapter before's conditions as placeholders**, so `game_client.story_stars` lists no stars for it: the row then reads what is claimed, out of thirty. `game_client.story_stars` reads the two newest seasons.
+The row reads stars earned out of the total, red until the last step is claimed: `30/30` in red is rewards to claim. It asks no `Finished?`, the claims being proof. **A chapter the client has not opened has no ladder, and its battles carry the chapter before's conditions as placeholders**, so `game_client.story_stars` lists no stars for it: the row then reads what is claimed, out of thirty. `game_client.story_stars` reads the two newest seasons, and every Node List.
 
 ## Knowing an event: three questions, and what can answer each
 

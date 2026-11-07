@@ -77,7 +77,7 @@ GAMERES = Path("bin") / "appdata" / "cznlive" / "gameres"
 # reader that changes what it reads raises this: every install then
 # reads its client again once, rather than at the next patch.
 CACHE_FILE = "game_client.json"
-CACHE_FORMAT = 28
+CACHE_FORMAT = 29
 
 # The manifest layout this reads. A different version is a different
 # layout until shown otherwise.
@@ -235,6 +235,13 @@ STAR_LADDER = "link_story_map_collect_star_reward_key"
 STAR_CONDITIONS = tuple("mission_%d_link_story_map_condition_id" % n
                         for n in (1, 2, 3))
 STAR_CHAPTER_TYPE = "disaster"
+DISASTER_GROUP = "DISASTER_SEASON"
+# A Node List's story chapters, the same shape in tables of their own.
+EVENT_CHAPTER_TABLE = "story_map(event)@story_map_chapter"
+EVENT_NODE_TABLE = "story_map(event)@story_map_node"
+NODELIST_TABLE = "event_nodelist_define@event_nodelist_define"
+NODELIST_CHAPTER = re.compile(r"node_(\d+)_multiple_link")
+NODELIST_GROUP = "EVENT_NODELIST_PAGE"
 CHAPTER_GATE = "EVENT_DISASTER_STORY__ID_CHAPTER"
 STAR_FIRST_OPENS = "open_main"
 # What a chapter's Checklist row is called; a chapter the client has no
@@ -958,19 +965,58 @@ def login_rewards(client):
 
 
 def story_stars(client):
-    """{chapter id: {"season": its Galactic Disaster season, "number":
-    its chapter number, "name": its row's name, "opens": days into the
-    season's schedule it opens, or None, "stars": [condition id, ...],
-    "total": the stars its last reward takes, or None}} for every
-    numbered story chapter of the newest seasons.
+    """{chapter id: {"owner": the schedule it runs under, "group": that
+    schedule's group, "number": its chapter number, "name": its row's
+    name, "opens": days into the owner's window it opens, or None,
+    "stars": [condition id, ...], "total": the stars its last reward
+    takes, or None}} for every story chapter with stars: each numbered
+    chapter of the newest Galactic Disaster seasons, and each Node
+    List's chapter that has a ladder.
 
     A chapter's battles hold three stars each, a condition per star
     (`STAR_CONDITIONS`), and its rewards are a ladder on the stars
     earned (`STAR_REWARDS`). **A chapter with no ladder has no stars
-    here**: until the patch opening it, a later chapter's battles carry
-    the chapter before's conditions as placeholders, and counted they
-    would read that chapter's stars as its own."""
+    here**: until the patch opening it, a later Disaster chapter's
+    battles carry the chapter before's conditions as placeholders, and
+    counted they would read that chapter's stars as its own."""
     texts = client.text()
+    ladders = client.rows(STAR_REWARDS)
+
+    def entry(row, nodes, owner, group, opens):
+        number = _figure(row.get("number"))
+        held = _numbered(ladders, row.get(STAR_LADDER))
+        return {
+            "owner": owner, "group": group, "number": number,
+            "name": STAR_ROW_NAME % (clean(texts.get(row.get("name")))
+                                     or STAR_CHAPTER_NAME % number),
+            "opens": opens,
+            "stars": [node.get(column) for node in _numbered(
+                nodes, row.get("link_story_map_node_key"))
+                for column in STAR_CONDITIONS
+                if node.get(column) not in NO_LINK] if held else [],
+            "total": max((_figure(step.get("total_star_count")) or 0
+                          for step in held), default=None)}
+
+    out = _disaster_stars(client, entry)
+    # A Node List's chapters open `node_<n>_day` days into the list,
+    # the list naming each chapter in `node_<n>_multiple_link`.
+    chapters = {row.get("id"): row
+                for row in client.rows(EVENT_CHAPTER_TABLE)}
+    nodes = client.rows(EVENT_NODE_TABLE)
+    for define in client.rows(NODELIST_TABLE):
+        for column, chapter in define.items():
+            found = NODELIST_CHAPTER.fullmatch(column)
+            row = chapters.get(chapter) if found else None
+            if row is None or row.get(STAR_LADDER) in NO_LINK:
+                continue
+            out[chapter] = entry(
+                row, nodes, define.get("id"), NODELIST_GROUP,
+                _figure(define.get("node_%s_day" % found.group(1))))
+    return out
+
+
+def _disaster_stars(client, entry):
+    """`story_stars`'s Galactic Disaster chapters, each made by `entry`."""
     constants = {row.get("id"): _figure(row.get("value"))
                  for row in client.rows(DISASTER_CONSTANTS)}
     gates = {}
@@ -983,7 +1029,6 @@ def story_stars(client):
             if day:
                 gates[season, number] = constants.get(
                     GATE_OPENS[CHAPTER_GATE] % int(day[0]))
-    ladders = client.rows(STAR_REWARDS)
     nodes = client.rows(STORY_NODE_TABLE)
     chapters = [row for row in client.rows(STORY_CHAPTER_TABLE)
                 if row.get("type") == STAR_CHAPTER_TYPE
@@ -994,23 +1039,11 @@ def story_stars(client):
     out = {}
     for row in chapters:
         season, number = row["id"].rsplit("_", 1)[0], _figure(row["number"])
-        if season not in seasons:
-            continue
-        held = _numbered(ladders, row.get(STAR_LADDER))
-        stars = [node.get(column) for node in _numbered(
-            nodes, row.get("link_story_map_node_key"))
-            for column in STAR_CONDITIONS
-            if node.get(column) not in NO_LINK] if held else []
-        out[row["id"]] = {
-            "season": season, "number": number,
-            "name": STAR_ROW_NAME % (clean(texts.get(row.get("name")))
-                                     or STAR_CHAPTER_NAME % number),
+        if season in seasons:
             # A chapter with no gate opens with the season's content.
-            "opens": gates.get((season, number),
-                               constants.get(STAR_FIRST_OPENS)),
-            "stars": stars,
-            "total": max((_figure(step.get("total_star_count")) or 0
-                          for step in held), default=None)}
+            out[row["id"]] = entry(row, nodes, season, DISASTER_GROUP,
+                                   gates.get((season, number),
+                                             constants.get(STAR_FIRST_OPENS)))
     return out
 
 
@@ -2931,18 +2964,21 @@ def known_login_rewards():
 def _star_shape(entry):
     stars, opens, total = (entry.get("stars"), entry.get("opens"),
                            entry.get("total"))
-    if (isinstance(entry.get("season"), str) and isinstance(stars, list)
+    if (isinstance(entry.get("owner"), str)
+            and isinstance(entry.get("group"), str)
+            and isinstance(stars, list)
             and all(isinstance(star, str) for star in stars)
             and (opens is None or isinstance(opens, int))
             and (total is None or isinstance(total, int))):
-        return entry["season"], opens, tuple(stars), total
+        return entry["owner"], entry["group"], opens, tuple(stars), total
     return None
 
 
 def known_story_stars():
-    """{chapter id: (season, days into its schedule it opens or None,
-    (condition id, ...), the stars in all or None)}: the shipped table,
-    with what this machine's client says over it. See `story_stars`."""
+    """{chapter id: (owner schedule, its group, days into its window it
+    opens or None, (condition id, ...), the stars in all or None)}: the
+    shipped table, with what this machine's client says over it. See
+    `story_stars`."""
     return _known("STORY_STARS", "story_stars", _star_shape)
 
 

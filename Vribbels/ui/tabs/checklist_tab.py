@@ -1308,24 +1308,27 @@ def _live_in(group, raw, now):
 
 
 def _open_chapters(raw, now):
-    """[(chapter id, window)] for the live Galactic Disaster season's
-    story chapters that have opened.
+    """[(chapter id, window)] for the story chapters with stars that
+    have opened: the live Galactic Disaster season's, and a live Node
+    List's.
 
     **A chapter has no schedule of its own**: it opens a set number of
-    days into the season's, and its star battles go with the season, so
-    the window is built from those two (`game_client.known_story_stars`).
-    A chapter not open yet has no row, there being nothing to do on it.
+    days into its owner's -- the season's, the Node List's -- and its
+    star battles go with the owner, so the window is built from those
+    two (`game_client.known_story_stars`). A chapter not open yet has
+    no row, there being nothing to do on it.
     """
-    season, window = schedules.live(
-        shop_stock.season_group_of(SEASONAL_SHOP_CATEGORY), raw, now)
-    if not isinstance(window, dict):
-        return []
+    live = {}
     out = []
-    for chapter, (held, days, _stars, _total) in sorted(
+    for chapter, (owner, group, days, _stars, _total) in sorted(
             game_client.known_story_stars().items()):
-        opens = None if days is None else (window["start_time"]
-                                           + days * 24 * 3600)
-        if held == season and opens is not None and opens <= now:
+        if group not in live:
+            live[group] = dict(schedules.all_live(group, raw, now))
+        window = live[group].get(owner)
+        if not isinstance(window, dict) or days is None:
+            continue
+        opens = window["start_time"] + days * 24 * 3600
+        if opens <= now:
             out.append((chapter, {"start_time": opens,
                                   "end_time": window["end_time"]}))
     return out
@@ -2110,30 +2113,33 @@ def _gate_open(raw, gate, now):
 
 
 def _event_stars(raw, name, _window, _now):
-    """[(words, state)] for a Galactic Disaster story chapter's stars.
+    """[(words, state)] for a story chapter's stars: a Galactic
+    Disaster season's or a Node List's.
 
     **Stars earned against the chapter's stars**, the client's top
     reward step, `STORY_STARS_FALLBACK` where it states none. Red until
     every reward is claimed, so `30/30` in red is rewards left to claim
     rather than battles left to play: the claimed figure is the stars
     the last reward claimed took, and only that says the chapter is
-    done. Past the season its battles are gone, so nothing here waits.
+    done. The rewards are not the Node List's own `Clear all missions`
+    ones, which its row counts.
 
-    The stars earned are the battles' conditions met
-    (`STARS_EARNED_FIELD`, and `STARS_MOVED_FIELD` for a clear in the
+    The stars earned are the battles' conditions met (the owner's in
+    `STARS_EARNED_FIELDS`, and `STARS_MOVED_FIELD` for a clear in the
     session). A chapter the client lists no conditions for reads what
     is claimed, which is the most the wire can then say.
     """
     entry = game_client.known_story_stars().get(name)
     if entry is None:
         return []
-    season, _days, stars, total = entry
+    owner, group, _days, stars, total = entry
     total = total or STORY_STARS_FALLBACK
     claimed = max([row.get("count") for field in STARS_CLAIMED_FIELDS
                    for row in (raw or {}).get(field) or ()
                    if isinstance(row, dict) and row.get("res_id") == name
                    and _is_count(row.get("count"))] or [0])
-    tables = ((((raw or {}).get(STARS_EARNED_FIELD) or {}).get(season) or {}),
+    earned_field = STARS_EARNED_FIELDS.get(group)
+    tables = (((raw or {}).get(earned_field) or {}).get(owner) or {},
               (raw or {}).get(STARS_MOVED_FIELD) or {})
     earned = sum(1 for star in stars if any(
         (table.get(star) or {}).get("score") for table in tables))
@@ -2239,8 +2245,8 @@ EVENT_CATEGORIES = {
     "EVENT_NODELIST_PAGE": frozenset({OPEN_ENDED}),
     # The client lists every reward and the sticker that follows them.
     "EVENT_TRAUMA_CODE": frozenset({TALLIED}),
-    # The client lists a chapter's stars; a season's are all thirty.
-    "DISASTER_STORY_STARS": frozenset({TALLIED}),
+    # The client lists a chapter's stars.
+    "STORY_STARS": frozenset({TALLIED}),
 }
 
 
@@ -2309,7 +2315,7 @@ EVENT_READERS = {
     "EVENT_COMBATANT_TRIAL": _event_trials,
     "LOBBY_COUNTDOWN": _event_countdown,
     "EVENT_TRAUMA_CODE": _event_trauma,
-    "DISASTER_STORY_STARS": _event_stars,
+    "STORY_STARS": _event_stars,
 }
 
 
@@ -2816,7 +2822,7 @@ EVENT_GROUPS = ("EVENT_SCHEDULE", "EVENT_COMBATANT_TRIAL",
                 "EVENT_NODELIST_PAGE", "EVENT_DAILY_CHECK",
                 "EVENT_RHYTHM_GAME", "EVENT_ARENA", "EVENT_OVERCLOCK",
                 "EVENT_TRAUMA_CODE", "EVENT_DISASTER_MARBLE",
-                "EVENT_OPERATION", "LOBBY_COUNTDOWN", "DISASTER_STORY_STARS")
+                "EVENT_OPERATION", "LOBBY_COUNTDOWN", "STORY_STARS")
 
 # What an event row's key is built from.
 EVENT_KEY_PREFIX = "event:"
@@ -3025,17 +3031,20 @@ TRAUMA_CODES_FIELD = "trauma_code_entities"
 # not events, and `event_rows` lists none of them.
 GATED_GROUPS = frozenset({"EVENT_TRAUMA_CODE"})
 
-# A Galactic Disaster story chapter's stars. **The group is this
-# program's own**, no `event_schedules` group naming a chapter: see
-# `_open_chapters`. The stars earned are `{season: {condition id: row}}`
-# at login, and `{condition id: row}` for what a clear reported since;
-# the stars claimed a `{res_id, count}` row by the chapter's id, the
-# login's in the first table and a claim's in the second, the capture
-# keeping `reward_doc` there. `count` is the stars the last step claimed
-# took. The fallback is every chapter's total so far, for a chapter
+# A story chapter's stars, a Galactic Disaster season's or a Node
+# List's. **The group is this program's own**, no `event_schedules`
+# group naming a chapter: see `_open_chapters`. The stars earned are
+# `{owner: {condition id: row}}` at login, in a table per owner's group,
+# and `{condition id: row}` for what a clear reported since; the stars
+# claimed a `{res_id, count}` row by the chapter's id, the login's in
+# the first table and a claim's in the second, the capture keeping
+# `reward_doc` there. `count` is the stars the last step claimed took.
+# The fallback is every Disaster chapter's total so far, for a chapter
 # the client lists no ladder for.
-STORY_STARS_GROUP = "DISASTER_STORY_STARS"
-STARS_EARNED_FIELD = "story_node_mission_disaster_entities"
+STORY_STARS_GROUP = "STORY_STARS"
+STARS_EARNED_FIELDS = {
+    "DISASTER_SEASON": "story_node_mission_disaster_entities",
+    "EVENT_NODELIST_PAGE": "mission_event_node_list_story_node_entities"}
 STARS_MOVED_FIELD = "story_map_condition"
 STARS_CLAIMED_FIELDS = ("chapter_reward_entities", "reward_entities")
 STORY_STARS_FALLBACK = 30
