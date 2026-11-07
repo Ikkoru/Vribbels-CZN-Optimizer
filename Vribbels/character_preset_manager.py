@@ -266,8 +266,9 @@ class CharacterPresetManager:
         # CHARACTERS name<->id lookup tables, built lazily and cached for
         # the manager's lifetime. Do not rebuild per call: name resolution
         # runs once per combatant per Combatants-tab refresh, and
-        # rebuilding was a measurable slowdown. Call invalidate_name_cache()
-        # if game data is ever reloaded at runtime.
+        # rebuilding is a measurable slowdown. The game client's read
+        # adds to CHARACTERS after launch: `relink_names` drops the cache
+        # then, from the main window, after each read it applies.
         self._name_to_id_cache = None
         self._id_to_name_cache = None
 

@@ -12,8 +12,7 @@ These tables are hand-maintained and most mistakes in them are silent: a misspel
 
 `game_data_validator.py` lives at the top level, NOT inside `game_data/`, and reports problems in a message box.
 
-**Text/AST layer** (`check_data_files()`) — syntax errors with `File | Ln | Col` and a caret, plus duplicate dict keys at any depth. Called from `czn_optimizer_gui.py` **above the `from game_data import *` line**: a syntax error is raised while that module imports, so this is the last point at which it can be a message box instead of a traceback. **Keep that call above the project imports if they are ever reordered.** Source runs only — a frozen build has no `.py` files, and the build
-would fail first anyway.
+**Text/AST layer** (`check_data_files()`) — syntax errors with `File | Ln | Col` and a caret, plus duplicate dict keys at any depth. Called from `czn_optimizer_gui.py` **above the `from game_data import *` line**: a syntax error is raised while that module imports, so this is the last point at which it can be a message box instead of a traceback. **Keep that call above the project imports if they are ever reordered.** Source runs only — a frozen build has no `.py` files, and the build would fail first anyway.
 
 **Value layer** (`find_data_problems()`) — ranges, vocabularies and shapes, run on a worker from `_start_data_validation()` and reported by `_report_data_problems()` after `_reveal_window()`. Advisory; the data still loads.
 
@@ -36,7 +35,7 @@ The optimizer consumes ONLY the keys in that module docstring's vocabulary table
 
 And deliberately spelled differently from everywhere else: a set's `stat` field says `Crit DMG` / `Crit Rate` where the program and `partners.py` say `CDmg` / `CRate`.
 
-Only the names in that module's docstring table reach the formulas — the five in `SET_STAT_NAME_MAP` (`game_data/sets.py`) plus `DMG multi` and `DMG add`, which feed the damage card multiplier and apply to CONDITIONAL sets only. Anything else is silently ignored while the set still counts for set-locking, so a typo costs a bonus with no visible error.
+Only the names in that module's docstring table reach the formulas — those in `SET_STAT_NAME_MAP` (`game_data/sets.py`) plus `DMG multi` and `DMG add`, which feed the damage card multiplier and apply to CONDITIONAL sets only. Anything else is silently ignored while the set still counts for set-locking, so a typo costs a bonus with no visible error.
 
 A set of several bonuses lists them as `effects`, each a `stat` and a `value`, in place of the one pair; the launch-time check reads every one (`sets.set_effects`). Where each value lands: `game_formulas.md` §5.
 
@@ -44,7 +43,7 @@ A set of several bonuses lists them as `effects`, each a `stat` and a `value`, i
 
 ## The item tables in `constants.py`
 
-Six tables name every item the Materials tab draws, and `ITEM_TABLES` is the tuple of them. Two shapes:
+The item tables name every item the Materials tab draws, and `ITEM_TABLES` is the tuple of them. Two shapes:
 
 - **Shaped** rows are `(group, tier, icon)` — the group is a class for a promotion family and an Element for growth stones, and `TIER_RARITY` prices the tier word into a rarity.
 - **Named** rows are `(name, icon)`, for items belonging to no family. `NAME_RARITY` prices those.
@@ -85,7 +84,7 @@ Node 7 per combatant: the bonus, the check and its growth, in the shape the modu
 
 ## Base stats in `characters.py`, against the server
 
-**The in-game stat screen shows the base with Affection mixed in**, so a base typed in from it is wrong by the Affection bonus unless that is taken off first. The server sends the true figure instead: every battle's entry carries each combatant's `BASE_S_ATK/DEF/HP` at their level, and each partner's own flat stats. The capture files these (`capture_pipeline.md`, *The base stat readings are kept in a file of their own*), and `checks/check_base_stats_on_wire.py` fails on:
+**The in-game stat screen shows the base with Affinity mixed in**, so a base typed in from it is wrong by the Affinity bonus unless that is taken off first. The server sends the true figure instead: every battle's entry carries each combatant's `BASE_S_ATK/DEF/HP` at their level, and each partner's own flat stats. The capture files these (`capture_pipeline.md`, *The base stat readings are kept in a file of their own*), and `checks/check_base_stats_on_wire.py` fails on:
 
 - a combatant the readings settle differently from `characters.py`, or one it lacks;
 - a level-60 partner unlike `PARTNER_CLASS_STATS`, or one `partners.py` lacks;

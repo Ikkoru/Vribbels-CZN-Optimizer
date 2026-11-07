@@ -1,8 +1,8 @@
-# The wire hunt: what the Checklist still needs, and where it might be
+# The wire hunt: finding the field a Checklist row needs
 
-A worklist, not a reference. Every Checklist row that shows no value is here with the fields that could carry it, what the account read at the time, and how confident the match is. A row leaves when it is CONFIRMED and the code reads it; a suspect leaves when a capture rules it out.
+How a field on the wire is found for a Checklist row, confirmed, and read once found. Events are `events.md`'s; what a shop's records mean is `Vribbels/shop_stock.py`'s.
 
-`docs/wire_hunt.tsv` is what is still OPEN and `docs/wire_hunt_added.tsv` is what the program already reads — a row moves across when the code acts on it. Both are hand-maintained -- no script rewrites it, so an edit cannot be lost to a regeneration. This file says how to read it.
+The worklist is two files. `docs/wire_hunt.tsv` holds every row still OPEN, with the fields that could carry it, what the account read at the time, and how confident the match is; `docs/wire_hunt_added.tsv` holds what the program already reads. A row moves across when it is CONFIRMED and the code reads it; a suspect leaves when a capture rules it out. Both are hand-maintained: no script rewrites them, so an edit cannot be lost to a regeneration.
 
 Columns: `Row`, `What we need`, `Read on <date>`, `Suspect`, `Confidence`, `Evidence / what would settle it`. The third holds what the account actually showed when the note was taken, which is what a later capture is diffed against.
 
@@ -102,30 +102,19 @@ Use it last, and keep what it learns. It only sees what happens while a capture 
 
 ## Events
 
-`docs/events.md` is the canonical write-up — the categories, how to classify one, where each kind keeps its progress, how a total is worked out where the client does not give it, and how to process a new event.
-
-Two things from it are worth repeating here because they are general:
-
-**A count of the rows an account holds is a FLOOR.** The game creates a record when it issues the task, so an event still handing them out reads as finished. That is the one wrong answer a checklist must not give. It is why such a row prints `+?` after its total, so the reading says which kind of number it is, and goes green only on a completion flag from the game rather than on anything it can count.
-
-**A completion FLAG beats a total.** `event_mission_reward_entities.event_achieve_state` answers "is anything left" without answering "how much was there", which turns out to be the question a checklist actually asks. Look for one of these before trying to derive a denominator.
-
-A reading that cannot be proved complete gets a third colour. Orange, after the floor has stood at its own ceiling for 48 hours — long enough that an event still handing out rewards daily would have moved it. It needs memory, so the record lives in `settings/checklist.json`: when a row last moved is a fact about the past and a snapshot holds only the present.
+`docs/events.md` owns them: the categories, how to classify one, where each kind keeps its progress, how a total is worked out where the client does not give it, and how to process a new event. Two of its rules hold for any row the wire counts: a count of the rows held is a floor, not a total (*Floors, and the one wrong answer*), and a completion flag answers "is anything left" where no total can (*The one place the game says an event is FINISHED*).
 
 ## What is on the wire and what is not
 
-A recurring confusion worth stating once. Two different things:
-
 * **The state of a record** — claimed, scored, spent — is always on the wire, and reaches any device. `complete_time`, `count`, `received_days`, `reward_level`.
-* **WHEN it reaches the wire is a third thing.** Some records have only ever been seen in the login burst, so an action taken while a capture runs changes nothing the capture saves. The reading is not wrong, it is an hour old, and on screen those look identical. `docs/events.md` lists the login-only event fields; the general rule is to merge a payload by id rather than assign it, so a partial list cannot wipe the rest.
+* **The existence of a record** is not. The game issues a mission row when it issues the mission, so a total counted from the rows in hand is a FLOOR. A live Basin season carries only the rows issued so far, and a summer event can read every row claimed with a third wave still unissued.
+* **WHEN a record reaches the wire** is apart from both. Some records have only ever been seen in the login burst, so an action taken while a capture runs changes nothing the capture saves. The reading is not wrong, it is an hour old, and on screen those look identical. `docs/events.md` lists the login-only event fields; the general rule is to merge a payload by id rather than assign it, so a partial list cannot wipe the rest.
 * **A STORY episode buries its rewards two levels down**, at `result.story_reward_result.reward.{currency, items}`. The `result` around them carries only `is_clear`, the node's id and a title level, so the shape test that keeps that overloaded key honest is what dropped them. `capture/manager._nested_reward` sweeps two levels for the shape rather than for the name, because `story_reward_result` is what a STORY calls its envelope and nothing says the next content will agree.
 
-  **It hid behind a self-correcting symptom.** The client asks for the whole item list moments after a story, so the counts came right on their own and only the Capture Log's receipt was missing. When a log line is absent but the numbers look right, suspect a reward path rather than assuming the capture is fine.
+  **A missed reward path corrects its own counts.** The client asks for the whole item list moments after a story, so the counts come right on their own and only the Capture Log's receipt is missing. When a log line is absent but the numbers look right, suspect a reward path rather than assuming the capture is fine.
 * **A REWARD's Memory Fragments are shaped nothing like a forged one's.** Forging answers with a top-level `pieces` LIST of documents. A reward answers with a `pieces` DICT keyed by the fragment's id, each value a `{diff, doc}` pair, and always a level down: under `item_result` (a Chaos week reward) or inside `return_info` (a Simulation run, doubled or not). Beside it sits `auto_disassemble_piece`, whose `pieces` are fragments broken down on the way in: they never reach the inventory and must not be added. `capture/manager._reward_pieces`.
-* **WHERE in the reply is a fourth.** A stage reply nests its whole outcome under **`return_info`**, so a handler reading only the top level sees nothing: `result_overclock_entities` rode there for a whole session while `result_reward_drop_overclock` paid out beside it. When a record does not update from an action that obviously changed it, search the reply for the key before concluding the wire is silent.
+* **WHERE in the reply** is another. A stage reply nests its whole outcome under **`return_info`**, so a handler reading only the top level sees nothing: `result_overclock_entities` rides there, beside the `result_reward_drop_overclock` that pays out. When a record does not update from an action that obviously changed it, search the reply for the key before concluding the wire is silent.
 * **And a claim may answer with no record at all.** A Daily Check-in claim sends `event_id`, `received_days_before`, `received_days_after` and `completed` — numbers, not an entity. Nothing to merge; the cached row has to be patched from them.
-* **The existence of a record** is not. The game issues a mission row when it issues the mission, so a total counted from the rows in hand is a FLOOR. A live Basin season carries only the rows issued so far, and a summer event can read every row claimed with a third wave still unissued.
-
 So a reading built from rows the account holds says "at least", and only a stated total — a completed season's row count — makes it exact.
 
 But WHEN a row was created is itself information. `issued_time` is the second the game decided the row was relevant, so rows sharing one are one act of the game. What such a batch varies says how the family is laid out: vary an early index and hold the last, and the same task is repeating per day, which makes the family a grid with a computable total. `docs/events.md` has the test and the six families it has been run against.
@@ -152,15 +141,15 @@ For a shop, buy one: the request carries `product_id` and the reply carries `dec
 
 `shop_res_data` carries every product's item, count, per-period cap, period, price and display order, so the Checklist builds its shop rows from the snapshot and nothing is hand-written. `Vribbels/shop_stock.py` is the write-up.
 
-Five `limit_type` values across every shop, and which Checklist column each lands in:
+The `limit_type` values across every shop, and which Checklist column each lands in:
 
-| `limit_type` | Column | Count |
-| ------------ | ------ | ----- |
-| `LIMIT_WEEK` | Weekly | 26 |
-| `LIMIT_MONTH` | Monthly | 64 |
-| `LIMIT_ACCOUNT` | Other — the wire calls it a LIFETIME cap; it refreshes with a SEASON, and which season is the shop's own. The Sortie shop's is the Sortie season, the Galactic Disaster shop's is its own — four times longer | 261 |
-| `NONE` | none — no cap, so nothing counts down and nothing finishes | 130 |
-| `LIMIT_BENEFIT` | none yet — 6 products, unexamined | 6 |
+| `limit_type` | Column |
+| ------------ | ------ |
+| `LIMIT_WEEK` | Weekly |
+| `LIMIT_MONTH` | Monthly |
+| `LIMIT_ACCOUNT` | Other — the wire calls it a LIFETIME cap; it refreshes with a SEASON, and which season is the shop's own. The Sortie shop's is the Sortie season, the Galactic Disaster shop's is its own — four times longer |
+| `NONE` | none — no cap, so nothing counts down and nothing finishes |
+| `LIMIT_BENEFIT` | none yet — unexamined |
 
 A product whose item no table names shows its res_id, the same marking the Capture Log uses: a number on screen is an invitation to identify it, where a blank would be a bug nobody can see.
 
@@ -235,6 +224,6 @@ So a row could read **claimed today** (`vi1` against `weekly_reset.day_index(now
 
 **Do not generalise the field meanings past `subscription_1`.** The other row in the same collection, `season_subscription_ticket_1`, carries `issued_limit_type: 4` against this one's `1`, and its span is 27.4 days for a `count` of 1 — a different product with its own arithmetic.
 
-## `content_*`
+## The Basin's objectives, `content_*`
 
 The Basin of Hyperspace's objectives, three per stage, arriving with the reply to `hyperspace/get_list` — not story records. `mission_seasson_entities` (the game's own spelling) holds them per Basin season and `season_entities` the stages; the Checklist reads the scored tally as the Basin's progress. `missions_id_dump.py` skips the family for that reason: thirty rows nobody annotates.

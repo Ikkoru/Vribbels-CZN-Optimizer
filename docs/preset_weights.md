@@ -21,7 +21,7 @@ A fragment is judged without knowing what the combatant wears now, so the build 
 | Partner passives        | The assumed partner: 5★ and 4.5★ at limit break 0, 4★ at their highest               | `PARTNER_EXCEPTIONS`' where it names one, else `SIGNATURE_PARTNERS`'; a 4.5★ one keeps its passive             |
 | Potential nodes 5 and 6 | Maxed                                                                                | A built combatant has them                                                                                       |
 | Potential node 7        | Taken, whatever the account's own combatant has                                      | Its growth is part of what a stat buys: Rin's ATK buys CRate                                                     |
-| Affection               | The highest tier of `FRIENDSHIP_BONUSES`                                             | Likewise                                                                                                         |
+| Affinity                | The highest tier of `FRIENDSHIP_BONUSES`                                             | Likewise                                                                                                         |
 | Fragment stats          | Their ARCHETYPE's average                                                            | Below                                                                                                            |
 | Sets                    | Their own best build's, or the preset's named 4-piece                                | Below                                                                                                            |
 

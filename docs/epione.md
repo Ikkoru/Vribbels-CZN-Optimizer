@@ -49,6 +49,7 @@ Affinity rose by 10 more than `reward_friendship` in each of those captured: 25 
 - A Chaos run's close (`stage/clear_stage`) sends, for each combatant it broke down, the combatant's whole record under `changed_counseling_archive_array`, and its breakdown under `psychosis_chars` (`psychosis_id`, `psychosis_recover_price_id` and the rest of `PSYCHOSIS_FIELDS`), which the capture lays on the roster row.
 - `mentalclinic/recover_char_counseling` is the counseling. Its request names the combatant (`char_res_id`) and the two options picked, under the start component the game dealt; its reply sends the combatant's record, the new options `false`, and its `friendship_exp`. The reply carries no roster row, so the capture takes the breakdown off the combatant its request named, and sets the Affinity.
 - `mentalclinic/get_counseling_reward` claims a scenario's waiting rewards and sends the record again, `true` now.
+- `mentalclinic/get_counseling_reward_all` claims every waiting reward of one combatant at once, and answers its `counseling_archive` as `get_counseling_reward` does.
 - `mentalclinic/enter_recover_char_counseling` opens the Centre and says nothing of what is dealt.
 
 ### How a counseling crosses the wire
@@ -60,8 +61,6 @@ Then `recover_char_counseling` sends the scenario (its start component, `story_c
 Nothing earlier carries it either. No server frame in any debug capture names a start component, and every key the server sends naming counseling or psychosis is the records, a roster row's breakdown fields, or a battle's. The breakdown row a run's close sends does not predict the scenario: Mika (1039), broken down as `psychosis_1010_1` each time, was dealt scenarios 2, 3, 1, 1, 3 and 3. What the capture cannot rule out is a channel it does not see: it proxies the game server's WebSocket on port 13701 alone, where every `mentalclinic` command goes.
 
 **A deal survives a relaunch.** On 2026-11-03 the maintainer relaunched the game twice at Hilde's (30113) counseling, and each of the three times it dealt the same scenario (`Helpless Human`, start component 2) and the same two openers. The capture (`websocket_debug_20261103_221250`) holds all three `enter_recover_char_counseling` requests, two logins between them, and bare `ok` replies; no server frame named the scenario or an option before the `recover_char_counseling` that played it. So the deal is kept, or derived from something that does not change between launches, and not re-dealt by a restart; where, the wire does not say. It was the last of her three scenarios not yet played, which may have decided the scenario on its own.
-
-- `mentalclinic/get_counseling_reward_all` claims every waiting reward of one combatant at once, and answers its `counseling_archive` as `get_counseling_reward` does.
 
 A combatant whose roster row carries a `psychosis_id` awaits counseling. It stays set between logins: on 2026-10-21 three combatants broken down in the afternoon were still so at the evening's login.
 

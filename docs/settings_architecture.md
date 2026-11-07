@@ -120,4 +120,4 @@ A repaired file is held to the rules its manager's `load` applies: each manager 
 
 - Every manager saves through `json_file.write_json`, which writes a temp file, forces it to disk and only then puts it in the file's place. `check_settings_roundtrip` holds each `_write` to it.
 - `OptimizerSettingsManager.ensure_character` updates `name_hint` automatically when called with a non-empty new name that differs from the stored one, so captured-but-unknown combatants get a proper name once `CHARACTERS` is updated.
-- `CharacterPresetManager` caches the name↔id lookup tables lazily and keeps them for the manager's lifetime. If game data ever reloads at runtime (it does not today), call `invalidate_name_cache()`.
+- `CharacterPresetManager` caches the name↔id lookup tables lazily. The game client's read adds combatants to `CHARACTERS` after launch, so `relink_names()`, called after each read the main window applies, drops the cache and folds the name keys that now resolve (above).

@@ -124,7 +124,7 @@ Tk defers creating a widget's Win32 window until first MAP, and a window created
 
 `_reveal_window` walks the tree and calls `winfo_id()` on every widget (`ui/utils/realize.py`), creating the windows while the app is still invisible, so there is nothing left to erase. `TabSlot.build` walks each tab built after the reveal the same way, before anything maps it.
 
-**`make_checkbox` makes the same call per widget, and that is not redundant.** Three panels rebuild their checkboxes after startup — Capture's log presets, Memory Fragments' Sets and its unknown main stats — long after either walk has run. All three callers are needed.
+**`make_checkbox` makes the same call per widget, and that is not redundant.** Panels rebuild their checkboxes long after either walk has run: Capture's log presets, Memory Fragments' Sets and its unknown main stats, and the Checklist's shop rows on every rewrite.
 
 What the flash is and is not:
 
@@ -139,11 +139,11 @@ What the flash is and is not:
 
 **Realizing the window early cannot fix that**, because the frame's background genuinely IS white; there is nothing to create earlier. Equally, colouring the frame does not remove the map-time erase.
 
-`ui/utils/scrolled_text.py` answers the colour half at the source. It builds the same shape out of a `ttk.Frame` and a `ttk.Scrollbar`, which the theme reaches directly: a Text and a vertical scrollbar in a wrapper, with the wrapper's geometry methods copied onto the Text so a caller packs the pair by packing what it was handed. All three scrolled texts go through it, and the map-time erase is still the walk's job.
+`ui/utils/scrolled_text.py` answers the colour half at the source. It builds the same shape out of a `ttk.Frame` and a `ttk.Scrollbar`, which the theme reaches directly: a Text and a vertical scrollbar in a wrapper, with the wrapper's geometry methods copied onto the Text so a caller packs the pair by packing what it was handed. Every scrolled text goes through it, and the map-time erase is still the walk's job.
 
 **A wrapper recoloured by hand instead reads as a walk failure when one is missed**: only the skipped panel flashes.
 
-A `ttk.Scrollbar` asks for less width than a `tk` one, so the three texts are that much wider than the same shape built by hand, and their wrap points differ accordingly.
+A `ttk.Scrollbar` asks for less width than a `tk` one, so the texts are that much wider than the same shape built by hand, and their wrap points differ accordingly.
 
 ### The guard
 
@@ -161,7 +161,7 @@ The admin prompt uses `MessageBoxW` via `_win_message`. It runs before `Optimize
 
 A panel that destroys its children and builds them again blinks: between the destroy and the next paint there is a hole where the widgets were. A login burst saves the snapshot several times in a few seconds, so a refresh wired to the data load runs two or three times while the user watches.
 
-Four panels rebuild real widgets after startup, and each is gated on a SIGNATURE computed before anything is destroyed, holding everything the rebuild would read:
+These panels rebuild real widgets after startup, and each is gated on a SIGNATURE computed before anything is destroyed, holding everything the rebuild would read:
 
 | Panel | Method | What the gate holds |
 | ----- | ------ | ------------------- |
@@ -193,7 +193,7 @@ A capture reloads after every save while the user is usually on another tab, and
 
 ## The exclude checklist's flow layout must not create widgets per re-flow
 
-Checkbuttons are created once per combatant (`_exclude_checkbutton`) and positioned by `place()`; a re-flow moves them. Destroying and recreating ~40 classic Tk widgets on every `<Configure>` is the cost that rules it out, and pooled row *frames* can't help (a Tk widget can't change parent).
+Checkbuttons are created once per combatant (`_exclude_checkbutton`) and positioned by `place()`; a re-flow moves them. Destroying and recreating a classic Tk widget per combatant on every `<Configure>` is the cost that rules it out, and pooled row *frames* can't help (a Tk widget can't change parent).
 
 **Its row pitch and column flow are derived from `winfo_reqheight()` and `winfo_reqwidth()`**, so anything that changes a checkbutton's size moves the gap between rows with it — as `make_checkbox`'s zeroed border and focus ring did, by 6px. See `ROW_PITCH_OFFSET`, and keep it positive: a negative offset makes rows overlap and clip each other.
 

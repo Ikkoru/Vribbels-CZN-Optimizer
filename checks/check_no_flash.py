@@ -17,15 +17,13 @@ Three failure modes, all of which leave a working, silent program:
 
 1. `_reveal_window` stops walking the tree, so anything built during
    `setup_ui` flashes again.
-2. `make_checkbox` stops realizing its own widget, so the three panels
-   that rebuild checkboxes AFTER startup flash again.
+2. `make_checkbox` stops realizing its own widget, so the panels that
+   rebuild checkboxes AFTER startup flash again.
 3. A tab builds a `Checkbutton` or a `ScrolledText` by hand instead of
-   through its helper. Both have already drifted once. Two checkbutton
-   sites had picked up Tk's default focus ring and border, which is a
-   spacing difference as well as a flash; and of three ScrolledTexts,
-   two had the wrapper fix and one did not -- which is why the Capture
-   Log went on flashing after the walk in (1) was already fixing
-   everything else.
+   through its helper. A hand-built checkbutton takes Tk's default
+   focus ring and border, a spacing difference as well as a flash; a
+   hand-built ScrolledText's own wrapper frame paints near-white, so
+   it flashes whatever the walk in (1) does.
 
 `scrolledtext.ScrolledText` has a SECOND fault that the walk cannot
 touch: it builds its own `tk.Frame` and `tk.Scrollbar`, neither

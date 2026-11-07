@@ -136,7 +136,7 @@ Each distinct build goes beside the battles, under `builds`: fragments, potentia
 | `BASE_S_ATK`, `_DEF`, `_HP` | the base at the combatant's level, with the mode's bonus in it |
 | `S_PARTNER_BASE_*` | the partner's flat stats, as this sheet counts them |
 | `S_*_INC_RATE_OUT` | the inner %: fragments, sets and potential nodes |
-| `S_*_INC_ADD_OUT` | the inner flat: fragment flats and Affection |
+| `S_*_INC_ADD_OUT` | the inner flat: fragment flats and Affinity |
 | `S_*_INC_RATE_IN` | the outer %: the partner's passive |
 | `S_ATK`, `S_DEF`, `S_HP` | the final stats |
 | `S_CRI`, `S_CRI_DMG_RATE`, `S_ADDI_ATK_DMG_RATE`, `S_DOT_ATK_DMG_RATE` | CRate, CDMG, Extra DMG%, DoT% |
