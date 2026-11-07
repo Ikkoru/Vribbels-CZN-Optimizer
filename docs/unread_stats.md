@@ -148,7 +148,7 @@ The Great Rift standings (`disaster_boss_rank_entities`) and the seasons (`disas
 | `board_entities` | one row per FINISHED season: the profile's Display Case -- *The Display Case*, below |
 | `disaster_boss_penalty_entities` | per season, per distortion boss: `highest_clear_level`, `best_score`, and `clear_penalty`, which penalty sets each level was cleared under |
 | `step1_clear_record` | the season's best Great Rift first step: `score`, `define_id`, `step1_turn`, `turn_bonus`, `heal_score` |
-| `disaster_chaos_entities`, `story_node_mission_disaster_entities` | each season's Chaos stages' options, and the story track's conditions |
+| `disaster_chaos_entities` | each season's Chaos stages' options. The story chapters' stars beside it are the Checklist's (`docs/events.md`) |
 
 #### The Display Case
 
@@ -206,7 +206,7 @@ What the client cannot say, read off captures:
 | ----- | -- |
 | `daily_achieve` | seven daily tasks, re-issued each day (`issued_time` today). `version` is a lifetime tally of days the task was done: the daily-login task's climbed by one a day, 192 on 2026-05-23 to 315 on 2026-09-24 |
 | `chapter_achieve` | `chapter_<nn>_<nn>`, claimable-reward rows |
-| `chapter_reward_entities` | per battle chapter, `count` |
+| `chapter_reward_entities` | per chapter with a star ladder -- battle chapters, event chapters, the Galactic Disaster's story chapters -- `count`, the stars the last step claimed took. Kept; the Checklist reads the Disaster's (`docs/events.md`) |
 | `commander_missions` | a ladder the account claimed in its first days, claimable-reward rows |
 | `savedata_mission_entities`, `mission_messenger_entities`, `mission_outgame_entities`, `story_node_missions` | per-combatant `entity_<combatant>_<n>` rows, the messenger's conditions, one-off guide tasks, and the story map's node conditions |
 | `event_chaos_exploration_entities` | `exploration_level` per Chaos exploration |

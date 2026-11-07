@@ -804,6 +804,83 @@ def _trauma_codes(ct):
     return out
 
 
+def _chapter_stars(ct):
+    """A story chapter's row: open from its day to the season's end,
+    the stars earned out of the client's total else thirty, green only
+    with every reward claimed, and never asked `Finished?`."""
+    import game_client as gc
+    out = []
+    season = {"start_time": NOW - 30 * DAY, "end_time": NOW + 40 * DAY}
+    stars = ["star_%d" % n for n in range(1, 5)]
+
+    def raw_with(earned=(), moved=(), login=None, doc=None):
+        raw = {"event_schedules": {"DISASTER_SEASON": {
+                   "disaster_s05": season}},
+               ct.STARS_EARNED_FIELD: {"disaster_s05": {
+                   star: {"score": 1} for star in earned}},
+               ct.STARS_MOVED_FIELD: {star: {"score": 1} for star in moved}}
+        if login is not None:
+            raw["chapter_reward_entities"] = [
+                {"res_id": "disaster_s05_01", "count": login}]
+        if doc is not None:
+            raw["reward_entities"] = [{"res_id": "hyper_18", "count": 26},
+                                      {"res_id": "disaster_s05_01",
+                                       "count": doc}]
+        return raw
+
+    def read(raw, chapter="disaster_s05_01"):
+        return ct._event_stars(raw, chapter, {}, NOW)
+
+    try:
+        gc.use({"story_stars": {
+            "disaster_s05_01": {"season": "disaster_s05", "opens": 21,
+                                "stars": stars, "total": 4},
+            "disaster_s05_02": {"season": "disaster_s05", "opens": 42,
+                                "stars": [], "total": None}}})
+        for raw, want, why in (
+                (raw_with(), ("0/4", ct.TODO), "nothing earned"),
+                (raw_with(stars[:1], stars[1:2]), ("2/4", ct.TODO),
+                 "the login's and a clear's stars both count"),
+                (raw_with(stars), ("4/4", ct.TODO),
+                 "every star earned and no reward claimed is not done"),
+                (raw_with(stars, login=2), ("4/4", ct.TODO),
+                 "a reward left to claim is not done"),
+                (raw_with(stars, login=4), ("4/4", ct.DONE),
+                 "every reward claimed at login is done"),
+                (raw_with(stars, doc=4), ("4/4", ct.DONE),
+                 "a claim in the session is done")):
+            got = read(raw)
+            if got != [want]:
+                out.append(f"a chapter's stars read {got!r}, not {want!r}: "
+                           f"{why}.")
+        got = read(raw_with(login=5), "disaster_s05_02")
+        if got != [("0/%d" % ct.STORY_STARS_FALLBACK, ct.TODO)]:
+            out.append(f"a chapter with no ladder in the client read "
+                       f"{got!r}: its total falls back, and another "
+                       f"chapter's claim is not its own.")
+        rows = [key for key, _label, _widest in ct.event_rows(raw_with(), NOW)]
+        if rows != [ct.EVENT_KEY_PREFIX + "disaster_s05_01"]:
+            out.append(f"the Events listed {rows!r} on a season's day 30: "
+                       f"a chapter gets its row on the day it opens.")
+        over = raw_with()
+        over["event_schedules"]["DISASTER_SEASON"]["disaster_s05"] = {
+            "start_time": NOW - 90 * DAY, "end_time": NOW - DAY}
+        if ct.event_rows(over, NOW):
+            out.append("a chapter kept its row past its season's end.")
+        got = dict(ct._readings(raw_with(), NOW))
+        left = got.get(ct.EVENT_KEY_PREFIX + "disaster_s05_01") or [()]
+        if left[-1][:1] != (ct.countdown_words(40 * DAY),):
+            out.append(f"a chapter's row counted down {left!r}, not the "
+                       f"season's end.")
+        reading = [("4/4", ct.TODO), ("2d", ct.LATER)]
+        if _asked(ct, raw_with(), "disaster_s05_01", reading):
+            out.append("a chapter with rewards to claim was asked "
+                       "`Finished?`. Its claims say when it is done.")
+    finally:
+        gc.use(None)
+    return out
+
+
 def _unread_rows_asked(ct):
     """A row with nothing read but its deadline is asked `Finished?`."""
     out = []
@@ -831,7 +908,8 @@ def run():
                   _numbering, _family_corroborates, _split_trials,
                   _countdown, _payment_events, _payment_stalls,
                   _done_for_the_day_order,
-                  _gifts_and_free_pulls, _trauma_codes, _unread_rows_asked):
+                  _gifts_and_free_pulls, _trauma_codes, _chapter_stars,
+                  _unread_rows_asked):
         failures.extend(probe(ct))
     return failures
 
@@ -858,6 +936,23 @@ FAULTS = [
      "ui.tabs.checklist_tab:_event_rank",
      "    if str(name) in ((raw or {}).get(EVENT_FINISHED_FIELD) or ()):\n"
      "        return 2\n", "", "the Events sorted"),
+    ("a chapter green on its stars alone",
+     "ui.tabs.checklist_tab:_event_stars", "_done(claimed >= total)",
+     "_done(max(earned, claimed) >= total)", "is not done"),
+    ("a clear's stars not counted", "ui.tabs.checklist_tab:_event_stars",
+     "(raw or {}).get(STARS_MOVED_FIELD) or {})", "{})",
+     "both count"),
+    ("a chapter's total not falling back",
+     "ui.tabs.checklist_tab:_event_stars",
+     "total = total or STORY_STARS_FALLBACK", "total = total or 1",
+     "no ladder in the client"),
+    ("a chapter listed before it opens",
+     "ui.tabs.checklist_tab:_open_chapters",
+     "and opens <= now:", "and opens:", "a chapter gets its row"),
+    ("a chapter asked Finished?",
+     "ui.tabs.checklist_tab:ChecklistTab._mark_finished",
+     "not_asked |= set(game_client.known_story_stars())", "pass",
+     "was asked `Finished?`"),
     ("gifts unread", "ui.tabs.checklist_tab:_event_missions",
      "_gift_progress(raw, name)\n", "[]\n", "Carnival's gifts"),
     ("free pulls issued counted as taken",

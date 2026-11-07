@@ -487,6 +487,36 @@ def run():
             "a Trauma Code's row was filed as an event's completion "
             "record. It carries `event_achieve_state` too, and only "
             "`unlock_state` tells the two apart.")
+    # Claiming the sticker answers the code's row singular
+    # (`trauma_code/get_reward_complete_event`,
+    # `websocket_debug_20261107_171000`).
+    addon.websocket_message(_Flow([{"res": "ok", "trauma_code_entity": {
+        "res_id": "trc_30134", "unlock_state": 1, "event_achieve_state": 1,
+        "story_state": 1}}]))
+    sticker = {row.get("res_id"): row.get("event_achieve_state") for row in
+               addon.login_tables.get("trauma_code_entities") or ()}
+    if sticker.get("trc_30134") != 1:
+        failures.append(
+            f"the sticker's claim left the code at {sticker!r}. It answers "
+            f"under `trauma_code_entity`, and the row replaces the list's.")
+    # A story chapter's stars: a clear reports each, naming no season,
+    # and the login's two tables go whole.
+    addon.websocket_message(_Flow([{
+        "res": "ok",
+        "story_node_mission_disaster_entities": {"disaster_s05": {
+            "disater_simulation_13_01_1": {"score": 1}}},
+        "chapter_reward_entities": [{"res_id": "disaster_s05_01",
+                                     "count": 5}]}]))
+    addon.websocket_message(_Flow([{"res": "ok", "mission_condition": {
+        "condition": {"story_map_condition": [
+            {"res_id": "disater_simulation_13_01_2", "score": 1}]}}}]))
+    for field, why in (("story_node_mission_disaster_entities", "login"),
+                       ("chapter_reward_entities", "login"),
+                       ("story_map_condition", "clear")):
+        if not addon.login_tables.get(field):
+            failures.append(
+                f"{field} did not reach the addon. A chapter's stars are "
+                f"read from the {why}'s.")
     gifts = addon.event_defines.get("event_login_reward_entities", {}).get(
         "event_login_reward_1", {})
     if sorted(gifts) != ["event_login_reward_1_1", "event_login_reward_1_2"]:
@@ -570,6 +600,15 @@ FAULTS = [
     ("a Trauma Code claim dropped", "capture.manager:ADDON_TEMPLATE",
      '+ [data.get("mission_entity")]', "+ []",
      "after the login and one claim"),
+    ("a sticker's claim dropped", "capture.manager:ADDON_TEMPLATE",
+     'for code in (data.get("entity"), data.get("trauma_code_entity")):',
+     'for code in (data.get("entity"),):', "the sticker's claim left"),
+    ("a chapter's stars not kept", "capture.manager:ADDON_TEMPLATE",
+     '                    "story_node_mission_disaster_entities",\n', '',
+     "story_node_mission_disaster_entities did not reach"),
+    ("a clear's stars dropped", "capture.manager:ADDON_TEMPLATE",
+     "for row in (moving.get(STAR_MOVES_FIELD) or ()",
+     "for row in (()", "story_map_condition did not reach"),
     ("a Trauma Code claim-all dropped", "capture.manager:ADDON_TEMPLATE",
      'claims = data.get("entities")', "claims = None", "after a claim-all"),
     ("a Trauma Code filed as a completion", "capture.manager:ADDON_TEMPLATE",

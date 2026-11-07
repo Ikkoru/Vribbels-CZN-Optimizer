@@ -172,6 +172,10 @@ EVENT_FIELDS_HANDLED = frozenset({
 # arrive under the bare `entity`, and this says which one it is.
 TRAUMA_CODE_ROW = "unlock_state"
 
+# A story battle's stars as a clear reports them, under
+# `mission_condition.condition`, and the snapshot field they are kept in.
+STAR_MOVES_FIELD = "story_map_condition"
+
 # The free Rescues' record, as the snapshot holds it: a list, merged by
 # row while the capture runs.
 FREE_GACHA_FIELD = "gacha_free_entities"
@@ -1723,7 +1727,9 @@ class Addon:
                     "chaos_assault_entity", "trauma_code_entities",
                     "trauma_code_event_entities",
                     "mission_trauma_code_event_entities",
-                    "story_trauma_code_event_entities"):
+                    "story_trauma_code_event_entities",
+                    "story_node_mission_disaster_entities",
+                    "chapter_reward_entities"):
             if isinstance(data.get(key), (dict, list)) and data[key]:
                 self.login_tables[key] = data[key]
                 self._save_pending = True
@@ -1748,14 +1754,30 @@ class Addon:
                 table.setdefault(str(claim["event_code_id"]), {})[
                     str(claim["res_id"])] = claim
                 self._save_pending = True
-        code = data.get("entity")
-        if (isinstance(code, dict) and TRAUMA_CODE_ROW in code
-                and code.get("res_id") is not None):
+        # Synchronizing a code and claiming its sticker answer with the
+        # same row under `trauma_code_entity`.
+        for code in (data.get("entity"), data.get("trauma_code_entity")):
+            if not (isinstance(code, dict) and TRAUMA_CODE_ROW in code
+                    and code.get("res_id") is not None):
+                continue
             table = self.login_tables.setdefault("trauma_code_entities", [])
             if isinstance(table, list):
                 table[:] = [row for row in table if not (
                     isinstance(row, dict)
                     and row.get("res_id") == code["res_id"])] + [code]
+                self._save_pending = True
+        # A story battle's stars earned, on the clear's
+        # `mission_condition`; the login's own table holds them by
+        # season from then on. Kept beside it by condition id, the
+        # report naming no season.
+        moving = data.get("mission_condition")
+        moving = moving.get("condition") if isinstance(moving, dict) \\
+            else None
+        for row in (moving.get(STAR_MOVES_FIELD) or ()
+                    if isinstance(moving, dict) else ()):
+            if isinstance(row, dict) and row.get("res_id") is not None:
+                self.login_tables.setdefault(STAR_MOVES_FIELD, {})[
+                    str(row["res_id"])] = row
                 self._save_pending = True
         # The free Rescues for logging in: pulls issued, pulls taken.
         # **On nearly every reply, under `reset_resp`**, beside the

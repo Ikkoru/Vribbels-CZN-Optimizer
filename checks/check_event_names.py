@@ -345,6 +345,53 @@ def _totals(gc):
     return out
 
 
+def _story_stars(gc):
+    """A story chapter's stars: its battles' conditions, only under a
+    ladder, and the day it opens. Returns complaints."""
+    def chapter(number, ladder):
+        return {"id": "disaster_s05_%02d" % number, "type": "disaster",
+                "number": str(number), "name": "name_%d" % number,
+                "link_story_map_node_key": "node_%d" % number,
+                gc.STAR_LADDER: ladder}
+
+    def node(chapter_number, at, stem):
+        cells = {column: "%s_%d" % (stem, n)
+                 for n, column in enumerate(gc.STAR_CONDITIONS, start=1)}
+        return dict(cells, id="node_%d_%d" % (chapter_number, at))
+
+    got = gc.story_stars(_FakeClient({
+        gc.STORY_CHAPTER_TABLE: [chapter(0, "none"),
+                                 chapter(1, "disaster_s05_01"),
+                                 chapter(2, "none")],
+        # The chapter after the patch's edge borrows the conditions.
+        gc.STORY_NODE_TABLE: [node(1, 19, "sim_01"), node(2, 19, "sim_01")],
+        gc.STAR_REWARDS: [
+            {"id": "disaster_s05_01_01", "total_star_count": "1"},
+            {"id": "disaster_s05_01_02", "total_star_count": "3"}],
+        gc.DISASTER_CONSTANTS: [{"id": "open_main", "value": "21"},
+                                {"id": "open_story_3", "value": "42"}],
+        gc.CONDITION_SCHEDULES: [
+            {"id": "event_disaster_005_chapter_2",
+             "condition_type": gc.CHAPTER_GATE,
+             "opt_1_multiple_link": "[disaster_s05]", "opt_2": "[3]"}],
+    }, {"name_1": "Resolution"}))
+    want = {
+        "disaster_s05_01": {
+            "season": "disaster_s05", "number": 1,
+            "name": "Resolution - Stars", "opens": 21,
+            "stars": ["sim_01_1", "sim_01_2", "sim_01_3"], "total": 3},
+        "disaster_s05_02": {
+            "season": "disaster_s05", "number": 2,
+            "name": "Chapter 2 - Stars", "opens": 42, "stars": [],
+            "total": None}}
+    if got != want:
+        return [f"the story chapters' stars read {got}, not {want}. A "
+                f"chapter's stars are its battles' conditions under a "
+                f"ladder and none without one, its total the ladder's top, "
+                f"and it opens by its gate, else with the season's content."]
+    return []
+
+
 def _accessors(gc):
     """The client's facts over the shipped table, the shipped table over
     nothing. Returns complaints."""
@@ -848,6 +895,7 @@ def run():
     failures = []
     failures.extend(_joins(gc))
     failures.extend(_totals(gc))
+    failures.extend(_story_stars(gc))
     failures.extend(_accessors(gc))
     failures.extend(_late_read(gc))
     failures.extend(_cache(gc))
@@ -905,6 +953,14 @@ FAULTS = [
      "its sticker as the final one"),
     ("a trial's `none` taken for a slot", "game_client:trial_slots",
      "and row[column] not in NO_LINK", "", "`none` is no slot"),
+    ("a placeholder chapter's stars counted", "game_client:story_stars",
+     "if node.get(column) not in NO_LINK] if held else []",
+     "if node.get(column) not in NO_LINK]", "the story chapters' stars read"),
+    ("a chapter's gate ignored", "game_client:story_stars",
+     "\"opens\": gates.get((season, number),\n"
+     "                               constants.get(STAR_FIRST_OPENS)),",
+     "\"opens\": constants.get(STAR_FIRST_OPENS),",
+     "the story chapters' stars read"),
     ("tiers in the table's order", "game_client:payment_events",
      "for tier in sorted(held, key=lambda t: int(",
      "for tier in sorted(held, key=lambda t: -int(",

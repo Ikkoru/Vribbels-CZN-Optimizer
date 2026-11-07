@@ -3,7 +3,7 @@ reply that answers it: where a question about the wire starts.
 
     python docs/log_requests.py [log ...] [--cmd NAME[,NAME]] [--grep TEXT]
                                 [--from HH:MM[:SS]] [--to HH:MM[:SS]]
-                                [--width N] [--asks]
+                                [--width N] [--asks] [--changes REGEX]
 
 A `log` is named as for `replay_log.py`: a debug capture's name or the
 start of its stamp (`20261021_1404`), loose in `Vribbels/snapshots/` or
@@ -20,6 +20,11 @@ print in order.
 - `--width` cuts each request and reply to N characters (600 unless
   given; 0 prints them whole).
 - `--asks` prints the requests alone, one line each.
+- `--changes` follows a field instead: every key or plain value REGEX
+  finds, in any case and at any depth of a request or reply, printed
+  with its path and the request it rode on whenever it reads something
+  new. Across several logs it says when a field first turned up and
+  every reply that moved it. Takes `--from`, `--to` and `--width`.
 
 A reply is the server message carrying the request's `qid`; a request
 the log never answers prints `(no reply)`, and a message the server
@@ -99,6 +104,54 @@ def _cut(value, width):
         text[:width] + f"... ({len(text)} chars)"
 
 
+def _matches(value, path, pattern, out):
+    """Add to `out` (path, JSON text) for each key under `value` that
+    `pattern` finds or each plain value it finds, not looking inside
+    what a key's match already takes."""
+    if isinstance(value, dict):
+        for key, held in value.items():
+            where = f"{path}.{key}"
+            if pattern.search(str(key)):
+                out.append((where, json.dumps(blank(held),
+                                              ensure_ascii=False)))
+            else:
+                _matches(held, where, pattern, out)
+    elif isinstance(value, list):
+        for at, held in enumerate(value):
+            _matches(held, f"{path}[{at}]", pattern, out)
+    elif pattern.search(str(value)):
+        out.append((path, json.dumps(value, ensure_ascii=False)))
+
+
+def print_changes(logs, pattern, width, start="", end=""):
+    """Each new value of what `pattern` finds, with the request it rode
+    on, across `logs` in order. `reset_resp` is left out of the path:
+    what rides there is the same field as at the top level."""
+    last = {}
+    for name, lines in logs:
+        print(f"== {name}")
+        for stamp, request, reply in requests(lines):
+            when = clock(stamp)
+            if start and when < start or end and when[:len(end)] > end:
+                continue
+            found = []
+            _matches(request, "ask", pattern, found)
+            _matches(reply, "reply", pattern, found)
+            told = False
+            for path, text in found:
+                short = path.replace(".reset_resp", "")
+                if last.get(short) == text:
+                    continue
+                last[short] = text
+                if not told:
+                    print(when, command(request),
+                          _cut(request.get("params"), 200))
+                    told = True
+                print("   ", path, "=",
+                      text if not width or len(text) <= width else
+                      text[:width] + f"... ({len(text)} chars)")
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("logs", nargs="*")
@@ -108,7 +161,13 @@ def main(argv=None):
     parser.add_argument("--to", dest="end", default="")
     parser.add_argument("--width", type=int, default=600)
     parser.add_argument("--asks", action="store_true")
+    parser.add_argument("--changes", default="")
     args = parser.parse_args(argv)
+    if args.changes:
+        print_changes(replay_log.find_logs(args.logs),
+                      re.compile(args.changes, re.I), args.width,
+                      args.start, args.end)
+        return 0
     names = {name for name in args.cmd.split(",") if name}
     needle = args.grep.lower()
     for name, lines in replay_log.find_logs(args.logs):

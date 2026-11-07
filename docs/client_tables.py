@@ -170,6 +170,13 @@ def shipped_source(client, partners=None):
               for key, event in sorted(
                   game_client.login_rewards(client).items())]
     lines += ["}", "",
+              "# {chapter id: {'season', 'number', 'name', 'opens', 'stars', "
+              "'total'}}. See game_client.story_stars.",
+              "STORY_STARS = {"]
+    lines += [f"    {ascii(key)}: {ascii(chapter)},"
+              for key, chapter in sorted(
+                  game_client.story_stars(client).items())]
+    lines += ["}", "",
               "# {kind: figure or {id: figure}}: the Checklist's maximums. "
               "See game_client.limits.",
               "LIMITS = {"]

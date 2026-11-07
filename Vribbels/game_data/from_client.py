@@ -28,8 +28,14 @@ EVENT_NAMES = {
     'disaster_s02': 'Galactic Disaster',
     'disaster_s03': 'Galactic Disaster',
     'disaster_s04': 'Shattered Light and Claw',
+    'disaster_s04_01': 'The Pistol That Failed to Protect - Stars',
+    'disaster_s04_02': 'The Black Panther Left Uncared For - Stars',
+    'disaster_s04_03': 'The Scythe That Only Takes - Stars',
     'disaster_s05': 'A Promise Upon the Snow',
     'disaster_s05_00': 'Escape from Judgment',
+    'disaster_s05_01': 'Resolution Beyond Fate - Stars',
+    'disaster_s05_02': 'Flames Rising Over a Snowfield - Stars',
+    'disaster_s05_03': 'Chapter 3 - Stars',
     'disaster_s2_event_operation': 'Operation: Firebreak',
     'ds_s3_event_rhythm_game': 'Melody at the Highest Peak',
     'event_1': 'Invitation to a New Journey',
@@ -508,6 +514,16 @@ FREE_GACHAS = {
 # {schedule id: {'define': define id, 'rewards': [reward id, ...]}}. See game_client.login_rewards.
 LOGIN_REWARDS = {
     'event_schedule_1st_year_1': {'define': 'event_login_reward_1', 'rewards': ['event_login_reward_1_1', 'event_login_reward_1_2', 'event_login_reward_1_3']},
+}
+
+# {chapter id: {'season', 'number', 'name', 'opens', 'stars', 'total'}}. See game_client.story_stars.
+STORY_STARS = {
+    'disaster_s04_01': {'season': 'disaster_s04', 'number': 1, 'name': 'The Pistol That Failed to Protect - Stars', 'opens': 21, 'stars': ['disater_simulation_10_01_1', 'disater_simulation_10_01_2', 'disater_simulation_10_01_3', 'disater_simulation_10_02_1', 'disater_simulation_10_02_2', 'disater_simulation_10_02_3', 'disater_simulation_10_03_1', 'disater_simulation_10_03_2', 'disater_simulation_10_03_3', 'disater_simulation_10_04_1', 'disater_simulation_10_04_2', 'disater_simulation_10_04_3', 'disater_simulation_10_05_1', 'disater_simulation_10_05_2', 'disater_simulation_10_05_3', 'disater_simulation_10_06_1', 'disater_simulation_10_06_2', 'disater_simulation_10_06_3', 'disater_simulation_10_07_1', 'disater_simulation_10_07_2', 'disater_simulation_10_07_3', 'disater_simulation_10_08_1', 'disater_simulation_10_08_2', 'disater_simulation_10_08_3', 'disater_simulation_10_09_1', 'disater_simulation_10_09_2', 'disater_simulation_10_09_3', 'disater_simulation_10_10_1', 'disater_simulation_10_10_2', 'disater_simulation_10_10_3'], 'total': 30},
+    'disaster_s04_02': {'season': 'disaster_s04', 'number': 2, 'name': 'The Black Panther Left Uncared For - Stars', 'opens': 21, 'stars': ['disater_simulation_11_01_1', 'disater_simulation_11_01_2', 'disater_simulation_11_01_3', 'disater_simulation_11_02_1', 'disater_simulation_11_02_2', 'disater_simulation_11_02_3', 'disater_simulation_11_03_1', 'disater_simulation_11_03_2', 'disater_simulation_11_03_3', 'disater_simulation_11_04_1', 'disater_simulation_11_04_2', 'disater_simulation_11_04_3', 'disater_simulation_11_05_1', 'disater_simulation_11_05_2', 'disater_simulation_11_05_3', 'disater_simulation_11_06_1', 'disater_simulation_11_06_2', 'disater_simulation_11_06_3', 'disater_simulation_11_07_1', 'disater_simulation_11_07_2', 'disater_simulation_11_07_3', 'disater_simulation_11_08_1', 'disater_simulation_11_08_2', 'disater_simulation_11_08_3', 'disater_simulation_11_09_1', 'disater_simulation_11_09_2', 'disater_simulation_11_09_3', 'disater_simulation_11_10_1', 'disater_simulation_11_10_2', 'disater_simulation_11_10_3'], 'total': 30},
+    'disaster_s04_03': {'season': 'disaster_s04', 'number': 3, 'name': 'The Scythe That Only Takes - Stars', 'opens': 42, 'stars': ['disater_simulation_12_01_1', 'disater_simulation_12_01_2', 'disater_simulation_12_01_3', 'disater_simulation_12_02_1', 'disater_simulation_12_02_2', 'disater_simulation_12_02_3', 'disater_simulation_12_03_1', 'disater_simulation_12_03_2', 'disater_simulation_12_03_3', 'disater_simulation_12_04_1', 'disater_simulation_12_04_2', 'disater_simulation_12_04_3', 'disater_simulation_12_05_1', 'disater_simulation_12_05_2', 'disater_simulation_12_05_3', 'disater_simulation_12_06_1', 'disater_simulation_12_06_2', 'disater_simulation_12_06_3', 'disater_simulation_12_07_1', 'disater_simulation_12_07_2', 'disater_simulation_12_07_3', 'disater_simulation_12_08_1', 'disater_simulation_12_08_2', 'disater_simulation_12_08_3', 'disater_simulation_12_09_1', 'disater_simulation_12_09_2', 'disater_simulation_12_09_3', 'disater_simulation_12_10_1', 'disater_simulation_12_10_2', 'disater_simulation_12_10_3'], 'total': 30},
+    'disaster_s05_01': {'season': 'disaster_s05', 'number': 1, 'name': 'Resolution Beyond Fate - Stars', 'opens': 21, 'stars': ['disater_simulation_13_01_1', 'disater_simulation_13_01_2', 'disater_simulation_13_01_3', 'disater_simulation_13_02_1', 'disater_simulation_13_02_2', 'disater_simulation_13_02_3', 'disater_simulation_13_03_1', 'disater_simulation_13_03_2', 'disater_simulation_13_03_3', 'disater_simulation_13_04_1', 'disater_simulation_13_04_2', 'disater_simulation_13_04_3', 'disater_simulation_13_05_1', 'disater_simulation_13_05_2', 'disater_simulation_13_05_3', 'disater_simulation_13_06_1', 'disater_simulation_13_06_2', 'disater_simulation_13_06_3', 'disater_simulation_13_07_1', 'disater_simulation_13_07_2', 'disater_simulation_13_07_3', 'disater_simulation_13_08_1', 'disater_simulation_13_08_2', 'disater_simulation_13_08_3', 'disater_simulation_13_09_1', 'disater_simulation_13_09_2', 'disater_simulation_13_09_3', 'disater_simulation_13_10_1', 'disater_simulation_13_10_2', 'disater_simulation_13_10_3'], 'total': 30},
+    'disaster_s05_02': {'season': 'disaster_s05', 'number': 2, 'name': 'Flames Rising Over a Snowfield - Stars', 'opens': 42, 'stars': [], 'total': None},
+    'disaster_s05_03': {'season': 'disaster_s05', 'number': 3, 'name': 'Chapter 3 - Stars', 'opens': 63, 'stars': [], 'total': None},
 }
 
 # {kind: figure or {id: figure}}: the Checklist's maximums. See game_client.limits.

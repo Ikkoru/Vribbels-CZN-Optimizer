@@ -1284,7 +1284,7 @@ def event_rows(raw, now=None):
     for group in EVENT_GROUPS:
         # EVERY instance, not one per group: three events overlapped
         # under `EVENT_SCHEDULE` in one capture.
-        live = list(schedules.all_live(group, raw, now))
+        live = _live_in(group, raw, now)
         names = {name for name, _window in live}
         for name, window in live:
             if group in GATED_GROUPS and any(
@@ -1296,6 +1296,39 @@ def event_rows(raw, now=None):
     return tuple((EVENT_KEY_PREFIX + name, event_label(name),
                   with_countdown(EVENT_WIDEST))
                  for _stuck, _rank, _end, name in sorted(found))
+
+
+def _live_in(group, raw, now):
+    """[(id, window)] for every event of `group` running now: its
+    schedules, or for `STORY_STARS_GROUP`, which has none, the chapters
+    open (`_open_chapters`)."""
+    if group == STORY_STARS_GROUP:
+        return _open_chapters(raw, now)
+    return list(schedules.all_live(group, raw, now))
+
+
+def _open_chapters(raw, now):
+    """[(chapter id, window)] for the live Galactic Disaster season's
+    story chapters that have opened.
+
+    **A chapter has no schedule of its own**: it opens a set number of
+    days into the season's, and its star battles go with the season, so
+    the window is built from those two (`game_client.known_story_stars`).
+    A chapter not open yet has no row, there being nothing to do on it.
+    """
+    season, window = schedules.live(
+        shop_stock.season_group_of(SEASONAL_SHOP_CATEGORY), raw, now)
+    if not isinstance(window, dict):
+        return []
+    out = []
+    for chapter, (held, days, _stars, _total) in sorted(
+            game_client.known_story_stars().items()):
+        opens = None if days is None else (window["start_time"]
+                                           + days * 24 * 3600)
+        if held == season and opens is not None and opens <= now:
+            out.append((chapter, {"start_time": opens,
+                                  "end_time": window["end_time"]}))
+    return out
 
 
 def _stalled(raw, name, window, now):
@@ -2076,6 +2109,38 @@ def _gate_open(raw, gate, now):
     return not _is_count(start) or start <= now
 
 
+def _event_stars(raw, name, _window, _now):
+    """[(words, state)] for a Galactic Disaster story chapter's stars.
+
+    **Stars earned against the chapter's stars**, the client's top
+    reward step, `STORY_STARS_FALLBACK` where it states none. Red until
+    every reward is claimed, so `30/30` in red is rewards left to claim
+    rather than battles left to play: the claimed figure is the stars
+    the last reward claimed took, and only that says the chapter is
+    done. Past the season its battles are gone, so nothing here waits.
+
+    The stars earned are the battles' conditions met
+    (`STARS_EARNED_FIELD`, and `STARS_MOVED_FIELD` for a clear in the
+    session). A chapter the client lists no conditions for reads what
+    is claimed, which is the most the wire can then say.
+    """
+    entry = game_client.known_story_stars().get(name)
+    if entry is None:
+        return []
+    season, _days, stars, total = entry
+    total = total or STORY_STARS_FALLBACK
+    claimed = max([row.get("count") for field in STARS_CLAIMED_FIELDS
+                   for row in (raw or {}).get(field) or ()
+                   if isinstance(row, dict) and row.get("res_id") == name
+                   and _is_count(row.get("count"))] or [0])
+    tables = ((((raw or {}).get(STARS_EARNED_FIELD) or {}).get(season) or {}),
+              (raw or {}).get(STARS_MOVED_FIELD) or {})
+    earned = sum(1 for star in stars if any(
+        (table.get(star) or {}).get("score") for table in tables))
+    return [("%d/%d" % (max(earned, claimed), total),
+             _done(claimed >= total))]
+
+
 def _payment_progress(raw, name):
     """[(words, state)] for a payment event, or [] for any other or
     where the snapshot holds no record of its claims.
@@ -2174,6 +2239,8 @@ EVENT_CATEGORIES = {
     "EVENT_NODELIST_PAGE": frozenset({OPEN_ENDED}),
     # The client lists every reward and the sticker that follows them.
     "EVENT_TRAUMA_CODE": frozenset({TALLIED}),
+    # The client lists a chapter's stars; a season's are all thirty.
+    "DISASTER_STORY_STARS": frozenset({TALLIED}),
 }
 
 
@@ -2242,6 +2309,7 @@ EVENT_READERS = {
     "EVENT_COMBATANT_TRIAL": _event_trials,
     "LOBBY_COUNTDOWN": _event_countdown,
     "EVENT_TRAUMA_CODE": _event_trauma,
+    "DISASTER_STORY_STARS": _event_stars,
 }
 
 
@@ -2748,7 +2816,7 @@ EVENT_GROUPS = ("EVENT_SCHEDULE", "EVENT_COMBATANT_TRIAL",
                 "EVENT_NODELIST_PAGE", "EVENT_DAILY_CHECK",
                 "EVENT_RHYTHM_GAME", "EVENT_ARENA", "EVENT_OVERCLOCK",
                 "EVENT_TRAUMA_CODE", "EVENT_DISASTER_MARBLE",
-                "EVENT_OPERATION", "LOBBY_COUNTDOWN")
+                "EVENT_OPERATION", "LOBBY_COUNTDOWN", "DISASTER_STORY_STARS")
 
 # What an event row's key is built from.
 EVENT_KEY_PREFIX = "event:"
@@ -2956,6 +3024,21 @@ TRAUMA_CODES_FIELD = "trauma_code_entities"
 # the code's own, `<its schedule>_e_<n>`, in the code's group. They are
 # not events, and `event_rows` lists none of them.
 GATED_GROUPS = frozenset({"EVENT_TRAUMA_CODE"})
+
+# A Galactic Disaster story chapter's stars. **The group is this
+# program's own**, no `event_schedules` group naming a chapter: see
+# `_open_chapters`. The stars earned are `{season: {condition id: row}}`
+# at login, and `{condition id: row}` for what a clear reported since;
+# the stars claimed a `{res_id, count}` row by the chapter's id, the
+# login's in the first table and a claim's in the second, the capture
+# keeping `reward_doc` there. `count` is the stars the last step claimed
+# took. The fallback is every chapter's total so far, for a chapter
+# the client lists no ladder for.
+STORY_STARS_GROUP = "DISASTER_STORY_STARS"
+STARS_EARNED_FIELD = "story_node_mission_disaster_entities"
+STARS_MOVED_FIELD = "story_map_condition"
+STARS_CLAIMED_FIELDS = ("chapter_reward_entities", "reward_entities")
+STORY_STARS_FALLBACK = 30
 
 # A countdown check-in's record: an `issued_limit_entities` row whose
 # `usable_time` and `expire_time` are the countdown's own window, with
@@ -4804,6 +4887,9 @@ class ChecklistTab(BaseTab):
         manager = getattr(self.context, "checklist_manager", None)
         not_asked = {str(name) for group in NOT_ASKED_GROUPS
                      for name in schedules.groups(raw).get(group) or ()}
+        # A chapter's `30/30` in red is rewards to claim, not a ceiling
+        # nothing proves: its claims say when it is done.
+        not_asked |= set(game_client.known_story_stars())
         client = ((raw or {}).get(EVENT_CLIENT_FIELD) or {}
                   if isinstance(raw, dict) else {})
         out = {}
@@ -5943,7 +6029,7 @@ def _readings(raw, now=None, tracked=None):
     # deadline alone.
     live_events = {}
     for group in EVENT_GROUPS:
-        for name, window in schedules.all_live(group, raw, now):
+        for name, window in _live_in(group, raw, now):
             live_events[name] = (group, window)
     for key, _label, _widest in event_rows(raw, now):
         # The ID, not the label: the label drops the common
