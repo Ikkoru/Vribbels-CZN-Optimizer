@@ -4,6 +4,8 @@ Read before changing any padding, margin or layout value in the tabs. Threading 
 
 A rendered gap is `ancestor padding + pack/grid pad + the child's own internal inset + the font's line box`, and only the first two appear in the source. **So the source cannot be read to find out what is on screen, and rendered pixels must never be predicted from padding values.** Hence the four parts below: the rules say what a gap should measure, the markers say which value is a lever for which rule, the ledger says what else that lever moves, and the audit measures the result from a screenshot.
 
+Sections, in order: *The rules*; *The UI scale, and what the audit can see of it*; *Fonts in use*; *Widget behaviour that moves spacing*; *Spacing inside a Treeview*; *Colours that come in sets*; *Column alignment, and what it cannot have both of*; *Setup Status reads at one pitch*; *The status cluster, and why its rows resist one rule*; *The uniques, as a table*; *The unruled rows, as a table*; *Checking spacing*; *The ledger: which lever moves what*; *Reading a bad measurement*; *Padding is not what you see*; *Shared styles for tab framing*.
+
 ## The rules
 
 Target: **4px** between any two content frames, and between a content frame and the window edge. Achieved by giving each container 2 and each content frame inside it 2.
@@ -204,7 +206,7 @@ A rule name is spelled in three places (this table, a `RULE_*` constant, every m
 
 ### Scope and standing exceptions
 
-**Nothing PERMANENT in the app is out of scope.** Every tab, the Stat Contributions popup, the Restore Defaults dialog and the hover tooltip are all marked and nudged alike, and no `# spacing: out of scope` marker stands anywhere. The exception is for something TEMPORARY, a specimen block put on the window to be looked at once. It carries one `# spacing: out of scope -- <why>` for as long as it is there.
+**Nothing PERMANENT in the app is out of scope.** Every tab, every dialog the app opens and the hover tooltip are all marked and nudged alike, and no `# spacing: out of scope` marker stands anywhere. The exception is for something TEMPORARY, a specimen block put on the window to be looked at once. It carries one `# spacing: out of scope -- <why>` for as long as it is there.
 
 **A Text sizes in CHARACTERS and LINES, and neither can say what a window needs to the pixel.** `width` reserves whole cells, so what is left after the last glyph lands on the RIGHT inset and nothing inside the widget reaches it. `height` multiplies the font's linespace, so a per-line `spacing3` changes what is drawn and not what the widget asks for. The contributions popup rounds both up and takes the difference off the WINDOW, which its text field absorbs because it is the only child packed to expand.
 
@@ -248,20 +250,20 @@ Icons double by NEAREST NEIGHBOUR at 200%, which is exact at a whole multiple --
 
 ## Fonts in use
 
-Body text is **Segoe UI 9**. The three panels of running prose are **Segoe UI Variable Small**, the optical size Windows draws small text at. The Checklist's rows are **Segoe UI 10**, a point up, that tab being read rather than scanned, and so are the Galactic Disaster tab's and the Epione tab's. `TkDefaultFont` is Segoe UI 9 and no ttk style overrides it, so an explicit `("Segoe UI", 9)` is the same face the default already gives.
+Body text is **Segoe UI 9**. The panels of running prose are **Segoe UI Variable Small**, the optical size Windows draws small text at. The Checklist's rows are **Segoe UI 10**, a point up, that tab being read rather than scanned, and so are the Galactic Disaster tab's and the Epione tab's. `TkDefaultFont` is Segoe UI 9 and no ttk style overrides it, so an explicit `("Segoe UI", 9)` is the same face the default already gives.
 
 | Face                    | Tk pt   | Ascent | Descent | Linespace | Where                            |
 | ----------------------- | ------- | ------ | ------- | --------- | -------------------------------- |
 | Segoe UI                | 9       | 12     | 3       | 15        | body text everywhere, bold included |
 | Segoe UI                | 11      | 16     | 4       | 20        | Setup Status; Capture's `Ready`; the Epione tab's scenario counts, opening lines, cures and follow-up names |
 | Segoe UI                | 14 bold | 20     | 5       | 25        | the tab headings, the Materials tab's three column headings, Application Information's first two lines |
-| Segoe UI Variable Small | 11      | 16     | 4       | 20        | Capture Log; Setup Instructions; How Gear Score Works |
+| Segoe UI Variable Small | 11      | 16     | 4       | 20        | Capture Log; Setup Instructions; How Gear Score Works; the settings notice (`defaults_notice.FONT`) |
 | Segoe UI                | 12 bold | 17     | 4       | 21        | the Materials tab's Element names |
 | Consolas                | 10      | 12     | 3       | 15        | the contributions popup, which is ASCII so every character is one 7px cell |
 
 Variable Small stands a pixel taller than Segoe UI below 11 — one more of ascent, the same descent — and that pixel lands above the first glyph, so a panel changing size owes its `pady` the difference. At 11 the two share a line box, and Variable Small **8** is the exact metric twin of Segoe UI 9 (12/3/15).
 
-Its ascenders clear its capitals, where Segoe UI's do not. That is why the three panels set in it read their top inset off the first CAPITAL rather than off the line's topmost ink.
+Its ascenders clear its capitals, where Segoe UI's do not. That is why the panels set in it read their top inset off the first CAPITAL rather than off the line's topmost ink.
 
 A 14 bold heading's ascenders reach above its capitals. Judge it by the capitals anyway.
 
@@ -314,7 +316,7 @@ Two entries measure to the Capture Log title, one per column above it — the on
 
 ### The gaps the audit cannot reach
 
-An entry named in `AWAITING_FIRST_READING` prints yellow, in the short run as well as the verbose one, until a run agrees with it. The set is EMPTY: every registered gap is on target and confirmed against a hand reading, so a row printing at all is a regression. What follows is the parts of the app no entry measures at all, so a drift there shows up on screen and nowhere else.
+An entry named in `AWAITING_FIRST_READING` prints yellow, in the short run as well as the verbose one, until a run agrees with it. The set is kept empty between registrations, every registered gap on target and confirmed against a hand reading, so outside a gap just registered, a row printing at all is a regression. What follows is the parts of the app no entry measures at all, so a drift there shows up on screen and nowhere else.
 
 - **The Optimizer's status label ends 6px from the tab's right edge**, where the border rule asks 4 and a Label's own inset has 2 left to give. The off-Element checkbox below it sits at 13, deliberately: it stays under the spinbox and is easier to click there.
 - **`checkboxes -> unrelated checkboxes` has no entry at all.** Its one site pins its block to a panel's floor, so what sits above it is leftover height rather than a distance. The rule's 20 is a floor there, and the audit compares against a number.
@@ -369,14 +371,7 @@ Rows are contiguous — a row is `rowheight` tall and the next begins immediatel
 
 **Setting `padding` on the `Treeview` style at all — any value, `0` included — makes `Treeview.Cell` padding do nothing.** Once the widget's own style defines `padding`, the lookup for the cell's `Treedata.padding` element stops there and the derived style is never consulted. The value on `Treeview` is then what insets the cell text, on top of the tree area.
 
-Measured by sweeping cell padding -4…12 and reading where the cell's text element starts (`identify_element` across the cell — no pixels needed):
-
-| `Treeview` padding | `Treeview.Cell` padding -4 … 12 |
-| ------------------ | ------------------------------- |
-| unset              | text moves at every value       |
-| 0                  | text never moves                |
-| 3                  | text never moves; sits at 3     |
-| 8                  | text never moves; sits at 8     |
+Measured by sweeping cell padding -4…12 and reading where the cell's text element starts (`identify_element` across the cell — no pixels needed): with `Treeview` padding unset the text moves at every value; with it set, `0` included, the text never moves, and sits at the `Treeview` value.
 
 - **To tune the cell inset, change `Treeview`'s `padding`.** A `Treeview.Cell` line would look like the lever and do nothing.
 - **For an independent cell lever, drop `padding` from the `Treeview` configure.** The tree area does not move when you do: the borderless layout has already removed the field element the theme's padding was insetting from (measured, `bbox` unchanged either way).
@@ -479,17 +474,18 @@ A value column is anchored at one edge, and which one decides what stays constan
 
 Worth choosing per group: same-width percentages lose nothing by going left-aligned; a column mixing `9` and `600` wants its digits lined up.
 
-| Group                     | Where                                   | Gap now              | Notes                                                    |
-| ------------------------- | --------------------------------------- | -------------------- | -------------------------------------------------------- |
-| Extra, Agony and Fracture | Optimizer, `Important Settings`         | 5px                  | on target                                                |
-| HAL columns               | Optimizer, `Have at Least`              | 5px                  | on target                                                |
-| Set spinboxes             | Optimizer, `Set Configuration`          | 5px                  | takes the 5px, NOT the alignment — see below             |
-| Set MF counts             | Memory Fragments, `Sets`                | 8px                  | aligned per column                                       |
-| Stat roll ranges          | Gear Score, `How Gear Score Works`      | 8px                  | the `STAT MIN - MAX ROLLS` block                         |
-| Weights, left column      | Gear Score, `Stat Weight Configuration` | 12px                 |                                                          |
-| Weights, right column     | Gear Score, `Stat Weight Configuration` | 10px                 | the 2px difference is the rightmost glyph, not a setting |
-| `Stats:` values           | Combatants, `Character`                 | 30px left, 5px right | the right-alignment effect above                         |
-| `Potential:` columns      | Combatants, `Character`                 | 5px both             | level right-aligned, description left                    |
+The groups, each gap's reading in `docs/spacing_baseline*.json`:
+
+| Group                     | Where                                   | Notes                                                                 |
+| ------------------------- | --------------------------------------- | --------------------------------------------------------------------- |
+| Extra, Agony and Fracture | Optimizer, `Important Settings`         | `label ↔ its element`                                                 |
+| HAL columns               | Optimizer, `Have at Least`              | `label ↔ its element`                                                 |
+| Set spinboxes             | Optimizer, `Set Configuration`          | takes `label ↔ its element`, NOT the alignment — see below            |
+| Set MF counts             | Memory Fragments, `Sets`                | aligned per column                                                    |
+| Stat roll ranges          | Gear Score, `How Gear Score Works`      | the `STAT MIN - MAX ROLLS` block                                      |
+| Weights                   | Gear Score, `Stat Weight Configuration` | the two columns read 2px apart: the rightmost glyph, not a setting    |
+| `Stats:` values           | Combatants, `Character`                 | right-aligned, so the left column reads wider before a short value (above) |
+| `Potential:` columns      | Combatants, `Character`                 | level right-aligned, description left                                 |
 
 `Set Configuration` is the standing exception to the ALIGNMENT half: its spinboxes keep the 5px but are not pulled into a shared column. The panel is tightly packed, so aligning would put a spinbox nearer a set it does not belong to; and only conditional sets have one at all, so the column would have holes. Ownership becomes ambiguous, which is worse than a ragged edge.
 
@@ -605,9 +601,9 @@ A scenario is a row of four cards, filled Texts sitting `content frame -> conten
 
 The mechanism is below; the procedure for running one and reading its table is the `spacing-audit` skill.
 
-`ui/spacing_audit.py` measures registered gaps on the rendered window, counting background pixels by the convention above, so glyph reference points come out right without a font table. It cycles the tabs itself, and needs only a snapshot loaded so the data-driven panels exist. **The window is rendered, never shown** (`ui/utils/window_render.py`, Windows' `PrintWindow` taking the compositor's copy): the app stays at alpha 0 from launch to exit, at its full size even where that is larger than every screen. No pointer, tooltip or other window can be in the picture. Read the same way, the 100% audit read every gap as reading the screen had, its baseline unmoved.
+`ui/spacing_audit.py` measures registered gaps on the rendered window, counting background pixels by the convention above, so glyph reference points come out right without a font table. It cycles the tabs itself, and needs only a snapshot loaded so the data-driven panels exist. **The window is rendered, never shown** (`ui/utils/window_render.py`, Windows' `PrintWindow` taking the compositor's copy): the app stays at alpha 0 from launch to exit, at its full size even where that is larger than every screen. No pointer, tooltip or other window can be in the picture.
 
-It locates panels by their visible title, not by attribute — most of these frames are locals, and storing each on `self` purely to measure it would touch six tab files for no functional reason. So renaming a panel's title removes it from the audit; the baseline comparison reports that as a missing entry rather than a pass.
+It locates panels by their visible title, not by attribute — most of these frames are locals, and storing each on `self` purely to measure it would touch every tab file for no functional reason. So renaming a panel's title removes it from the audit; the baseline comparison reports that as a missing entry rather than a pass.
 
 Some panels exist only in one app state (the Optimizer's Element override frame, for Unknown-attribute characters) and their presence moves everything beneath them. So the audit runs scenarios: it sets each state up, captures, tears it down, and moves on, all in one run.
 

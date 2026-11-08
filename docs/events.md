@@ -17,6 +17,8 @@ The code is `ui/tabs/checklist_tab.py`:
 
 **For a new event, start at *Processing a new event*** at the end.
 
+Sections, in order: *The four questions, in order*; *The categories*; *How well each question can be answered*; *Floors, and the one wrong answer*; *The one place the game says an event is FINISHED*; *Telling a rectangular family from a ragged one*; *An event the client does not hold*; *Naming, and how to find an event's records*; *The payloads an event's data arrives in*; *Fields only ever seen in the login burst*; *Processing a new event*; *Still open*.
+
 ## The four questions, in order
 
 Answer them in this order for any event. Each one is cheap and rules out work on the next.
@@ -147,17 +149,17 @@ The same applies to a mission-tallied event: the write-down holds while the rows
 
 The row reads stars earned out of the total, red until the last step is claimed: `30/30` in red is rewards to claim. It asks no `Finished?`, the claims being proof. **A chapter the client has not opened has no ladder, and its battles carry the chapter before's conditions as placeholders**, so `game_client.story_stars` lists no stars for it: the row then reads what is claimed, out of thirty. `game_client.story_stars` reads the two newest seasons, and every Node List.
 
-## Knowing an event: three questions, and what can answer each
+## How well each question can be answered
 
-A Checklist row about an event is three separate claims, and they have different evidence behind them.
+Questions 2 to 4 of *The four questions* are separate claims a row makes, with different evidence behind them.
 
 | | The question | How well it can be answered |
 | - | ------------ | -------------------------- |
-| 1 | How many rewards have been CLAIMED? | **Exactly, always.** `complete_time` on a mission row means its reward was taken; an event with no mission rows keeps its own table (a streak's `received_days`, a trial's slots); a step-track event counts its claims on its completion record, see *Step tracks* |
-| 2 | How many does the event HOLD? | The client states it; off the wire, the sources below |
-| 3 | Is it FINISHED? | Definite for a few, derived for some, a judgement for the rest |
+| 2 | How much is done: how many rewards have been CLAIMED? | **Exactly, always.** `complete_time` on a mission row means its reward was taken; an event with no mission rows keeps its own table (a streak's `received_days`, a trial's slots); a step-track event counts its claims on its completion record, see *Step tracks* |
+| 3 | Is it FINISHED? | Definite for a few, derived for some, a judgement for the rest: *Answering question 3* |
+| 4 | How much is there: how many rewards does the event HOLD? | The client states it; off the wire, the sources below |
 
-### The sources for a total, strongest first
+### The sources for a total (question 4), strongest first
 
 | Source | What it needs | What it gives | How it fails | Where |
 | ------ | ------------- | ------------- | ------------ | ----- |
@@ -227,7 +229,7 @@ Which events pay one is in the client (`event_mission_define`'s `special_reward_
 
 **A step track's flag is not a final reward**: it flags on its own ladder, and `_final_reward` does not take it for one. And the reading assumes a flag means a SEPARATE reward, which the bartender confirms; were it set by the last ordinary claim, the row would read one higher in both figures and go green on that same claim.
 
-### `reward_step` and `version` — read as a tally, not yet measured
+### `reward_step` and `version`, read as a tally
 
 Across every row captured, **`event_achieve_state` is 1 exactly when `version == reward_step`**:
 

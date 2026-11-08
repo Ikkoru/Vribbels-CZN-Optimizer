@@ -341,8 +341,6 @@ The marker exists twice, the addon's and the reader's, and `checks/check_capture
 
 ## A capture left running, and what a debug log costs
 
-Both measured off the captures on disk rather than estimated.
-
 Two things grow with the capture, and neither bounds itself. `saved_path` is chosen once per addon instance and rewritten on every save, so without a rotation a month of capture is one `memory_fragments_*.json` — the newest state, with no history behind it. The debug log has no ceiling at all and is flushed on every frame. What each is answered with is below.
 
 ### A debug log's size, per session
@@ -353,23 +351,9 @@ The inventory, `piece_items`, is the largest payload in a debug log, and grows w
 
 The log is gzipped, one MEMBER per line. `websocket_debug_*.jsonl.gz`, still one JSON object per line — a reader opens it with `gzip.open(path, "rt", encoding="utf-8")` and changes nothing else.
 
-A member per line rather than one stream over the file, because **a stream is readable only once its end marker is written** and an always-on capture ends by being killed. A sync-flush does not help: Python's `gzip` refuses the file outright with `EOFError`. Per line, the file is complete after every single write, and the ratio barely moves:
+A member per line rather than one stream over the file, because **a stream is readable only once its end marker is written** and an always-on capture ends by being killed. A sync-flush does not help: Python's `gzip` refuses the file outright with `EOFError`. Per line, the file is complete after every single write, and the ratio stays within a few points of a whole-file stream's, around 11x to 13x.
 
-| | whole-file stream | member per line |
-| - | ------------------ | ---------------- |
-| one login | 13.2x | 12.7x |
-| session with play | 12.6x | 10.7x |
-
-Dedup was measured and not taken. Two logins three minutes apart were byte-for-byte identical in **1802.7 KB of 1815.9**. Only 13.2 KB differed, and half of that was the auth cookie:
-
-  | Payload | Changed |
-  | ------- | ------- |
-  | `cheetah_cookie` | 6.9 KB |
-  | `currencies` | 5.6 KB |
-  | `user` | 0.5 KB |
-  | `session`, `server_time`, `seqnum` | under 0.1 KB |
-
-So the login burst — the bulk of every capture — is almost pure repetition between launches. Storing it content-addressed would beat gzip handily, at the cost of the one property that makes these files useful: that a two-line script can read them.
+Dedup was measured and not taken. Two logins minutes apart differ in under 1% of their bytes, half of it the auth cookie, so the login burst — the bulk of every capture — is almost pure repetition between launches. Storing it content-addressed would beat gzip handily, at the cost of the one property that makes these files useful: that a two-line script can read them.
 
 ### Replaying a debug log
 
@@ -398,7 +382,7 @@ Kept in `settings/wire_catalogue.json` — beside the settings rather than among
 
 Only on a working copy. The `zRUN*.bat` launchers set `VRIBBELS_DEV`; a frozen exe has no way to, and without it the catalogue is off entirely: nothing recorded and nothing written, so a released build's capture is untouched by any of it. It is a switch rather than a setting because a setting would ship to everyone and want explaining, and what it guards is of no use to anybody who is not reading the wire.
 
-The marker has to survive the elevation. Capture needs Administrator, so the program relaunches itself through `ShellExecuteW`'s "runas" -- which starts the new process with a FRESH environment. The elevated copy is the one that captures, and it never saw the variable, so every session that accepted the UAC prompt ran with the catalogue off. `DEV_FLAG` rides the relaunch on the command line and `_adopt_dev_flag` reads it back, **only where the program is running from source**: a frozen build ignores the flag whoever types it, so the switch is still closed by construction rather than by trust.
+The marker has to survive the elevation. Capture needs Administrator, so the program relaunches itself through `ShellExecuteW`'s "runas" -- which starts the new process with a FRESH environment. The elevated copy is the one that captures, and it never sees the variable, so without the flag every session that accepts the UAC prompt runs with the catalogue off. `DEV_FLAG` rides the relaunch on the command line and `_adopt_dev_flag` reads it back, **only where the program is running from source**: a frozen build ignores the flag whoever types it, so the switch is still closed by construction rather than by trust.
 
 One entry per `command|key` seen, with a count, first and last sighting, the type and a 200-character sample:
 
@@ -418,19 +402,24 @@ It MERGES with what is on disk: counts add, the first sighting is the earlier. I
 
 Qids restart at 1 with each `helo`, which is why `_forget_pending` exists: the pending-intent maps are keyed by qid, and an intent left unanswered by a game that went away would otherwise be claimed by an unrelated reply from the next one.
 
-### Saving reports itself only when it changes
+### Saving the snapshot
 
-A save reports itself only when it would say something new — a different file, or different counts. The suppression is keyed on those figures and not on the last line logged. Any `[LIVE]` line in between, and there is one after every upgrade, delete and reward, would otherwise put the same numbers back on screen, and an evening of capture reads as that one sentence repeated.
+**The app reloads on `SAVE_MARKER`, `[SYNC] saved`, which goes out on every save.** The reader consumes it and never shows it.
 
-What is left is the file being written, the numbers moving, and — loudly — a save that FAILS. The write is wrapped for that: unwrapped, an `OSError` surfaces through the frame handler's own catch as a bare `Error:` with no mention of a snapshot, in a log whose every other line is about the game.
+- Do not reload on the human-readable `Saved:` line. It is left out where it would repeat the last save's, and the login burst saves several times with identical counts, the first as soon as the inventory lands and the later ones carrying the shops, the schedules and the missions: the app would sit on the first save's snapshot for the whole session.
+- Do not take `SAVE_MARKER` for the last line logged. It goes out between saves, so it would sit between two identical reports and stop either reading as a repeat.
 
-`SAVE_MARKER` is unaffected and still goes out on every save. The app reloads on it, and the two must not share a line — see `_save_data`.
+Guard: `checks/check_addon_template.py` holds the reader's copy of the literal equal to the addon's.
+
+**A save reports itself only when it would say something new** — a different file, or different counts (`_last_save`), not a different last line. A `[LIVE]` line lands after every upgrade, delete and reward, so a test against the last line puts the same numbers back on screen, and an evening of capture reads as that one sentence repeated. What is left is the file being written, the numbers moving, and — loudly — a save that FAILS. The write is wrapped for that: unwrapped, an `OSError` surfaces through the frame handler's own catch as a bare `Error:` with no mention of a snapshot, in a log whose every other line is about the game.
+
+**The snapshot's temp-file replace can be refused.** Windows returns `[WinError 5] Access is denied` while another process holds the destination open — the app reading it, an indexer, an antivirus. `_save_data` retries; a save that still cannot land says so and leaves the previous snapshot intact.
 
 ### Folding old captures into an archive
 
 `capture/archive.py` moves superseded captures into `archived_captures.tar.xz`, beside the loose ones. `docs/snapshots_archive.py` is the same code with a report attached, for a run by hand; `--list` says what the archive holds.
 
-**One archive, rebuilt, never appended to.** Consecutive snapshots are near-identical and that only pays inside ONE compression stream: measured over 114 real captures, a solid rebuild came to 242 KB where compressing each file alone came to 7.0 MB. Rebuild cost is proportional to the whole archive, which is what the water marks are for — a rebuild per file would pay the whole cost every time and lose the ratio as well.
+**One archive, rebuilt, never appended to.** Consecutive snapshots are near-identical and that only pays inside ONE compression stream: over a season's captures, a solid rebuild is about a thirtieth of compressing each file alone. Rebuild cost is proportional to the whole archive, which is what the water marks are for — a rebuild per file would pay the whole cost every time and lose the ratio as well.
 
 "Old" is positional, not temporal. A file is a candidate when it is the Nth back from the newest of its own kind, so what the program reads is never in reach however long ago it was written. `KINDS` carries both marks per kind, and is the only place they are written down — snapshots and logs compact at different counts, since a log is the bigger file and nothing shipped reads an old one.
 
