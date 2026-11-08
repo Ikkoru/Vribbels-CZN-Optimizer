@@ -47,6 +47,20 @@ The login burst is the only long stretch of solo commands. Everything after the 
 
 `checks/check_capture_batching.py` drives the template with a frame of each shape.
 
+## Reading a reply: where a record sits, and how it is folded in
+
+These hold for every key the addon reads; the sections below are their cases.
+
+**A record is merged by its id, never assigned.** A reply carrying one row updates that row and leaves the rest of the cache alone. A wholesale assignment looks right on every capture ever taken, since the login sends each list whole, and wipes the list the first time a partial one arrives. The roster is the costliest case (*The `characters` key on the wire is sometimes a DELTA*, above). The exception is a reply that IS the whole board, where a row's absence is a reading: the excursion board and the Great Rift's standings list (*Payloads kept aside and written out later*, below).
+
+**A record may sit nested rather than at the top level.** A stage reply nests its whole outcome under `return_info`: `result_overclock_entities` rides there beside the `result_reward_drop_overclock` that pays out, and so does a run's own clear reward. A STORY episode's pay is two levels down, at `result.story_reward_result.reward.{currency, items}`, under a `result` carrying only `is_clear`, the node's id and a title level. `_nested_reward` finds it by its shape, not its name: `story_reward_result` is what a story calls its envelope, and nothing says the next content will agree. Reading only the top level is indistinguishable from the wire being silent. **When a record does not update after an action that plainly changed it, search the reply for the key before concluding the wire is silent.**
+
+**A record arrives under four spellings**: `x_entities` (a list), `result_x_entities` (a list: the rows one action changed), `x_entity` (one record) and, for some claims, the bare `entity`. The singular is the ROW THAT CHANGED and is folded into its collection, not kept beside it: a second copy under a near-identical name is one more thing for a reader to pick the wrong one of. Which collection a bare `entity` belongs to depends on the claim (`events.md`, *The defences*).
+
+**A claim may answer with no record at all.** A Daily Check-in claim sends `received_days_before` and `received_days_after`, numbers rather than an entity, so the cached row is patched from them (`events.md`, *A Daily Check-in claim's reply*).
+
+Guard: `checks/check_capture_event_state.py` (the four spellings), `checks/check_capture_rewards.py` (the nested pay).
+
 ## The gacha schedule names unreleased units
 
 The reply to `lobby / lobby_update` carries `event_schedules.GACHA`: every banner, past and upcoming, keyed `gacha_pickup_<combatant|supporter>_<res_id>[_<rerun>]`. Those ids are server-side definitions and do not depend on what the account owns, which makes them the only res_ids a unit's owner-scoped absence cannot hide. The rerun suffix follows the res_id, so the FIRST number is the unit.
@@ -283,6 +297,8 @@ One envelope between them:
 so a x6 run sends six entries for the same item and the total is their sum. Nothing states what the holding becomes, which leaves `_apply_drops` adding — and **adding is what makes a repeat dangerous**, so the frame's `qid` is remembered and one already applied is skipped. An id the currencies already hold is a currency (Units drop this way); everything else is an item.
 
 **A pull pays on its result list** (`gacha/run`'s `list`): each unit drawn carries `reward_items`, `[{res_id, count, count_result}]`, where `count_result` is the holding's total after that unit and a currency adds `total_amount` and `total_use_amount`. `_apply_pull_rewards` writes each id's last `count_result` in like a `doc.amount`, reporting the counts summed. A duplicate's conversion and the item a Prism turns a unit into arrive nowhere else. Unread, an item first held this way never reaches the cache, so spending it later restates a zero the cache already holds: neither the gain nor the use reaches the log.
+
+**A reward's Memory Fragments are shaped nothing like a forged one's.** Forging answers with a top-level `pieces` LIST of documents. A reward answers with a `pieces` DICT keyed by the fragment's id, each value a `{diff, doc}` pair, and always a level down: under `item_result` (a Chaos week reward) or inside `return_info` (a Simulation run, doubled or not). Beside it sits `auto_disassemble_piece`, whose `pieces` are fragments broken down on the way in: they never reach the inventory and must not be added (`_reward_pieces`).
 
 `result` is the most OVERLOADED key on the wire: a string, a bool, a stage's step record. So it counts only where it carries a rewards payload or nests one, two levels down under an envelope of its own.
 

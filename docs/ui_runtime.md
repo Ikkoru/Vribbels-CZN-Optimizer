@@ -1,6 +1,6 @@
 # UI runtime: threading and startup
 
-Read before adding to the startup path or doing work off the UI thread. Layout and pixels are in `ui_spacing.md`.
+Read before adding to the startup path or doing work off the UI thread. Layout and pixels are in `ui_spacing.md`; fonts, colours and styles in `ui_styles.md`.
 
 ## Nothing on the Tk main thread may block — `after()` callbacks included
 

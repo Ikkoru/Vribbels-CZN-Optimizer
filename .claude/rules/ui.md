@@ -5,7 +5,7 @@ paths:
 
 # UI rules
 
-Loads when a file under `Vribbels/ui/` is read. Panel layout, the spacing ledger and ttk styles: `docs/ui_spacing.md`. Tk threading, startup and display quirks: `docs/ui_runtime.md`. Running and reading the spacing audit: the `spacing-audit` skill.
+Loads when a file under `Vribbels/ui/` is read. Panel layout, the spacing rules and the ledger: `docs/ui_spacing.md`. Fonts, colours, the ttk styles, Treeviews and the UI scale: `docs/ui_styles.md`. Tk threading, startup and display quirks: `docs/ui_runtime.md`. Running and reading the spacing audit: the `spacing-audit` skill.
 
 ## Hard rules
 

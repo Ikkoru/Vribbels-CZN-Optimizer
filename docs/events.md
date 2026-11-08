@@ -490,11 +490,9 @@ So the addon's copy of `completed` carries the answer through the session that s
 
 ### The defences
 
-Both in `capture/manager.py`, and both are the general rule rather than anything about these two fields:
+The general rules, which these two fields follow, are `capture_pipeline.md`'s (*Reading a reply: where a record sits, and how it is folded in*): merge by id, look under `return_info`, accept all four spellings.
 
-* **merge by id, never replace.** A one-row payload updates its own row and leaves the rest alone. A wholesale assignment looks right on every capture ever taken and wipes the list the first time a partial one arrives.
-* **look under `return_info` as well as at the top level.** A stage reply nests its whole outcome there. Reading only the top level is indistinguishable from the wire being silent, which is exactly how the Overclock row was misread.
-* **accept all four spellings** — `x_entities` (list), `result_x_entities` (list), `x_entity` (one record) and, for a completion, the bare `entity`. The singular is the ROW THAT CHANGED and belongs folded into the collection, not kept beside it: a second copy under a near-identical name is one more thing for a reader to pick the wrong one of. **`entity` is shared with the Combatant Trial claim and a Trauma Code's unlock**, which put different rows under it. The presence of `event_achieve_state` says which is which. A Trauma Code's row carries that too, and `unlock_state` beside it makes it the code's (`TRAUMA_CODE_ROW`). `checks/check_capture_event_state.py` holds all four plus the shapes above.
+**A completion arrives under the bare `entity`, which the Combatant Trial claim and a Trauma Code's unlock share**, each putting a different row under it. The presence of `event_achieve_state` says which is which. A Trauma Code's row carries that too, and `unlock_state` beside it makes it the code's (`TRAUMA_CODE_ROW`). `checks/check_capture_event_state.py` holds all four spellings plus the shapes above.
 
 ### Reading a capture for whether anything mid-session landed
 

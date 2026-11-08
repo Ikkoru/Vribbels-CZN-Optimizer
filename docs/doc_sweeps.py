@@ -333,6 +333,15 @@ def anchors(text):
     return out
 
 
+def _example(span):
+    """A code span (a `re.sub` match) as `xrefs` reads it: dropped
+    where it could hold an example citation, kept otherwise. Spans are
+    matched left to right first, so one span's closing backtick is
+    never taken for the next one's opening."""
+    text = span.group()
+    return "" if text.startswith("``") or "*" in text else text
+
+
 def xrefs(files=None, read=None):
     """(path, line, what, text) for each section citation nothing in
     the file it names answers (`anchors`). Read over every file in
@@ -369,8 +378,10 @@ def xrefs(files=None, read=None):
             if kind != "prose":
                 continue
             # A citation shown as an example, in a code span, cites
-            # nothing.
-            for m in LOCAL.finditer(re.sub(r"``.*?``|`[^`]*`", "", line)):
+            # nothing. Only a span holding a `*` is dropped: a heading
+            # may hold a code span, and its citation then holds one too.
+            for m in LOCAL.finditer(re.sub(r"``.*?``|`[^`]*`", _example,
+                                           line)):
                 if not answered(rel, m.group(1)):
                     yield rel, number, "no section here", m.group(1)
 

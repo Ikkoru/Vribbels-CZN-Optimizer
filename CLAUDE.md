@@ -72,7 +72,8 @@ Snapshots are the maintainer's captured game data. Read them; never write to `Vr
 | The Galactic Disaster tab: the season's challenge pages, what counts as done or locked, the lists | `docs/disaster_challenges.md` |
 | The Epione tab: counseling options, the record of those picked, who awaits counseling, the whiff count | `docs/epione.md` |
 | Tk threading, startup, display quirks | `docs/ui_runtime.md` |
-| Panel layout, spacing rules, the ledger, ttk styles | `docs/ui_spacing.md` |
+| Panel layout, spacing rules, the ledger | `docs/ui_spacing.md` |
+| Fonts, colours, ttk styles, Treeviews, the UI scale | `docs/ui_styles.md` |
 | Running a spacing audit and reading its table | `.claude/skills/spacing-audit/SKILL.md` |
 | `tasks.md` / `plan.md` / CHANGELOG conventions | `docs/repo_conventions.md` |
 | The doc audit's sweeps, the privacy sweep first | `docs/doc_sweeps.py`; how to judge what it finds is the kit's `craft:doc-audit` with `.claude/overlays/doc-audit.md` |

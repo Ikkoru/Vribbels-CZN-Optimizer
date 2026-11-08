@@ -2942,7 +2942,7 @@ def _text_field_gap(locator, needles, index=0, advance=False):
     advance rather than its ink, for a field whose last glyph is the
     data's: a date ending in `1` stops a pixel short of its advance
     (see "Digits share an advance width but not an ink width" in
-    `docs/ui_spacing.md`), and the gap would read the date rather than
+    `docs/ui_styles.md`), and the gap would read the date rather than
     the layout -- the same reason `_materials_value_column` reads to a
     column edge.
 
@@ -3672,7 +3672,7 @@ LEFT_INSET_EXCEPTIONS = {
     # and a border scan does not merely fail here, it walks into the
     # content's own fill and saturates. And what fills them draws its
     # own inset by rules of its own: a Treeview's internals are style
-    # options (see docs/ui_spacing.md), and a gear cell carries its
+    # options (see docs/ui_styles.md), and a gear cell carries its
     # padding on the Text inside it, marked there. Their TITLE gaps are
     # tracked -- that is what these three were added for.
     "Stats Comparison",

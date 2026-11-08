@@ -32,8 +32,10 @@ CORPUS = {
         "## Heading here\n\n"
         "**A bold lead** opens this paragraph.\n\n"
         "| A row name | what |\n| --- | --- |\n\n"
+        "## The `x` key\n\n"
         "See *Heading here*, below, and *Gone away*, above.\n"
-        "An example in a span, `*Not a citation*, below`.\n"),
+        "An example in a span, `*Not a citation*, below`.\n"
+        "A span in a heading: *The `x` key*, above, *The `y` key*, above.\n"),
     "docs/b.md": (
         "# B\n\n"
         "Cites `a.md`, *Heading here*, and `a.md`, *A bold lead*, and "
@@ -48,6 +50,7 @@ KINDS = {"docs/a.md": "prose", "docs/b.md": "prose", "Vribbels/c.py": "code"}
 # (path, cited) the resolver must report, and nothing else.
 WANTED = {
     ("docs/a.md", "Gone away"),
+    ("docs/a.md", "The `y` key"),
     ("docs/b.md", "Renamed since"),
     ("Vribbels/c.py", "No such section"),
 }
@@ -100,10 +103,15 @@ FAULTS = [
      "",
      "A row name"),
     ("an example in a code span taken for a citation",
-     f"{SW}:xrefs",
-     "re.sub(r\"``.*?``|`[^`]*`\", \"\", line)",
-     "line",
+     f"{SW}:_example",
+     "    return \"\" if text.startswith(\"``\") or \"*\" in text else text",
+     "    return text",
      "Not a citation"),
+    ("every code span dropped, a heading's own among them",
+     f"{SW}:_example",
+     "    return \"\" if text.startswith(\"``\") or \"*\" in text else text",
+     "    return \"\"",
+     "The `y` key"),
     ("the code's comments not read",
      f"{SW}:xrefs",
      "        lines = list(_code(text)) if kind == \"code\" else \\\n",
