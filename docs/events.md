@@ -17,7 +17,7 @@ The code is `ui/tabs/checklist_tab.py`:
 
 **For a new event, start at *Processing a new event*** at the end.
 
-Sections, in order: *The four questions, in order*; *The categories*; *How well each question can be answered*; *Floors, and the one wrong answer*; *The one place the game says an event is FINISHED*; *Telling a rectangular family from a ragged one*; *An event the client does not hold*; *Naming, and how to find an event's records*; *The payloads an event's data arrives in*; *Fields only ever seen in the login burst*; *Processing a new event*; *Still open*.
+Sections, in order: *The four questions, in order*; *The categories*; *The evidence behind each question*; *Floors, and the one wrong answer*; *The one place the game says an event is FINISHED*; *Telling a rectangular family from a ragged one*; *An event the client does not hold*; *Naming, and how to find an event's records*; *The payloads an event's data arrives in*; *Fields only ever seen in the login burst*; *Processing a new event*; *Still open*.
 
 ## The four questions, in order
 
@@ -149,7 +149,7 @@ The same applies to a mission-tallied event: the write-down holds while the rows
 
 The row reads stars earned out of the total, red until the last step is claimed: `30/30` in red is rewards to claim. It asks no `Finished?`, the claims being proof. **A chapter the client has not opened has no ladder, and its battles carry the chapter before's conditions as placeholders**, so `game_client.story_stars` lists no stars for it: the row then reads what is claimed, out of thirty. `game_client.story_stars` reads the two newest seasons, and every Node List.
 
-## How well each question can be answered
+## The evidence behind each question
 
 Questions 2 to 4 of *The four questions* are separate claims a row makes, with different evidence behind them.
 

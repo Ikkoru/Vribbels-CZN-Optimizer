@@ -16,7 +16,11 @@ A combatant broken down by a Chaos run is counseled at the Epione Centre before 
 ### The client's tables
 
 - `counseling_archive@counseling_archive`: a row per scenario (`<combatant>_<n>`), naming its story (`counseling_<combatant>_0<n>`), its title's text and its record's reward. `counseling_archive_set@counseling_archive_set`: a row per combatant, its three scenarios and the reward for all three.
-- `story_counseling_<date>@story`: the stories, the table named for the patch that last wrote it; the newest is read. A scenario's story holds its caption (the first `CAPTION` line, English in `text_en`) and its twelve options: `choice` 1-4 the openers, two filed `SCORE_CHOICE_L` and two `SCORE_CHOICE_R`; 5-12 the follow-ups, each naming its opener in `use_choice`, one L and one R an opener (1: 5, 6; 2: 7, 8; 3: 9, 10; 4: 11, 12). An option's `text_en` is `Label<br>Words`.
+- `story_counseling_<date>@story`: the stories, the table named for the patch that last wrote it; the newest is read. A scenario's story holds its caption (the first `CAPTION` line, English in `text_en`) and its twelve options:
+  - `choice` 1-4 the openers, two filed `SCORE_CHOICE_L` and two `SCORE_CHOICE_R`;
+  - 5-12 the follow-ups, each naming its opener in `use_choice`, one L and one R an opener: 5 and 6 opener 1's, 7 and 8 opener 2's, 9 and 10 opener 3's, 11 and 12 opener 4's.
+
+  An option's `text_en` is `Label<br>Words`.
 - An option's wire id is its story's id and its number, `counseling_1003_01_5`. The newer combatants' lines (30115, 30117, 1012, 30134 on build 133) leave `link_story_choice_id` empty, so the id is built, never read.
 - `counseling_story_choice@counseling_story_choice`: each option's `counseling_stability`, which goes over the story line's `opt`; the two agree on build 133. `counseling_archive_contents@counseling_archive_contents`: each option's reward, `<combatant>_0<n>_<choice>`.
 - `story_content_counseling@story_component_counseling` and `counseling_result@counseling_result`: the cure's tiers. `story_compo_<combatant>_end_<n>` holds a range of the stability total (70-79, 80-89, 90-110 and 0-69 on build 133), and the result whose `stability_point` falls in it pays `reward_friendship` Affinity (5, 10, 15, 1). A total past 100 shows as 100%.
@@ -54,7 +58,7 @@ Affinity rose by 10 more than `reward_friendship` in each of those captured: 25 
 
 ### How a counseling crosses the wire
 
-**The server is told the counseling after it is played, and is told only the path taken.** Read off every frame, both ways and pushed ones included, from each `enter_recover_char_counseling` to its `recover_char_counseling`, in all 26 captured counselings (2026-09-22 to 10-27): the client sends nothing in between but `update_boost_speed_idx`, and the server nothing but its bare `ok` replies, a `session` refresh, and empty `notice_rollings` and `content_locks`. The client deals the scenario and the openers itself; the server never names either before the picks.
+**The server is told the counseling after it is played, and is told only the path taken.** This was read off every frame, both ways and pushed ones included, from each `enter_recover_char_counseling` to its `recover_char_counseling`, in all 26 captured counselings (2026-09-22 to 10-27). The client sends nothing in between but `update_boost_speed_idx`. The server sends nothing but its bare `ok` replies, a `session` refresh, and empty `notice_rollings` and `content_locks`. The client deals the scenario and the openers itself; the server never names either before the picks.
 
 Then `recover_char_counseling` sends the scenario (its start component, `story_compo_<combatant>_start_<n>`), the two options picked and the end component the client worked out from their stabilities. That is all the server needs to pay: it answers the result whose tier holds the picks' total, `counseling_result_id`, and the Affinity with it. The opener offered beside the one picked is in no message, and the tab cannot learn it from a capture.
 

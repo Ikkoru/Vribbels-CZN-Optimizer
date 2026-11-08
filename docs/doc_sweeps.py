@@ -22,8 +22,14 @@ own, since there an entry saying what the program does now is right.
 says, for what a push would publish about this machine and its user: a
 drive-letter path, the user's folder, the machine's name, an e-mail
 address, the game account's id. Run it before archiving a plan into
-`past_plans/`, which makes a gitignored file public. It takes those from the machine and the newest
-snapshot as it runs, so this file names nothing private.
+`past_plans/`, which makes a gitignored file public. It takes those
+from the machine and the newest snapshot as it runs, so this file
+names nothing private.
+
+`xrefs` reads every file in scope too, whatever `--since` says: each
+section citation, `` `file.md`, *Heading* `` and `*Heading*, below`,
+must land on a heading, a bold lead or a table row's first cell of the
+file it names. `checks/check_doc_xrefs.py` holds it.
 """
 
 import argparse
@@ -80,7 +86,13 @@ SENTENCE = re.compile(r"(?<=[.!?])\s+(?=[A-Z`*(\[])")
 DENSE_WORDS = 40
 TOKEN = re.compile(r"`([^`\s]+)`")
 CODE_LIKE = re.compile(r"^[A-Za-z_][\w.]*$")
-ALL = ["privacy", *LINE_SWEEPS, "dense", "headings", "emphasis", "idents"]
+# A section cited by name: `file.md`, *Heading*, and within a file
+# *Heading*, below (or above).
+CITE = re.compile(r"`(?:docs/)?([\w.-]+\.md)`\)?,?\s*(?:§\s*)?,?\s*"
+                  r"\*([^*]{3,140})\*")
+LOCAL = re.compile(r"\*([^*]{3,140})\*\)?,\s*(?:below|above)\b")
+ALL = ["privacy", "xrefs", *LINE_SWEEPS, "dense", "headings", "emphasis",
+       "idents"]
 
 
 def git(*args):
@@ -302,11 +314,74 @@ def privacy():
                     yield rel, number, what, line.strip()
 
 
+def _cited_name(text):
+    return re.sub(r"[`*_]", "", text).strip().rstrip(".").lower()
+
+
+def anchors(text):
+    """The names a section citation can land on in a Markdown file:
+    its headings, its bold leads and its table rows' first cells,
+    fenced blocks skipped. Lowercased, marks stripped."""
+    out = set()
+    for _number, line in _markdown(text):
+        if re.match(r"#{1,6} ", line):
+            out.add(_cited_name(re.sub(r"^#+ ", "", line)))
+        out.update(_cited_name(m) for m in re.findall(r"\*\*(.+?)\*\*", line))
+        cell = re.match(r"\|\s*([^|]+?)\s*\|", line)
+        if cell:
+            out.add(_cited_name(cell.group(1)))
+    return out
+
+
+def xrefs(files=None, read=None):
+    """(path, line, what, text) for each section citation nothing in
+    the file it names answers (`anchors`). Read over every file in
+    scope, whatever `--since` says: a citation breaks where the heading
+    it names is renamed, in a file the citing line never shared.
+    `files` ({path: kind}) and `read` (path -> text) stand in for the
+    repository's, for a check."""
+    files = in_scope() if files is None else files
+    read = read or (lambda rel: (ROOT / rel).read_text(
+        encoding="utf-8", errors="replace"))
+    docs = {Path(rel).name: rel for rel in files if rel.endswith(".md")}
+    cache = {}
+
+    def names(rel):
+        if rel not in cache:
+            cache[rel] = anchors(read(rel))
+        return cache[rel]
+
+    def answered(rel, cited):
+        want = _cited_name(cited)
+        return any(name == want or name.startswith(want)
+                   for name in names(rel))
+
+    for rel, kind in sorted(files.items()):
+        text = read(rel)
+        lines = list(_code(text)) if kind == "code" else \
+            list(_markdown(text, changelog=kind == "changelog"))
+        for number, line in lines:
+            for m in CITE.finditer(line):
+                target = docs.get(m.group(1))
+                if target and not answered(target, m.group(2)):
+                    yield rel, number, f"no section in {m.group(1)}", \
+                        m.group(2)
+            if kind != "prose":
+                continue
+            # A citation shown as an example, in a code span, cites
+            # nothing.
+            for m in LOCAL.finditer(re.sub(r"``.*?``|`[^`]*`", "", line)):
+                if not answered(rel, m.group(1)):
+                    yield rel, number, "no section here", m.group(1)
+
+
 def sweep(names, since=None, every=False):
     """{sweep: [(path, line, note, text)]}."""
     found = {name: [] for name in names}
     if "privacy" in names:
         found["privacy"] = list(privacy())
+    if "xrefs" in names:
+        found["xrefs"] = list(xrefs())
     wanted = None if every else added(since or last_audit())
     files = in_scope(None if wanted is None else set(wanted))
     words = _words() if "idents" in names else None

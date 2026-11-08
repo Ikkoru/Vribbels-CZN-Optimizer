@@ -102,7 +102,10 @@ Use it last, and keep what it learns. It only sees what happens while a capture 
 
 ## Events
 
-`docs/events.md` owns them: the categories, how to classify one, where each kind keeps its progress, how a total is worked out where the client does not give it, and how to process a new event. Two of its rules hold for any row the wire counts: a count of the rows held is a floor, not a total (*Floors, and the one wrong answer*), and a completion flag answers "is anything left" where no total can (*The one place the game says an event is FINISHED*).
+`docs/events.md` owns them: the categories, how to classify one, where each kind keeps its progress, how a total is worked out where the client does not give it, and how to process a new event. Two of its rules hold for any row the wire counts:
+
+- a count of the rows held is a floor, not a total: `events.md`, *Floors, and the one wrong answer*;
+- a completion flag answers "is anything left" where no total can: `events.md`, *The one place the game says an event is FINISHED*.
 
 ## What is on the wire and what is not
 

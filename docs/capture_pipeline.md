@@ -353,7 +353,7 @@ The log is gzipped, one MEMBER per line. `websocket_debug_*.jsonl.gz`, still one
 
 A member per line rather than one stream over the file, because **a stream is readable only once its end marker is written** and an always-on capture ends by being killed. A sync-flush does not help: Python's `gzip` refuses the file outright with `EOFError`. Per line, the file is complete after every single write, and the ratio stays within a few points of a whole-file stream's, around 11x to 13x.
 
-Dedup was measured and not taken. Two logins minutes apart differ in under 1% of their bytes, half of it the auth cookie, so the login burst — the bulk of every capture — is almost pure repetition between launches. Storing it content-addressed would beat gzip handily, at the cost of the one property that makes these files useful: that a two-line script can read them.
+Dedup was measured and not taken. Two logins minutes apart differ in under 1% of their bytes, half of it the auth cookie. So the login burst, the bulk of every capture, is almost pure repetition between launches. Storing it content-addressed would beat gzip handily, at the cost of the one property that makes these files useful: that a two-line script can read them.
 
 ### Replaying a debug log
 
@@ -382,7 +382,7 @@ Kept in `settings/wire_catalogue.json` — beside the settings rather than among
 
 Only on a working copy. The `zRUN*.bat` launchers set `VRIBBELS_DEV`; a frozen exe has no way to, and without it the catalogue is off entirely: nothing recorded and nothing written, so a released build's capture is untouched by any of it. It is a switch rather than a setting because a setting would ship to everyone and want explaining, and what it guards is of no use to anybody who is not reading the wire.
 
-The marker has to survive the elevation. Capture needs Administrator, so the program relaunches itself through `ShellExecuteW`'s "runas" -- which starts the new process with a FRESH environment. The elevated copy is the one that captures, and it never sees the variable, so without the flag every session that accepts the UAC prompt runs with the catalogue off. `DEV_FLAG` rides the relaunch on the command line and `_adopt_dev_flag` reads it back, **only where the program is running from source**: a frozen build ignores the flag whoever types it, so the switch is still closed by construction rather than by trust.
+The marker has to survive the elevation. Capture needs Administrator, so the program relaunches itself through `ShellExecuteW`'s "runas" -- which starts the new process with a FRESH environment. The elevated copy is the one that captures, and it never sees the variable. Without the flag, every session that accepts the UAC prompt runs with the catalogue off. `DEV_FLAG` rides the relaunch on the command line and `_adopt_dev_flag` reads it back, **only where the program is running from source**: a frozen build ignores the flag whoever types it, so the switch is still closed by construction rather than by trust.
 
 One entry per `command|key` seen, with a count, first and last sighting, the type and a 200-character sample:
 
@@ -406,7 +406,7 @@ Qids restart at 1 with each `helo`, which is why `_forget_pending` exists: the p
 
 **The app reloads on `SAVE_MARKER`, `[SYNC] saved`, which goes out on every save.** The reader consumes it and never shows it.
 
-- Do not reload on the human-readable `Saved:` line. It is left out where it would repeat the last save's, and the login burst saves several times with identical counts, the first as soon as the inventory lands and the later ones carrying the shops, the schedules and the missions: the app would sit on the first save's snapshot for the whole session.
+- Do not reload on the human-readable `Saved:` line. It is left out where it would repeat the last save's. The login burst saves several times with identical counts: the first as soon as the inventory lands, the later ones carrying the shops, the schedules and the missions. The app would sit on the first save's snapshot for the whole session.
 - Do not take `SAVE_MARKER` for the last line logged. It goes out between saves, so it would sit between two identical reports and stop either reading as a repeat.
 
 Guard: `checks/check_addon_template.py` holds the reader's copy of the literal equal to the addon's.

@@ -12,7 +12,7 @@ What the kit's `craft:doc-audit` needs to know about this repository; the skill 
 ## The repository's own checks
 
 - `docs/doc_sweeps.py` runs the skill's sweeps over this scope: the privacy sweep over every tracked file first, taking the account id from the newest snapshot, then the table's patterns over the lines added since the last audit (`--all` for every line, `--sweep` to choose). It skips fenced blocks and reads code for its comments and docstrings alone. Its hits are questions: the false positives below match them too.
-- `checks/check_instruction_files.py` resolves every backticked path in `CLAUDE.md`, `.claude/rules/`, `.claude/skills/` and `docs/`, but not identifiers, and not paths in code comments. The sweeps' `idents` resolves backticked identifiers in prose against the source; one in a code comment still has no guard.
+- `checks/check_instruction_files.py` resolves every backticked path in `CLAUDE.md`, `.claude/rules/`, `.claude/skills/` and `docs/`, but not identifiers, and not paths in code comments. The sweeps' `idents` resolves backticked identifiers in prose against the source; one in a code comment still has no guard. The sweeps' `xrefs` resolves every section citation, `` `file.md`, *Heading* `` and `*Heading*, below`, in the docs and in the code's comments, against the file's headings, bold leads and table rows' first cells.
 - Invocation modes are in `.claude/settings.local.json` (`skillOverrides`): the `release` skill is manual only.
 
 ## Hard gate
@@ -44,7 +44,8 @@ The generic failure modes, as they happened here:
 - A correction in one place: `ui_spacing.md` priced a tooltip underline's horizontal overshoot at 1px for as long as the correction to 0 had been live in `spacing_audit.py`.
 - A constant cited against its importer: `SET_STAT_NAME_MAP` was cited against `optimizer/core.py` by two docs and by `sets.py`'s own docstring, sixty-nine lines above the definition.
 - Measuring part of the corpus: `event_bartender_entities` is absent from every archived snapshot and present in most loose ones, because the archive predates the capture change.
-- A target against a reading: `ui_spacing.md`'s rules table is targets and every row stays verbatim; its `Gap now` column is readings and belongs to `docs/spacing_baseline.json`. Where the doc names the constant beside a target without restating its value, leave it.
+- A target against a reading: `ui_spacing.md`'s rules table is targets and every row stays verbatim; its column-alignment table carried a `Gap now` column of readings, which belong to `docs/spacing_baseline*.json`. Where the doc names the constant beside a target without restating its value, leave it.
+- Two numberings of one list: `events.md` asked its questions twice, as four and as three, and its `Answering question 3` lined up by coincidence.
 - Comments that assure: "DEF% only appears on slot 6 (game data confirmed)", in `constants.py`.
 
 ## Related

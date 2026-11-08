@@ -22,7 +22,7 @@ Run the doc audit first (`/craft:doc-audit`, which reads `.claude/overlays/doc-a
 5. Doc audit, `/craft:doc-audit`. At minimum, the sweeps.
 6. CHANGELOG pass — accuracy, then register.
 7. `version.py` — the version, `RELEASED_ON` (today, UTC) and `RELEASED_IN` (the Galactic Disaster season live today) — and the section header: `## [X.Y.Z] - <short release name>`, no date. The name is one or two themes, not a list. The two `RELEASED_` lines are what tell a player's program how stale its shipped Chaos figures have grown (`chaos_estimate.staleness`), so they move with every release, even one that measured nothing.
-8. `.old/RELEASE_NOTES_<X.Y.Z>.md` — a different document, see below.
+8. `.old/RELEASE_NOTES_<X.Y.Z>.md` — a different document, see below — and `.old/CHANGELOG_<X.Y.Z>.md`, the section as delivered, which the next release diffs against (*The maintainer's edits*).
 9. `python checks/run_all.py`, then commit.
 
 ## The maintainer's edits
@@ -39,11 +39,11 @@ Read the older versions' files too. An edit pass can stop partway, and the commi
 
 Run `python docs/chaos_runs.py`, and read what it prints before touching `SHIPPED` in `Vribbels/chaos_estimate.py` or `SEASON_ESTIMATE` in `Vribbels/ui/tabs/checklist_tab.py`:
 
-- **`For chaos_estimate.SHIPPED:` is the block to copy**: each part's bosses as its latest cleared run paid them, and each mark's amount and its count per whole run, all read back to base at each run's own amplification nodes. Beside them are the season's `flat` bosses, which no node raises, and the client's `nodes` by part beside the most a part's runs had. Bosses are keyed by their place in the run, 1 to 3, not their floor (`chaos_estimate.boss_places`), so a new map's keys match the old one's. A part the block lacks was never captured, and borrows its neighbour's in the program; say so in the entry's comment. A green line is as shipped, a yellow one says what is shipped beside it. A `flat` place the block carries over from the entry it borrows wants checking on a new map: a boss that pays the same at every node count is one, and the report flags a third boss not paying 60.
-- **The four questions**: whether a set amount or a mark's rate moved with the season part or with the game version. A moved amount is a CHANGELOG line only where the estimate moved with it. "Can't tell" means part and version changed together, and a capture on the far side of either settles it.
-- **`Mark rates over time`** flags a shift in a mark's rate, dated. A shift inside a known event that raised the rates is not one: add the event's window to `chaos_estimate.RATE_EVENTS` and run again.
+- **`The Checklist's built-in figures` is the block to copy** into `chaos_estimate.SHIPPED`: each part's bosses as its latest cleared run paid them, and each mark's amount and its count per whole run, all read back to base at each run's own amplification nodes. Beside them are the season's `flat` bosses, which no node raises, and the client's `nodes` by part beside the most a part's runs had. Bosses are keyed by their place in the run, 1 to 3, not their floor (`chaos_estimate.boss_places`), so a new map's keys match the old one's. A part the block lacks was never captured, and borrows its neighbour's in the program; say so in the entry's comment. A green line is as shipped, a yellow one says what is shipped beside it. A `flat` place the block carries over from the entry it borrows wants checking on a new map: a boss that pays the same at every node count is one, and the report flags a third boss not paying 60.
+- **`From one season to the next`**, and the steps it shows between parts and game versions where one shows a possible shift (`STEPS`), say whether a set amount or a mark's rate moved, and with what. A moved amount is a CHANGELOG line only where the estimate moved with it. Where a part and a version changed together, a capture on the far side of either settles which; `too few` is too few fights or runs to say.
+- **`Mark rates over N whole run(s)`**, its `shift over time` column, flags a shift in a mark's rate, dated. A shift inside a known event that raised the rates is not one: add the event's window to `chaos_estimate.RATE_EVENTS` and run again.
 - **A run with no season** paid a currency `CURRENCY` does not hold, cleared before any Great Rift standings were read. Add the id.
-- **`filled missed`** names the lost runs it priced itself. A `!` line where your own `missed` disagrees with the loss wants one of the two corrected.
+- **`filled `missed` for whole lost runs`** names the lost runs it priced itself. A `!` line where your own `missed` disagrees with the loss wants one of the two corrected.
 - **A new season wants its own `SEASON_ESTIMATE` entry**, whose `days` and `fixed` are hand-counted (`past_plans/seasonal_shop.md`); what a run pays is `SHIPPED`'s.
 
 Commit `docs/chaos_runs.tsv` with the estimate.
