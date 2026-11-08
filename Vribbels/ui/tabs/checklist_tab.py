@@ -3037,8 +3037,8 @@ GATED_GROUPS = frozenset({"EVENT_TRAUMA_CODE"})
 # `{owner: {condition id: row}}` at login, in a table per owner's group,
 # and `{condition id: row}` for what a clear reported since; the stars
 # claimed a `{res_id, count}` row by the chapter's id, the login's in
-# the first table and a claim's in the second, the capture keeping
-# `reward_doc` there. `count` is the stars the last step claimed took.
+# `chapter_reward_entities` and a claim's in `reward_entities`, where
+# the capture keeps `reward_doc`. `count` is the stars the last step claimed took.
 # The fallback is every Disaster chapter's total so far, for a chapter
 # the client lists no ladder for.
 STORY_STARS_GROUP = "STORY_STARS"

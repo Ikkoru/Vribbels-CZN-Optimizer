@@ -147,7 +147,7 @@ The same applies to a mission-tallied event: the write-down holds while the rows
 | Wire, at login | `mission / get_list`'s `chapter_reward_entities` | `{res_id: chapter, count}`, `count` the stars the last step claimed took |
 | Wire, a claim | `story_system / get_star_reward` with `chapter_id` | every step reached, answering `reward_doc` in the same shape, kept with the Basin's in `reward_entities` |
 
-The row reads stars earned out of the total, red until the last step is claimed: `30/30` in red is rewards to claim. It asks no `Finished?`, the claims being proof. **A chapter the client has not opened has no ladder, and its battles carry the chapter before's conditions as placeholders**, so `game_client.story_stars` lists no stars for it: the row then reads what is claimed, out of thirty. `game_client.story_stars` reads the two newest seasons, and every Node List.
+The row reads stars earned out of the total, red until the last step is claimed: `30/30` in red is rewards to claim. It asks no `Finished?`, the claims being proof. **A chapter the client has not opened has no ladder, and its battles carry the chapter before's conditions as placeholders**, so `game_client.story_stars` lists no stars for it: the row then reads what is claimed, out of `STORY_STARS_FALLBACK`. `game_client.story_stars` reads the two newest seasons, and every Node List.
 
 ## The evidence behind each question
 

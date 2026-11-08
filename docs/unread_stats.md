@@ -206,7 +206,7 @@ What the client cannot say, read off captures:
 | ----- | -- |
 | `daily_achieve` | seven daily tasks, re-issued each day (`issued_time` today). `version` is a lifetime tally of days the task was done: the daily-login task's climbed by one a day, 192 on 2026-05-23 to 315 on 2026-09-24 |
 | `chapter_achieve` | `chapter_<nn>_<nn>`, claimable-reward rows |
-| `chapter_reward_entities` | per chapter with a star ladder -- battle chapters, event chapters, the Galactic Disaster's story chapters -- `count`, the stars the last step claimed took. Kept; the Checklist reads the Disaster's (`docs/events.md`) |
+| `chapter_reward_entities` | per chapter with a star ladder -- battle chapters, event chapters, the Galactic Disaster's story chapters -- `count`, the stars the last step claimed took. Kept; the Checklist reads the Galactic Disaster's and the Node Lists' story chapters' (`docs/events.md`) |
 | `commander_missions` | a ladder the account claimed in its first days, claimable-reward rows |
 | `savedata_mission_entities`, `mission_messenger_entities`, `mission_outgame_entities`, `story_node_missions` | per-combatant `entity_<combatant>_<n>` rows, the messenger's conditions, one-off guide tasks, and the story map's node conditions |
 | `event_chaos_exploration_entities` | `exploration_level` per Chaos exploration |
