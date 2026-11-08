@@ -22,8 +22,7 @@ Precedence:
 
 1. Has `potential_node_ids` or `friendship_exp` → character.
 2. Has `id` or `lock` → partner.
-3. `res_id` in `CHARACTERS` → character (fallback for an entry with
-   neither marker).
+3. `res_id` in `CHARACTERS` → character (fallback for an entry with neither marker).
 4. Else → partner.
 
 **Never test whether `potential_node_ids` is non-EMPTY.** A brand-new character carries `"[]"` until its first node is unlocked; an emptiness test classifies it as a partner, and it then goes missing from every tab until an MF is equipped to it.
@@ -38,7 +37,7 @@ The login payload carries every character and partner card. An action response (
 
 The `user` key needs the same care: it arrives with no roster attached, so it is patched into the cached payload rather than replacing it.
 
-**One combatant's row also arrives alone**, the roster not sent again: `character` answers a level-up, a promotion and a level or Affinity reward claim, `char` a Potential node and a gift. Each is the whole row, and `_merge_character_row` puts it in the cached roster by the same identity -- never through `_merge_character_data`, where a row of one accounts for a roster of one and would replace the payload, currencies and all. Unread, the Combatants tab showed what the login sent until the next launch.
+**One combatant's row also arrives alone**, the roster not sent again: `character` answers a level-up, a promotion and a level or Affinity reward claim, `char` a Potential node and a gift. Each is the whole row, and `_merge_character_row` puts it in the cached roster by the same identity -- never through `_merge_character_data`, where a row of one accounts for a roster of one and would replace the payload, currencies and all. Left unread, a combatant's row leaves the Combatants tab showing what the login sent until the next launch.
 
 ## One frame can carry several replies
 
@@ -52,7 +51,7 @@ The login burst is the only long stretch of solo commands. Everything after the 
 
 The reply to `lobby / lobby_update` carries `event_schedules.GACHA`: every banner, past and upcoming, keyed `gacha_pickup_<combatant|supporter>_<res_id>[_<rerun>]`. Those ids are server-side definitions and do not depend on what the account owns, which makes them the only res_ids a unit's owner-scoped absence cannot hide. The rerun suffix follows the res_id, so the FIRST number is the unit.
 
-The schedule is kept ONCE, as the GACHA group of `event_schedules`; `_banners()` is what reads it out. A second copy under its own key is 2.8 KB of the snapshot saying the same thing twice, and every reader has to be told which one is current. It arrives with no roster and no inventory attached, so it must survive until a save is possible rather than being written on arrival.
+The schedule is kept ONCE, as the GACHA group of `event_schedules`; `_banners()` is what reads it out. A second copy under its own key says the same thing twice in every snapshot, and every reader has to be told which one is current. It arrives with no roster and no inventory attached, so it must survive until a save is possible rather than being written on arrival.
 
 `_report_unknown_units` logs any banner naming a res_id absent from `KNOWN_UNIT_IDS` — the character and partner tables, injected by `_generate_addon_script` the same way `CHAR_NAMES` is. Negative placeholder keys are excluded from that set, so a unit awaiting an id still reports.
 
@@ -231,11 +230,13 @@ The rest join them, all merged rather than replaced for the same reason:
 | `lifetime`, `lifetime_types`, `login_total_count` | `mission_accumulate`, `achievements`, `daily_achieve`, `achievement_entity`, the `mission_condition` of any reply, `login_total_count` | the lifetime counters, the Achievements screen and the daily tasks, merged by id and saved as lists. **What a counter counts** arrives only in the `mission_condition` of whatever moved it: written onto the row as `condition_type`, kept through the login that sends the row without it, and seeded from the previous snapshot |
 | `rift_tops`, `sortie_rankings` | `result_list` beside a `disaster_boss_rank_entity`; `my_rank` on a ranking's first page | ranking HISTORY: each Great Rift subdivision's top row as one sample per change, and each Sortie season's own standing, field size and top score. Numbers only -- a ranking page is twenty other players, and no name, id, profile or team is kept. Seeded from the previous snapshot, because the game keeps two Sortie seasons and a division top is read once per visit to its screen |
 
-The town's daily block carries no date, and `town_visit_reset_time` is what dates it. The coffee flag and the day's Communication Passes say nothing about which day they belong to, so a snapshot left open past a reset read a drunk coffee as still drunk. That field is the moment the game granted the day — lazily, at the first login after the reset — so a block stamped before the last reset is a finished day's and everything in it has come back. Where it is missing, `capture_time` stands in. This is what makes those rows right with no capture running.
+The town's daily block carries no date, and `town_visit_reset_time` is what dates it. The coffee flag and the day's Communication Passes say nothing about which day they belong to, so read alone, a snapshot left open past a reset reads a drunk coffee as still drunk. That field is the moment the game granted the day — lazily, at the first login after the reset — so a block stamped before the last reset is a finished day's and everything in it has come back. Where it is missing, `capture_time` stands in. This is what makes those rows right with no capture running.
 
 **Two payloads arrive at the TOP LEVEL where the cache holds them nested.** `day_changeable_data` (the coffee flag, the excursion count) belongs under `characters.town_data`, and `new_char_visit` is one row of the `char_visits` board. Ordering a coffee or running an excursion sends each on its own, so without merging them the cache keeps whatever the login said and the Checklist reads a stale flag all session.
 
-**At LOGIN the pass missions arrive somewhere else entirely**, nested as `season_pass_missions[<pass id>][<mission id>]` rather than in the flat `mission_entities` list — which is why a snapshot held the thirty `content_*` rows and none of the twenty-odd pass ones. Both shapes fold into one cache.
+A Communication Pass is in none of the item counts, because spending one debits nothing: its client item, 2000006, keeps its starting balance. The count is derived from `characters.town_data.day_changeable_data.use_town_visit_count`, against an allowance the account's town research raises (`excursions.daily_passes`). `Vribbels/game_data/constants.py` holds the evidence.
+
+**At LOGIN the pass missions arrive somewhere else entirely**, nested as `season_pass_missions[<pass id>][<mission id>]` rather than in the flat `mission_entities` list, so a reader of the flat list alone sees the `content_*` rows and none of the pass ones. Both shapes fold into one cache.
 
 `mission_entity`, singular, is the claim. A mission's `complete_time` is set when its REWARD IS CLAIMED, not when the task is finished, and the frame that sets it sends that one row rather than the list.
 
@@ -247,12 +248,6 @@ A Sortie rung is complete only when `complete_time` is set. `sortie_progress.py`
 - `score` is not a flag. It runs 1–3 on achievement rows and tracks nothing: one combatant's finished rung scores 3 and another's scores 1.
 - `acquired_count` is not a flag. It reaches 3 on title rungs that count once each.
 - Ladder LENGTHS are constants in `sortie_progress.py`. Unearned rungs send nothing, so the wire cannot state them, and a rung arriving past the end is the one sign the game has lengthened one.
-
-Every save prints `[SYNC] saved`, and that is what the app reloads on. The human-readable `Saved:` line is suppressed when it would repeat the previous line word for word. The login burst saves several times with identical counts, the first as soon as the inventory lands and the later ones carrying the shops, the schedules and the missions. A reload riding on the readable line was therefore skipped for exactly those saves, so the app sat on the first save's snapshot for the whole session. The marker is consumed by the reader and never shown, and it is deliberately not remembered as "the last line" — doing so would sit between two identical reports and stop either reading as a repeat. `checks/check_addon_template.py` holds the reader's copy of the literal equal to the addon's.
-
-**The snapshot's temp-file replace can be refused.** Windows returns `[WinError 5] Access is denied` while another process holds the destination open — the app reading it, an indexer, an antivirus. `_save_data` retries; a save that still cannot land says so and leaves the previous snapshot intact.
-
-A Communication Pass is in none of them, because spending one debits nothing: its client item, 2000006, keeps its starting balance. The count is derived from `characters.town_data.day_changeable_data.use_town_visit_count`, against an allowance the account's town research raises (`excursions.daily_passes`). `Vribbels/game_data/constants.py` holds the evidence.
 
 ## The item counts arrive once, and change through the reward keys and a sweep
 
@@ -277,7 +272,7 @@ One envelope between them:
 
 `doc` is the item's whole record in the shape the cache already holds, and **`doc.amount` is the TOTAL, not the change** — so `_apply_totals` writes it in rather than adding `diff`, and a frame arriving twice cannot double a count. Items are a list keyed by `res_id` and currencies a dict keyed by the same id as a string; an id not yet held is appended.
 
-**A third group, `period_items`, carries what the game deletes after a while**: a Galactic Disaster season's Time-Limited cores, the Time-Limited Command Delegation Modules. Its `doc` is the `inventory.period_items` entry, whose copies each carry an `end_time` and a `count` (`period_items.py`), so what it holds is the copies' counts added up, before and after (`Addon._period_count`). A mission paying 3 Abyssal Cores answered with `result.period_items` beside the currency it also paid, and read for `items` and `currency` alone, the snapshot kept the login's count until the next login. `ENVELOPE_GROUPS` names the three; every shape test that tells an envelope reads it.
+**A third group, `period_items`, carries what the game deletes after a while**: a Galactic Disaster season's Time-Limited cores, the Time-Limited Command Delegation Modules. Its `doc` is the `inventory.period_items` entry, whose copies each carry an `end_time` and a `count` (`period_items.py`), so what it holds is the copies' counts added up, before and after (`Addon._period_count`). A mission paying Abyssal Cores answers with `result.period_items` beside the currency it also pays; read for `items` and `currency` alone, the snapshot keeps the login's count until the next login. `ENVELOPE_GROUPS` names the three; every shape test that tells an envelope reads it.
 
 `drop_item_result` and `chaos_free_reward_result` are the exception: a stage's rewards and a Chaos or encounter report screen's, as a LIST with one entry per drop and no record at all —
 
@@ -287,7 +282,7 @@ One envelope between them:
 
 so a x6 run sends six entries for the same item and the total is their sum. Nothing states what the holding becomes, which leaves `_apply_drops` adding — and **adding is what makes a repeat dangerous**, so the frame's `qid` is remembered and one already applied is skipped. An id the currencies already hold is a currency (Units drop this way); everything else is an item.
 
-**A pull pays on its result list** (`gacha/run`'s `list`): each unit drawn carries `reward_items`, `[{res_id, count, count_result}]`, where `count_result` is the holding's total after that unit and a currency adds `total_amount` and `total_use_amount`. `_apply_pull_rewards` writes each id's last `count_result` in like a `doc.amount`, reporting the counts summed. A duplicate's conversion and the item a Prism turns a unit into arrive nowhere else. Unread, an item first held this way never reached the cache, so spending it later restated a zero the cache already held: neither the gain nor the use reached the log.
+**A pull pays on its result list** (`gacha/run`'s `list`): each unit drawn carries `reward_items`, `[{res_id, count, count_result}]`, where `count_result` is the holding's total after that unit and a currency adds `total_amount` and `total_use_amount`. `_apply_pull_rewards` writes each id's last `count_result` in like a `doc.amount`, reporting the counts summed. A duplicate's conversion and the item a Prism turns a unit into arrive nowhere else. Unread, an item first held this way never reaches the cache, so spending it later restates a zero the cache already holds: neither the gain nor the use reaches the log.
 
 `result` is the most OVERLOADED key on the wire: a string, a bool, a stage's step record. So it counts only where it carries a rewards payload or nests one, two levels down under an envelope of its own.
 
@@ -306,13 +301,13 @@ Without these branches nothing on the wire moves an item count: the Materials ta
 | `return_info.disaster_chaos_result.item_result` | a Galactic Disaster clear's first clears, every difficulty the run's clear covers at once, beside `result_reward_drop_item` restating the run |
 | `return_info.confirm_drop_item` | nothing — but it is REPORTED. The run's accumulated pickups, every one of them already paid by an envelope, so applying it doubles the run. It is also the only statement of a run as a WHOLE, where the envelopes arrive split across the frames that paid them, so `_report_run_total` writes it to the log as `Total rewards:` and changes no count. Its own line, because a Sortie's deposit refund lands in the same frame and one line holding both reads as a single receipt. Not written where it would repeat a line: every item already named by an envelope in the same reply, or exactly what the last `Received` line said -- a Simulation's drops pay the whole run before its clear restates it |
 
-**A Simulation run is said in one line, at its clear.** Its drops (`drop_item_result`) pay the runs before the clear, which then restates them in `result_reward_drop_item` beside `result_reward_drop_overclock`, the share an Overclock doubles -- both at the same total. Read off the cache, the restatement moved it by the doubled share and printed the drops' figures again, while the doubled share reached no line. So from `simulation/enter_savedata_stage` (`RUN_HOLDS_DROPS`) the drops are applied but not said, and the clear's line is what its envelopes' `diff`s add up to (`_settle_held_run`); a clear that never comes has the held line said at the next run or connection.
+**A Simulation run is said in one line, at its clear.** Its drops (`drop_item_result`) pay the runs before the clear, which then restates them in `result_reward_drop_item` beside `result_reward_drop_overclock`, the share an Overclock doubles -- both at the same total. Read off the cache, the restatement would move it by the doubled share and print the drops' figures again, while the doubled share reached no line. So from `simulation/enter_savedata_stage` (`RUN_HOLDS_DROPS`) the drops are applied but not said, and the clear's line is what its envelopes' `diff`s add up to (`_settle_held_run`); a clear that never comes has the held line said at the next run or connection.
 
 So `_nested_rewards` sweeps `return_info` by SHAPE rather than by name: the names are per-content, and there is no reason the next kind of run will reuse them. It takes every totals envelope it finds, bounded and stopping as soon as it has one. **Over-collecting is safe here**: an envelope states what a holding now is, so taking one twice writes the same number. The drop LISTS in the same payload would double, which is why only envelopes are swept.
 
 **Two envelopes of one reply can each pay the same holding**, both stating its one total with a `diff` each: a Galactic Disaster clear restates the run under `result_reward_drop_item` and pays the first clears under `disaster_chaos_result.item_result`. Told by the cache one after the other, the second finds the total the first just wrote and passes for a restatement. So `_judged_together` tells each by the cache as the reply found it plus what the other envelopes moved: the restated run reports nothing, the first clears report their whole payout.
 
-This is what a Sortie pays at its report screen, and reading only the reply's own keys is why every Sortie finished in silence. The entry itself is `chaos_assault/enter_assault` (Aether −10) and each area's reward is `chaos_assault/receive_area_reward`, which charges a Reason under `dec_result` and pays under `item_result` — both already read.
+**A Sortie pays at its report screen through `return_info`** (`chaos_assault_result`, above), so a handler reading only the reply's own keys finishes every Sortie in silence. Its other payments are top-level and read with the rest: the entry, `chaos_assault/enter_assault` (Aether −10), and each area's reward, `chaos_assault/receive_area_reward`, which charges a Reason under `dec_result` and pays under `item_result`.
 
 The log's word is picked from the SIGNS, not from the key. A Sortie's entry fee is CHARGED through `item_result`, so reading the key announces it as a receipt: `Received Aether -10`. Where every figure in a payload moved the same way that is the answer. A payload that moved both ways -- crafting, a conversion -- says both on its one line, `Received ...; spent ...` (`_say_moved`).
 

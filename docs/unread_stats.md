@@ -8,7 +8,7 @@ Event progress is in `docs/events.md`, which owns everything a Checklist event r
 
 ## Whether a snapshot keeps it
 
-A reader can only work off a snapshot if the capture wrote the field into one. Three cases:
+A reader can only work off a snapshot if the capture wrote the field into one:
 
 | Case | Where | What a reader needs first |
 | ---- | ----- | ------------------------- |

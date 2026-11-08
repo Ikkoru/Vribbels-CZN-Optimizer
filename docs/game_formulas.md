@@ -217,7 +217,7 @@ Agony is what the settings key `dot_pct` names. Fracture and Scorched are mechan
 
 That makes each share a fraction of base coefficients, before ATK, crit, buffs and the mechanic multipliers. So each type's term must carry its own full multiplier stack, `(1 + DoT%)` and `(1 + Extra%)` included — not double-counted, because the share never contained them. A combatant declaring 50% Agony is saying half their raw coefficient output is Agony, not half their damage.
 
-**The program does not distinguish general buffs from card-only buffs.** In game, Fracture and Scorched take general buffs but not card-only ones. The Average Buff% settings are read as GENERAL throughout, which overstates the Fracture share for a combatant whose buffs are card-only. Splitting the two is parked in `tasks.md` TBD.
+**The program does not distinguish general buffs from card-only buffs.** In game, Fracture and Scorched take general buffs but not card-only ones. The Average Buff% settings are read as GENERAL throughout, which overstates the Fracture share for a combatant whose buffs are card-only. Splitting the two is parked as `tasks.md` T16.
 
 ## 4. Shield and Heal formulas
 
@@ -282,17 +282,7 @@ Each conditional set's share is the spinbox beside its checkbox, persisted per c
 
 ### Set stat name → program name mapping
 
-`sets.py` spells some stats differently from the rest of the program. Mapping is `SET_STAT_NAME_MAP` in `game_data/sets.py`, re-exported from `optimizer/core.py` for callers that have always imported it from there.
-
-| sets.py `stat` | Internal name                         |
-| -------------- | ------------------------------------- |
-| `ATK%`         | `ATK%`                                |
-| `DEF%`         | `DEF%`                                |
-| `HP%`          | `HP%`                                 |
-| `Crit DMG`     | `CDmg`                                |
-| `Crit Rate`    | `CRate`                               |
-| `DMG multi`    | (internal accumulator — sets.py only) |
-| `DMG add`      | (internal accumulator — sets.py only) |
+`sets.py` spells the crit stats as the game does, `Crit DMG` and `Crit Rate`, where the program says `CDmg` and `CRate`. The mapping is `SET_STAT_NAME_MAP` in `game_data/sets.py`, re-exported from `optimizer/core.py` for callers that have always imported it from there. `DMG multi` and `DMG add` are `SET_CARD_MULT_STATS`, accumulators of the sets' alone, above.
 
 ## 6. Endgame stat benchmarks
 
