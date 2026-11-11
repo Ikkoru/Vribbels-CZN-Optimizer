@@ -3188,6 +3188,7 @@ COLUMNS = (
         ("chaos_delegation", "Chaos Delegation", "Go run!"),
     ), (), None),
     ("Weekly", (
+        ("activity_weekly", "Activity (Weeklies)", "1000/1000"),
         ("supply_weekly", "Arkhianon Supply", "10000/10000"),
         ("simulation", "Simulation Challenges", "3/3"),
         ("chaos_currency", "Chaos Currency",
@@ -3197,14 +3198,15 @@ COLUMNS = (
         ("sortie_currency", "Sortie Currency",
          EXPECTED_VALUE + "99/9"),
         ("chaos_progress", "Galactic Disaster - Chaos", "8000/8000"),
-        ("seasonal_score", "Seasonal Accumulated Score", "300000/300000"),
+        ("seasonal_score", "Seasonal Accumulated Score", "600000/600000"),
     ), (("shop_town", "none"),
         ("shop_gacha_dup", "shop_gacha_dup_legend"),
         ("shop_disaster", "shop_disaster_1")), None),
     ("Monthly", (), (("shop_town", "none"),
                      ("shop_gacha_dup", "shop_gacha_dup_legend"),
-                     ("shop_hyperspace", "none"),
-                     ("shop_chaos", "none"),
+                     ("shop_contents", "shop_weekly"),
+                     ("shop_contents", "shop_hyperspace"),
+                     ("shop_contents", "shop_chaos"),
                      ("shop_exchange_product", "shop_card_factor")), None),
     ("Other", (
         ("basin", "Basin of Hyperspace", with_countdown("99/99")),
@@ -3434,6 +3436,14 @@ ACTIVITY_READING = "%d/%d"
 # game gives the day's row on its first progress. A row issued before
 # the day's reset is a past day's, and pays nothing today.
 DAILY_TASK_FIELD = "daily_achieve"
+
+# The week's Activity, read as the day's is: `point_entity`'s `week_id`
+# and `week_point` are the week's claim, and the week's tasks the
+# points, each paying once its score reaches the client's count
+# (`game_client.known_weekly_tasks`). A task row issued before the
+# weekly reset is last week's.
+ACTIVITY_WEEKLY_FULL = 1000
+WEEKLY_TASK_FIELD = "weekly_achieve"
 
 # The two weekly currencies, and the cap the game states for the second.
 # The Card states one too -- four -- but a row that only ever reads
@@ -3665,7 +3675,7 @@ CHAOS_PROGRESS_FULL = 8000
 # record once the week's reward is claimed -- it reads 0 before that.
 # `GREAT_RIFT_TARGET` is what stands in where it is 0 or absent.
 GREAT_RIFT_FIELD = "disaster_boss_rank_entities"
-GREAT_RIFT_TARGET = 300000
+GREAT_RIFT_TARGET = 600000
 
 # The standings spell the week stamp their own way, where every other
 # weekly record uses `WEEK_STAMP`.
@@ -3729,6 +3739,8 @@ def limit_mismatches(raw=None, now=None):
         return sorted(key for key in held if "_ch" not in key)
 
     compare("ACTIVITY_FULL", ACTIVITY_FULL, _limit("activity"))
+    compare("ACTIVITY_WEEKLY_FULL", ACTIVITY_WEEKLY_FULL,
+            _limit("activity_weekly"))
     for res_id, grant, cap, names in (
             (CHAOS_CURRENCY, CHAOS_WEEKLY_GRANT, CHAOS_CAP,
              ("CHAOS_WEEKLY_GRANT", "CHAOS_CAP")),
@@ -3833,12 +3845,13 @@ BLOCK_PAD_FROM_BOX = 6  # spacing: exception -- label row -> label row -- run, r
 # that are not.
 BOX_ROW_SLACK = 1
 
-# A shop heading opening with this breaks after it, the shop's own name
-# on a second line: the prefix says only that the row is a shop, and on
-# one line with the name it made the heading -- and the total and
-# countdown hanging off its words -- the widest thing in its column.
-# See `_label_lines`.
-HEAD_BREAK = "Shop - "
+# A shop heading opening with one of these breaks after it, the shop's
+# own name on a second line: the prefix says only that the row is a
+# shop, or which menu holds it, and on one line with the name it made
+# the heading -- and the total and countdown hanging off its words --
+# the widest thing in its column. The longest that fits is taken, so
+# list a longer one before the one it starts with. See `_label_lines`.
+HEAD_BREAKS = ("Shop - Integrated Supply Exchange - ", "Shop - ")
 # The second line's tag. Its `spacing1` is nothing: the two lines of
 # one heading sit at the face's own line spacing, as a wrapped label's
 # do, rather than a row's pitch apart. Not a gap between two rows, so
@@ -3925,11 +3938,13 @@ def _head_stop(font, label):
 
 def _label_lines(key, label):
     """A row's words as drawn, one string per line: a shop heading
-    opening `HEAD_BREAK` takes two, the shop's own name on the second.
-    Everything that hangs off a row's words hangs off its LAST line."""
-    if (key.startswith(SHOP_HEAD_PREFIX) and label.startswith(HEAD_BREAK)
-            and label[len(HEAD_BREAK):].strip()):
-        return (HEAD_BREAK.rstrip(), label[len(HEAD_BREAK):])
+    opening one of `HEAD_BREAKS` takes two, the shop's own name on the
+    second. Everything that hangs off a row's words hangs off its LAST
+    line."""
+    if key.startswith(SHOP_HEAD_PREFIX):
+        for prefix in HEAD_BREAKS:
+            if label.startswith(prefix) and label[len(prefix):].strip():
+                return (prefix.rstrip(), label[len(prefix):])
     return (label,)
 
 
@@ -5601,6 +5616,12 @@ def _activity_full():
     return _limit("activity") or ACTIVITY_FULL
 
 
+def _activity_weekly_full():
+    """The week's Activity at its top tier: the client's, else
+    `ACTIVITY_WEEKLY_FULL`."""
+    return _limit("activity_weekly") or ACTIVITY_WEEKLY_FULL
+
+
 def _activity_points(raw, now):
     """Today's Activity points, at most the day's top tier
     (`_activity_full`), or None where the snapshot holds no daily tasks
@@ -5610,11 +5631,26 @@ def _activity_points(raw, now):
     only on the day its row was issued: `issued_time` before the last
     reset is a past day's row. See `DAILY_TASK_FIELD`.
     """
-    rows = (raw or {}).get(DAILY_TASK_FIELD)
-    tasks = game_client.known_daily_tasks()
+    return _task_points((raw or {}).get(DAILY_TASK_FIELD),
+                        game_client.known_daily_tasks(),
+                        weekly_reset.last_daily_reset(now), _activity_full())
+
+
+def _activity_weekly_points(raw, now):
+    """This week's Activity points, the weekly counterpart of
+    `_activity_points`. See `WEEKLY_TASK_FIELD`."""
+    return _task_points((raw or {}).get(WEEKLY_TASK_FIELD),
+                        game_client.known_weekly_tasks(),
+                        weekly_reset.last_weekly_reset(now),
+                        _activity_weekly_full())
+
+
+def _task_points(rows, tasks, since, full):
+    """The Activity `rows` pay, at most `full`: each row whose score has
+    reached its count in `tasks`, issued at `since` or later. None where
+    there are no rows or nothing says what they pay."""
     if not isinstance(rows, list) or not tasks:
         return None
-    since = weekly_reset.last_daily_reset(now)
     total = 0
     for row in rows:
         if not isinstance(row, dict):
@@ -5624,7 +5660,31 @@ def _activity_points(raw, now):
         if (task and _is_count(issued) and issued >= since
                 and _is_count(score) and score >= task[0]):
             total += task[1]
-    return min(total, _activity_full())
+    return min(total, full)
+
+
+def _claimed_points(point, stamp, figure, current):
+    """The Activity `point_entity` says was claimed this period: its
+    `figure` where its `stamp` is the `current` day or week, else 0 --
+    an older stamp is a past period's claim. See `ACTIVITY_FULL`."""
+    stamped, claimed = point.get(stamp), point.get(figure)
+    return claimed if (_is_count(stamped) and _is_count(claimed)
+                       and stamped >= current) else 0
+
+
+def _activity_reading(claimed, points, full):
+    """An Activity row: green once the full tier is claimed, BLINKING
+    ORANGE with it reached and the claim still to make, red below."""
+    if claimed >= full:
+        return _one(ACTIVITY_READING % (full, full), DONE)
+    if points is None:
+        # No tasks on record: a claim below the full tier is all there
+        # is to show, and no claim at all says nothing about the period.
+        return (_one(ACTIVITY_READING % (claimed, full), TODO)
+                if claimed else _one(NO_DATA, UNKNOWN))
+    if max(points, claimed) >= full:
+        return _one(ACTIVITY_READING % (full, full), WARN_BLINK)
+    return _one(ACTIVITY_READING % (max(points, claimed), full), TODO)
 
 
 def _day_block(raw, now):
@@ -5793,23 +5853,15 @@ def _readings(raw, now=None, tracked=None):
     # make, red below.
     point = raw.get(POINT_FIELD)
     point = point if isinstance(point, dict) else {}
-    day_id, day = point.get("day_id"), point.get("day_point")
-    claimed = day if (_is_count(day_id) and _is_count(day)
-                      and day_id >= weekly_reset.day_index(now)) else 0
-    points = _activity_points(raw, now)
-    full = _activity_full()
-    if claimed >= full:
-        out["activity"] = _one(ACTIVITY_READING % (full, full), DONE)
-    elif points is None:
-        # No tasks on record: a claim below the full 100 is all there
-        # is to show, and no claim at all says nothing about the day.
-        out["activity"] = (_one(ACTIVITY_READING % (claimed, full), TODO)
-                           if claimed else _one(NO_DATA, UNKNOWN))
-    elif max(points, claimed) >= full:
-        out["activity"] = _one(ACTIVITY_READING % (full, full), WARN_BLINK)
-    else:
-        out["activity"] = _one(
-            ACTIVITY_READING % (max(points, claimed), full), TODO)
+    out["activity"] = _activity_reading(
+        _claimed_points(point, "day_id", "day_point",
+                        weekly_reset.day_index(now)),
+        _activity_points(raw, now), _activity_full())
+    # The week's, the same way. See `ACTIVITY_WEEKLY_FULL`.
+    out["activity_weekly"] = _activity_reading(
+        _claimed_points(point, "week_id", "week_point",
+                        weekly_reset.week_index(now)),
+        _activity_weekly_points(raw, now), _activity_weekly_full())
 
     # Today's coffee. **The field is a CAPABILITY, so the row inverts
     # it**: `is_coffee_possible` true means one is still going begging.
@@ -6554,8 +6606,8 @@ def _great_rift(raw, now):
     the account has played keeps its row -- so the live one is picked
     by the LATEST `score_week_id`, not by the biggest score. Past
     seasons carry higher totals than the current week does, and their
-    thresholds differ too: the older ones ask 500000 where this one
-    asks 300000.
+    thresholds differ too, one season's top tier asking 500000 and
+    another's 300000.
 
     **A row is not zeroed at the reset**, so the latest one can still
     be last week's: its `score_week_id` is what says which, and a stale

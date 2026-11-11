@@ -345,6 +345,59 @@ def _totals(gc):
     return out
 
 
+def _feature_events(gc):
+    """An event run inside another's screen: named by its feature's
+    page, holding its own mission define's missions, which the host's
+    count gives up. Returns complaints."""
+    out = []
+    host = [{"id": "event_park_01_01_%02d" % n, "link_event_id": "event_9"}
+            for n in range(1, 4)]
+    guest = [{"id": "event_order_01_%02d_%02d" % (page, n),
+              "link_event_id": "event_9"}
+             for page, count in ((1, 8), (2, 9)) for n in range(1, count + 1)]
+    client = _FakeClient({
+        gc.EVENT_TABLE: [_event("event_9", "title_park",
+                                link_event_schedule_id="event_park_01")],
+        gc.MISSION_TABLE: host + guest,
+        gc.DEFINE_TABLE: [
+            {"id": "event_park_01", "link_event_id": "event_9",
+             "link_event_mission_set_key": "event_park_01",
+             "special_reward_link_item_id": "3000001"},
+            {"id": "event_order_01", "link_event_id": "none",
+             "link_event_mission_set_key": "event_order_01",
+             "special_reward_link_item_id": "-1"}],
+        "event_order@order_manage_define": [
+            {"id": "order_manage_define_01",
+             "link_event_mission_define_id": "event_order_01",
+             "link_event_schedule_id": "event_order_01"}],
+        # A define naming no schedule claims nothing.
+        "event_park@park_define": [
+            {"id": "park_01", "link_event_mission_define_id": "event_park_01",
+             "link_event_schedule_id": "none"}],
+        gc.TOP_MENU_TABLE: [
+            {"id": "a_order_manage_main", "scene_name": "menu_order"},
+            {"id": "a_order_manage_stage", "scene_name": "menu_stage"}],
+    }, {"title_park": "Dream Park", "menu_order": "Rules of Order",
+        "menu_stage": "Stages"})
+    names = gc.event_names(client)
+    if names.get("event_order_01") != "Rules of Order":
+        out.append(
+            f"an event run inside another's screen is named "
+            f"{names.get('event_order_01')!r}, not 'Rules of Order': it has "
+            f"no `event@event` row, and its feature's define row and the "
+            f"feature's `_main` top-menu page name it (`feature_events`).")
+    totals = gc.event_totals(client)
+    for key, want in (("event_order_01", [17, 0, 0]),
+                      ("event_park_01", [3, 1, 0])):
+        if totals.get(key) != want:
+            out.append(
+                f"{key} holds {totals.get(key)!r}, not {want!r}: missions "
+                f"filed under the host's event id but under another "
+                f"define's set key are that define's event's, and the "
+                f"host's count gives them up (`event_totals`).")
+    return out
+
+
 def _story_stars(gc):
     """A story chapter's stars: its battles' conditions, only under a
     ladder, and the day it opens. Returns complaints."""
@@ -917,6 +970,7 @@ def run():
     failures = []
     failures.extend(_joins(gc))
     failures.extend(_totals(gc))
+    failures.extend(_feature_events(gc))
     failures.extend(_story_stars(gc))
     failures.extend(_accessors(gc))
     failures.extend(_late_read(gc))
@@ -956,6 +1010,12 @@ def run():
 
 # What this check must catch, for `checks/faults.py`.
 FAULTS = [
+    ("a feature's event left unnamed", "game_client:event_names",
+     "for key, (family, _define) in feature_events(client).items():",
+     "for key, (family, _define) in {}.items():",
+     "run inside another's screen is named"),
+    ("a feature's missions left with the host", "game_client:event_totals",
+     "        if owner:\n", "        if False:\n", "the host's count gives"),
     ("an earlier build's read never the fallback", "game_client:fallback",
      "held = json.loads((Path(settings_dir) / CACHE_FILE).read_text(",
      "return None\n"

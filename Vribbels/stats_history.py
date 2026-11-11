@@ -152,7 +152,7 @@ RIFT_ROWS = ("Codename", "Top% apx.", "Top% official", "Top #", "Out of",
              "Score") + tuple(RIFT_DIVISION_ROWS)
 # An Offensive is three stages; the list gives each its own score row.
 OFFENSIVE_STAGES = 3
-OFFENSIVE_ROWS = ("Top%", "Top #", "Out of", "Total") + tuple(
+OFFENSIVE_ROWS = ("Top%", "Top% official", "Top #", "Out of", "Total") + tuple(
     "Score %d" % n for n in range(1, OFFENSIVE_STAGES + 1))
 # The score each star of an Offensive stage asks for, as the game
 # states it. A stage's cell shows its stars only where no score of it
@@ -404,8 +404,9 @@ def _join(into, samples):
 
 
 def subdivision(rank_id):
-    """(number, 'Diamond II', share reached) for a Great Rift `rank_id`,
-    or None where it is not on the thirty-step scale."""
+    """(number, 'Diamond II', share reached) for a Great Rift `rank_id`
+    or a Full-Scale Offensive's, which share the scale
+    (`remnants_s07_rank_best_1_<n>`), or None where it is not on it."""
     found = RANK_ID.search(str(rank_id or ""))
     return numbered(int(found.group(2))) if found else None
 
@@ -680,6 +681,10 @@ def offensive_table(raw, history, shipped=None):
     an Offensive can be known 9-starred and nothing more. A stage whose
     score was read shows the score alone: `OFFENSIVE_STAR_SCORES`.
 
+    **Top% official is the share its ranking tier reaches down to**,
+    as the Great Rift's: the latest reading's `rank_id`, which an
+    Offensive states from 007 on and none before.
+
     **A reading with no percentage still has a Top%.** A login that
     finds the rank moved is answered without one, so the last reading
     often lacks it. Its field is then the latest earlier reading's that
@@ -724,8 +729,11 @@ def offensive_table(raw, history, shipped=None):
                  else "~%.2f%%" % (100.0 * rank / exact) if rank and exact
                  else None)
         stars = STARS % OFFENSIVE_STAR_SCORES[-1][0] if nine else None
+        tier = next((subdivision(r.get("rank_id")) for r in reversed(readings)
+                     if subdivision(r.get("rank_id"))), None)
         columns.append((int(found.group(1)), [
             share,
+            "%g%%" % (tier[2] * 100) if tier else None,
             _thousands(rank),
             "~" + format(field, ",") if field else None,
             _thousands(sum(stages)) if stages else None]
@@ -735,7 +743,7 @@ def offensive_table(raw, history, shipped=None):
         found = re.search(r"(\d+)$", define_id)
         if found and define_id not in read:
             columns.append((int(found.group(1)), [
-                None, None, "~" + format(field["players"], ","), None]
+                None, None, None, "~" + format(field["players"], ","), None]
                 + [None] * OFFENSIVE_STAGES))
     columns.sort(key=lambda c: -c[0])
     return OFFENSIVE_ROWS, [(str(n), cells) for n, cells in columns]

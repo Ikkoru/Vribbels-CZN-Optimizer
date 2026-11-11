@@ -1,90 +1,90 @@
 {
  "averages": {
   "ATK DPS": {
-   "ATK%": 32.058,
-   "CDmg": 45.617,
-   "CRate": 47.708,
-   "DEF%": 1.958,
-   "DoT%": 1.258,
-   "Ego": 4.333,
-   "Extra DMG%": 10.225,
-   "Flat ATK": 62.75,
-   "Flat DEF": 25.917,
-   "Flat HP": 48.733,
-   "HP%": 0.867
+   "ATK%": 33.521,
+   "CDmg": 45.743,
+   "CRate": 47.443,
+   "DEF%": 2.086,
+   "DoT%": 0.821,
+   "Ego": 4.143,
+   "Extra DMG%": 9.8,
+   "Flat ATK": 62.214,
+   "Flat DEF": 28.071,
+   "Flat HP": 46.007,
+   "HP%": 0.757
   },
   "ATK DPS, DoT": {
-   "ATK%": 29.5,
-   "CDmg": 30.733,
-   "CRate": 40.533,
-   "DEF%": 1.467,
-   "DoT%": 42.167,
-   "Ego": 5.0,
-   "Extra DMG%": 3.933,
-   "Flat ATK": 41.333,
-   "Flat DEF": 27.333,
-   "Flat HP": 69.65,
-   "HP%": 0.967
+   "ATK%": 25.8,
+   "CDmg": 25.933,
+   "CRate": 37.033,
+   "DEF%": 1.6,
+   "DoT%": 56.7,
+   "Ego": 6.667,
+   "Extra DMG%": 10.267,
+   "Flat ATK": 56.667,
+   "Flat DEF": 24.0,
+   "Flat HP": 62.65,
+   "HP%": 0.667
   },
   "ATK DPS, Extra": {
-   "ATK%": 49.0,
-   "CDmg": 35.471,
-   "CRate": 42.029,
-   "DEF%": 1.829,
+   "ATK%": 45.314,
+   "CDmg": 34.443,
+   "CRate": 43.657,
+   "DEF%": 1.686,
    "DoT%": 0.429,
-   "Ego": 0.0,
-   "Extra DMG%": 53.886,
-   "Flat ATK": 34.0,
+   "Ego": 0.571,
+   "Extra DMG%": 50.629,
+   "Flat ATK": 38.0,
    "Flat DEF": 27.429,
-   "Flat HP": 51.936,
-   "HP%": 1.114
+   "Flat HP": 50.221,
+   "HP%": 1.414
   },
   "DEF DPS": {
-   "ATK%": 2.425,
-   "CDmg": 53.8,
-   "CRate": 36.288,
-   "DEF%": 28.925,
-   "DoT%": 2.25,
-   "Ego": 1.75,
-   "Extra DMG%": 2.35,
-   "Flat ATK": 42.875,
-   "Flat DEF": 65.25,
-   "Flat HP": 48.9,
-   "HP%": 2.15
+   "ATK%": 2.1,
+   "CDmg": 52.175,
+   "CRate": 36.975,
+   "DEF%": 29.213,
+   "DoT%": 2.612,
+   "Ego": 2.75,
+   "Extra DMG%": 1.988,
+   "Flat ATK": 44.25,
+   "Flat DEF": 65.375,
+   "Flat HP": 50.15,
+   "HP%": 1.875
   },
   "healer": {
-   "ATK%": 3.0,
-   "CDmg": 26.5,
-   "CRate": 23.667,
-   "DEF%": 17.933,
-   "DoT%": 2.767,
-   "Ego": 48.667,
+   "ATK%": 3.4,
+   "CDmg": 27.633,
+   "CRate": 24.667,
+   "DEF%": 26.033,
+   "DoT%": 2.833,
+   "Ego": 27.0,
    "Extra DMG%": 5.3,
-   "Flat ATK": 46.667,
-   "Flat DEF": 76.0,
-   "Flat HP": 43.317,
-   "HP%": 2.8
+   "Flat ATK": 51.0,
+   "Flat DEF": 82.333,
+   "Flat HP": 39.983,
+   "HP%": 2.033
   },
   "healer, ATK damage": {
-   "ATK%": 19.55,
-   "CDmg": 41.2,
-   "CRate": 43.1,
-   "DEF%": 16.15,
+   "ATK%": 16.4,
+   "CDmg": 50.4,
+   "CRate": 41.9,
+   "DEF%": 16.5,
    "DoT%": 0.0,
-   "Ego": 1.5,
+   "Ego": 4.5,
    "Extra DMG%": 1.35,
-   "Flat ATK": 63.5,
-   "Flat DEF": 46.5,
-   "Flat HP": 41.65,
+   "Flat ATK": 66.0,
+   "Flat DEF": 44.5,
+   "Flat HP": 36.65,
    "HP%": 0.65
   }
  },
  "checked": {
-  "at": "2026-09-28",
-  "part": 3,
-  "season": "disaster_s04"
+  "at": "2026-11-11",
+  "part": 2,
+  "season": "disaster_s05"
  },
- "derived_at": "2026-09-28",
+ "derived_at": "2026-11-11",
  "max_rolls": {
   "ATK%": 1.3,
   "CDmg": 4.0,
@@ -100,6 +100,7 @@
  },
  "members": {
   "ATK DPS": [
+   "Anika",
    "Chizuru",
    "Fei",
    "Haru",
@@ -109,6 +110,7 @@
    "Mei Lin",
    "Owen",
    "Rita",
+   "Rossweisse",
    "Sereniel",
    "Tenebria",
    "Yuki"
@@ -161,7 +163,8 @@
    "CDmg": 25.0
   },
   "Arabella": {
-   "CDmg": 65.0
+   "ATK%": 12.0,
+   "CDmg": 25.0
   },
   "Beryl": {
    "ATK%": 12.0,
@@ -202,8 +205,8 @@
    "CDmg": 25.0
   },
   "Khalipe": {
-   "CDmg": 25.0,
-   "CRate": 20.0
+   "CRate": 20.0,
+   "DEF%": 12.0
   },
   "Lucas": {
    "ATK%": 12.0,
@@ -236,14 +239,14 @@
    "DEF%": 12.0
   },
   "Nine": {
-   "CRate": 19.0
+   "CRate": 19.0,
+   "DEF%": 12.0
   },
   "Olga": {
    "ATK%": 12.0,
    "CDmg": 25.0
   },
   "Orlea": {
-   "ATK%": 12.0,
    "CDmg": 25.0,
    "DEF%": 12.0
   },

@@ -65,8 +65,12 @@ SHOPS = {
     ("shop_town", "none"): "Nono's Shop",
     ("shop_gacha_dup", "shop_gacha_dup_legend"):
         "Shop - Memory Archive - Traveler",
-    ("shop_hyperspace", "none"): "Shop - Zeronium Shop",
-    ("shop_chaos", "none"): "Shop - Blackhorn Trade",
+    ("shop_contents", "shop_weekly"):
+        "Shop - Integrated Supply Exchange - Mission Records",
+    ("shop_contents", "shop_hyperspace"):
+        "Shop - Integrated Supply Exchange - Zeronium Shop",
+    ("shop_contents", "shop_chaos"):
+        "Shop - Integrated Supply Exchange - Blackhorn Trade",
     ("shop_exchange_product", "shop_card_factor"):
         "Shop - Exchange Shop - Prism Module",
     ("shop_disaster", "shop_disaster_1"): "Galactic Disaster Shop",

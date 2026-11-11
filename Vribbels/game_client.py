@@ -77,7 +77,7 @@ GAMERES = Path("bin") / "appdata" / "cznlive" / "gameres"
 # reader that changes what it reads raises this: every install then
 # reads its client again once, rather than at the next patch.
 CACHE_FILE = "game_client.json"
-CACHE_FORMAT = 29
+CACHE_FORMAT = 30
 
 # The manifest layout this reads. A different version is a different
 # layout until shown otherwise.
@@ -135,6 +135,19 @@ SPECIAL_LINKS = ("multiple_link", "link_event_schedule_id")
 TOP_MENU_TABLE = "top_menu@top_menu"
 SPECIAL_PART_NAME = "%s - %s"    # the whole's name, then the part's
 NO_LINK = ("", "none", "-1")
+
+# An event run inside another's screen, such as Rules of Good Order
+# inside the Nightmare Dream Park: no `event@event` row of its own, its
+# missions filed under the host's event id. Its feature's define row --
+# `<family>_define` in any `*_define` table -- names its schedule and
+# its mission define, whose set key starts every one of its missions'
+# ids (`<set key>_<page>_<n>`). Those missions are its rewards, not the
+# host's, and it is named by its feature's top-menu page,
+# `<anything>_<family>_main`.
+FEATURE_DEFINE = re.compile(r"db/(.+@(.+)_define)\.db")
+FEATURE_SCHEDULE = "link_event_schedule_id"
+FEATURE_MISSIONS = "link_event_mission_define_id"
+FEATURE_PAGE = "_%s_main"
 
 # A schedule numbered among others of its kind -- `event_combatant_
 # trial_15` among the trials -- that no table names, named after its
@@ -250,7 +263,7 @@ STAR_ROW_NAME = "%s - Stars"
 STAR_CHAPTER_NAME = "Chapter %d"
 
 # What the Checklist counts up to, where the client states it: the
-# day's Activity tiers, the weekly currencies' grants and caps, each
+# day's and the week's Activity tiers, the weekly currencies' grants and caps, each
 # Arkhianon Supply's weekly EXP, top level and daily missions, the
 # Simulation Challenges' weekly runs, each Full-Scale Offensive's
 # bosses and stars, each Zero System reward track's top level, each
@@ -260,6 +273,7 @@ STAR_CHAPTER_NAME = "Chapter %d"
 # Communication Passes with the town research that raises them. See
 # `limits`.
 ACTIVITY_TIERS = "guide_daily@guide_daily"
+WEEKLY_ACTIVITY_TIERS = "guide_weekly@guide_weekly"
 WEEKLY_CHARGES = "currency_charge@currency_charge"
 PASS_TABLE = "season_pass@season_pass"
 PASS_MISSIONS = "season_pass_mission@season_pass_mission"
@@ -298,6 +312,9 @@ STORY_NODE_UNUSED = ("no_use", "YES")
 # and `point_count` what it then adds to the day's Activity. The wire's
 # `daily_achieve` rows carry the score and nothing else.
 DAILY_TASK_TABLE = "daily_achievement@daily_achievement"
+# The weekly tasks, the same shape, paying toward the week's Activity;
+# the wire's rows are `weekly_achieve`.
+WEEKLY_TASK_TABLE = "guide_weekly@weekly_achievement"
 
 # The Memory Fragment sets: a row each, `set_public_<n>` for the wire's
 # set id n. A row with an `order` is a set fragments drop in;
@@ -703,6 +720,14 @@ def event_names(client):
             put(row.get(key), row.get(title))
     for key, name in _special_events(client, texts).items():
         names.setdefault(key, name)
+    menus = {row.get("id") or "": clean(texts.get(row.get("scene_name")))
+             for row in client.rows(TOP_MENU_TABLE)}
+    for key, (family, _define) in feature_events(client).items():
+        page = FEATURE_PAGE % family
+        name = next((words for menu, words in sorted(menus.items())
+                     if menu.endswith(page) and words), None)
+        if name:
+            names.setdefault(key, name)
     for key, chapter in story_stars(client).items():
         names.setdefault(key, chapter["name"])
     trials = {}
@@ -741,6 +766,24 @@ def _special_events(client, texts):
                 if title and row.get(column) not in NO_LINK:
                     out.setdefault(row[column],
                                    SPECIAL_PART_NAME % (whole, title))
+    return out
+
+
+def feature_events(client):
+    """{schedule id: (feature family, mission define id)} for every
+    event a feature's define row names both halves of. See
+    `FEATURE_DEFINE`."""
+    out = {}
+    for path in sorted(client.archive.files):
+        match = FEATURE_DEFINE.fullmatch(path)
+        if not match:
+            continue
+        for row in client.rows(match.group(1)):
+            schedule, define = (row.get(FEATURE_SCHEDULE),
+                                row.get(FEATURE_MISSIONS))
+            if (schedule not in NO_LINK + (None,)
+                    and define not in NO_LINK + (None,)):
+                out.setdefault(schedule, (match.group(2), define))
     return out
 
 
@@ -795,14 +838,34 @@ def event_totals(client):
     alone, those being the rewards the wire records claims for: the
     summer event's puzzles and stories are not in its 20.
     """
+    defines = {row.get("id"): row for row in client.rows(DEFINE_TABLE)}
+    # A feature's event's missions, taken out of the host's.
+    featured = {}
+    for schedule, (_family, define) in feature_events(client).items():
+        key = (defines.get(define) or {}).get("link_event_mission_set_key")
+        if key not in NO_LINK + (None,):
+            featured[schedule] = (key + "_", define)
     missions = collections.defaultdict(list)
+    owned = collections.defaultdict(list)
     for row in client.rows(MISSION_TABLE):
-        missions[row.get("link_event_id")].append(row.get("id"))
+        mission = row.get("id") or ""
+        owner = next((schedule for schedule, (prefix, _d)
+                      in featured.items() if mission.startswith(prefix)),
+                     None)
+        if owner:
+            owned[owner].append(mission)
+        else:
+            missions[row.get("link_event_id")].append(mission)
     steps = collections.Counter(row.get("link_event_mission_id")
                                 for row in client.rows(STEP_TABLE))
     finals = {row.get("link_event_id") for row in client.rows(DEFINE_TABLE)
               if row.get("special_reward_link_item_id") not in NO_REWARD}
     out = {}
+    for schedule, ids in owned.items():
+        ladder = sum(steps.get(mission, 0) for mission in ids)
+        final = (defines[featured[schedule][1]].get(
+            "special_reward_link_item_id") not in NO_REWARD)
+        out[schedule] = [ladder or len(ids), int(final), int(bool(ladder))]
     events = sorted(client.rows(EVENT_TABLE),
                     key=lambda row: row.get(EVENT_DELETED[0])
                     == EVENT_DELETED[1])
@@ -1054,6 +1117,7 @@ def limits(client):
     reads wrong is left out: the Checklist's own figure stands for it.
 
     * `activity`: the day's Activity, its top tier's points;
+    * `activity_weekly`: the week's Activity, the same;
     * `charges`: {res_id: [what a week adds, the cap]};
     * `passes`: {pass id: [weekly EXP, top level, daily missions]};
     * `simulation`: {content id: weekly runs};
@@ -1075,6 +1139,9 @@ def limits(client):
     readers = {
         "activity": lambda: max(_figure(row.get("point_count")) or 0
                                 for row in client.rows(ACTIVITY_TIERS)),
+        "activity_weekly": lambda: max(
+            _figure(row.get("point_count")) or 0
+            for row in client.rows(WEEKLY_ACTIVITY_TIERS)),
         "charges": lambda: {
             row["id"]: [_figure(row["add_value"]), _figure(row["max"])]
             for row in client.rows(WEEKLY_CHARGES)
@@ -1254,8 +1321,19 @@ def story_chapters(client):
 
 def daily_tasks(client):
     """{daily task res_id: [score it counts to, Activity it pays]}."""
+    return _tasks(client, DAILY_TASK_TABLE)
+
+
+def weekly_tasks(client):
+    """{weekly task res_id: [score it counts to, Activity it pays]}."""
+    return _tasks(client, WEEKLY_TASK_TABLE)
+
+
+def _tasks(client, table):
+    """{task res_id: [score it counts to, Activity it pays]} off one of
+    the Activity task tables."""
     out = {}
-    for row in client.rows(DAILY_TASK_TABLE):
+    for row in client.rows(table):
         try:
             count, points = int(row.get("count")), int(row.get("point_count"))
         except (TypeError, ValueError):
@@ -1954,6 +2032,12 @@ def season_nodes(client):
     for season, parts in layouts.items():
         held, shown, counts = nodes.get(season) or {}, set(), []
         for part in sorted(parts):
+            # **A layout listing nothing the one before did not is no
+            # part of its own**: season 5 lists every number in each
+            # part's layout, and counting those as parts read the
+            # season's total so far as every part's.
+            if counts and parts[part] <= shown:
+                continue
             shown |= parts[part]
             counts.append(sum(1 for number in shown if held.get(number)))
         if counts and counts[-1]:
@@ -2631,6 +2715,7 @@ def read_facts(install):
         "excursion_types": {str(res_id): count for res_id, count
                             in excursion_types(client).items()},
         "daily_tasks": daily_tasks(client),
+        "weekly_tasks": weekly_tasks(client),
         "set_effects": {str(set_id): effect for set_id, effect
                         in set_effects(client).items()},
         "potential_texts": {
@@ -2999,10 +3084,22 @@ def known_daily_tasks():
     """{daily task res_id: (score it counts to, Activity it pays)}: the
     shipped table, with what this machine's client says over it. See
     `daily_tasks`."""
+    return _known_tasks("DAILY_TASKS", "daily_tasks")
+
+
+def known_weekly_tasks():
+    """The weekly counterpart of `known_daily_tasks`. See
+    `weekly_tasks`."""
+    return _known_tasks("WEEKLY_TASKS", "weekly_tasks")
+
+
+def _known_tasks(shipped, cached):
+    """{task res_id: (score, Activity)}: `from_client`'s table named
+    `shipped`, with the cache's `cached` over it."""
     from game_data import from_client
     out = {key: tuple(value) for key, value
-           in from_client.DAILY_TASKS.items()}
-    for key, value in ((_facts or {}).get("daily_tasks") or {}).items():
+           in getattr(from_client, shipped, {}).items()}
+    for key, value in ((_facts or {}).get(cached) or {}).items():
         if (isinstance(value, (list, tuple)) and len(value) == 2
                 and all(isinstance(n, int) and n > 0 for n in value)):
             out[key] = tuple(value)

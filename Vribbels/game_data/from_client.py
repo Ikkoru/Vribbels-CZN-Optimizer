@@ -11,7 +11,7 @@ ASCII throughout: a name's other characters are written as escapes.
 """
 
 
-BUILD = 156
+BUILD = 158
 
 # {schedule id: English name}. See game_client.event_names.
 EVENT_NAMES = {
@@ -306,6 +306,7 @@ EVENT_NAMES = {
     'event_return_03': 'Grand Festival',
     'event_return_daily_check_01': 'Grand Welcome Check-In',
     'event_return_daily_check_02': 'Visit the Festival',
+    'event_rooty_manage_01': 'Rules of Good Order',
     'event_schedule_1st_year_1': 'Nightmare Carnival',
     'event_schedule_2026newyear': 'Toward the First Light',
     'event_schedule_cdx_mission_1': 'Back to Codex',
@@ -429,7 +430,7 @@ EVENT_TOTALS = {
     'event_director_01': (21, 0, 0),
     'event_director_02': (21, 0, 0),
     'event_half_year_mission_1': (24, 0, 1),
-    'event_idle_tycoon_01': (40, 1, 0),
+    'event_idle_tycoon_01': (23, 1, 0),
     'event_idol_01': (21, 0, 0),
     'event_messenger_01': (12, 0, 0),
     'event_nodelist_001': (15, 1, 0),
@@ -451,6 +452,7 @@ EVENT_TOTALS = {
     'event_return_02': (21, 0, 1),
     'event_return_daily_check_01': (7, 0, 0),
     'event_return_daily_check_02': (7, 0, 0),
+    'event_rooty_manage_01': (17, 0, 0),
     'event_schedule_2026newyear': (10, 0, 0),
     'event_schedule_cdx_mission_1': (4, 0, 0),
     'event_schedule_devil_001': (21, 0, 0),
@@ -480,7 +482,7 @@ EVENT_TOTALS = {
     'event_stock_01': (17, 1, 0),
     'event_stock_1': (17, 1, 0),
     'event_summer_01': (20, 0, 0),
-    'idle_tycoon_01': (40, 1, 0),
+    'idle_tycoon_01': (23, 1, 0),
     'payment_event_01': (7, 0, 0),
     'schedule_trc_1052': (6, 1, 0),
     'schedule_trc_1062': (6, 1, 0),
@@ -568,6 +570,7 @@ STORY_STARS = {
 # {kind: figure or {id: figure}}: the Checklist's maximums. See game_client.limits.
 LIMITS = {
     'activity': 100,
+    'activity_weekly': 1000,
     'charges': {
         '2000027': [4, 4],
         '2000036': [3, 9],
@@ -2868,6 +2871,19 @@ DAILY_TASKS = {
     'daily_achieve_qq_001': (1, 20),
 }
 
+# {weekly task res_id: (score it counts to, Activity it pays)}. See game_client.weekly_tasks.
+WEEKLY_TASKS = {
+    'weekly_achieve_001': (1, 100),
+    'weekly_achieve_002': (2, 100),
+    'weekly_achieve_003': (640, 100),
+    'weekly_achieve_004': (10, 100),
+    'weekly_achieve_005': (400, 100),
+    'weekly_achieve_006': (4, 100),
+    'weekly_achieve_007': (2, 120),
+    'weekly_achieve_008': (1, 160),
+    'weekly_achieve_009': (3, 120),
+}
+
 # {set id: (name, pieces, words, stat, value)}. See game_client.set_effects.
 SET_EFFECTS = {
     6: ("Conqueror's Aspect", 4, '+35% Critical Damage of 1-cost cards', '', None),
@@ -3943,7 +3959,7 @@ SEASON_NODES = {
     'disaster_s02': (15, 25),
     'disaster_s03': (13, 19, 25),
     'disaster_s04': (13, 19, 25),
-    'disaster_s05': (19, 19),
+    'disaster_s05': (13, 19),
 }
 
 # {season: {'pages', 'gates', 'achievements', 'lists'}}: each Galactic
@@ -6714,6 +6730,9 @@ CLIENT_NAMES = {
     'rescue pool pickup_supporter': 'Partner Pickup Event',
     'rescue pool pickup_supporter_rerun': 'Partner Pickup Event',
     'shop shop_assault/none': 'Sortie Shop',
+    'shop shop_contents/shop_chaos': 'Integrated Supply Exchange - Blackhorn Trade',
+    'shop shop_contents/shop_hyperspace': 'Integrated Supply Exchange - Zeronium Shop',
+    'shop shop_contents/shop_weekly': 'Integrated Supply Exchange - Mission Records Shop',
     'shop shop_disaster/all': 'Galactic Disaster Shop',
     'shop shop_disaster/shop_disaster_1': 'Galactic Disaster Shop - 1st Supply',
     'shop shop_exchange_product/shop_card_factor': 'Exchange Shop - Prism Module',

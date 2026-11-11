@@ -52,13 +52,18 @@ def _sheets_follow_the_level(snaps):
     from game_data.constants import affinity_level
     from models.memory_fragment import MemoryFragment
     rows = {lvl: (a, d, h) for lvl, a, d, h in FRIENDSHIP_BONUSES}
-    _battles, builds, _note = bs.read_store(SOURCE_ROOT / "snapshots")
+    battles, builds, _note = bs.read_store(SOURCE_ROOT / "snapshots")
+    guests = bs.guest_sightings(battles)
     out, read = [], 0
     for build in builds:
         rid, st = build.get("res_id"), build.get("status") or {}
         when = build.get("first")
         if build.get("zero_system") or "BASE_S_ATK" not in st \
                 or not isinstance(CHARACTERS.get(rid), dict) or not when:
+            continue
+        # A unit the game put in the party has the game's Affinity, not
+        # the account's: a banner trial's Anika at level 20 read none.
+        if build.get("guest") or (rid, when) in guests:
             continue
         before = [s for t, s in snaps if t <= when and rid in s]
         after = [s for t, s in snaps if t > when and rid in s]
@@ -148,6 +153,10 @@ def _twenties_long():
 
 # What this check must catch, for `checks/faults.py`.
 FAULTS = [
+    ("a banner trial's unit read as the account's",
+     "base_stats_store:guest_sightings",
+     'if isinstance(row, dict) and (preset or row.get("guest")):',
+     "if False:", "battle sheet fits Affinity"),
     ("the rewards claimed read as the level",
      "optimizer.optimizer:GearOptimizer._parse_character_data",
      'char.get("friendship_exp", 0) or 0,', "0,", "the program reads"),

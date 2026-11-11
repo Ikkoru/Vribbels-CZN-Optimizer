@@ -479,6 +479,17 @@ def _mutations_are_watched():
                    f"does not show, {moved} for one it does, and {other} "
                    f"for two builds a level apart: only the second is a "
                    f"Mutation reaching the sheet.")
+    # An old plain reading the sheet has since moved on from, and a new
+    # one beside the Mutation's agreeing with it: no gap.
+    old = dict(build, status={"S_DEF": 476}, first=100, last=200)
+    new = dict(build, first=900, last=1000)
+    drift = bs.mutation_gaps([old, new, dict(build, mutation=9, first=950,
+                                             last=990)])
+    if drift:
+        out.append(f"mutation_gaps reads {drift} for a Mutation deck read "
+                   f"beside a plain reading of the same sheet, an older "
+                   f"plain reading a point lower: the plain reading nearest "
+                   f"in time is the one to compare.")
     return out
 
 
@@ -856,6 +867,10 @@ def run():
 
 # What this check must catch, for `checks/faults.py`.
 FAULTS = [
+    ("a Mutation held to the first plain reading",
+     "base_stats_store:mutation_gaps",
+     "other = min(others, key=lambda o: apart(o, build))",
+     "other = others[0]", "nearest in time"),
     ("a preset party's guest counted missing", "base_stats_store:audit",
      "            if rid not in own:\n                guests.add(rid)\n"
      "            elif None not in wire:",

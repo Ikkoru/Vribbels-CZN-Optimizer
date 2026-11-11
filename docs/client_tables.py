@@ -213,6 +213,13 @@ def shipped_source(client, partners=None):
     lines += [f"    {ascii(res_id)}: ({count}, {points}),"
               for res_id, (count, points) in sorted(tasks.items())]
     lines += ["}", "",
+              "# {weekly task res_id: (score it counts to, Activity it "
+              "pays)}. See game_client.weekly_tasks.",
+              "WEEKLY_TASKS = {"]
+    lines += [f"    {ascii(res_id)}: ({count}, {points}),"
+              for res_id, (count, points)
+              in sorted(game_client.weekly_tasks(client).items())]
+    lines += ["}", "",
               "# {set id: (name, pieces, words, stat, value)}. See "
               "game_client.set_effects.",
               "SET_EFFECTS = {"]

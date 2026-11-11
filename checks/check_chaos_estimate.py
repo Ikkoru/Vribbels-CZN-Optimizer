@@ -455,6 +455,20 @@ def _client_tree(game_client):
                 f"the unlisted 8, reads {got}, not [2, 4, 4]: each part "
                 f"counts what its layout and those before it list, "
                 f"amplification nodes with rows alone, a `_uk` layout none."]
+    # Season 5's shape: each part's layout lists every number, the
+    # patch opening a part adding its rows. One total, not a part each.
+    rows[game_client.SEASON_NODES_TABLE] = [
+        {"id": "disaster_s10_skilltree_%d" % n, "node_num": "n_%d" % n,
+         "link_zero_orb_season_skill_id": "[s_amp]"} for n in (1, 2, 3)]
+    rows[game_client.SEASON_LAYOUTS_TABLE] = [
+        {"id": "ds_s10_skilltree_circle_%d" % part,
+         "line_1_node_num_list": "[1,2,3,4,5]"} for part in (1, 2)]
+    got = game_client.season_nodes(_Client())
+    if got != {"disaster_s10": [3]}:
+        return [f"a tree whose two layouts both list every number reads "
+                f"{got}, not [3]: a layout adding no number is no part of "
+                f"its own, and the total so far grows onto the counts kept "
+                f"(`grown_season_nodes`)."]
     return []
 
 
@@ -586,6 +600,9 @@ def run():
 
 # What this check must catch, for `checks/faults.py`.
 FAULTS = [
+    ("a repeated layout counted as a part", "game_client:season_nodes",
+     "if counts and parts[part] <= shown:", "if False:",
+     "both list every number"),
     ("a payout amplified without rounding up", "chaos_estimate:amplified",
      "return math.ceil(round(amount * (100 + nodes) / 100, 6))",
      "return amount * (100 + nodes) // 100", "at 5 nodes pays"),

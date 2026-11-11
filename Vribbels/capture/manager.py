@@ -939,7 +939,8 @@ class Addon:
         if isinstance(runs, list):
             self._legacy_chaos_runs = [run for run in runs
                                        if isinstance(run, dict)]
-        for key in ("mission_accumulate", "achievements", "daily_achieve"):
+        for key in ("mission_accumulate", "achievements", "daily_achieve",
+                    "weekly_achieve"):
             for row in previous.get(key) or ():
                 if (isinstance(row, dict) and row.get("res_id") is not None
                         and row.get("condition_type")):
@@ -2292,12 +2293,18 @@ class Addon:
                 "rank": offensive["rank"],
                 "rank_percent": percent,
                 "reward_count": offensive.get("reward_count"),
+                # The ranking tier, from Offensive 007 on: `none` until
+                # the account has a score.
+                "rank_id": (offensive.get("rank_id")
+                            if offensive.get("rank_id") not in (None, "none")
+                            else None),
                 "score": sum(scores.values()) if scores else None,
                 "read_at": data.get("service_server_time"),
                 # The field it implies is one server's, as the Great
                 # Rift's tops are.
                 "region": self._detect_region()}
-            fields = ("rank", "rank_percent", "reward_count", "score")
+            fields = ("rank", "rank_percent", "reward_count", "rank_id",
+                      "score")
             if [last.get(f) for f in fields] != [sample[f] for f in fields]:
                 readings.append(sample)
                 self._save_pending = True
@@ -2324,11 +2331,12 @@ class Addon:
                 self._save_pending = True
         # **The account's lifetime statistics**, for the history a
         # reader would chart: the counters the collection achievements
-        # count off, the Achievements screen, and the seven daily
-        # tasks, whose `version` tallies the days each was done. The
+        # count off, the Achievements screen, the daily tasks, whose
+        # `version` tallies the days each was done, and the weekly. The
         # login sends them whole and nothing else does. Merged by id,
         # so a claim's one row and a moved score each update their own.
-        for key in ("mission_accumulate", "achievements", "daily_achieve"):
+        for key in ("mission_accumulate", "achievements", "daily_achieve",
+                    "weekly_achieve"):
             rows = data.get(key)
             if not isinstance(rows, list):
                 continue
@@ -2360,7 +2368,8 @@ class Addon:
         if isinstance(condition, dict):
             for wire, key in (("accumulate_condition", "mission_accumulate"),
                               ("achievement", "achievements"),
-                              ("daily_achievement", "daily_achieve")):
+                              ("daily_achievement", "daily_achieve"),
+                              ("weekly_achievement", "weekly_achieve")):
                 for moved in condition.get(wire) or ():
                     if not isinstance(moved, dict) or moved.get(
                             "res_id") is None:
@@ -3115,6 +3124,8 @@ class Addon:
                 "zero_system": bool(effs)}
             if "mutation" in row:
                 build["mutation"] = row["mutation"]
+            if row.get("guest"):
+                build["guest"] = True
             builds.append(build)
         if not chars:
             return
@@ -4209,6 +4220,8 @@ class Addon:
                 list(self.lifetime.get("achievements", {}).values()) or None,
             "daily_achieve":
                 list(self.lifetime.get("daily_achieve", {}).values()) or None,
+            "weekly_achieve":
+                list(self.lifetime.get("weekly_achieve", {}).values()) or None,
             "login_total_count": self.login_total_count,
             "disaster_boss_rank_tops": self.rift_tops or None,
             "chaos_assault_rankings": self.sortie_rankings or None,

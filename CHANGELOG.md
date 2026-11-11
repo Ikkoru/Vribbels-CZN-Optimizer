@@ -23,6 +23,9 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - Click the two openers the game offers, one each side: each says how many counselings offering nothing new are still to come if picked, and the fewer is green, with the follow-up to take.
 - Memory Fragments tab: two rows under Main Stats. The first is the Units needed to level every fragment to 3 and use up your Core of Memory. The second is what you hold against that: spare in green, or short in red with the x6 runs of Growth - Unit - Difficulty 6 it comes to.
 - Checklist tab: hovering a Core in Expiring Items says what it does.
+- Checklist tab: Activity (Weeklies), the week's Activity points out of 1000, read like Activity (Dailies): green once the week's reward is claimed, blinking orange with 1000 reached and the reward still to claim.
+- Checklist tab: the Integrated Supply Exchange's Mission Records shop under Monthly, its two monthly Cores.
+- Stats & Gacha History tab: the Full-Scale Offensive list's Top% official, the share your ranking tier reaches down to, as the Great Rift's. From Offensive 7 on.
 - Checklist tab: each Galactic Disaster story chapter's stars are an Event, from the day the chapter opens to the season's end: the stars earned out of 30, red until every star reward is claimed. The star battles leave with the season, rewards unclaimed with them.
   - A Node List event's story chapters with star rewards get the same row, until the event ends. These are apart from the event's own mission rewards.
 - `zRUN Chaos Runs Spreadsheet.cmd` makes your Chaos runs table and spreadsheet with a double-click: it checks for Python and openpyxl, says how to get either, and asks for your program's folder. See [Tracking Chaos runs](README.md#tracking-chaos-runs).
@@ -37,6 +40,10 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 ### Fixed
 
 - Checklist: a Trauma Code's Synchronization and its sticker count when claimed while capturing, not at the next login.
+- Checklist: Seasonal Accumulated Score counts up to 600000.
+- Checklist: the Zeronium Shop and Blackhorn Trade read their stock again, under their new Integrated Supply Exchange menu.
+- Checklist: an Event inside another Event's screen has its own name and rewards: Rules of Good Order reads its 17, and Nightmare Dream Park no longer counts them among its own.
+- The Chaos estimate counts season 5's Environment Variables by part again: 13 in part 1, 19 in part 2.
 
 ## [2.6.3] - Senectus Tracking, Distortion Adaptation
 

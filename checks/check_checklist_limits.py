@@ -44,6 +44,9 @@ def _client(gc):
     return _FakeClient({
         gc.ACTIVITY_TIERS: [{"id": "daily_0%d" % n, "point_count": str(p)}
                             for n, p in enumerate((20, 60, 120), 1)],
+        gc.WEEKLY_ACTIVITY_TIERS: [
+            {"id": "weekly_0%d" % n, "point_count": str(p)}
+            for n, p in enumerate((100, 600, 1200), 1)],
         gc.WEEKLY_CHARGES: [
             {"id": "2000027", "charge_type": "CHARGE_WEEK",
              "add_value": "5", "max": "5"},
@@ -118,6 +121,7 @@ def _level(node, level, effect, figure):
 
 WANT = {
     "activity": 120,
+    "activity_weekly": 1200,
     "charges": {"2000027": [5, 5], "2000036": [3, 10]},
     "passes": {"season_pass_009": [12000, 80, 7]},
     "simulation": {"content_boss": 4},
@@ -265,6 +269,7 @@ def _mismatches(ct, gc):
     out = []
     agreeing = {
         "activity": ct.ACTIVITY_FULL,
+        "activity_weekly": ct.ACTIVITY_WEEKLY_FULL,
         "passes": {"season_pass_009": [ct.PASS_WEEK_EXP_FULL,
                                        ct.PASS_LEVEL_FULL,
                                        ct.PASS_DAILY_COUNT],
@@ -284,7 +289,8 @@ def _mismatches(ct, gc):
             f"limit_mismatches named {quiet} where the client agrees with "
             f"every constant -- the Chinese server's pass (`_ch_`) runs its "
             f"own figures and is no mismatch.")
-    for word in ("ACTIVITY_FULL", "PASS_WEEK_EXP_FULL (season_pass_009)",
+    for word in ("ACTIVITY_FULL", "ACTIVITY_WEEKLY_FULL",
+                 "PASS_WEEK_EXP_FULL (season_pass_009)",
                  "SIMULATION_RUNS", "SORTIE_CAP", "MATRIX_LEVELS (zero_orb_5)",
                  "OFFENSIVE_BOSSES (remnants_boss_penalty_006)",
                  "GREAT_RIFT_TARGET", "excursions.VISIT_TICKETS",
@@ -320,6 +326,9 @@ def _run():
 
 # What this check must catch, for `checks/faults.py`.
 FAULTS = [
+    ("the week's Activity read off the day's tiers", "game_client:limits",
+     "for row in client.rows(WEEKLY_ACTIVITY_TIERS)),",
+     "for row in client.rows(ACTIVITY_TIERS)),", "'activity_weekly'"),
     ("a retired pass read", "game_client:_passes",
      'if row.get("delete_flag") == "YES":', "if False:",
      "a retired pass none"),

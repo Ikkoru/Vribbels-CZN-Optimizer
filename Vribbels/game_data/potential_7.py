@@ -81,6 +81,8 @@ POTENTIAL_7 = {
         {"grants": "card", "value": 10, "card": "Charged Shot",
          "stat": "CDmg", "at": 230},
     ),
+    30136: ({"grants": "CDmg", "value": 10, "stat": "DEF",       # Blazebell
+             "at": 300, "start": True},),
     1049: (                                                     # Cassius
         {"grants": "event", "value": 0,
          "card": "1 Morale for 1 turn on completing a Quest"},

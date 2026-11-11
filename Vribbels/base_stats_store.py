@@ -167,10 +167,28 @@ def plain_battles(battles):
 # nameless, an id of its own -- so a unit seen only as one is not a unit
 # the tables are missing. The server marks the player's own `is_own`
 # and a guest `is_custom_char`, which the capture files as a row's
-# `guest` (`Addon._note_base_stats`); in a battle filed before it did,
-# the requests that set the whole party stand for the mark.
+# `guest` (`Addon._note_base_stats`), on the build filed beside it too;
+# in a battle filed before it did, the requests that set the whole party
+# stand for the mark -- a banner's trial among them, its party the
+# banner's units at a set level and bare of fragments.
 PRESET_REQUESTS = frozenset({"story_stage/enter_story_experience_stage",
-                             "tutorial/request_stage"})
+                             "tutorial/request_stage",
+                             "gacha/enter_gacha_experience_stage",
+                             "gacha/enter_next_gacha_experience_stage"})
+
+
+def guest_sightings(battles):
+    """{(res_id, second)} for every unit a battle shows as a guest: a
+    row marked `guest`, or any row of a `PRESET_REQUESTS` battle. A
+    build is a guest's where its `first` is one of these seconds for its
+    combatant, or it is marked `guest` itself."""
+    out = set()
+    for battle in battles:
+        preset = battle.get("asked") in PRESET_REQUESTS
+        for row in battle.get("chars") or []:
+            if isinstance(row, dict) and (preset or row.get("guest")):
+                out.add((row.get("res_id"), battle.get("first")))
+    return out
 
 
 def own_units(battles):
@@ -484,23 +502,36 @@ def mutation_gaps(builds):
 
     The same build means the same combatant, level, nodes, partner,
     fragments and mode: anything else that differs moves the sheet on
-    its own. Two builds that never met say nothing either way."""
+    its own. Two builds that never met say nothing either way.
+
+    **The plain reading compared is the one nearest in time**, by the
+    `first` and `last` each was read: what the key leaves out still
+    moves the sheet between readings weeks apart -- Sereniel's DEF read
+    203 and then 204 with nothing in the key changed, and her Mutation
+    3 deck, read beside the 204, was taken as moving it."""
     def same(build):
         return json.dumps([build.get(k) for k in (
             "res_id", "level", "nodes", "partner_id", "partner_lb",
             "pieces", "zero_system")], sort_keys=True)
 
+    def apart(a, b):
+        """Seconds between two readings' spans; 0 where they overlap."""
+        a0, a1 = a.get("first") or 0, a.get("last") or a.get("first") or 0
+        b0, b1 = b.get("first") or 0, b.get("last") or b.get("first") or 0
+        return max(0, a0 - b1, b0 - a1)
+
     plain, mutated = {}, []
     for build in builds:
         if build.get("mutation") is None:
-            plain.setdefault(same(build), build)
+            plain.setdefault(same(build), []).append(build)
         else:
             mutated.append(build)
     out = []
     for build in mutated:
-        other = plain.get(same(build))
-        if other is None:
+        others = plain.get(same(build))
+        if not others:
             continue
+        other = min(others, key=lambda o: apart(o, build))
         a, b = other.get("status") or {}, build.get("status") or {}
         moved = {f: (a.get(f), b.get(f)) for f in set(a) | set(b)
                  if a.get(f) != b.get(f)}

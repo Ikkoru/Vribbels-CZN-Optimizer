@@ -79,6 +79,7 @@ def _run():
         ACTIVITY_FULL, CHAOS_CURRENCY, COFFEE_DONE, COFFEE_TODO,
         columns_for,
         ACTIVITY_READING, DAILY_TASK_FIELD,
+        ACTIVITY_WEEKLY_FULL, WEEKLY_TASK_FIELD,
         DELEGATION_CURRENCY, DELEGATION_DONE, DELEGATION_TODO,
         is_countdown, countdown_words, LATER, SOON, WARN, WARN_BLINK,
         PASS_DAILY_COUNT, PERIOD_LENGTHS,
@@ -217,6 +218,47 @@ def _run():
                 f"the Activities row with {why} reads {got!r}, not "
                 f"{[(want, state)]!r}. A claim counts only on the day it "
                 f"was made, a task only on the day it was issued.")
+
+    # --- the week's Activity, read as the day's -----------------------
+    # `week_id` / `week_point` the claim, `weekly_achieve` the points;
+    # a row issued before the weekly reset is last week's.
+    this_week = weekly_reset.week_index(now)
+    week_reset = int(weekly_reset.last_weekly_reset(now))
+
+    def _week(week_id, point, done=(), stale=()):
+        raw = _snapshot()
+        raw["point_entity"] = {"week_id": week_id, "week_point": point,
+                               "day_id": today, "day_point": 0}
+        tasks = [{"res_id": "weekly_achieve_%03d" % n, "score": 9999,
+                  "issued_time": when}
+                 for numbers, when in ((done, week_reset + HOUR),
+                                       (stale, week_reset - HOUR))
+                 for n in numbers]
+        if tasks:
+            raw[WEEKLY_TASK_FIELD] = tasks
+        return _readings(raw, now)["activity_weekly"]
+
+    full = ACTIVITY_READING % (ACTIVITY_WEEKLY_FULL, ACTIVITY_WEEKLY_FULL)
+    for args, want, state, why in (
+            ((this_week, ACTIVITY_WEEKLY_FULL), full, DONE,
+             "claimed this week at the top tier"),
+            ((this_week - 1, ACTIVITY_WEEKLY_FULL,
+              (1, 2, 3, 4, 5, 6, 7, 8, 9)), full, WARN_BLINK,
+             "every task done with last week's claim the last"),
+            ((this_week - 1, 0, (1, 8)), "260/%d" % ACTIVITY_WEEKLY_FULL,
+             TODO, "two tasks done, paying 100 and 160"),
+            ((this_week - 1, ACTIVITY_WEEKLY_FULL, (), (1, 2, 3)),
+             "0/%d" % ACTIVITY_WEEKLY_FULL, TODO,
+             "last week's tasks, issued before the reset"),
+            ((this_week, 400), "400/%d" % ACTIVITY_WEEKLY_FULL, TODO,
+             "a claim at 400 and no tasks"),
+            ((None, None), NO_DATA, UNKNOWN, "no claim and no tasks")):
+        got = _week(*args)
+        if got != [(want, state)]:
+            failures.append(
+                f"the weekly Activities row with {why} reads {got!r}, not "
+                f"{[(want, state)]!r}. A claim counts only in the week "
+                f"it was made, a task only in the week it was issued.")
 
     # --- an event row counts what is DONE, never what is left --------
     # **Both directions print a plausible number**, and the wrong one
@@ -361,11 +403,12 @@ def _run():
         "score_week_id": this_week, "week_total_score": 1200,
         "week_total_score_reward": 0}}}
     got = _readings(raw, now)["seasonal_score"]
-    if got != [("1200/300000", TODO)]:
+    want = [("1200/%d" % GREAT_RIFT_TARGET, TODO)]
+    if got != want:
         failures.append(
             f"a Great Rift row whose weekly reward is not yet claimed -- "
             f"`week_total_score_reward` 0 -- reads {got!r}, not "
-            f"{[('1200/300000', TODO)]!r}. The 0 is not a threshold; "
+            f"{want!r}. The 0 is not a threshold; "
             f"the stated one stands in for it.")
 
     # A record with NO stamp is read at face value: nothing about it
@@ -2480,19 +2523,23 @@ def _run():
             f"alone.")
 
     # --- a heading on two lines, and the blocks of the Other column ---
-    head = ct.SHOP_HEAD_PREFIX + "shop_hyperspace/none/monthly"
+    head = ct.SHOP_HEAD_PREFIX + "shop_contents/shop_hyperspace/monthly"
+    merged = "Shop - Integrated Supply Exchange - Zeronium Shop"
     for key, label, want in (
-            (head, "Shop - Zeronium Shop", ("Shop -", "Zeronium Shop")),
+            (head, "Shop - Prism Module", ("Shop -", "Prism Module")),
+            (head, merged,
+             ("Shop - Integrated Supply Exchange -", "Zeronium Shop")),
             (head, "Nono's Shop", ("Nono's Shop",)),
             ("coffee", "Shop - not a heading", ("Shop - not a heading",))):
         if ct._label_lines(key, label) != want:
             failures.append(
                 f"{label!r} under {key!r} draws as "
                 f"{ct._label_lines(key, label)!r}, not {want!r}. Only a "
-                f"shop heading opening `HEAD_BREAK` breaks after it.")
+                f"shop heading opening one of `HEAD_BREAKS` breaks after "
+                f"it, after the longest it opens with.")
     drawn = [((key, label, True, (), None), ("row",), (), None)
              for key, label in (("coffee", "Coffee"),
-                                (head, "Shop - Zeronium Shop"),
+                                (head, merged),
                                 (ct.SHOP_KEY_PREFIX + "p", "Prism Lens"))]
     if ct._value_lines(drawn) != [1, 3, 4]:
         failures.append(
@@ -2739,6 +2786,15 @@ def _expiring(now):
 
 # What this check must catch, for `checks/faults.py`.
 FAULTS = [
+    ("a weekly task issued last week paying this week",
+     "ui.tabs.checklist_tab:_activity_weekly_points",
+     "weekly_reset.last_weekly_reset(now)", "0",
+     "the weekly Activities row with"),
+    ("the week's claim read as the day's",
+     "ui.tabs.checklist_tab:_readings",
+     '_claimed_points(point, "week_id", "week_point",',
+     '_claimed_points(point, "day_id", "week_point",',
+     "the weekly Activities row with"),
     ("the Great Rift's opening coloured as a deadline",
      "ui.tabs.checklist_tab:_readings",
      'out["seasonal_score"] = _one(countdown_words(opens - now), UNKNOWN)',

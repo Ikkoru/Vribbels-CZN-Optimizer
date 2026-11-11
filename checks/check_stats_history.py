@@ -251,7 +251,14 @@ def _tables(sh):
                 "nine_stars_at": 1790900742,
                 "readings": [{"rank": 441, "rank_percent": 0.83,
                               "read_at": 5}]},
-            "remnants_boss_penalty_006": {"nine_stars_at": 1790900743}}}
+            "remnants_boss_penalty_006": {"nine_stars_at": 1790900743},
+            # The tier is the latest reading's that states one.
+            "remnants_boss_penalty_007": {"readings": [
+                {"rank": 3000, "rank_percent": 6.0, "read_at": 6,
+                 "rank_id": "remnants_s07_rank_best_1_23"},
+                {"rank": 2100, "rank_percent": 4.2, "read_at": 7,
+                 "rank_id": "remnants_s07_rank_best_1_25"},
+                {"rank": 2100, "rank_percent": 4.2, "read_at": 8}]}}}
     for name, table, rows, columns, why in (
             ("Sortie", sh.sortie_table, sh.SORTIE_ROWS,
              [("8", [None] * 5),
@@ -272,15 +279,20 @@ def _tables(sh):
              "top, Master's first, as its subdivision I -- no other "
              "subdivision's top is ever sent"),
             ("Full-Scale Offensive", sh.offensive_table, sh.OFFENSIVE_ROWS,
-             [("6", [None, None, None, None] + [sh.STARS % 3] * 3),
-              ("5", ["0.83%", "441", "~53,100", "3,447,110", "1,130,418",
-                     "1,060,877", "1,255,815"]),
-              ("4", ["~2.25%", "900", "~40,000", None, None, None, None])],
+             [("7", ["4.2%", "5%", "2,100", "~50,000", None, None, None,
+                     None]),
+              ("6", [None, None, None, None, None] + [sh.STARS % 3] * 3),
+              ("5", ["0.83%", None, "441", "~53,100", "3,447,110",
+                     "1,130,418", "1,060,877", "1,255,815"]),
+              ("4", ["~2.25%", None, "900", "~40,000", None, None, None,
+                     None])],
              "the field is the rank over rank_percent, to the hundred, the "
              "total the stages' best scores summed, each stage's in the "
              "order of their ids; a reading with no percentage takes the "
              "field of the latest that had one, and its Top% from it, "
-             "marked ~; a 9-starred Offensive with no score read shows 3 "
+             "marked ~; Top% official is the latest reading's tier's "
+             "share, as the Great Rift's; a 9-starred Offensive with no "
+             "score read shows 3 "
              "stars a stage, and one with its scores shows the scores "
              "alone")):
         # Codenames of the check's own -- one part named, its season's
@@ -532,3 +544,11 @@ def run():
     failures.extend(_addon_saves_nothing(sh))
     failures.extend(_once(sh))
     return failures
+
+
+FAULTS = [
+    ("the Offensive's tier read off the first reading",
+     "stats_history:offensive_table",
+     "for r in reversed(readings)", "for r in readings",
+     "the Full-Scale Offensive list reads"),
+]

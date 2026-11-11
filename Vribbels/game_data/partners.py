@@ -1112,7 +1112,7 @@ PARTNERS = {
         "from_client": True,  # client-based block end
     },
     30137: {
-        "name": "Vivian",  # client-based block start
+        "name": "Vivian",
         "grade": 5,
         "class": "Controller",
         "passive_name": "Ring of Black Smoke",
@@ -1125,10 +1125,12 @@ PARTNERS = {
         "stats": {
             "DEF%": (16, 18, 20, 22, 24),
         },
+        "stats_conditional": {
+            "CRate": (6, 8, 9, 11, 12),  # After a Justice Bind card is stacked (1 turn, max 1 stack)
+        },
         "ego_name": "Freyjaen Fog",
         "ego_cost": 3,
         "ego_desc": "Draw 2\nFor each Justice Card in hand, increase Damage Amount of Attack Cards by 20% for 1 turn (max 5 stack(s))",
-        "from_client": True,  # client-based block end
     },
 }
 

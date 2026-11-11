@@ -144,6 +144,25 @@ def run():
             f"`issued_time` is the day its score belongs to: kept from the "
             f"login, today's 2 is filed under yesterday, and the "
             f"Activities row pays nothing for it.")
+    # The weekly tasks: the login's list, and a move on
+    # `mission_condition`, the same as the daily ones.
+    addon.websocket_message(_Flow([{
+        "res": "ok", "weekly_achieve": [
+            {"res_id": "weekly_achieve_001", "score": 1,
+             "issued_time": 1791580000, "complete_time": 0}]}]))
+    addon.websocket_message(_Flow([{
+        "res": "ok", "mission_condition": {"condition": {
+            "weekly_achievement": [{"res_id": "weekly_achieve_003",
+                                    "score": 120, "issued_time": 1791666641,
+                                    "condition_type": "USE_STAMINA"}]}}}]))
+    weekly = addon.lifetime.get("weekly_achieve", {})
+    if sorted(weekly) != ["weekly_achieve_001", "weekly_achieve_003"] \
+            or weekly["weekly_achieve_003"].get("score") != 120:
+        failures.append(
+            f"the weekly tasks read {weekly!r} after a login and a move. "
+            f"They come as the login's `weekly_achieve` and as "
+            f"`mission_condition`'s `weekly_achievement`, and the "
+            f"Activity (Weeklies) row reads nothing else.")
     # A claim on the Achievements screen answers with its one row.
     addon.websocket_message(_Flow([{
         "res": "ok", "achievement_entity": {
@@ -331,6 +350,21 @@ def run():
             f"the board and a reset its row, both under `entities`; "
             f"without them the Checklist counts the login's empty board "
             f"all session, and an event claim's rows are no boss.")
+    # From Offensive 007 the standing states its ranking tier, `none`
+    # before the account has a score.
+    for rank_id in ("none", "remnants_s07_rank_best_1_25"):
+        live.websocket_message(_Flow([{
+            "res": "ok", "define_id": "remnants_boss_penalty_007",
+            "rank": 2100 if rank_id != "none" else -1, "rank_percent": 4.2,
+            "rank_id": rank_id, "reward_count": 0, "entities": {}}]))
+    tiers = [r.get("rank_id") for r in live.remnants_rankings.get(
+        "remnants_boss_penalty_007", {}).get("readings", [])]
+    if tiers != [None, "remnants_s07_rank_best_1_25"]:
+        failures.append(
+            f"Offensive 007's readings keep the tiers {tiers!r}, not "
+            f"[None, 'remnants_s07_rank_best_1_25']: the standing's "
+            f"`rank_id` is its tier, `none` meaning no score yet, and the "
+            f"Full-Scale Offensive list's Top% official reads it.")
     # A Basin objective scored mid-session comes on the clear, as
     # `hyperspace_season_condition`, and nowhere else until next login.
     live.websocket_message(_Flow([{
@@ -395,3 +429,13 @@ def run():
             "was learned from one `mission_condition` and the wire will "
             "not repeat it until the counter moves again.")
     return failures
+
+
+FAULTS = [
+    ("the weekly tasks' moves dropped", "capture.manager:ADDON_TEMPLATE",
+     '("weekly_achievement", "weekly_achieve")', '("x", "weekly_achieve")',
+     "the weekly tasks read"),
+    ("the Offensive's tier not kept", "capture.manager:ADDON_TEMPLATE",
+     '"rank_id": (offensive.get("rank_id")', '"rank_id": (None and 1',
+     "readings keep the tiers"),
+]
