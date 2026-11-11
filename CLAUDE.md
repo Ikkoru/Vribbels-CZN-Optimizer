@@ -71,6 +71,7 @@ Snapshots are the maintainer's captured game data. Read them; never write to `Vr
 | Event categories, how to classify one, and what the Checklist does with each | `docs/events.md`; `docs/events_replay.py` replays every login through its readers |
 | The Galactic Disaster tab: the season's challenge pages, what counts as done or locked, the lists | `docs/disaster_challenges.md` |
 | The Epione tab: counseling options, the record of those picked, who awaits counseling, the whiff count | `docs/epione.md` |
+| The Substat Readjustment tab: what a readjustment is worth, per Shuffling Quartz | `docs/readjust.md` |
 | Tk threading, startup, display quirks | `docs/ui_runtime.md` |
 | Panel layout, spacing rules, the ledger | `docs/ui_spacing.md` |
 | Fonts, colours, ttk styles, Treeviews, the UI scale | `docs/ui_styles.md` |

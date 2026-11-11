@@ -88,7 +88,7 @@ from optimizer import GearOptimizer
 # same set.
 from optimizer.optimizer import SLOT5_ELEMENT_MAINS
 from config import AppConfig
-from ui import AppContext, MaterialsTab, SetupTab, CaptureTab, InventoryTab, OptimizerTab, HeroesTab, ScoringTab, ChecklistTab, DisasterTab, GachaHistoryTab, EpioneTab
+from ui import AppContext, MaterialsTab, SetupTab, CaptureTab, InventoryTab, OptimizerTab, HeroesTab, ScoringTab, ChecklistTab, DisasterTab, GachaHistoryTab, EpioneTab, ReadjustTab
 from ui.utils.button_width import BUTTON_PAD_X
 from ui.utils import tab_bars
 from ui import scaling
@@ -1131,6 +1131,7 @@ class OptimizerGUI:
                           text="Gear Score")
         lazy.add("heroes", "Combatants", make(HeroesTab),
                  after_build=self._heroes_built)
+        lazy.add("readjust", "Substat Readjustment", make(ReadjustTab))
         lazy.add("materials", "Materials", make(MaterialsTab))
         lazy.add("checklist", "Checklist", make(ChecklistTab))
         lazy.add("disaster", "Galactic Disaster", make(DisasterTab))
@@ -1162,6 +1163,8 @@ class OptimizerGUI:
     setup_tab_instance = property(lambda self: self._lazy_tab("setup"))
     gacha_tab_instance = property(lambda self: self._lazy_tab("gacha"))
     epione_tab_instance = property(lambda self: self._lazy_tab("epione"))
+    readjust_tab_instance = property(
+        lambda self: self._lazy_tab("readjust"))
 
     def _lazy_tab(self, name):
         lazy = getattr(self, "lazy_tabs", None)
@@ -1802,7 +1805,8 @@ class OptimizerGUI:
                              ("checklist", "refresh_checklist"),
                              ("disaster", "refresh_disaster"),
                              ("gacha", "refresh_standings"),
-                             ("epione", "refresh_epione")):
+                             ("epione", "refresh_epione"),
+                             ("readjust", "refresh_readjust")):
             tab = self._lazy_tab(name)
             if tab is not None:
                 getattr(tab, method)()

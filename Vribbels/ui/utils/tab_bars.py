@@ -49,6 +49,7 @@ TAB_GROUPS = {
     "Memory Fragments": "gear",
     "Gear Score": "gear",
     "Combatants": "gear",
+    "Substat Readjustment": "gear",
     "Materials": "progress",
     "Checklist": "progress",
     "Galactic Disaster": "progress",

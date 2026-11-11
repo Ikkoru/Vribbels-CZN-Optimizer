@@ -1046,6 +1046,8 @@ def _dropdown_over_panel(prefix, panel):
 # The Overall Gacha Stats panel, by its title: `find_labelframe`
 # matches a title EXACTLY, so this has to follow the tab's
 # `OVERALL_TITLE`. `check_tabs_build` holds the two together.
+# The Substat Readjustment tab's note under its lists.
+READJUST_NOTE_PREFIX = "Readjustment keeps each substat"
 GACHA_OVERALL_TITLE = "Overall Gacha Stats"
 # The standings lists beside it, on the same terms. Their titles are
 # labelwidgets, which `find_labelframe` reads as well.
@@ -1087,6 +1089,10 @@ PANEL_OVER_TEXT_ENTRIES = [
      _button_over_panel("Check Status", "Setup Instructions")),
     ("Stats & Gacha History", "Import JSON -> Banners title", 10, None,
      _button_over_panel("Import JSON", "Banners")),
+    ("Substat Readjustment", "Score dropdown -> Fragments title", 10, None,
+     _dropdown_over_panel("Score:", "Fragments")),
+    ("Substat Readjustment", "Fragments -> note", 10, None,
+     _panel_over_label("Fragments", READJUST_NOTE_PREFIX)),
 
     # BOTH columns of the Capture tab's top grid, against the same
     # title below them. Requirements is the one the rule is read off:
@@ -2220,6 +2226,10 @@ CONTROL_GROUP_ENTRIES = [
      _gap(_by_text("Export JSON"), _group_of("Show:"), "h")),
     ("Stats & Gacha History", "Show group -> help text", 16, None,
      _gap(_group_of("Show:"), _by_text(GACHA_HELP_PREFIX), "h")),
+    ("Substat Readjustment", "Score group -> For group", 16, None,
+     _gap(_group_of("Score:"), _group_of("For:"), "h")),
+    ("Substat Readjustment", "Slot group -> Fragments group", 16, None,
+     _gap(_group_of("Slot:"), _group_of("Fragments:"), "h")),
 ]
 
 # (tab, name, locator) for controls read against the tab list on their
@@ -2230,6 +2240,8 @@ TAB_LIST_WIDGETS = [
      _by_text("Import JSON")),
     ("Stats & Gacha History", "Stats & Gacha History: tab list -> Show dropdown",
      _group_of("Show:")),
+    ("Substat Readjustment", "Substat Readjustment: tab list -> Score dropdown",
+     _group_of("Score:")),
 ]
 
 # (tab, name, target, hand reading, resolver) for a button row against

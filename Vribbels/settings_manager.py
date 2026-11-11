@@ -114,6 +114,13 @@ class SettingsManager:
         ("inventory_use_upgrade_log_filters", False),
         # Combatants
         ("combatants_show_missing", False),
+        # Substat Readjustment
+        ("readjust_measure", "gear"),
+        ("readjust_mode", "one"),
+        ("readjust_combatant", ""),
+        ("readjust_weights", {}),
+        ("readjust_owner", "all"),
+        ("readjust_slot", 0),
         # Materials
         ("materials_include_generic_combatant", False),
         ("materials_include_generic_partner", False),

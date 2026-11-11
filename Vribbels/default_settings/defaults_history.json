@@ -5363,6 +5363,24 @@
   "optimizer_workers": [
    0
   ],
+  "readjust_combatant": [
+   ""
+  ],
+  "readjust_measure": [
+   "gear"
+  ],
+  "readjust_mode": [
+   "one"
+  ],
+  "readjust_owner": [
+   "all"
+  ],
+  "readjust_slot": [
+   0
+  ],
+  "readjust_weights": [
+   {}
+  ],
   "selected_preset": [
    ""
   ],
