@@ -1111,6 +1111,25 @@ PARTNERS = {
         "ego_desc": "150% Damage to all enemies\n1 Tenacity Damage\nIncrease Action Count by 3",
         "from_client": True,  # client-based block end
     },
+    30137: {
+        "name": "Vivian",  # client-based block start
+        "grade": 5,
+        "class": "Controller",
+        "passive_name": "Ring of Black Smoke",
+        "passive_desc": "Increase the assigned Combatant's Defense by {v1}%.\nWhen a Bind count of 4 or higher is reached on a card of the assigned Combatant, increase Damage Amount of Attack Cards of Justice Attribute allies by {v2}% (cannot stack).\nWhen a Justice Bind card of the assigned Combatant is stacked, +{v3}% Critical Chance to Justice Attribute allies for 1 turn (cannot stack).",
+        "values": {
+            "v1": (16, 18, 20, 22, 24),
+            "v2": (20, 25, 30, 35, 40),
+            "v3": (6, 8, 9, 11, 12),
+        },
+        "stats": {
+            "DEF%": (16, 18, 20, 22, 24),
+        },
+        "ego_name": "Freyjaen Fog",
+        "ego_cost": 3,
+        "ego_desc": "Draw 2\nFor each Justice Card in hand, increase Damage Amount of Attack Cards by 20% for 1 turn (max 5 stack(s))",
+        "from_client": True,  # client-based block end
+    },
 }
 
 # Base stats by grade and class at level 60
@@ -1271,6 +1290,7 @@ SIGNATURE_PARTNERS = {
     "Nine": "Alcea", "Olga": "Emilie", "Rita": "Ivy", "Sereniel": "Peko",
     "Tenebria": "Aria", "Tiphera": "Tiana", "Yuki": "Westmacott",
     "Rossweisse": "Sig",
+    "Blazebell": "Vivian",  # client-based
 }
 
 # PARTNER_EXCEPTIONS: a combatant with no signature partner -- 4-stars
