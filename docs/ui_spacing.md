@@ -436,6 +436,7 @@ A scenario is a row of four cards, filled Texts sitting `content frame -> conten
 | Description | Location | Rule/Question |
 | ----------- | -------- | ------------- |
 | the Links panel's own button styling and pitch | `ui/tabs/setup_tab.py`, `_link_button` | Flat `tk.Button`s with their own `padx`/`pady`, packed `fill=X` at a pitch of 2. A flat button's painted edge is its fill rather than a border, so `button -> button` may not be the rule that applies. |
+| the Substat Readjustment tab's stacked dropdowns | `ui/tabs/readjust_tab.py`, `_dropdown` | Four label-and-dropdown rows in one column, 3 apart (`DROPDOWN_ROW_GAP`). No rule covers a dropdown row; `spinbox row -> spinbox row` is the nearest, a row of the same height. |
 | the Restore Defaults panel's switch under Window Size | `ui/tabs/setup_tab.py`, `_build_restore` | A two-line checkbox at the foot of the panel's second column, which takes the panel's whole height, so the switch ends where the first column does. `RESTORE_ROW_GAP` above it is a floor under Window Size, met only where this column is the taller. No rule covers a button above a checkbox; `button -> button` is the nearest. |
 
 ## Checking spacing

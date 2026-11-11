@@ -4360,11 +4360,15 @@ def _gacha_overall_fits(tab, gh):
     the Banners list's width and the oldest first; forty are handed
     over here.
 
+    The Prism Module's and the Card Skin Packs' records are a second
+    column beside the Combatant & Partner banners', its last line on
+    theirs, starting its measured width short of the Banners list's.
+
     Returns a list of complaints.
     """
     from datetime import datetime
     from ui.tabs.gacha_history_tab import (
-        OVERALL_TITLE, PRISM_ONLY, SKINS_NOTE, SKINS_ONLY, WITH_PRISM,
+        OVERALL_TITLE, PRISM_ONLY, SKINS_ONLY, STREAK, WITH_PRISM,
         WITH_SKINS, WITHOUT_PRISM)
 
     out = []
@@ -4391,7 +4395,10 @@ def _gacha_overall_fits(tab, gh):
                    f"{tab.overall_holder.cget('width')}px wide, past the "
                    f"Banners list's {available}: it widens their column "
                    f"and squeezes the pulls list.")
+    streak = STREAK % gh.STREAK_PULLS
     row = text.get("5.0", "5.end").split("\t")
+    # The first column's fields: the second column's start after them.
+    row = row[:row.index(streak)] if streak in row else row
     dates = row[3::2]
     oldest = datetime.fromtimestamp(1000).strftime("%Y-%m-%d")
     if len(dates) < 2 or dates != sorted(dates) or dates[0] != oldest:
@@ -4400,32 +4407,38 @@ def _gacha_overall_fits(tab, gh):
     problems, headings = _sheet_complaints(OVERALL_TITLE, text,
                                            tab.overall_holder)
     out.extend(problems)
-    # The wider sections sit beside the first, on its heading's line, and
-    # the Card Skin Packs' records beside the Prism Module's.
-    if headings != ["\t".join((WITHOUT_PRISM, WITH_PRISM, WITH_SKINS)),
-                    "\t".join((PRISM_ONLY, SKINS_ONLY, SKINS_NOTE))]:
+    # The wider sections sit beside the first, on its heading's line.
+    if headings != ["\t".join((WITHOUT_PRISM, WITH_PRISM, WITH_SKINS))]:
         out.append(f"the {OVERALL_TITLE} sheet's headings read {headings}")
-    # The two halves share the room: the second starts at its middle, or
-    # as far short of it as its noted heading needs to end inside the
-    # room -- the first stop of the line's own (`BESIDE_TAG`).
-    import tkinter.font as tkfont
-    from ui.scaling import px
-    from ui.tabs.gacha_history_tab import BESIDE_TAG, HEADING_FONT, NOTE_GAP
-    line = next((n for n in range(1, int(text.index("end").split(".")[0]))
-                 if text.get(f"{n}.0", f"{n}.end").startswith(
-                     PRISM_ONLY + "\t")), None)
-    stops = text.tk.splitlist(text.tag_cget(BESIDE_TAG % (line - 1), "tabs")) \
-        if line else ()
-    room = tab._banners_width()
-    noted = (tkfont.Font(font=HEADING_FONT).measure(SKINS_ONLY)
-             + px(NOTE_GAP) + tkfont.nametofont("TkDefaultFont").measure(
-                 SKINS_NOTE))
-    want = min(room // 2, room - noted)
-    if not stops or int(float(str(stops[0]))) < want:
-        out.append(f"the {SKINS_ONLY} records start at "
-                   f"{stops[0] if stops else None}px, short of {want}: the "
-                   f"middle of the sheet's {room}px, or as far short of it "
-                   f"as their noted heading needs -- the two halves share it.")
+    # The second column: the Prism Module's four lines, then the Card
+    # Skin Packs', the last on the first column's last, every one of
+    # them starting at one stop, its width short of the room -- the stop
+    # before its first field on the line's own (`BESIDE_TAG`).
+    from ui.tabs.gacha_history_tab import BESIDE_TAG
+    last = int(text.index("end-1c").split(".")[0])
+    lines = {n: text.get(f"{n}.0", f"{n}.end").split("\t")
+             for n in range(1, last + 1)}
+    want = tab._banners_width() - tab._right_width()
+    starts = {}
+    for n, fields in lines.items():
+        for name in (PRISM_ONLY, SKINS_ONLY):
+            if name in fields[1:]:
+                own = [int(float(str(v))) for v in text.tk.splitlist(
+                    text.tag_cget(BESIDE_TAG % (n - 1), "tabs"))]
+                starts[name] = (n, ([0] + own)[fields.index(name)])
+    if lines[last].count(streak) != 2 \
+            or starts.get(PRISM_ONLY, (0,))[0] != last - 7 \
+            or starts.get(SKINS_ONLY, (0,))[0] != last - 3:
+        out.append(f"the {OVERALL_TITLE} sheet's second column starts its "
+                   f"{PRISM_ONLY} records on line "
+                   f"{starts.get(PRISM_ONLY, (None,))[0]} and its "
+                   f"{SKINS_ONLY} records on line "
+                   f"{starts.get(SKINS_ONLY, (None,))[0]} of {last}: its "
+                   f"last line is the first column's, {streak!r} on both.")
+    if {at for _n, at in starts.values()} != {want}:
+        out.append(f"the {OVERALL_TITLE} sheet's second column starts at "
+                   f"{sorted(at for _n, at in starts.values())}px, not "
+                   f"{want}: its measured width short of the Banners list's.")
     # The spacing audit finds this panel by its exact title and these
     # rows by their words. A rename the registry does not follow leaves
     # those rows reading nothing, and only an audit would say so.
@@ -4458,6 +4471,11 @@ def _gacha_overall_fits(tab, gh):
                    f"{want!r}")
     tab.refresh()
     return out
+
+
+# Seasons enough for every standings list to scroll, the Offensive's and
+# the Sortie's across the whole window included.
+STANDINGS_SEASONS = 24
 
 
 def _standings(seasons):
@@ -4501,12 +4519,15 @@ def _standings_lists_fit(tab):
     """The standings lists show every season read, newest first, and fit
     the room under the gacha sheet in the default window.
 
-    The Great Rift's list has the Banners list's width; the two under
-    it share that width, half each. Each is as wide as its seasons up to
-    its room. Handed more seasons than that room holds, a list
-    must stop at its edge and scroll the rest, the newest in view: one
-    that grows past it widens the column and takes the difference from
-    the pulls list, and one cut off anywhere simply stops drawing.
+    The Great Rift's list has the Banners list's width. The Offensive's
+    and the Sortie's sit at the window's foot, their tops level, and
+    share their room so that each shows as many seasons as the other:
+    under the banners while both fit there whole, else across the whole
+    window, the pulls list then ending above them. Each is as wide as its
+    seasons up to its room. Handed more seasons than that room holds, a
+    list must stop at its edge and scroll the rest, the newest in view:
+    one that grows past it widens the column and takes the difference
+    from the pulls list, and one cut off anywhere simply stops drawing.
     Measured at the worst the tab gets -- the gacha sheet at its widest,
     every banner family listed, every list scrolling, and the warning
     lines the test history raises showing -- mapped at alpha 0 like
@@ -4531,7 +4552,8 @@ def _standings_lists_fit(tab):
     from ui import spacing_registry as registry
     from ui.scaling import px, WINDOW_H, WINDOW_W
     from ui.tabs.gacha_history_tab import (
-        BANNER_ROWS, NO_VALUE, OFFENSIVE_TITLE, RIFT_TITLE, SORTIE_TITLE)
+        BANNER_ROWS, NO_VALUE, OFFENSIVE_TITLE, RIFT_TITLE, SORTIE_TITLE,
+        STANDINGS_COLUMN_GAP)
 
     out = []
     lists = ((SORTIE_TITLE, tab.sortie_list, sh.sortie_table,
@@ -4634,6 +4656,17 @@ def _standings_lists_fit(tab):
                            f"are {parts.holder.cget('width')}px wide across "
                            f"{tab._columns_width(parts.data)}px of columns; "
                            f"it is as wide as its seasons up to its room.")
+        # Fitting under the banners, the pair leaves the pulls list
+        # whole, down to the window's foot.
+        pulls = tab.pulls_frame
+        foot = body.winfo_rooty() + body.winfo_height()
+        if tab._wide or pulls.winfo_rooty() + pulls.winfo_height()                 < tab.pair.winfo_rooty():
+            out.append(f"with nothing read the pulls list ends at "
+                       f"{pulls.winfo_rooty() + pulls.winfo_height()}, "
+                       f"above the {OFFENSIVE_TITLE} list at "
+                       f"{tab.pair.winfo_rooty()}: while that list and the "
+                       f"{SORTIE_TITLE} list fit under the banners, the "
+                       f"pulls list runs to the window's foot.")
         # The gacha sheet at its widest: more ties than it holds.
         if history is not None and any(pool.pulls
                                        for pool in history.ordered()):
@@ -4643,7 +4676,7 @@ def _standings_lists_fit(tab):
                 gh.Standout(1, [gh.Pull(res_id=first.res_id,
                                         at=1000 + i * 86400, number=i)])
                 for i in range(40)]
-        raw = _standings(12)
+        raw = _standings(STANDINGS_SEASONS)
         optimizer.raw_data = raw
         tab._fill_overall()
         tab._fill_standings()
@@ -4689,29 +4722,49 @@ def _standings_lists_fit(tab):
                        f"{rift.winfo_rootx() + rift.winfo_width()}, the "
                        f"Banners list at {right}: it grows up to that "
                        f"list's width and stops there.")
-        half = tab._banners_width() // 2 - px(2) - tab._panel_edges()
-        for parts, title in ((tab.offensive_list, OFFENSIVE_TITLE),
-                             (tab.sortie_list, SORTIE_TITLE)):
-            used = tab._columns_width(parts.labels) + int(
-                parts.holder.cget("width"))
-            if used > half:
-                out.append(f"the {title} list is {used}px wide, past the "
-                           f"{half}px half of the Banners list's width each "
-                           f"of the two side by side has.")
-        # Both past their room, the pair takes the banners' whole width
-        # between them: half each, less what a title wider than its half
-        # takes from its neighbour.
-        pair = tab.sortie_list.frame
-        if pair.winfo_rootx() + pair.winfo_width() != right:
-            out.append(f"with both lists past their room, the "
+        # Past the banners' room, the pair takes the window's whole
+        # width, under the pulls list, which ends above it.
+        offensive, sortie = tab.offensive_list.frame, tab.sortie_list.frame
+        pulls_right = pulls.winfo_rootx() + pulls.winfo_width()
+        if not tab._wide or sortie.winfo_rootx() + sortie.winfo_width()                 != pulls_right:
+            out.append(f"with both lists past the banners' room, the "
                        f"{OFFENSIVE_TITLE} and {SORTIE_TITLE} lists end at "
-                       f"{pair.winfo_rootx() + pair.winfo_width()}, the "
-                       f"Banners list at {right}: between them they take "
-                       f"its whole width.")
+                       f"{sortie.winfo_rootx() + sortie.winfo_width()}, the "
+                       f"pulls list at {pulls_right}: between them they take "
+                       f"the window's whole width.")
+        if pulls.winfo_rooty() + pulls.winfo_height() > offensive.winfo_rooty():
+            out.append(f"the pulls list ends at "
+                       f"{pulls.winfo_rooty() + pulls.winfo_height()}, past "
+                       f"the {OFFENSIVE_TITLE} list's top at "
+                       f"{offensive.winfo_rooty()}: across the window, the "
+                       f"pair takes the room under it.")
+        # At the window's foot, the Offensive's the taller, their tops
+        # level.
+        if tab.pair.winfo_rooty() + tab.pair.winfo_height() != foot                 or sortie.winfo_rooty() != offensive.winfo_rooty():
+            out.append(f"the {OFFENSIVE_TITLE} list's top is at "
+                       f"{offensive.winfo_rooty()}, the {SORTIE_TITLE} "
+                       f"list's at {sortie.winfo_rooty()}, and the two end "
+                       f"at {tab.pair.winfo_rooty() + tab.pair.winfo_height()}"
+                       f" where the window's foot is {foot}: they sit at the "
+                       f"foot, tops level.")
+        # Each shows as many seasons as the other: their widths over each
+        # list's average season, a season apart at most.
+        counts = []
+        for parts in (tab.offensive_list, tab.sortie_list):
+            seasons = sum(1 for c in parts.data["columns"]
+                          if not str(c).startswith("gap"))
+            per = (tab._columns_width(parts.data)
+                   + px(STANDINGS_COLUMN_GAP)) / seasons
+            counts.append(int(parts.holder.cget("width")) / per)
+        if abs(counts[0] - counts[1]) > 1:
+            out.append(f"the {OFFENSIVE_TITLE} list shows "
+                       f"{counts[0]:.1f} seasons and the {SORTIE_TITLE} list "
+                       f"{counts[1]:.1f}: they share their room so that "
+                       f"each shows as many as the other.")
         for title, parts, _table, _registered in lists:
             frame = parts.frame
             over = frame.winfo_rootx() + frame.winfo_width() - right
-            if over > 0:
+            if parts is tab.rift_list and over > 0:
                 out.append(f"the {title} list runs {over}px past the Banners "
                            f"list's right edge in a default-sized window, "
                            f"widening their column into the pulls list.")
@@ -4723,7 +4776,8 @@ def _standings_lists_fit(tab):
             wide = tab._columns_width(parts.data) > int(
                 parts.holder.cget("width"))
             if not wide:
-                out.append(f"the {title} list holds twelve seasons without "
+                out.append(f"the {title} list holds {STANDINGS_SEASONS} "
+                           f"seasons without "
                            f"scrolling; the test no longer reaches its edge.")
             if wide != bool(parts.scroll.winfo_ismapped()):
                 out.append(f"the {title} list's scrollbar is "
@@ -7052,14 +7106,34 @@ FAULTS = [
      "(apart[key], colour) if key in apart else None",
      "(apart[key], None) if key in apart else None",
      "not its shop heading's"),
-    ("the gacha sheet's halves not split at the middle",
+    ("the gacha sheet's second column set past its first alone",
      "ui.tabs.gacha_history_tab:GachaHistoryTab._overall_layout",
-     "if k == 1 and room and rows[run[0]].halves:", "if False:",
-     "short of the middle"),
-    ("the Card Skin Packs' records not beside the Prism Module's",
-     "ui.tabs.gacha_history_tab:GachaHistoryTab._overall_rows",
-     "Beside(PRISM_ONLY, SKINS_ONLY, halves=True),",
-     "PRISM_ONLY, SKINS_ONLY,", "sheet's headings read"),
+     "start = max(start, room - right_width)", "pass",
+     "its measured width short of"),
+    ("the gacha sheet's second column top-aligned",
+     "ui.tabs.gacha_history_tab:_bottom_aligned",
+     "first = len(rows) - len(right)", "first = 0",
+     "its last line is the first column's"),
+    ("the Offensive's and the Sortie's lists right under the Great Rift's",
+     "ui.tabs.gacha_history_tab:GachaHistoryTab.setup_ui",
+     ["body.grid_rowconfigure(2, weight=1)",
+      'self.pair.grid(row=3, column=0, sticky="sw")'],
+     ["body.grid_rowconfigure(3, weight=1)",
+      'self.pair.grid(row=3, column=0, sticky="nw")'],
+     "they sit at the foot"),
+    ("the pulls list kept whole over a pair across the window",
+     "ui.tabs.gacha_history_tab:GachaHistoryTab._place_pair",
+     "rowspan=3 if wide else 4,", "rowspan=4,",
+     "the pair takes the room under it"),
+    ("the pair kept under the banners however many seasons",
+     "ui.tabs.gacha_history_tab:GachaHistoryTab._size_standings",
+     "and self._pair_width(natural) > width)", "and False)",
+     "the window's whole width"),
+    ("the pair's room shared by width rather than by season",
+     "ui.tabs.gacha_history_tab:GachaHistoryTab._share",
+     "return [min(n, int(k * s)) for n, s in zip(natural, per)]",
+     "return [min(n, int(k * 50)) for n in natural]",
+     "each shows as many as the other"),
     ("an Expiring Items tip reaching back across the column gap",
      "ui.tabs.checklist_tab:ChecklistTab._fill_expiring",
      "text.insert(tk.END, COLUMN_SEP, (\"row\",))",

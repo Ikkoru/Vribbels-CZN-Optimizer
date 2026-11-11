@@ -1,21 +1,21 @@
 # Substat Readjustment
 
-The Substat Readjustment tab ranks every fully upgraded Legendary Memory Fragment by what readjusting it is expected to gain per Shuffling Quartz (item 3210004). The model is `Vribbels/readjust.py`, the tab `Vribbels/ui/tabs/readjust_tab.py`, and `checks/check_readjust.py` holds both.
+The Substat Readjustment tab, beside Memory Fragments, ranks every fully upgraded Legendary Memory Fragment by what readjusting it is expected to gain per Shuffling Quartz (item 3210004). The model is `Vribbels/readjust.py`, the tab `Vribbels/ui/tabs/readjust_tab.py`, and `checks/check_readjust.py` holds both.
 
 ## What the game does
 
-From the client's `ui_piece_readjust_desc_*` texts:
+From the game's *Memory Fragment Upgrade Probabilities* notice on STOVE, and the client's `ui_piece_readjust_desc_*` texts:
 
-- A readjustment keeps every substat's type, and the value it started at. The fragment's upgrades are dealt out again, each to one of its substats with a fresh roll.
+- A readjustment keeps every substat's type and the value it started at, and performs 4 upgrades again, whatever the fragment had. Each upgrade picks one of the substats with equal chance and rolls a value anywhere on that stat's Legendary grid with equal chance (`roll_values`, the client's rolls).
 - One substat may be excluded first. It takes no upgrade and goes back to its starting value.
 - It costs 1 Shuffling Quartz, or 2 with an exclusion.
 - The game shows Before and After, and the player keeps either one.
 
 So **a readjustment never loses anything**: its worth is the expected `max(0, after - before)`.
 
-A fragment's `stat_list` keeps each substat's starting value (type 1, or type 2 for the substat added at level 1) apart from its upgrades (type 3); `MemoryFragment.from_json` reads them into `base_value` and `upgrade_values`. Every fully upgraded Legendary has four substats and four upgrades.
+A fragment's `stat_list` keeps each substat's starting value (type 1, or type 2 for the substat added at level 1) apart from its upgrades (type 3); `MemoryFragment.from_json` reads the first into `base_value`.
 
-**Two parts of this are assumed, not yet seen on the wire**: each upgrade picks its substat with equal chance and its roll anywhere on the stat's grid with equal chance, as the Potential's model assumes; and the starting values survive. A capture of one readjustment would confirm both, and the readjustment command's reply has not been read yet.
+The readjustment command's reply has not been captured yet, so the tab cannot yet show a readjustment's After beside its Before.
 
 ## The two measures
 
@@ -34,6 +34,14 @@ A build-score combatant's settings are their Optimizer settings, its level the o
 
 Per Quartz is greedy: it compares one Quartz's worth. An exclusion can beat two plain readjustments and still lose to one per Quartz, since a second plain readjustment adds less than the first.
 
+The **Slots**, **Sets** and **Fragments** filters only narrow what is drawn, from answers already worked out. The Quartz count is red at 0, orange at 1, yellow at 2 and green above.
+
+## Where the work runs
+
+In worker processes (`readjust.submit`), never on a thread: Python arithmetic on a thread takes the interpreter lock in turns with Tk's event loop, and the window answers only between turns. A job is one combatant, one measure and a chunk of fragments, and carries what a fresh process lacks: `STATS` with the game client's rolls laid over it, and the build score's inputs already resolved (`build_inputs`).
+
+The tab keeps every answer, keyed by the snapshot, the measure, the combatant and the preset weights or Optimizer settings it was worked out under. Switching back to a measure or a combatant already worked out draws at once. A change drops only the jobs not started yet, and a new snapshot drops everything. While anything is still being worked out the list shows `Loading...`. A tab that is not showing starts no worker; showing it (`<Map>`) catches up.
+
 ## Settings
 
-`readjust_measure`, `readjust_mode`, `readjust_combatant`, `readjust_weights` ({name: weight}), `readjust_owner` and `readjust_slot` in `settings.json`, under the Substat Readjustment heading of `SettingsManager.LAYOUT`.
+`readjust_measure`, `readjust_mode`, `readjust_combatant`, `readjust_weights` ({name: weight}) and `readjust_owner` in `settings.json`, under the Substat Readjustment heading of `SettingsManager.LAYOUT`. The Slots and Sets ticks are not kept, as on the Memory Fragments tab.

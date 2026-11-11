@@ -176,11 +176,17 @@ SKINS_ONLY = gh.SKIN_LABEL
 # to open in game to fill their records.
 SKINS_NOTE = "Shop > Lumina Theater > Probability Info > Pack Purchase History"
 HEADING_FONT = ("Segoe UI", 9, "bold")
+STREAK = "Most 5★s in %d pulls"
+# What the second column is measured with (`_right_width`): a record's
+# widest value and a tie's date.
+WIDEST_COUNT = "99 pulls"
+WIDEST_DATE = "0000-00-00"
 
 # Under it, the account's standings: three lists with a column per
 # season, newest first, and the rows' names held still at the left --
 # the Great Rift's up to the Banners list's width, then the Full-Scale
-# Offensive's and the Sortie's side by side, up to half of it each. The
+# Offensive's and the Sortie's side by side at the window's foot, each
+# showing as many seasons as the other (`_share`). The
 # tables are `sh.sortie_table`, `sh.rift_table` and `sh.offensive_table`,
 # over the loaded snapshot's ranking history and whatever
 # `stats_history.py` read out of the captures from before snapshots
@@ -269,16 +275,40 @@ class Beside:
     by side: `parts`, each a heading's string or a row's fields. The
     first keeps the sheet's stops; each after it starts past the one
     before, on stops the line carries itself, and a run of these lines
-    is laid out together (`GachaHistoryTab._overall_layout`). `halves`
-    starts the second at the middle of the sheet's room, so the two
-    share it equally."""
+    is laid out together (`GachaHistoryTab._overall_layout`)."""
 
-    def __init__(self, *parts, halves=False):
-        self.parts, self.halves = parts, halves
+    def __init__(self, *parts):
+        self.parts = parts
 
     @property
     def left(self):
         return self.parts[0]
+
+
+class Paired:
+    """A line of the gacha sheet with a part in its second column as
+    well: `left` any line, `right` a heading, a `Noted` heading or a
+    row's fields. The second column holds the Prism Module's and the
+    Card Skin Packs' records beside the Combatant & Partner banners',
+    its last line on theirs. It starts `right_width` short of the
+    sheet's room, at a width measured once (`_right_width`)."""
+
+    def __init__(self, left, right):
+        self.left, self.right = left, right
+
+
+def _bottom_aligned(rows, right):
+    """`rows` with `right`'s parts paired onto the last of them, line
+    for line, so the two columns end on one line."""
+    first = len(rows) - len(right)
+    return tuple(Paired(row, right[n - first])
+                 if 0 <= n - first < len(right) else row
+                 for n, row in enumerate(rows))
+
+
+def _left(row):
+    """A line's first-column part: itself unless it is `Paired`."""
+    return row.left if isinstance(row, Paired) else row
 
 
 class Noted:
@@ -382,6 +412,8 @@ class GachaHistoryTab(BaseTab):
         self.tooltip = Tooltip(self.colors)
         self._tip_font = None           # see `_underlined`
         self._row_tip_at = None         # see `_row_tip`
+        self._right_cached = None       # see `_right_width`
+        self._wide = False              # see `_place_pair`
         self.setup_ui()
         self.frame.bind("<Map>", self._first_show, add="+")
 
@@ -475,13 +507,15 @@ class GachaHistoryTab(BaseTab):
 
         # The two lists side by side: the banners at their own width on
         # the left with the figures across them beneath, the pulls taking
-        # whatever the window has left. The pulls span both rows, and
-        # the second takes the slack, so the figures sit right under the
-        # banners however tall the pulls list is.
+        # whatever the window has left. The Great Rift's row takes the
+        # slack, so the figures and that list sit right under the
+        # banners, and the Offensive's and the Sortie's lists at the
+        # window's foot -- under the pulls list too where their seasons
+        # need the room (`_place_pair`).
         body = ttk.Frame(content)
         body.pack(fill=tk.BOTH, expand=True)
         body.grid_columnconfigure(1, weight=1)
-        body.grid_rowconfigure(3, weight=1)
+        body.grid_rowconfigure(2, weight=1)
         body.bind("<Configure>", self._share_excess, add="+")
 
         summary_frame = ttk.LabelFrame(body, text="Banners",
@@ -511,16 +545,17 @@ class GachaHistoryTab(BaseTab):
         self.rift_list = self._make_standings(
             body, RIFT_TITLE, RIFT_NOTE, row=2, column=0,
             top=UNDER_SHEET_PAD)
-        # The two half-width lists share a row of their own. Unpadded --
-        # the panels in it carry their pads, so they line up with the
-        # banners' edges.
-        pair = ttk.Frame(body)
-        pair.grid(row=3, column=0, sticky="nw")
+        # The Offensive's and the Sortie's lists share a row of their
+        # own at the foot, their tops level: the Offensive's, the taller,
+        # ends at the window's foot. Unpadded -- the panels in it carry
+        # their pads, so they line up with the banners' edges.
+        self.pair = ttk.Frame(body)
+        self.pair.grid(row=3, column=0, sticky="sw")
         self.offensive_list = self._make_standings(
-            pair, OFFENSIVE_TITLE, OFFENSIVE_NOTE, row=0, column=0,
+            self.pair, OFFENSIVE_TITLE, OFFENSIVE_NOTE, row=0, column=0,
             top=UNDER_LIST_PAD, last=True)
         self.sortie_list = self._make_standings(
-            pair, SORTIE_TITLE, SORTIE_NOTE, row=0, column=1,
+            self.pair, SORTIE_TITLE, SORTIE_NOTE, row=0, column=1,
             top=UNDER_LIST_PAD, last=True)
         # Written now, with nothing read. The gacha sheet is then already
         # its full height, and only its width moves when the history
@@ -1004,8 +1039,8 @@ class GachaHistoryTab(BaseTab):
             per = _number(o.rate_up_avg)
             if o.rate_up_expected is not None:
                 per += " (expected avg %s)" % _number(o.rate_up_expected)
-        streak = "Most 5★s in %d pulls" % gh.STREAK_PULLS
-        return (
+        streak = STREAK % gh.STREAK_PULLS
+        return _bottom_aligned((
             # The wider sections are a heading and a luck each, which sit
             # beside the first section's rather than a section down.
             Beside(WITHOUT_PRISM, WITH_PRISM, WITH_SKINS),
@@ -1020,17 +1055,47 @@ class GachaHistoryTab(BaseTab):
             ("Fastest rate-up",) + _standout(o.fastest_rate_up),
             ("Slowest rate-up",) + _standout(o.slowest_rate_up),
             (streak,) + _standout(o.streak, streak=True),
-            # The Prism Module's and the Card Skin Packs' records, side
-            # by side in two equal halves, a Super Rare as a 5-star.
-            Beside(PRISM_ONLY, Noted(SKINS_ONLY, SKINS_NOTE), halves=True),
-            Beside(("Fastest 5★",) + _standout(o.prism_fastest),
-                   ("Fastest 5★",) + _standout(o.skin_fastest), halves=True),
-            Beside(("Slowest 5★",) + _standout(o.prism_slowest),
-                   ("Slowest 5★",) + _standout(o.skin_slowest), halves=True),
-            Beside((streak,) + _standout(o.prism_streak, streak=True),
-                   (streak,) + _standout(o.skin_streak, streak=True),
-                   halves=True),
-        )
+        ), (
+            # The Prism Module's records, then the Card Skin Packs', in
+            # the second column, a Super Rare as a 5-star.
+            PRISM_ONLY,
+            ("Fastest 5★",) + _standout(o.prism_fastest),
+            ("Slowest 5★",) + _standout(o.prism_slowest),
+            (streak,) + _standout(o.prism_streak, streak=True),
+            Noted(SKINS_ONLY, SKINS_NOTE),
+            ("Fastest 5★",) + _standout(o.skin_fastest),
+            ("Slowest 5★",) + _standout(o.skin_slowest),
+            (streak,) + _standout(o.skin_streak, streak=True),
+        ))
+
+    def _right_width(self):
+        """The sheet's second column's width: `Most 5★s in 10 pulls`,
+        then two ties, each a count, one of the two longest combatant
+        names and a date, at the sheet's gaps -- or the Card Skin Packs'
+        heading and note, where that is wider. Measured the first time
+        it is asked for and kept, so neither a resize nor a refill moves
+        the column."""
+        if self._right_cached is None:
+            from game_data import CHARACTERS
+            font = tkfont.nametofont("TkDefaultFont")
+            bold = tkfont.Font(font=HEADING_FONT)
+            names = sorted((unit["name"] for unit in CHARACTERS.values()
+                            if isinstance(unit, dict) and unit.get("name")),
+                           key=font.measure, reverse=True)[:2]
+            names += ["#99999"] * (2 - len(names))
+            ties = [font.measure(WIDEST_COUNT) + px(VALUE_TO_UNITS)
+                    + font.measure(name) + px(UNITS_TO_DATE)
+                    + font.measure(WIDEST_DATE) for name in names]
+            # spacing: label ↔ its element -- run, run ↔
+            # spacing: element and its label ↔ element and its label -- run, run ↔
+            record = (font.measure(STREAK % gh.STREAK_PULLS)
+                      + px(FIGURE_TO_VALUE) + ties[0] + px(TIE_TO_TIE)
+                      + ties[1])
+            # spacing: header subtext -- label, label ↔
+            noted = (bold.measure(SKINS_ONLY) + px(NOTE_GAP)
+                     + font.measure(SKINS_NOTE))
+            self._right_cached = max(record, noted)
+        return self._right_cached
 
     def _fill_overall(self):
         """Write the gacha sheet, its ties cut to the banners' width."""
@@ -1142,34 +1207,106 @@ class GachaHistoryTab(BaseTab):
                 tags=tags[row])
 
     def _size_standings(self):
-        """Fit each standings list to its room: the Great Rift's is the
-        Banners list's width, and the two beneath it have half of it
-        each. A list is as wide as its seasons up to its room, and past
-        it they scroll sideways under a scrollbar that shows only then
-        -- newest first, so what scrolls out of sight is the oldest."""
+        """Fit each standings list to its room. The Great Rift's is the
+        Banners list's width. The Offensive's and the Sortie's share
+        theirs so that each shows as many seasons as the other (`_share`):
+        under the banners while both fit there whole, else across the
+        window's whole width, under the pulls list (`_place_pair`). A
+        list is as wide as its seasons up to its room, and past it they
+        scroll sideways under a scrollbar that shows only then -- newest
+        first, so what scrolls out of sight is the oldest."""
         width, edges = self._banners_width(), self._panel_edges()
-        # Each half less its share of the two pads between the panels. A
-        # title and note wider than its half takes the difference from
-        # the neighbour's list, so the pair never runs past the banners.
-        half = width // 2 - px(2)
         pair = (self.offensive_list, self.sortie_list)
-        rooms = [(self.rift_list, width)]
-        for parts, other in zip(pair, pair[::-1]):
-            beside = max(other.header.winfo_reqwidth() + edges,
-                         min(half, self._columns_width(other.labels)
-                             + self._columns_width(other.data) + edges))
-            rooms.append((parts, min(half, width - 2 * px(2) - beside)))
-        for parts, room in rooms:
-            natural = self._columns_width(parts.data)
-            space = max(1, room - edges - self._columns_width(parts.labels))
-            shown = min(natural, space)
-            parts.holder.configure(width=shown,
-                                   height=parts.data.winfo_reqheight())
-            if natural > shown:
-                parts.scroll.grid()
+        natural = [self._columns_width(p.data) for p in pair]
+        wide = (self._body_width is not None
+                and self._pair_width(natural) > width)
+        # The pair's room spans the window but for the pads at its two
+        # ends, as the Banners list's does its column.
+        room = max(width, self._body_width - 2 * px(2)) if wide else width
+        self._place_pair(wide)
+        shown = self._share(room)
+        for parts, room_ in ((self.rift_list, width),):
+            space = max(1, room_ - edges - self._columns_width(parts.labels))
+            shown_rift = min(self._columns_width(parts.data), space)
+            self._fit_list(parts, shown_rift)
+        for parts, width_ in zip(pair, shown):
+            self._fit_list(parts, width_)
+
+    def _fit_list(self, parts, shown):
+        """One standings list's seasons `shown` pixels wide, scrolling
+        past them."""
+        natural = self._columns_width(parts.data)
+        shown = max(1, min(natural, shown))
+        parts.holder.configure(width=shown,
+                               height=parts.data.winfo_reqheight())
+        if natural > shown:
+            parts.scroll.grid()
+        else:
+            parts.scroll.grid_remove()
+            parts.data.xview_moveto(0)
+
+    def _pair_width(self, shown):
+        """The Offensive's and the Sortie's panels side by side, their
+        seasons `shown` pixels wide each: a panel is as wide as its list
+        or its title and note, whichever is wider, and two pads sit
+        between them."""
+        edges = self._panel_edges()
+        return sum(max(self._columns_width(p.labels) + s, p.header.winfo_reqwidth())
+                   + edges for p, s in zip(
+                       (self.offensive_list, self.sortie_list), shown)) \
+            + 2 * px(2)
+
+    def _share(self, room):
+        """The Offensive's and the Sortie's seasons' widths within `room`,
+        so that each list shows as many seasons as the other: the same
+        number `k` of each list's average season, `k` as large as the
+        room allows. A list narrower than its title takes the title's
+        width as well, which costs nothing, and the pixels the room has
+        over go to a list that still scrolls."""
+        pair = (self.offensive_list, self.sortie_list)
+        natural = [self._columns_width(p.data) for p in pair]
+        if self._pair_width(natural) <= room:
+            return natural
+        per = []
+        for parts, width in zip(pair, natural):
+            count = sum(1 for c in parts.data["columns"]
+                        if not str(c).startswith("gap"))
+            per.append((width + px(STANDINGS_COLUMN_GAP)) / max(1, count))
+
+        def at(k):
+            return [min(n, int(k * s)) for n, s in zip(natural, per)]
+
+        low, high = 0.0, max(n / s for n, s in zip(natural, per))
+        for _ in range(40):
+            mid = (low + high) / 2
+            if self._pair_width(at(mid)) <= room:
+                low = mid
             else:
-                parts.scroll.grid_remove()
-                parts.data.xview_moveto(0)
+                high = mid
+        shown = at(low)
+        free = [max(0, p.header.winfo_reqwidth()
+                    - self._columns_width(p.labels)) for p in pair]
+        shown = [max(s, min(n, f)) for s, n, f in zip(shown, natural, free)]
+        for i in range(len(pair)):
+            left = room - self._pair_width(shown)
+            if left > 0 and shown[i] < natural[i]:
+                shown[i] = min(natural[i], shown[i] + left)
+        return shown
+
+    def _place_pair(self, wide):
+        """Lay the Offensive's and the Sortie's lists out under the
+        banners alone, or across the window, the pulls list then ending
+        above them. Only a change is laid out: a resize asks every
+        time."""
+        if wide == self._wide:
+            return
+        self._wide = wide
+        self.pair.grid_configure(columnspan=2 if wide else 1)
+        # spacing: content frame -> content frame -- frame, frame ↔↕
+        # spacing: panel ↕ unrelated label -- panel, title ↕
+        self.pulls_frame.grid_configure(
+            rowspan=3 if wide else 4,
+            pady=(px_after(5, 2), px(2) if wide else px_after(2, 2)))
 
     def _write_sheet(self, text, holder, rows):
         """Write a sheet, set its stops from what it now holds, and size
@@ -1178,24 +1315,29 @@ class GachaHistoryTab(BaseTab):
         side a `Beside`, whose own stops a tag of its own carries."""
         font = tkfont.nametofont("TkDefaultFont")
         bold = tkfont.Font(font=HEADING_FONT)
-        stops, widest, beside, _ends = self._overall_layout(
-            rows, font, bold, self._banners_width())
+        stops, widest, beside, _ends, _left_ends = self._overall_layout(
+            rows, font, bold, self._banners_width(), self._right_width())
         text.configure(state=tk.NORMAL, tabs=tuple(stops))
         text.delete("1.0", tk.END)
         # The first line takes `TOP_TAG`, heading or row: it crosses
-        # nothing, so nothing is charged above it.
+        # nothing, so nothing is charged above it. A line's pitch is its
+        # first column's: the second column's heading sits at the row
+        # pitch, its lines being the first column's.
         for n, row in enumerate(rows):
             end = "\n" if n < len(rows) - 1 else ""
-            parts = row.parts if isinstance(row, Beside) else (row,)
+            left = _left(row)
+            parts = left.parts if isinstance(left, Beside) else (left,)
+            if isinstance(row, Paired):
+                parts += (row.right,)
             heading = _heading(parts[0])
             line = (TOP_TAG if n == 0 else HEADING_TAG if heading
                     else ROW_TAG,)
             if n in beside:
                 text.tag_configure(BESIDE_TAG % n, tabs=beside[n])
                 line += (BESIDE_TAG % n,)
-            style = (BOLD_TAG,) if heading else ()
             chunks = []
             for part in parts:
+                style = (BOLD_TAG,) if _heading(part) else ()
                 if isinstance(part, Noted):
                     chunks += [(part.heading, style), ("\t", ()),
                                (part.note, (NOTE_TAG,))]
@@ -1219,43 +1361,52 @@ class GachaHistoryTab(BaseTab):
         """`rows` with each record's ties cut to as many pairs as fit
         the Banners list's width, keeping the OLDEST. The sheet sits in
         that list's column, and a wider sheet would widen the column and
-        take the difference from the pulls list beside it. A record in
-        a pair of halves is cut to fit beside the other half, apart from
-        the full-width ones.
+        take the difference from the pulls list beside it. The first
+        column's records are cut to end short of the second column,
+        and the second's to end inside the room.
 
         Every record keeps its first pair, which is the record itself;
         only its ties are ever cut.
         """
         available = self._banners_width()
-
-        def halved(row):
-            return isinstance(row, Beside) and row.halves
+        right_width = self._right_width()
 
         def parts(row):
-            return row.parts if isinstance(row, Beside) else (row,)
+            left = _left(row)
+            return left.parts if isinstance(left, Beside) else (left,)
 
         def cut(part, pairs):
             return part if _heading(part) else part[:2 + 2 * pairs]
 
-        def most(rows_):
-            return max([(len(part) - 2) // 2 for row in rows_
-                        for part in parts(row) if not _heading(part)] + [1])
+        def most(parts_):
+            return max([(len(part) - 2) // 2 for part in parts_
+                        if not _heading(part)] + [1])
 
-        full = most([row for row in rows if not halved(row)])
-        half = most([row for row in rows if halved(row)])
+        def rebuilt(row, full, side):
+            if isinstance(row, Paired):
+                return Paired(rebuilt(row.left, full, side),
+                              cut(row.right, side))
+            if isinstance(row, Beside):
+                return Beside(*(cut(part, full) for part in row.parts))
+            return cut(row, full)
+
+        full = most([part for row in rows for part in parts(row)])
+        side = most([row.right for row in rows if isinstance(row, Paired)])
+        paired = [n for n, row in enumerate(rows) if isinstance(row, Paired)]
         while True:
-            out = [Beside(*(cut(part, half if row.halves else full)
-                            for part in row.parts), halves=row.halves)
-                   if isinstance(row, Beside) else cut(row, full)
-                   for row in rows]
-            ends = self._overall_layout(out, font, bold, available)[3]
-            over = {flag: max([end for row, end in zip(out, ends)
-                               if halved(row) == flag] + [0]) > available
-                    for flag in (True, False)}
-            if over[True] and half > 1:
-                half -= 1
-            elif over[False] and full > 1:
+            out = [rebuilt(row, full, side) for row in rows]
+            layout = self._overall_layout(out, font, bold, available,
+                                          right_width)
+            ends, left_ends = layout[3], layout[4]
+            # spacing: heading ↔ element -- run, run ↔
+            left_over = (max([left_ends[n] for n in paired] + [0])
+                         + px(BESIDE_GAP) > available - right_width
+                         or max(left_ends + [0]) > available)
+            right_over = max([ends[n] for n in paired] + [0]) > available
+            if left_over and full > 1:
                 full -= 1
+            elif right_over and side > 1:
+                side -= 1
             else:
                 return out
 
@@ -1286,36 +1437,40 @@ class GachaHistoryTab(BaseTab):
 
     @staticmethod
     def _beside_runs(rows):
-        """The line numbers of each run of consecutive `Beside` lines
-        alike in `halves`: what `_overall_layout` lays out together."""
+        """The line numbers of each run of consecutive `Beside` lines:
+        what `_overall_layout` lays out together."""
         runs = []
         for n, row in enumerate(rows):
             if not isinstance(row, Beside):
                 continue
-            if runs and runs[-1][-1] == n - 1 \
-                    and rows[n - 1].halves == row.halves:
+            if runs and runs[-1][-1] == n - 1:
                 runs[-1].append(n)
             else:
                 runs.append([n])
         return runs
 
     @classmethod
-    def _overall_layout(cls, rows, font, bold, room=None):
+    def _overall_layout(cls, rows, font, bold, room=None, right_width=None):
         """(tab stops, widest line, {line: its own stops}, each line's
-        end), in pixels from the line's start. The rows' columns are
-        `_column_stops`'.
+        end, each line's first column's end), in pixels from the line's
+        start. The rows' columns are `_column_stops`'.
 
         A `Beside` line's first part is one of those rows. A run of such
         lines is laid out together, part by part: each part starts
         `BESIDE_GAP` past the furthest end of the part before it on any
-        line of the run -- with `halves`, the second at the middle of
-        `room` where that is further -- and its rows' columns are their
-        own, set from there. So those lines carry stops of their own:
-        the sheet's up to their first part's last field, then each
-        part's.
+        line of the run, and its rows' columns are their own, set from
+        there. So those lines carry stops of their own: the sheet's up
+        to their first part's last field, then each part's.
+
+        A `Paired` line's second part starts the second column:
+        `right_width` short of `room`, or `BESIDE_GAP` past the furthest
+        first column of the paired lines where that is further. Its
+        rows' columns are their own, set from there, and those lines
+        carry them after their first column's stops.
         """
+        sides = [_left(row) for row in rows]
         lefts = [row.parts[0] if isinstance(row, Beside) else row
-                 for row in rows]
+                 for row in sides]
         stops = cls._column_stops(
             [row for row in lefts if not _heading(row)], font)
 
@@ -1331,37 +1486,49 @@ class GachaHistoryTab(BaseTab):
             return ((local[len(part) - 2] if len(part) > 1 else start)
                     + font.measure(part[-1]))
 
+        def placed(own, part, start, local):
+            if isinstance(part, Noted):
+                own += [start, note_at(part, start)]
+            elif isinstance(part, str):
+                own.append(start)
+            else:
+                own += [start] + local[:len(part) - 1]
+
         ends = [finish(part, 0, stops) for part in lefts]
         beside = {}
-        for run in cls._beside_runs(rows):
-            own = {n: [] if _heading(rows[n].parts[0])
-                   else stops[:len(rows[n].parts[0]) - 1] for n in run}
-            for k in range(1, max(len(rows[n].parts) for n in run)):
-                lines = [n for n in run if len(rows[n].parts) > k]
+        for run in cls._beside_runs(sides):
+            own = {n: [] if _heading(sides[n].parts[0])
+                   else stops[:len(sides[n].parts[0]) - 1] for n in run}
+            for k in range(1, max(len(sides[n].parts) for n in run)):
+                lines = [n for n in run if len(sides[n].parts) > k]
                 # spacing: heading ↔ element -- run, run ↔
                 start = max(ends[n] for n in lines) + px(BESIDE_GAP)
-                if k == 1 and room and rows[run[0]].halves:
-                    # The middle, or as far short of it as a noted
-                    # heading needs to end inside the room.
-                    noted = [finish(rows[n].parts[k], 0, []) for n in lines
-                             if isinstance(rows[n].parts[k], Noted)]
-                    start = max(start, min([room // 2]
-                                           + [room - w for w in noted]))
                 local = cls._column_stops(
-                    [rows[n].parts[k] for n in lines
-                     if not _heading(rows[n].parts[k])], font, start)
+                    [sides[n].parts[k] for n in lines
+                     if not _heading(sides[n].parts[k])], font, start)
                 for n in lines:
-                    part = rows[n].parts[k]
-                    if isinstance(part, Noted):
-                        own[n] += [start, note_at(part, start)]
-                    elif isinstance(part, str):
-                        own[n].append(start)
-                    else:
-                        own[n] += [start] + local[:len(part) - 1]
+                    part = sides[n].parts[k]
+                    placed(own[n], part, start, local)
                     ends[n] = finish(part, start, local)
             for n in run:
                 beside[n] = tuple(own[n])
-        return stops, max(ends + [1]), beside, ends
+        left_ends = list(ends)
+        paired = [n for n, row in enumerate(rows) if isinstance(row, Paired)]
+        if paired:
+            # spacing: heading ↔ element -- run, run ↔
+            start = max(ends[n] for n in paired) + px(BESIDE_GAP)
+            if room and right_width:
+                start = max(start, room - right_width)
+            local = cls._column_stops(
+                [rows[n].right for n in paired
+                 if not _heading(rows[n].right)], font, start)
+            for n in paired:
+                own = list(beside[n]) if n in beside else (
+                    [] if _heading(lefts[n]) else stops[:len(lefts[n]) - 1])
+                placed(own, rows[n].right, start, local)
+                beside[n] = tuple(own)
+                ends[n] = finish(rows[n].right, start, local)
+        return stops, max(ends + [1]), beside, ends, left_ends
 
     def _on_pick(self, _event):
         chosen = self.summary_tree.selection()

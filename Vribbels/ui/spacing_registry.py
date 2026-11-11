@@ -1046,7 +1046,7 @@ def _dropdown_over_panel(prefix, panel):
 # The Overall Gacha Stats panel, by its title: `find_labelframe`
 # matches a title EXACTLY, so this has to follow the tab's
 # `OVERALL_TITLE`. `check_tabs_build` holds the two together.
-# The Substat Readjustment tab's note under its lists.
+# The Substat Readjustment tab's note above its lists.
 READJUST_NOTE_PREFIX = "Readjustment keeps each substat"
 GACHA_OVERALL_TITLE = "Overall Gacha Stats"
 # The standings lists beside it, on the same terms. Their titles are
@@ -1089,10 +1089,8 @@ PANEL_OVER_TEXT_ENTRIES = [
      _button_over_panel("Check Status", "Setup Instructions")),
     ("Stats & Gacha History", "Import JSON -> Banners title", 10, None,
      _button_over_panel("Import JSON", "Banners")),
-    ("Substat Readjustment", "Score dropdown -> Fragments title", 10, None,
-     _dropdown_over_panel("Score:", "Fragments")),
-    ("Substat Readjustment", "Fragments -> note", 10, None,
-     _panel_over_label("Fragments", READJUST_NOTE_PREFIX)),
+    ("Substat Readjustment", "Sets -> Fragments title", 10, None,
+     _panel_gap("Sets", "Fragments", "v")),
 
     # BOTH columns of the Capture tab's top grid, against the same
     # title below them. Requirements is the one the rule is read off:
@@ -1110,16 +1108,12 @@ PANEL_OVER_TEXT_ENTRIES = [
      _panel_gap("Upgrade Log Settings", "Capture Log", "v")),
     ("Stats & Gacha History", "Banners -> Overall Gacha Stats title", 10, None,
      _panel_gap("Banners", GACHA_OVERALL_TITLE, "v")),
-    # The standings under the gacha sheet: the Great Rift's list, then
-    # the Offensive's and the Sortie's side by side under it.
+    # The standings under the gacha sheet: the Great Rift's list. The
+    # Offensive's and the Sortie's sit at the window's foot, slack above
+    # them, so nothing above them is a distance to hold.
     ("Stats & Gacha History", "Overall Gacha Stats -> Great Rift Stats title",
      10, None, _sheet_over_panel(
          lambda app: app.gacha_tab_instance.overall_text, GACHA_RIFT_TITLE)),
-    ("Stats & Gacha History",
-     "Great Rift Stats -> Full-Scale Offensive Stats title", 10, None,
-     _panel_gap(GACHA_RIFT_TITLE, GACHA_OFFENSIVE_TITLE, "v")),
-    ("Stats & Gacha History", "Great Rift Stats -> Sortie Stats title", 10,
-     None, _panel_gap(GACHA_RIFT_TITLE, GACHA_SORTIE_TITLE, "v")),
 
     # Text above, a panel below. The three tab headings differ only in
     # how much container padding stands under them, Setup spending more
@@ -2226,10 +2220,10 @@ CONTROL_GROUP_ENTRIES = [
      _gap(_by_text("Export JSON"), _group_of("Show:"), "h")),
     ("Stats & Gacha History", "Show group -> help text", 16, None,
      _gap(_group_of("Show:"), _by_text(GACHA_HELP_PREFIX), "h")),
-    ("Substat Readjustment", "Score group -> For group", 16, None,
-     _gap(_group_of("Score:"), _group_of("For:"), "h")),
-    ("Substat Readjustment", "Slot group -> Fragments group", 16, None,
-     _gap(_group_of("Slot:"), _group_of("Fragments:"), "h")),
+    ("Substat Readjustment", "dropdowns -> Slots", 16, None,
+     _gap(_group_of("Score:"), _panel_at("Slots"), "h")),
+    ("Substat Readjustment", "Sets -> note", 16, None,
+     _gap(_panel_at("Sets"), _by_text(READJUST_NOTE_PREFIX), "h")),
 ]
 
 # (tab, name, locator) for controls read against the tab list on their
@@ -4159,9 +4153,6 @@ EXCEPTION_ENTRIES = {
     "Epione: heading -> first scenario": "exception",
     "Epione: option -> option": "exception",
     "Epione: card top -> its first line": "exception",
-    # A section's heading stands four further from the row above it
-    # than rows do from one another. Marked at `HEADING_PAD`.
-    "Overall Gacha Stats: row -> heading": "exception",
 }
 
 
@@ -5662,12 +5653,6 @@ GACHA_ENTRIES = [
     ("Stats & Gacha History", "Overall Gacha Stats: row -> row", 10, RULE_LABEL_ROW_PITCH,
      _text_line_pitch(_gacha_overall, label=GACHA_OVERALL_TITLE,
                       kinds=_gacha_pitch_tags("row")), "v"),
-    # Four above the pitch, so each section reads as a block of its
-    # own. Marked at `HEADING_PAD`.
-    ("Stats & Gacha History", "Overall Gacha Stats: row -> heading", 14,
-     RULE_LABEL_ROW_PITCH,
-     _text_line_pitch(_gacha_overall, label=GACHA_OVERALL_TITLE,
-                      kinds=_gacha_pitch_tags("heading")), "v"),
     ("Stats & Gacha History", "Overall Gacha Stats: figure -> its value", 5,
      RULE_LABEL_ELEMENT,
      _text_field_gap(_gacha_overall, GACHA_FIGURE_ROWS, index=0), "h"),

@@ -21,11 +21,13 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - Every combatant you hold, named in its Element's colour, with the dialogue options picked against all 36. The count is red while broken down and awaiting counseling (selected for you when a capture sees it happen), orange with Crystals waiting in the Counseling Records, green at 36/36.
   - The selected combatant's three scenarios, each opener with its two follow-ups and the cure % each pair gives, coloured by the Affinity it pays: green 90%+, yellow 80s, red 70s, grey below. Picked options are dimmed.
   - Click the two openers the game offers, one each side: each says how many counselings offering nothing new are still to come if picked, and the fewer is green, with the follow-up to take.
-- **Substat Readjustment tab**, after Combatants: which fully upgraded Legendary Memory Fragments a Shuffling Quartz does most for. A readjustment deals a fragment's upgrades out again, and the game lets you keep Before or After, so it can only gain.
+- **Substat Readjustment tab**, after Memory Fragments: which fully upgraded Legendary Memory Fragments a Shuffling Quartz does most for. A readjustment performs a fragment's 4 upgrades again, and the game lets you keep Before or After, so it can only gain.
   - Each fragment's expected gain, its chance of any gain and the most it can gain, for a plain readjustment (1 Quartz) and with the best substat excluded (2 Quartz). Use says which does more per Quartz, and the list is ranked by that.
   - Score: Gear Score, under the combatant's assigned preset, or Build Score, the Optimizer's score of the combatant's equipped build with the fragment in its slot.
   - For: one combatant, or several with a weight each, every fragment read for the one it does most for.
-  - Slot and Fragments (all, worn by them, unequipped) narrow the list.
+  - Slots and Sets checkboxes, and Fragments (all, worn by them, unequipped), narrow the list.
+  - Your Shuffling Quartz count: red at 0, orange at 1, yellow at 2, green above.
+  - Worked out in the background: the window stays free, the list says Loading... meanwhile, and a score or combatant already worked out shows at once.
 - Memory Fragments tab: two rows under Main Stats. The first is the Units needed to level every fragment to 3 and use up your Core of Memory. The second is what you hold against that: spare in green, or short in red with the x6 runs of Growth - Unit - Difficulty 6 it comes to.
 - Checklist tab: hovering a Core in Expiring Items says what it does.
 - Checklist tab: Activity (Weeklies), the week's Activity points out of 1000, read like Activity (Dailies): green once the week's reward is claimed, blinking orange with 1000 reached and the reward still to claim.
@@ -41,6 +43,8 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - A darker highlight for selected rows and text, offered Epione cards, and hovered headings and scrollbars.
 - Capture: a failure while you are on another tab blinks the Capture tab's bar red, in place of a red dot beside its name.
 - About: Support Development is now two links: a Support me on Ko-fi badge, and Donate through GitHub, to GitHub Sponsors.
+- Stats & Gacha History tab: the Prism Module's and the Card Skin Packs' records are a second column beside the Combatant & Partner banners', ending on the same line, which leaves the standings more room.
+- Stats & Gacha History tab: the Full-Scale Offensive and Sortie lists sit at the window's foot and show as many seasons as each other. Once they need more room than the Banners list's width, they stretch across the window and the Pulls list ends above them.
 
 ### Fixed
 

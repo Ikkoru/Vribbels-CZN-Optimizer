@@ -3,10 +3,11 @@
 Every rule here changes a number on the Substat Readjustment tab and
 nothing else, so a broken one reads as a plausible ranking:
 
-1. **The exact distribution is the readjustment's**: every upgrade on
-   one of the substats alike and on any value of its roll alike, onto
-   the substats' starting values. Held against every outcome counted
-   out for a fragment with two upgrades.
+1. **The exact distribution is the readjustment's**, as the game's
+   Memory Fragment Upgrade Probabilities notice gives it: four
+   upgrades, each on one of the substats alike and on any value of its
+   roll alike, onto the substats' starting values, however many the
+   fragment had. Held against every outcome counted out.
 2. **An exclusion deals the upgrades over the other three**, the
    excluded substat back at its starting value, and the best of the
    four exclusions is the one shown.
@@ -21,8 +22,6 @@ nothing else, so a broken one reads as a plausible ranking:
 7. **The tab says which option to use**: Exclude where its gain per
    Quartz is higher, Reroll otherwise.
 """
-
-import itertools
 
 from ._harness import add_source_to_path
 
@@ -52,24 +51,31 @@ def _fragment(ups, level=5, rarity=4, substats=4):
 
 
 def _counted(fragment, valuer, eligible):
-    """(mean gain, chance of a gain) over every outcome, counted out."""
+    """(mean gain, chance of a gain) over every outcome, counted out:
+    the exact distribution of what `UPGRADES` upgrades add, each a
+    substat of `eligible` and a roll alike, unbinned."""
     import readjust as rj
     subs = fragment.substats
     scaled = valuer.bind(fragment)
     now, ref, extra = scaled.reference(fragment)
     start = extra + sum(scaled.points(s, s.base_value) for s in subs)
-    choices = [(i, v) for i in eligible for v in rj.roll_values(subs[i])]
-    weights = [1.0 / len(eligible) / len(rj.roll_values(subs[i]))
-               for i, _v in choices]
-    count = rj.upgrades(fragment)
+    step = {}
+    for i in eligible:
+        grid = rj.roll_values(subs[i])
+        for v in grid:
+            at = round(scaled.points(subs[i], v), 9)
+            step[at] = step.get(at, 0.0) + 1.0 / len(eligible) / len(grid)
+    dist = {0.0: 1.0}
+    for _ in range(rj.UPGRADES):
+        out = {}
+        for total, p in dist.items():
+            for add, q in step.items():
+                at = round(total + add, 9)
+                out[at] = out.get(at, 0.0) + p * q
+        dist = out
     mean = chance = 0.0
-    for pick in itertools.product(range(len(choices)), repeat=count):
-        p = 1.0
-        after = start
-        for k in pick:
-            p *= weights[k]
-            i, v = choices[k]
-            after += scaled.points(subs[i], v)
+    for add, p in dist.items():
+        after = start + add
         if after > ref + 1e-9:
             mean += p * (after - ref)
             chance += p
@@ -109,16 +115,17 @@ def run():
     out = []
     tol = 0.01
 
-    # 1 and 2: two upgrades, CRate 1.6 and Flat ATK 5, counted out.
+    # 1 and 2: upgraded twice, CRate 1.6 and Flat ATK 5, and read as
+    # four upgrades dealt again, counted out.
     fragment = _fragment([(0, 1.6), (2, 5)])
     valuer = rj.GearValuer(WEIGHTS)
     reading = rj.read_gear(fragment, valuer)
     mean, chance = _counted(fragment, valuer, [0, 1, 2, 3])
-    span = 2 * max(valuer.bind(fragment).points(s, rj.max_roll(s))
+    span = rj.UPGRADES * max(valuer.bind(fragment).points(s, rj.max_roll(s))
                    for s in fragment.substats)
     if abs(reading.plain.mean - mean) > span / rj.BINS + tol \
             or abs(reading.plain.chance - chance) > 0.02:
-        out.append(f"a plain readjustment of a two-upgrade fragment reads "
+        out.append(f"a plain readjustment reads "
                    f"{reading.plain.mean:.3f} GS at "
                    f"{reading.plain.chance:.3f}, where every outcome "
                    f"counted out gives {mean:.3f} at {chance:.3f}: each "

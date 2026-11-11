@@ -1127,11 +1127,11 @@ class OptimizerGUI:
                           text="Optimizer")
         lazy.add("inventory", "Memory Fragments", make(InventoryTab),
                  after_build=self._inventory_built)
+        lazy.add("readjust", "Substat Readjustment", make(ReadjustTab))
         self.notebook.add(self.scoring_tab_instance.get_frame(),
                           text="Gear Score")
         lazy.add("heroes", "Combatants", make(HeroesTab),
                  after_build=self._heroes_built)
-        lazy.add("readjust", "Substat Readjustment", make(ReadjustTab))
         lazy.add("materials", "Materials", make(MaterialsTab))
         lazy.add("checklist", "Checklist", make(ChecklistTab))
         lazy.add("disaster", "Galactic Disaster", make(DisasterTab))
