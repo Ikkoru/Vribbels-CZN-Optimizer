@@ -72,6 +72,19 @@ def readjustable(fragment):
             and len(fragment.substats) == 4)
 
 
+def content(fragment):
+    """Everything a reading of `fragment` depends on: its id, slot, set,
+    rarity, level, main stat and each substat's starting value and
+    upgrades. A readjusted fragment keeps its id and changes this, so an
+    answer kept under it is never one of an older roll."""
+    main = fragment.main_stat
+    return (fragment.id, fragment.slot_num, fragment.set_id,
+            fragment.rarity_num, fragment.level,
+            (main.raw_name, main.value) if main is not None else None,
+            tuple((s.raw_name, s.value, s.base_value,
+                   tuple(s.upgrade_values)) for s in fragment.substats))
+
+
 def roll_values(sub):
     """Every value one upgrade of `sub` can roll, alike: its stat's
     grid, steps of 0.1 for a percentage and 1 for a flat stat."""

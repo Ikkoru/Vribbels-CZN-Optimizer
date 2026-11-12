@@ -11,16 +11,17 @@ of the two per Quartz.
 preset, or Build Score, the Optimizer's score of the combatant's
 equipped build with the fragment in its slot. **For** picks whose: one
 combatant, or several, each weighted, every fragment read for the one
-whose weighted gain is highest. **Slots**, **Sets** and **Fragments**
+whose weighted gain is highest. **Slots**, **Sets** and **MFs**
 narrow the list without working anything out again.
 
 **The work runs in worker processes** (`readjust.submit`), a job a
 chunk of fragments for one combatant and measure, and every answer is
-kept until the data or that combatant's preset or settings change: a
-measure or a combatant gone back to draws at once, and one still being
-worked out shows `Loading...` meanwhile, the window free to use. A
-change of mind drops the jobs not started yet. `docs/readjust.md` has
-the model.
+kept by what it was worked out from -- the fragment's own rolls, and
+the preset's weights or the build it is set into: a measure or a
+combatant gone back to draws at once, a new capture costs only the
+fragments and builds it changed, and anything still being worked out
+shows `Loading...` meanwhile, the window free to use. A change of mind
+drops the jobs not started yet. `docs/readjust.md` has the model.
 """
 
 import json
@@ -85,26 +86,24 @@ WEIGHTED_ONLY = ("for", "weighted")
 TEXT_INSET = 4
 LIST_ROWS = 30
 WEIGHT_ROWS = 30
-# The Sets panel's columns: one fewer than the Memory Fragments tab's,
-# which leaves the note beside it room to read.
-SET_COLUMNS = 4
+# The Sets panel's columns, as many as the Memory Fragments tab's.
+SET_COLUMNS = 5
 
 # The note beside the filters, by measure.
 _KEEPS = ("Readjustment keeps each substat's starting value and performs "
           "its 4 upgrades again; you keep Before or After, so it only "
-          "gains. Reroll costs 1 Quartz, Exclude 2. ")
+          "gains. Reroll: 1 Quartz. Exclude: 2. ")
+_COLUMNS = ("Chance: of any rise. Best: the most it can rise. Use, Per "
+            "Quartz: the better option per Quartz.")
 NOTES = {
     rj.GEAR: _KEEPS + (
         "Gain: the expected rise in Gear Score under the combatant's "
-        "preset. Chance: of any rise. Best: the most it can rise. Use and "
-        "Per Quartz: the option with the larger gain per Quartz."),
+        "preset. ") + _COLUMNS,
     rj.BUILD: _KEEPS + (
         "Gain: the expected rise in the Optimizer's score of the "
-        "combatant's equipped build with this fragment in its slot, over "
-        "Now (that build with the fragment as it stands) or the build as "
-        "worn, whichever is higher. The top %d are sampled off the real "
-        "score. Use and Per Quartz: the option with the larger gain per "
-        "Quartz." % rj.REFINE_TOP),
+        "combatant's equipped build with the MF in its slot, over the "
+        "higher of Now and the build as worn; the top %d sampled off the "
+        "real score. " % rj.REFINE_TOP) + _COLUMNS,
 }
 LOADING = "Loading..."
 NO_DATA = "No capture loaded: log in with the capture running."
@@ -125,8 +124,9 @@ REFINE_CHUNK = 5
 POLL_MS = 50
 # How long the weight spinbox has to hold still before a new reading.
 SETTLE_MS = 400
-# Answers kept past this many are dropped, the ones not on show first.
-KEEP_PARTS = 400
+# Answers kept past this many are dropped, all but those of the
+# signatures on show.
+KEEP_ANSWERS = 40000
 
 # Between the stacked dropdowns' rows.
 DROPDOWN_ROW_GAP = 3   # spacing: TBD -- the Substat Readjustment tab's stacked dropdowns
@@ -219,12 +219,18 @@ class ReadjustTab(BaseTab):
 
     def __init__(self, parent, context):
         super().__init__(parent, context)
-        # {part key: {id: (now, plain, exclude, sampled)}}: every answer
-        # a worker has given, and {part key: Future} for those still
-        # being worked out. See `_needed`.
-        self._parts = {}
+        # {(signature, kind, content): (now, plain, exclude, sampled)}:
+        # every answer a worker has given, kept by what it was worked
+        # out from (`_signatures`, `rj.content`) and `read` or `refine`.
+        self._answers = {}
+        # {job: Future} still being worked out, {job: ((id, content),
+        # ...)} what each was handed, and {answer key: job} for every
+        # answer one of them will give.
         self._futures = {}
-        # {signature: build_inputs}, resolved once a combatant.
+        self._jobs = {}
+        self._inflight = {}
+        # {(capture token, combatant, settings): (build_inputs, their
+        # signature)}: resolved once per capture loaded.
         self._inputs = {}
         self._token = None
         self._polling = False
@@ -262,27 +268,37 @@ class ReadjustTab(BaseTab):
         self.owner_var = tk.StringVar(value=_words(
             OWNERS, settings.get(OWNER_KEY, "all")))
 
+        # The dropdowns stacked, and under them, at the foot of the row,
+        # the weight of the combatant picked in the Weights list -- right
+        # over that list's title.
         controls = ttk.Frame(top)
         # spacing: tab list -> first element -- tab, dropdown ↕
-        controls.pack(side=tk.LEFT, anchor=tk.N,
+        controls.pack(side=tk.LEFT, anchor=tk.N, fill=tk.Y,
                       pady=(px_after(1, 5), 0))
-        self._dropdown(controls, 0, "Score:", self.measure_var,
-                       [w for w, _v in MEASURES])
-        self._dropdown(controls, 1, "For:", self.mode_var,
-                       [w for w, _v in MODES])
+        boxes = [
+            self._dropdown(controls, 0, "Score:", self.measure_var,
+                           [w for w, _v in MEASURES]),
+            self._dropdown(controls, 1, "For:", self.mode_var,
+                           [w for w, _v in MODES])]
         self.combatant_box = ttk.Combobox(
             controls, textvariable=self.combatant_var, state="readonly",
-            width=max(len(w) for w, _v in MODES) + 1)
+            width=1)
         # spacing: label ↔ its element -- label, dropdown ↔
         # spacing: TBD -- the Substat Readjustment tab's stacked dropdowns
-        self.combatant_box.grid(row=2, column=1, sticky=tk.W,
+        self.combatant_box.grid(row=2, column=1, sticky=tk.EW,
                                 padx=px((2, 0)),
                                 pady=px((DROPDOWN_ROW_GAP, 0)))
         self.combatant_box.bind("<<ComboboxSelected>>",
                                 lambda _e: self._changed())
         bind_combobox_nav(self.combatant_box)
-        self._dropdown(controls, 3, "Fragments:", self.owner_var,
-                       [w for w, _v in OWNERS])
+        boxes.append(self.combatant_box)
+        boxes.append(self._dropdown(controls, 3, "MFs:", self.owner_var,
+                                    [w for w, _v in OWNERS]))
+        self._size_dropdowns(controls, boxes)
+        controls.grid_rowconfigure(4, weight=1)
+        self.weight_row = ttk.Frame(controls)
+        self.weight_row.grid(row=5, column=0, columnspan=2, sticky=tk.SW)
+        self._build_weight_spin(self.weight_row)
 
         self._build_slots(top)
         self._build_sets(top)
@@ -290,7 +306,7 @@ class ReadjustTab(BaseTab):
         # The counts, stacked at the row's right end.
         status = ttk.Frame(top)
         # spacing: tab list -> first element -- tab, label ↕
-        status.pack(side=tk.RIGHT, anchor=tk.N, pady=(px_after(1, 3), 0))
+        status.pack(side=tk.RIGHT, anchor=tk.N, pady=(px_after(1, 0), 0))
         self.held_label = ttk.Label(status, text="")
         self.held_label.pack(anchor=tk.E)
         self.count_label = ttk.Label(status, text="",
@@ -303,7 +319,7 @@ class ReadjustTab(BaseTab):
         # spacing: tab list -> first element -- tab, label ↕
         self.note_label.pack(side=tk.LEFT, anchor=tk.N, fill=tk.X,
                              expand=True, padx=px((14, 14)),
-                             pady=(px_after(1, 3), 0))
+                             pady=(px_after(1, 0), 0))
         self.note_label.bind("<Configure>", self._rewrap)
 
         body = ttk.Frame(content)
@@ -343,18 +359,46 @@ class ReadjustTab(BaseTab):
                            width=max(len(v) for v in values) + 1)
         # spacing: label ↔ its element -- label, dropdown ↔
         # spacing: TBD -- the Substat Readjustment tab's stacked dropdowns
-        box.grid(row=row, column=1, sticky=tk.W, padx=px((2, 0)),
+        box.grid(row=row, column=1, sticky=tk.EW, padx=px((2, 0)),
                  pady=px((DROPDOWN_ROW_GAP if row else 0, 0)))
         box.bind("<<ComboboxSelected>>", lambda _e: self._changed())
         bind_combobox_nav(box)
         return box
 
+    @staticmethod
+    def _size_dropdowns(parent, boxes):
+        """Every dropdown as wide as the widest option shows whole, to the
+        pixel: that option's text ends at the field's inner padding.
+
+        A Combobox's `width` counts characters of the font's `0`, so its
+        text area is a whole number of those; the column's minimum size
+        sets the pixel instead, and each box fills the column. What the
+        box adds around its text -- border, padding, arrow -- is read off
+        one box's request, which is its characters' width and that."""
+        from tkinter import font as tkfont
+        box = boxes[0]
+        spec = str(box.cget("font")) or ttk.Style().lookup(
+            "TCombobox", "font") or "TkTextFont"
+        font = tkfont.Font(font=spec)
+        chars = int(str(box.cget("width")))
+        extra = box.winfo_reqwidth() - chars * font.measure("0")
+        widest = max(font.measure(word) for word, _v
+                     in MEASURES + MODES + OWNERS)
+        for each in boxes:
+            each.configure(width=1)
+        # Measured, so no `px()` on the text or the box's own parts; the
+        # box's pad is a distance and takes it.
+        # spacing: label ↔ its element -- label, dropdown ↔
+        parent.grid_columnconfigure(1, minsize=widest + extra + px(2))
+
     def _build_slots(self, parent):
         # spacing: border edge -> first non-button element -- panel, checkbox ↔↕
         frame = ttk.LabelFrame(parent, text="Slots",
                                padding=px((0, 2, 0, 3)))
-        # spacing: control group ↔ control group -- dropdown, panel ↔
-        frame.pack(side=tk.LEFT, anchor=tk.N, padx=px((16, 2)))
+        # spacing: content frame -> content frame -- dropdown, panel ↔
+        # spacing: tab list -> first element -- tab, title ↕
+        frame.pack(side=tk.LEFT, anchor=tk.N, padx=px((4, 2)),
+                   pady=(px_after(1, 2), 0))
         inner = ttk.Frame(frame)
         inner.pack()
         # Left column 3, 2, 1 top to bottom; right 4, 5, 6: the Memory
@@ -378,7 +422,9 @@ class ReadjustTab(BaseTab):
         frame = ttk.LabelFrame(parent, text="Sets",
                                padding=px((0, 2, 0, 3)))
         # spacing: content frame -> content frame -- panel, panel ↔
-        frame.pack(side=tk.LEFT, anchor=tk.N, padx=px((2, 0)))
+        # spacing: tab list -> first element -- tab, title ↕
+        frame.pack(side=tk.LEFT, anchor=tk.N, padx=px((2, 0)),
+                   pady=(px_after(1, 2), 0))
         self.sets_inner = ttk.Frame(frame)
         self.sets_inner.pack()
         make_all_none_row(frame, lambda: self._all(self.set_vars, True),
@@ -419,13 +465,18 @@ class ReadjustTab(BaseTab):
                 or []
             colour = ATTRIBUTE_COLORS.get(elements[0] if elements else None,
                                           self.colors["fg"])
+            # The first column's leading pad and the last's trailing one
+            # are the panel's insets, with the checkbox's own; between
+            # columns, the leading pad and both insets.
             # spacing: border edge -> first non-button element -- panel, checkbox ↔
             # spacing: checkbox row -> checkbox row (small division) -- checkbox, checkbox ↕
             make_checkbox(self.sets_inner, self.colors,
                           text="%s (%d)" % (name, counts.get(name, 0)),
                           variable=var, command=self._filtered,
                           fg=colour).grid(
-                row=row, column=col, sticky=tk.W, padx=px((3, 0)),
+                row=row, column=col, sticky=tk.W,
+                padx=px((2 if col == 0 else 3,
+                         2 if col == SET_COLUMNS - 1 else 0)),
                 pady=px((top, 0)))
 
     def _measured(self, tree, columns, sortable=True):
@@ -482,10 +533,10 @@ class ReadjustTab(BaseTab):
             "off", foreground=self.colors["fg_dim"])
         self.weight_tree.bind("<<TreeviewSelect>>", self._on_pick_weight)
 
-        row = ttk.Frame(parent)
-        # spacing: explanation text -> the controls it explains -- tree, label ↕
-        row.pack(fill=tk.X, pady=(px(7), 0))
-        ttk.Label(row, text="Weight:").pack(side=tk.LEFT)
+    def _build_weight_spin(self, row):
+        """`Set weight:` and its spinbox, for the combatant picked in the
+        Weights list. Shown with that list only (`_show_mode`)."""
+        ttk.Label(row, text="Set weight:").pack(side=tk.LEFT)
         self.weight_var = tk.IntVar(value=0)
         self.weight_spin = tk.Spinbox(
             row, from_=0, to=WEIGHT_MAX, increment=1, width=4,
@@ -571,9 +622,11 @@ class ReadjustTab(BaseTab):
         weighted = self.mode() == "weighted"
         if weighted:
             self.weights_frame.grid()
+            self.weight_row.grid()
             self.combatant_box.grid_remove()
         else:
             self.weights_frame.grid_remove()
+            self.weight_row.grid_remove()
             self.combatant_box.grid()
         shown = [c[0] for c in COLUMNS
                  if weighted or c[0] not in WEIGHTED_ONLY]
@@ -648,10 +701,13 @@ class ReadjustTab(BaseTab):
 
     def _signatures(self, combatants):
         """{combatant: (signature, job template)}: what one combatant's
-        answers depend on, beyond the fragments -- the measure, the
-        preset's weights or the Optimizer settings, the rolls -- and
-        what a job for them carries. A combatant with no preset is left
-        out, and named in the second value."""
+        answers depend on beyond each fragment's own rolls -- the
+        measure, the game's roll grids, and the preset's weights or the
+        build the fragment is set into as it reads now (`build_inputs`:
+        the combatant's stats at the Optimizer's level, its settings,
+        what it wears). Equal inputs give an equal signature, whichever
+        capture they came from. A combatant with no preset is left out,
+        and named in the second value."""
         measure = self.measure()
         stats = rj.stats_snapshot()
         rolls = tuple(sorted((k, tuple(v)) for k, v in stats.items()))
@@ -666,8 +722,7 @@ class ReadjustTab(BaseTab):
                 if weights is None:
                     bare.append(name)
                     continue
-                key = (self._token, rj.GEAR, name,
-                       tuple(sorted(weights.items())), rolls)
+                key = (rj.GEAR, tuple(sorted(weights.items())), rolls)
                 out[name] = (key, {"measure": rj.GEAR, "weights": weights,
                                    "stats": stats})
             else:
@@ -676,102 +731,145 @@ class ReadjustTab(BaseTab):
                 settings = manager.get_character_data(
                     info.res_id if info is not None else 0) \
                     if manager is not None else {}
-                key = (self._token, rj.BUILD, name,
-                       json.dumps(settings, sort_keys=True, default=str),
-                       rolls)
-                out[name] = (key, {"measure": rj.BUILD, "settings": settings,
+                held = (self._token, name,
+                        json.dumps(settings, sort_keys=True, default=str))
+                if held not in self._inputs:
+                    inputs = rj.build_inputs(self.optimizer, name, settings)
+                    worn = sorted(inputs["worn"], key=lambda f: f.slot_num)
+                    self._inputs[held] = (inputs, json.dumps(
+                        {"cs": inputs["cs"], "sp": inputs["sp"],
+                         "attribute": inputs["attribute"],
+                         "worn": [rj.content(f) for f in worn]},
+                        sort_keys=True, default=repr))
+                inputs, built = self._inputs[held]
+                key = (rj.BUILD, held[2], built, rolls)
+                out[name] = (key, {"measure": rj.BUILD, "build": inputs,
                                    "stats": stats})
         return out, bare
 
     def _needed(self, fragments, signatures):
-        """({combatant: {id: answer}}, [(part key, job)] still to ask
-        for, whether every answer is in). A combatant's fragments are
-        asked for a chunk at a time; under the build score, its top
-        `REFINE_TOP` by those answers are then sampled, a smaller
-        chunk at a time, and those answers replace theirs."""
-        readings, wanted = {}, []
-        chunks = [fragments[i:i + CHUNK]
-                  for i in range(0, len(fragments), CHUNK)]
-        for name, (key, template) in signatures.items():
-            got, whole = {}, True
-            for chunk in chunks:
-                part = (key, "read", tuple(f.id for f in chunk))
-                if part in self._parts:
-                    got.update(self._parts[part])
+        """({combatant: {id: answer}}, [(signature, template, combatant,
+        chunk, refine)] to hand the workers, {answer key} the list still
+        waits on). A combatant's fragments are read a chunk at a time;
+        under the build score, its top `REFINE_TOP` by those answers are
+        then sampled, a smaller chunk at a time, and those answers
+        replace theirs. Nothing kept or already being worked out is
+        asked for again."""
+        readings, wanted, waiting = {}, [], set()
+        keys = {f.id: rj.content(f) for f in fragments}
+        by_id = {f.id: f for f in fragments}
+
+        def ask(sig, template, name, todo, refine, size):
+            wanted.extend((sig, template, name, todo[i:i + size], refine)
+                          for i in range(0, len(todo), size))
+
+        for name, (sig, template) in signatures.items():
+            got, todo = {}, []
+            for f in fragments:
+                key = (sig, "read", keys[f.id])
+                if key in self._answers:
+                    got[f.id] = self._answers[key]
                 else:
-                    whole = False
-                    wanted.append((part, template, name, chunk, False))
-            if whole and template["measure"] == rj.BUILD:
+                    waiting.add(key)
+                    if key not in self._inflight:
+                        todo.append(f)
+            ask(sig, template, name, todo, False, CHUNK)
+            if len(got) == len(fragments) \
+                    and template["measure"] == rj.BUILD:
                 def value(fid):
                     _now, plain, exclude, _s = got[fid]
                     return max(plain.per_quartz, exclude.per_quartz)
                 top = sorted(got, key=lambda fid: (-value(fid), fid))
-                by_id = {f.id: f for f in fragments}
-                top = [by_id[fid] for fid in top[:rj.REFINE_TOP]]
-                for i in range(0, len(top), REFINE_CHUNK):
-                    chunk = top[i:i + REFINE_CHUNK]
-                    part = (key, "refine", tuple(f.id for f in chunk))
-                    if part in self._parts:
-                        got.update(self._parts[part])
+                todo = []
+                for fid in top[:rj.REFINE_TOP]:
+                    key = (sig, "refine", keys[fid])
+                    if key in self._answers:
+                        got[fid] = self._answers[key]
                     else:
-                        whole = False
-                        wanted.append((part, template, name, chunk, True))
+                        waiting.add(key)
+                        if key not in self._inflight:
+                            todo.append(by_id[fid])
+                ask(sig, template, name, todo, True, REFINE_CHUNK)
             readings[name] = got
-        return readings, wanted, not wanted
+        return readings, wanted, waiting
 
-    def _ask(self, wanted):
-        """Hand every part not asked for yet to the workers, and drop
-        the jobs not started yet that nothing wants now."""
-        keys = {part for part, *_rest in wanted}
-        for part, future in list(self._futures.items()):
-            if part not in keys and future.cancel():
-                del self._futures[part]
-        for part, template, name, chunk, refine in wanted:
-            if part in self._futures:
-                continue
-            job = {"measure": template["measure"],
-                   "stats": template["stats"], "fragments": chunk,
-                   "refine": refine}
+    def _ask(self, wanted, waiting):
+        """Hand `wanted` to the workers, and drop the jobs not started
+        yet whose answers nothing on show waits on."""
+        for job, future in list(self._futures.items()):
+            sig, kind, pairs = job
+            if not any((sig, kind, c) in waiting for _fid, c in pairs) \
+                    and future.cancel():
+                self._drop(job)
+        for sig, template, name, chunk, refine in wanted:
+            kind = "refine" if refine else "read"
+            pairs = tuple((f.id, rj.content(f)) for f in chunk)
+            job = (sig, kind, pairs)
+            payload = {"measure": template["measure"],
+                       "stats": template["stats"], "fragments": chunk,
+                       "refine": refine}
             if template["measure"] == rj.GEAR:
-                job["weights"] = template["weights"]
+                payload["weights"] = template["weights"]
             else:
-                signature = part[0]
-                if signature not in self._inputs:
-                    self._inputs[signature] = rj.build_inputs(
-                        self.optimizer, name, template["settings"])
-                job["build"] = self._inputs[signature]
-            self._futures[part] = rj.submit(job)
+                payload["build"] = template["build"]
+            self._futures[job] = rj.submit(payload)
+            self._jobs[job] = pairs
+            for _fid, c in pairs:
+                self._inflight[(sig, kind, c)] = job
         if self._futures and not self._polling:
             self._polling = True
             self.frame.after(POLL_MS, self._poll)
+
+    def _drop(self, job):
+        """Forget a job: answered, failed or cancelled."""
+        sig, kind, pairs = job
+        self._futures.pop(job, None)
+        self._jobs.pop(job, None)
+        for _fid, c in pairs:
+            if self._inflight.get((sig, kind, c)) == job:
+                del self._inflight[(sig, kind, c)]
 
     def _poll(self):
         """Take in what the workers have answered, ask for what that
         makes wanted, and draw once the list is whole."""
         self._polling = False
-        for part, future in list(self._futures.items()):
+        for job, future in list(self._futures.items()):
             if not future.done():
                 continue
-            del self._futures[part]
+            self._drop(job)
             if future.cancelled():
                 continue
             try:
-                self._parts[part] = future.result()
+                answers = future.result()
             except Exception as e:                 # shown, not raised
                 self._error = e
+                continue
+            sig, kind, pairs = job
+            for fid, c in pairs:
+                if fid in answers:
+                    self._answers[(sig, kind, c)] = answers[fid]
         self.refresh_readjust()
 
-    def _forget(self, token):
-        """A new snapshot: every answer is of the old one."""
-        if token != self._token:
-            self._token = token
-            self._parts.clear()
-            self._inputs.clear()
-            for future in self._futures.values():
-                future.cancel()
-            self._futures.clear()
-        elif len(self._parts) > KEEP_PARTS:
-            self._parts.clear()
+    def _forget(self, token, fragments):
+        """A capture loaded: the build inputs are resolved again, and the
+        answers of fragments no longer held -- deleted, or readjusted to
+        new rolls -- are dropped. Every other answer stays: one worked
+        out from the same inputs is the same answer, whichever capture
+        holds them."""
+        if token == self._token:
+            return
+        self._token = token
+        self._inputs.clear()
+        live = {rj.content(f) for f in fragments}
+        for key in [k for k in self._answers if k[2] not in live]:
+            del self._answers[key]
+
+    def _prune(self, signatures):
+        """Past `KEEP_ANSWERS`, keep only the answers of `signatures`."""
+        if len(self._answers) > KEEP_ANSWERS:
+            keep = {sig for sig, _template in signatures.values()}
+            for key in [k for k in self._answers if k[0] not in keep]:
+                del self._answers[key]
 
     def refresh_readjust(self):
         """Read the controls and the loaded data again, ask the workers
@@ -799,22 +897,23 @@ class ReadjustTab(BaseTab):
         if not self.frame.winfo_ismapped():
             return
         self._forget((id(optimizer.fragments), optimizer.capture_time,
-                      len(optimizer.fragments)))
+                      len(optimizer.fragments)), fragments)
         combatants = self._combatants()
         signatures, bare = self._signatures(combatants)
+        self._prune(signatures)
         if not combatants:
             self._draw([], NOBODY)
             return
         if not signatures:
             self._draw([], NO_PRESET % ", ".join(sorted(bare)))
             return
-        readings, wanted, whole = self._needed(fragments, signatures)
+        readings, wanted, waiting = self._needed(fragments, signatures)
         if self._error is not None:
             error, self._error = self._error, None
             self._draw([], FAILED % error)
             return
-        if not whole:
-            self._ask(wanted)
+        self._ask(wanted, waiting)
+        if waiting:
             self._draw(None, LOADING)
             return
         shown = best_readings(self._passing(fragments), readings,
@@ -824,7 +923,7 @@ class ReadjustTab(BaseTab):
         self._show_status(len(shown))
 
     def _passing(self, fragments):
-        """The fragments the Slots, Sets and Fragments filters let
+        """The fragments the Slots, Sets and MFs filters let
         through."""
         owner = _value(OWNERS, self.owner_var.get())
         theirs = set(self._combatants())
@@ -868,7 +967,8 @@ class ReadjustTab(BaseTab):
             self._words = words
             tree.delete(*tree.get_children())
             cells = [""] * len(COLUMNS)
-            cells[1] = words
+            # In the widest column, which shows the words whole.
+            cells[[c[0] for c in COLUMNS].index("subs")] = words
             tree.insert("", tk.END, values=cells)
             return
         self._words = None

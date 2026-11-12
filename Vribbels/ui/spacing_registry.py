@@ -896,6 +896,12 @@ CONTENT_FRAME_ENTRIES = [
      _panel_gap("Client Status", "Share Game Data", "h")),
     ("Combatants", "character list -> Equipped Memory Fragments", 4, "h",
      _list_to_panel_gap("Equipped Memory Fragments")),
+    # The Substat Readjustment tab's dropdowns, stacked, against the
+    # Slots panel beside them: the two read as panels side by side.
+    # Resolved when it runs: the helpers are defined further down.
+    ("Substat Readjustment", "dropdowns -> Slots", 4, "h",
+     lambda cap, app: _gap(_group_of("Score:"), _panel_at("Slots"),
+                           "h")(cap, app)),
     # Four more pairs of panels sitting side by side. The rule's other
     # thirty-odd marker sites are pads on borderless containers with
     # nothing painted at either end; these draw an edge each.
@@ -1106,13 +1112,16 @@ PANEL_OVER_TEXT_ENTRIES = [
      _panel_gap("Requirements", "Capture Log", "v")),
     ("Capture", "Upgrade Log Settings -> Capture Log title", 10, None,
      _panel_gap("Upgrade Log Settings", "Capture Log", "v")),
-    ("Stats & Gacha History", "Banners -> Overall Gacha Stats title", 10, None,
+    # 2 past the rule, as is the Great Rift's title under the sheet:
+    # the sheet is label rows, and at the rule both titles read as more
+    # of them.
+    ("Stats & Gacha History", "Banners -> Overall Gacha Stats title", 12, None,
      _panel_gap("Banners", GACHA_OVERALL_TITLE, "v")),
     # The standings under the gacha sheet: the Great Rift's list. The
     # Offensive's and the Sortie's sit at the window's foot, slack above
     # them, so nothing above them is a distance to hold.
     ("Stats & Gacha History", "Overall Gacha Stats -> Great Rift Stats title",
-     10, None, _sheet_over_panel(
+     12, None, _sheet_over_panel(
          lambda app: app.gacha_tab_instance.overall_text, GACHA_RIFT_TITLE)),
 
     # Text above, a panel below. The three tab headings differ only in
@@ -2220,8 +2229,6 @@ CONTROL_GROUP_ENTRIES = [
      _gap(_by_text("Export JSON"), _group_of("Show:"), "h")),
     ("Stats & Gacha History", "Show group -> help text", 16, None,
      _gap(_group_of("Show:"), _by_text(GACHA_HELP_PREFIX), "h")),
-    ("Substat Readjustment", "dropdowns -> Slots", 16, None,
-     _gap(_group_of("Score:"), _panel_at("Slots"), "h")),
     ("Substat Readjustment", "Sets -> note", 16, None,
      _gap(_panel_at("Sets"), _by_text(READJUST_NOTE_PREFIX), "h")),
 ]
@@ -2236,6 +2243,71 @@ TAB_LIST_WIDGETS = [
      _group_of("Show:")),
     ("Substat Readjustment", "Substat Readjustment: tab list -> Score dropdown",
      _group_of("Score:")),
+]
+
+
+def _tab_list_to_panel_title(title):
+    """Resolver: the tab strip's bottom -> a panel title's capitals.
+
+    Read off the title's first glyph, as `_tab_list_to_first_element`
+    reads a label's: a later letter may be an ascender standing above
+    the capitals. The title's rows are the first painted run inside the
+    panel's box, which holds no border column: the title sits above the
+    border rectangle (`sa.title_gap`).
+    """
+    def resolve(cap, app):
+        from tkinter import ttk
+        box = sa.box_of(sa.current_tab_widget(app))
+        frame = _panel(app, title)
+        fb = sa.box_of(frame)
+        edge = px(2)
+        strip = sa.Box(fb.left + edge, fb.top,
+                       max(fb.right - edge, fb.left + edge), fb.bottom)
+        runs = sa.painted_runs_v(cap, strip, cap.background)
+        if not runs:
+            return None, f"the {title!r} title painted nothing"
+        rows = sa.Box(strip.left, runs[0][0], strip.right, runs[0][1])
+        ink = sa.painted_extent_h(cap, rows, cap.background)
+        if ink is None:
+            return None, f"the {title!r} title painted nothing"
+        spec = ttk.Style().lookup("TLabelframe.Label", "font") \
+            or "TkDefaultFont"
+        advance = tkfont.Font(font=spec).measure(title[0])
+        first = sa.Box(ink[0], rows.top,
+                       min(ink[0] + advance - 1, rows.right), rows.bottom)
+        extent = sa.painted_extent_v(cap, first, cap.background)
+        if extent is None:
+            return None, f"the first glyph of {title!r} painted nothing"
+        return sa.gap_between(box.top - 1, extent[0]), ""
+    return resolve
+
+
+# (tab, name, resolver) for text read against the tab list beside a
+# tab's first control: the Substat Readjustment tab's panel titles, its
+# note and its Quartz count, each at the rule the dropdowns keep.
+TAB_LIST_TEXTS = [
+    ("Substat Readjustment", "Substat Readjustment: tab list -> Slots title",
+     _tab_list_to_panel_title("Slots")),
+    ("Substat Readjustment", "Substat Readjustment: tab list -> Sets title",
+     _tab_list_to_panel_title("Sets")),
+    ("Substat Readjustment", "Substat Readjustment: tab list -> note",
+     _tab_list_to_first_element(READJUST_NOTE_PREFIX)),
+    ("Substat Readjustment", "Substat Readjustment: tab list -> Quartz count",
+     _tab_list_to_first_element(
+         lambda app: app.readjust_tab_instance.held_label)),
+]
+
+# (tab, name, resolver) for the Substat Readjustment tab's Sets panel,
+# whose title the Memory Fragments tab's shares, so `PANEL_EDGES`' names
+# would collide. The left edge is read to the checkboxes: the All
+# button under them sits at the button rule's 3, and a scan of the whole
+# interior would stop at it. Resolved when run: the helpers are defined
+# further down.
+READJUST_EDGES = [
+    ("Substat Readjustment", "Substat Readjustment Sets: left edge -> checkboxes",
+     lambda cap, app: _class_left_inset("Sets", *CHECKBOX_CLASSES)(cap, app)),
+    ("Substat Readjustment", "Substat Readjustment Sets: right edge -> content",
+     lambda cap, app: _panel_edge_inset("Sets", "right")(cap, app)),
 ]
 
 # (tab, name, target, hand reading, resolver) for a button row against
@@ -2931,10 +3003,28 @@ def _text_column_gap(locator, needles, index=0, from_end=False):
     return resolve
 
 
-def _text_field_gap(locator, needles, index=0, advance=False):
+def _text_field_gap(locator, needles, index=0, advance=False,
+                    sections=False, heads=(), reserve=None, drawn=False):
     """Resolver: the SMALLEST gap between two tab-separated FIELDS of a
     Text's lines, each field's ink taken between the places the Text
     DREW the fields' first characters.
+
+    `sections`: a line holds several sections side by side, each opened
+    by a field that IS one of the needles, and `index` counts from that
+    field, within its section -- never across into the next one. A
+    field among `heads` closes a section too, opening one that is not
+    read. Off, `index` counts from the line's start.
+
+    `reserve(app)`, where given, is the text the LEFT field's column is
+    kept wide enough for: its end is then the further of its own ink
+    and the column's reserved width, set from where the Text drew it.
+    A column reserved for more than it holds reads its layout, not the
+    data's widest.
+
+    `drawn` takes the RIGHT field's start where the Text drew it rather
+    than at its ink, for a field whose first glyph is the data's: a name
+    starting with `H` opens on a column too faint to count, one starting
+    with `S` does not, and the gap would read the name, not the layout.
 
     `_text_column_gap` finds its columns in the ink alone, merging the
     tightest gaps until the count comes out right. That cannot work
@@ -2966,18 +3056,21 @@ def _text_field_gap(locator, needles, index=0, advance=False):
             start = f"{where} lineend"
 
     def fields_of(widget, n, left):
-        """(first drawn x, last character's advance end) per field, in
-        root coordinates."""
+        """(the field's text, (first drawn x, last character's advance
+        end) in root coordinates) per field; the second None for an
+        empty field, or one the widget's edge clips -- Tk gives no box
+        for a character it does not show."""
         found, offset = [], 0
         for text in widget.get(f"{n}.0", f"{n}.end").split("\t"):
             body = text.strip()
+            spot = None
             if body:
                 first = offset + len(text) - len(text.lstrip())
                 a = widget.bbox(f"{n}.{first}")
                 b = widget.bbox(f"{n}.{first + len(body) - 1}")
-                if a is None or b is None:
-                    return None
-                found.append((left + a[0], left + b[0] + b[2] - 1))
+                if a is not None and b is not None:
+                    spot = (left + a[0], left + b[0] + b[2] - 1)
+            found.append((text, spot))
             offset += len(text) + 1
         return found
 
@@ -2989,11 +3082,17 @@ def _text_field_gap(locator, needles, index=0, advance=False):
         origin = sa.box_of(widget).top
         box = _inside_border(widget)
         fill = _widget_fill(widget)
+        reserved = None
+        if reserve is not None:
+            reserved = tkfont.Font(font=widget.cget("font")).measure(
+                reserve(app))
         readings = []
-        for n in (n for needle in needles for n in lines(widget, needle)):
+        found = sorted({n for needle in needles
+                        for n in lines(widget, needle)})
+        for n in found:
             info = widget.dlineinfo(f"{n}.0")
             fields = fields_of(widget, n, left)
-            if info is None or not fields or index + 1 >= len(fields):
+            if info is None or not fields:
                 continue
             top = origin + info[1]
             band = sa.Box(left=box.left, top=top,
@@ -3002,20 +3101,38 @@ def _text_field_gap(locator, needles, index=0, advance=False):
             # A run belongs to the field its MIDDLE falls in: a glyph's
             # fringe can start a pixel before the place the Text drew
             # its box.
-            ink = []
-            for i, (start, _end) in enumerate(fields):
-                stop = (fields[i + 1][0] if i + 1 < len(fields)
+            drawn = [i for i, (_t, spot) in enumerate(fields) if spot]
+            ink = [None] * len(fields)
+            for k, i in enumerate(drawn):
+                start = fields[i][1][0]
+                stop = (fields[drawn[k + 1]][1][0] if k + 1 < len(drawn)
                         else box.right + 1)
                 inside = [r for r in runs
                           if start <= (r[0] + r[1]) // 2 < stop]
-                ink.append((min(r[0] for r in inside),
-                            max(r[1] for r in inside)) if inside else None)
-            if ink[index] is None or ink[index + 1] is None:
-                continue
-            end = fields[index][1] if advance else ink[index][1]
-            gap = sa.gap_between(end, ink[index + 1][0])
-            words = " ".join(widget.get(f"{n}.0", f"{n}.end").split())
-            readings.append((gap, n, words))
+                ink[i] = ((min(r[0] for r in inside),
+                           max(r[1] for r in inside)) if inside else None)
+            if sections:
+                opens = [i for i, (t, _s) in enumerate(fields)
+                         if t + "\t" in needles or t in heads]
+                closes = opens[1:] + [len(fields)]
+                pairs = [(s, s + index, s + index + 1)
+                         for s, close in zip(opens, closes)
+                         if s + index + 1 < close
+                         and fields[s][0] + "\t" in needles]
+            else:
+                # Counted over the fields drawn, an empty one skipped.
+                pairs = ([(drawn[0], drawn[index], drawn[index + 1])]
+                         if index + 1 < len(drawn) else [])
+            for s, a, b in pairs:
+                if ink[a] is None or ink[b] is None:
+                    continue
+                end = fields[a][1][1] if advance else ink[a][1]
+                if reserved is not None:
+                    end = max(end, fields[a][1][0] + reserved - 1)
+                start = fields[b][1][0] if drawn else ink[b][0]
+                gap = sa.gap_between(end, start)
+                words = " ".join(t for t, _s in fields[s:b + 1])
+                readings.append((gap, n, words))
         if not readings:
             return None, f"no line with that field, of {list(needles)}"
         readings.sort()
@@ -4153,6 +4270,11 @@ EXCEPTION_ENTRIES = {
     "Epione: heading -> first scenario": "exception",
     "Epione: option -> option": "exception",
     "Epione: card top -> its first line": "exception",
+    # The gacha sheet's title and the Great Rift's under it, each 2 past
+    # `panel ↕ unrelated label`: marked at `_make_sheet` and
+    # `UNDER_SHEET_PAD`.
+    "Banners -> Overall Gacha Stats title": "exception",
+    "Overall Gacha Stats -> Great Rift Stats title": "exception",
 }
 
 
@@ -5616,6 +5738,12 @@ def _gacha_overall(app):
     return app.gacha_tab_instance.overall_text
 
 
+def _gacha_reserved(field):
+    """The text the Overall Gacha Stats sheet keeps column `field` of
+    every record wide enough for (`GachaHistoryTab._reserve`)."""
+    return lambda app: app.gacha_tab_instance._reserve()[field]
+
+
 def _gacha_pitch_tags(*names):
     """The Overall Gacha Stats sheet's pitch-tag names, looked up when
     the audit runs -- see `_checklist_pitch_tags`, whose reasoning this
@@ -5639,6 +5767,9 @@ GACHA_RECORD_ROWS = ("Fastest 5★	", "Slowest 5★	",
                      "Most 5★s in 10 pulls	")
 GACHA_FIGURE_ROWS = ("Luck	", "Pulls	", "50/50s won	",
                      "Rate-Up pulls avg	") + GACHA_RECORD_ROWS
+# The second column's headings, which share a line with a first-column
+# record: a record's fields end where one starts.
+GACHA_SECTION_HEADS = ("Prism Module", "Card Skin Packs")
 
 # (tab, name, target, rule, resolver, axis) for the Stats & Gacha History
 # tab's Overall Gacha Stats sheet, a Text whose rows are label rows and whose columns are tab
@@ -5655,18 +5786,29 @@ GACHA_ENTRIES = [
                       kinds=_gacha_pitch_tags("row")), "v"),
     ("Stats & Gacha History", "Overall Gacha Stats: figure -> its value", 5,
      RULE_LABEL_ELEMENT,
-     _text_field_gap(_gacha_overall, GACHA_FIGURE_ROWS, index=0), "h"),
+     _text_field_gap(_gacha_overall, GACHA_FIGURE_ROWS, index=0,
+                     sections=True, heads=GACHA_SECTION_HEADS), "h"),
+    # Read from the widest value drawn to where the units were drawn:
+    # a name's first column is the data's.
     ("Stats & Gacha History", "Overall Gacha Stats: value -> units", 8, RULE_PAIR_GAP,
-     _text_field_gap(_gacha_overall, GACHA_RECORD_ROWS, index=1), "h"),
+     _text_field_gap(_gacha_overall, GACHA_RECORD_ROWS, index=1,
+                     sections=True, heads=GACHA_SECTION_HEADS,
+                     drawn=True), "h"),
+    # The units column is kept wide enough for the sheet's reserved
+    # names (`_reserve`) whatever it holds, so the gap is read from the
+    # further of the units' ink and that width.
     ("Stats & Gacha History", "Overall Gacha Stats: units -> date", 5, RULE_LABEL_ELEMENT,
-     _text_field_gap(_gacha_overall, GACHA_RECORD_ROWS, index=2), "h"),
-    # Only a record with a tie has a second pair. With none anywhere,
-    # this reads nothing and says so. The date's end is read at its
-    # advance: its last digit is the data's, and a `1` stops a pixel
-    # short of it.
+     _text_field_gap(_gacha_overall, GACHA_RECORD_ROWS, index=2,
+                     sections=True, heads=GACHA_SECTION_HEADS,
+                     reserve=_gacha_reserved(2)), "h"),
+    # Only a record with a tie in its own column has a second pair. With
+    # none anywhere, this reads nothing and says so. The date's end is
+    # read at its advance: its last digit is the data's, and a `1` stops
+    # a pixel short of it.
     ("Stats & Gacha History", "Overall Gacha Stats: date -> next tie", 8, RULE_PAIR_GAP,
      _text_field_gap(_gacha_overall, GACHA_RECORD_ROWS, index=3,
-                     advance=True), "h"),
+                     advance=True, sections=True,
+                     heads=GACHA_SECTION_HEADS), "h"),
 ]
 
 def _labelwidget_title_to_tree(title):
@@ -5837,6 +5979,7 @@ def register_all():
             axis="v",
             hand=hand,
             provisional=name in AWAITING_FIRST_READING,
+            target_source=EXCEPTION_ENTRIES.get(name, "rule"),
         )
 
     for tab, _heading in TAB_LIST_TABS:
@@ -5859,6 +6002,28 @@ def register_all():
             target=_tab_list_target(tab),
             resolve=_tab_list_to_widget(find),
             axis="v",
+            provisional=_name in AWAITING_FIRST_READING,
+        )
+
+    for tab, _name, resolve in TAB_LIST_TEXTS:
+        sa.track(
+            name=_name,
+            tab=tab,
+            rule=RULE_TAB_LIST,
+            target=_tab_list_target(tab),
+            resolve=resolve,
+            axis="v",
+            provisional=_name in AWAITING_FIRST_READING,
+        )
+
+    for tab, _name, resolve in READJUST_EDGES:
+        sa.track(
+            name=_name,
+            tab=tab,
+            rule=RULE_BORDER_EDGE_CONTENT,
+            target=4,
+            resolve=resolve,
+            axis="h",
             provisional=_name in AWAITING_FIRST_READING,
         )
 

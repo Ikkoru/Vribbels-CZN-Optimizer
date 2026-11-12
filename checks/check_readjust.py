@@ -21,6 +21,8 @@ nothing else, so a broken one reads as a plausible ranking:
    only by the sampling error.
 7. **The tab says which option to use**: Exclude where its gain per
    Quartz is higher, Reroll otherwise.
+8. **The tab keeps an answer by what it was worked out from**: a
+   readjusted fragment is worked out again, an unchanged one is not.
 """
 
 from ._harness import add_source_to_path
@@ -200,6 +202,71 @@ def run():
                        f"exclusion's {exclude_mean} says {use!r}, not "
                        f"{want!r}: Use names the option with the higher "
                        f"gain per Quartz.")
+    out.extend(_answers_kept_by_content())
+    return out
+
+
+def _answers_kept_by_content():
+    """8. **The tab keeps an answer by what it was worked out from.** A
+    new capture holding the same fragments asks for nothing again; a
+    readjusted fragment, same id and new rolls, is asked for again and
+    its old answer dropped; a deleted one's answer is dropped. Kept by id
+    instead, the list would go on showing a readjusted fragment's old
+    worth, and nothing would say so."""
+    import copy
+    import readjust as rj
+    from ui.tabs.readjust_tab import ReadjustTab
+
+    out = []
+    tab = ReadjustTab.__new__(ReadjustTab)
+    tab._answers, tab._inflight, tab._inputs, tab._token = {}, {}, {}, None
+    frags = []
+    for n, ups in enumerate(([(0, 1.3)] * 4, [(1, 2.5)] * 4,
+                             [(2, 5)] * 4)):
+        f = _fragment(ups)
+        f.id = 100 + n
+        frags.append(f)
+    sig = ("gear", "weights")
+    signatures = {"X": (sig, {"measure": rj.GEAR})}
+
+    def asked(fragments):
+        _readings, wanted, _waiting = tab._needed(fragments, signatures)
+        return sorted(f.id for *_rest, chunk, _refine in wanted
+                      for f in chunk)
+
+    def answer(fragments):
+        for f in fragments:
+            tab._answers[(sig, "read", rj.content(f))] = ("answer", f.id)
+
+    tab._forget("capture 1", frags)
+    answer(frags)
+    same = [copy.deepcopy(f) for f in frags]
+    tab._forget("capture 2", same)
+    if asked(same):
+        out.append(f"a new capture of the same fragments asks for "
+                   f"{asked(same)} again: an answer is kept by what it was "
+                   f"worked out from, not by the capture.")
+    rerolled = [copy.deepcopy(f) for f in frags]
+    sub = rerolled[1].substats[1]
+    sub.upgrade_values = [2.0, 2.0, 2.0]
+    sub.value = sub.base_value + sum(sub.upgrade_values)
+    tab._forget("capture 3", rerolled)
+    readings, _wanted, _waiting = tab._needed(rerolled, signatures)
+    if asked(rerolled) != [rerolled[1].id] or rerolled[1].id in readings["X"]:
+        out.append(f"after a readjustment of fragment {rerolled[1].id} the "
+                   f"tab asks for {asked(rerolled)} and shows "
+                   f"{readings['X'].get(rerolled[1].id)} for it: the "
+                   f"readjusted fragment alone is worked out again, and its "
+                   f"old answer is not shown.")
+    answer(rerolled)
+    left = rerolled[:2]
+    tab._forget("capture 4", left)
+    gone = [k for k in tab._answers if k[2][0] == rerolled[2].id]
+    if gone or asked(left):
+        out.append(f"after fragment {rerolled[2].id} is deleted the tab "
+                   f"keeps {len(gone)} answer(s) of it and asks for "
+                   f"{asked(left)}: a deleted fragment's answers are "
+                   f"dropped, and nothing else is asked for.")
     return out
 
 
@@ -227,4 +294,19 @@ FAULTS = [
      "key=lambda o: (o.per_quartz, -o.cost))",
      "key=lambda o: (-o.cost, o.per_quartz))",
      "Use names the option"),
+    ("every answer dropped with each capture",
+     "ui.tabs.readjust_tab:ReadjustTab._forget",
+     "for key in [k for k in self._answers if k[2] not in live]:",
+     "for key in list(self._answers):",
+     "not by the capture"),
+    ("an answer kept by the fragment's id alone", "readjust:content",
+     "tuple((s.raw_name, s.value, s.base_value,\n"
+     "                   tuple(s.upgrade_values)) for s in fragment.substats))",
+     "len(fragment.substats))",
+     "the readjusted fragment alone"),
+    ("a deleted fragment's answers kept",
+     "ui.tabs.readjust_tab:ReadjustTab._forget",
+     "live = {rj.content(f) for f in fragments}",
+     "live = {k[2] for k in self._answers}",
+     "a deleted fragment's answers are"),
 ]

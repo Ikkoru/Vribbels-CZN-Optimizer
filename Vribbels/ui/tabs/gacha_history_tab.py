@@ -102,8 +102,12 @@ PULL_COLUMNS = (
 TREE_STYLE = "GachaHistory.Treeview"
 TEXT_INSET = 3
 COLUMN_GAP = 18
+# The Pulls list's spacer, narrower: the width it gives up goes to the
+# Banners list's last column (`_fit_banners`), and so to the gacha sheet
+# and the standings under it.
+PULLS_COLUMN_GAP = 8
 # The standings' spacer, narrower: their columns are short figures that
-# read as one table, where the banners' and pulls' are separate facts.
+# read as one table, where the banners' are separate facts.
 STANDINGS_COLUMN_GAP = 8
 # The heading's height is left as the shared style has it.
 HEADING_INSET_V = 3
@@ -177,10 +181,15 @@ SKINS_ONLY = gh.SKIN_LABEL
 SKINS_NOTE = "Shop > Lumina Theater > Probability Info > Pack Purchase History"
 HEADING_FONT = ("Segoe UI", 9, "bold")
 STREAK = "Most 5★s in %d pulls"
-# What the second column is measured with (`_right_width`): a record's
-# widest value and a tie's date.
+# The room every section's columns keep (`_reserve`): a record's widest
+# value, a tie's date, and between them units as wide as this many of
+# the longest combatant names -- a streak's several 5-stars. A section's
+# columns sit at least that far apart whatever it holds, so the second
+# column stays put as the records change, and a tie past the room runs
+# under the Pulls list.
 WIDEST_COUNT = "99 pulls"
 WIDEST_DATE = "0000-00-00"
+SET_NAMES = 3
 
 # Under it, the account's standings: three lists with a column per
 # season, newest first, and the rows' names held still at the left --
@@ -224,8 +233,9 @@ TIP_TAG = "tipped"
 # A title's leading pad against the panel above it, the lever on
 # `panel ↕ unrelated label`. Under the gacha sheet it is less than
 # under a list: the sheet's last line box already reaches past its
-# baseline by more than a list does past its last row.
-UNDER_SHEET_PAD = 2    # spacing: panel ↕ unrelated label -- run, title ↕
+# baseline by more than a list does past its last row. Under the sheet
+# it is also 2 past the rule, as the sheet's own title is (`_make_sheet`).
+UNDER_SHEET_PAD = 4    # spacing: exception -- panel ↕ unrelated label -- run, title ↕
 UNDER_LIST_PAD = 5     # spacing: panel ↕ unrelated label -- panel, title ↕
 
 # One pitch tag per line, setting its `spacing1` -- the line's own word
@@ -256,9 +266,7 @@ TITLE_GAP = 2           # spacing: label row -> label row -- title, run ↕
 # beside the next -- as many pairs as fit the Banners list's width,
 # oldest first.
 FIGURE_TO_VALUE = 5     # spacing: label ↔ its element -- run, run ↔
-# A pixel short of its rule: the widest value is always `N pulls`,
-# whose `s` stops a pixel inside its own advance.
-VALUE_TO_UNITS = 7      # spacing: element and its label ↔ element and its label -- run, run ↔
+VALUE_TO_UNITS = 8      # spacing: element and its label ↔ element and its label -- run, run ↔
 UNITS_TO_DATE = 5       # spacing: label ↔ its element -- run, run ↔
 TIE_TO_TIE = 8          # spacing: element and its label ↔ element and its label -- run, run ↔
 # A section set beside another on the same lines -- every banner's, by
@@ -288,21 +296,25 @@ class Beside:
 class Paired:
     """A line of the gacha sheet with a part in its second column as
     well: `left` any line, `right` a heading, a `Noted` heading or a
-    row's fields. The second column holds the Prism Module's and the
-    Card Skin Packs' records beside the Combatant & Partner banners',
-    its last line on theirs. It starts `right_width` short of the
-    sheet's room, at a width measured once (`_right_width`)."""
+    row's fields. The second column holds the Prism Module's records on
+    the Combatant & Partner banners' first lines and the Card Skin
+    Packs' on their last. It starts `right_width` short of the sheet's
+    room, at a width measured once (`_right_width`)."""
 
     def __init__(self, left, right):
         self.left, self.right = left, right
 
 
-def _bottom_aligned(rows, right):
-    """`rows` with `right`'s parts paired onto the last of them, line
-    for line, so the two columns end on one line."""
-    first = len(rows) - len(right)
-    return tuple(Paired(row, right[n - first])
-                 if 0 <= n - first < len(right) else row
+def _paired(rows, top, bottom):
+    """`rows` with `top`'s parts paired onto the first of them and
+    `bottom`'s onto the last, line for line, so the second column starts
+    and ends on the first column's lines. A block that would overlap the
+    one above it starts under it instead, and a part past the last row
+    is left out."""
+    first = max(len(top), len(rows) - len(bottom))
+    right = {n: part for n, part in enumerate(top)}
+    right.update({first + n: part for n, part in enumerate(bottom)})
+    return tuple(Paired(row, right[n]) if n in right else row
                  for n, row in enumerate(rows))
 
 
@@ -413,6 +425,7 @@ class GachaHistoryTab(BaseTab):
         self._tip_font = None           # see `_underlined`
         self._row_tip_at = None         # see `_row_tip`
         self._right_cached = None       # see `_right_width`
+        self._reserve_cached = None     # see `_reserve`
         self._wide = False              # see `_place_pair`
         self.setup_ui()
         self.frame.bind("<Map>", self._first_show, add="+")
@@ -572,7 +585,7 @@ class GachaHistoryTab(BaseTab):
                               padx=(px_after(2, 2), px_after(2, 2)),
                               pady=(px_after(5, 2), px_after(2, 2)))
         self.pulls_tree = self._make_tree(self.pulls_frame, PULL_COLUMNS,
-                                          height=20)
+                                          height=20, gap=PULLS_COLUMN_GAP)
         self.pulls_scroll = ttk.Scrollbar(self.pulls_frame,
                                           orient=tk.VERTICAL,
                                           command=self.pulls_tree.yview)
@@ -596,13 +609,16 @@ class GachaHistoryTab(BaseTab):
         frame = ttk.LabelFrame(parent, text=OVERALL_TITLE, padding=px(0),
                                style="Borderless.TLabelframe")
         # spacing: content frame -> content frame -- frame, frame ↔↕
-        # spacing: panel ↕ unrelated label -- panel, title ↕
+        # spacing: exception -- panel ↕ unrelated label -- panel, title ↕
         # The leading pad is the lever on the gap from the panel above
-        # to this title, which the text rule sets; the banners keep the
-        # 2 every panel on this tab has.
+        # to this title; the banners keep the 2 every panel on this tab
+        # has. 2 past the rule, as the title of the Great Rift's list
+        # under the sheet is (`UNDER_SHEET_PAD`): the sheet is label rows
+        # on the window's own background, and at the rule its title and
+        # the Great Rift's read as two more of its rows.
         frame.grid(row=row, column=0, sticky="nw",
                    padx=(px_after(2, 2), px(2)),
-                   pady=(px_after(2, 5), px(2)))
+                   pady=(px_after(2, 7), px(2)))
         # A Text sizes in characters and lines, and a sheet is sized in
         # pixels -- its rows carry `spacing1` a line count cannot see --
         # so the holder is sized and the Text fills it. See
@@ -775,7 +791,8 @@ class GachaHistoryTab(BaseTab):
                         padding=px((TEXT_INSET, HEADING_INSET_V,
                                     TEXT_INSET, HEADING_INSET_V)))
 
-    def _make_tree(self, parent, columns, height):
+    def _make_tree(self, parent, columns, height, gap=COLUMN_GAP):
+        """A list of `columns`, each `gap` from the next."""
         self._style_lists()
         ids = []
         for index, (col, _title, _samples, _anchor) in enumerate(columns):
@@ -800,11 +817,11 @@ class GachaHistoryTab(BaseTab):
             tree.column(col, width=width, anchor=anchor,
                         stretch=index == len(columns) - 1)
             if index:
-                gap = self._spacer(index)
-                tree.heading(gap, text="")
+                spacer = self._spacer(index)
+                tree.heading(spacer, text="")
                 # spacing: unique -- Treeview internals, which are style options -- tree, text ↔
-                tree.column(gap, width=px(COLUMN_GAP),
-                            minwidth=px(COLUMN_GAP), stretch=False)
+                tree.column(spacer, width=px(gap), minwidth=px(gap),
+                            stretch=False)
         # (last column, its measured width, every column's): what
         # `_fit_banners` works the window's spare width out from.
         self._natural[str(tree)] = (columns[-1][0], width,
@@ -1040,7 +1057,7 @@ class GachaHistoryTab(BaseTab):
             if o.rate_up_expected is not None:
                 per += " (expected avg %s)" % _number(o.rate_up_expected)
         streak = STREAK % gh.STREAK_PULLS
-        return _bottom_aligned((
+        return _paired((
             # The wider sections are a heading and a luck each, which sit
             # beside the first section's rather than a section down.
             Beside(WITHOUT_PRISM, WITH_PRISM, WITH_SKINS),
@@ -1056,41 +1073,46 @@ class GachaHistoryTab(BaseTab):
             ("Slowest rate-up",) + _standout(o.slowest_rate_up),
             (streak,) + _standout(o.streak, streak=True),
         ), (
-            # The Prism Module's records, then the Card Skin Packs', in
-            # the second column, a Super Rare as a 5-star.
+            # The second column: the Prism Module's records at the top,
+            # the Card Skin Packs' at the foot, a Super Rare as a 5-star.
             PRISM_ONLY,
             ("Fastest 5★",) + _standout(o.prism_fastest),
             ("Slowest 5★",) + _standout(o.prism_slowest),
             (streak,) + _standout(o.prism_streak, streak=True),
+        ), (
             Noted(SKINS_ONLY, SKINS_NOTE),
             ("Fastest 5★",) + _standout(o.skin_fastest),
             ("Slowest 5★",) + _standout(o.skin_slowest),
             (streak,) + _standout(o.skin_streak, streak=True),
         ))
 
-    def _right_width(self):
-        """The sheet's second column's width: `Most 5★s in 10 pulls`,
-        then two ties, each a count, one of the two longest combatant
-        names and a date, at the sheet's gaps -- or the Card Skin Packs'
-        heading and note, where that is wider. Measured the first time
-        it is asked for and kept, so neither a resize nor a refill moves
-        the column."""
-        if self._right_cached is None:
+    def _reserve(self):
+        """The record every section's columns make room for: the streak's
+        figure, the widest value, units of the `SET_NAMES` longest
+        combatant names, and a date. Worked out once and kept."""
+        if self._reserve_cached is None:
             from game_data import CHARACTERS
             font = tkfont.nametofont("TkDefaultFont")
+            names = sorted({unit["name"] for unit in CHARACTERS.values()
+                            if isinstance(unit, dict) and unit.get("name")},
+                           key=font.measure, reverse=True)[:SET_NAMES]
+            names += ["#99999"] * (SET_NAMES - len(names))
+            self._reserve_cached = (STREAK % gh.STREAK_PULLS, WIDEST_COUNT,
+                                    ", ".join(names), WIDEST_DATE)
+        return self._reserve_cached
+
+    def _right_width(self):
+        """The sheet's second column's width: the reserved record
+        (`_reserve`) at the sheet's gaps, or the Card Skin Packs' heading
+        and note where that is wider. Measured the first time it is
+        asked for and kept, so neither a resize nor a refill moves the
+        column."""
+        if self._right_cached is None:
+            font = tkfont.nametofont("TkDefaultFont")
             bold = tkfont.Font(font=HEADING_FONT)
-            names = sorted((unit["name"] for unit in CHARACTERS.values()
-                            if isinstance(unit, dict) and unit.get("name")),
-                           key=font.measure, reverse=True)[:2]
-            names += ["#99999"] * (2 - len(names))
-            ties = [font.measure(WIDEST_COUNT) + px(VALUE_TO_UNITS)
-                    + font.measure(name) + px(UNITS_TO_DATE)
-                    + font.measure(WIDEST_DATE) for name in names]
-            # spacing: label ↔ its element -- run, run ↔
-            # spacing: element and its label ↔ element and its label -- run, run ↔
-            record = (font.measure(STREAK % gh.STREAK_PULLS)
-                      + px(FIGURE_TO_VALUE) + ties[0] + px(TIE_TO_TIE)
-                      + ties[1])
+            reserve = self._reserve()
+            record = (self._column_stops([reserve], font)[-1]
+                      + font.measure(reserve[-1]))
             # spacing: header subtext -- label, label ↔
             noted = (bold.measure(SKINS_ONLY) + px(NOTE_GAP)
                      + font.measure(SKINS_NOTE))
@@ -1098,7 +1120,8 @@ class GachaHistoryTab(BaseTab):
         return self._right_cached
 
     def _fill_overall(self):
-        """Write the gacha sheet, its ties cut to the banners' width."""
+        """Write the gacha sheet, its first column's ties cut short of
+        the second column (`_fit_ties`)."""
         font = tkfont.nametofont("TkDefaultFont")
         bold = tkfont.Font(font=HEADING_FONT)
         self._write_sheet(self.overall_text, self.overall_holder,
@@ -1315,8 +1338,9 @@ class GachaHistoryTab(BaseTab):
         side a `Beside`, whose own stops a tag of its own carries."""
         font = tkfont.nametofont("TkDefaultFont")
         bold = tkfont.Font(font=HEADING_FONT)
+        room = self._banners_width()
         stops, widest, beside, _ends, _left_ends = self._overall_layout(
-            rows, font, bold, self._banners_width(), self._right_width())
+            rows, font, bold, room, self._right_width(), self._reserve())
         text.configure(state=tk.NORMAL, tabs=tuple(stops))
         text.delete("1.0", tk.END)
         # The first line takes `TOP_TAG`, heading or row: it crosses
@@ -1355,21 +1379,28 @@ class GachaHistoryTab(BaseTab):
         height = text.count("1.0", tk.END, "update", "ypixels")
         if isinstance(height, (tuple, list)):
             height = height[0]
-        holder.configure(width=widest, height=height or 1)
+        # No wider than the Banners list: the sheet sits in its column,
+        # and a wider holder would widen the column and take the
+        # difference from the Pulls list. What runs past is clipped.
+        holder.configure(width=min(widest, room), height=height or 1)
 
     def _fit_ties(self, rows, font, bold):
-        """`rows` with each record's ties cut to as many pairs as fit
-        the Banners list's width, keeping the OLDEST. The sheet sits in
-        that list's column, and a wider sheet would widen the column and
-        take the difference from the pulls list beside it. The first
-        column's records are cut to end short of the second column,
-        and the second's to end inside the room.
+        """`rows` with the first column's ties cut to as many pairs as
+        end short of the second column, keeping the OLDEST -- on every
+        line, so no line's ties run on under the second column's gap
+        between its sections. Without a second column, the cut is to the
+        Banners list's width.
+
+        The second column's ties are never cut: past the Banners list's
+        width they run under the Pulls list, which clips them
+        (`_write_sheet`).
 
         Every record keeps its first pair, which is the record itself;
         only its ties are ever cut.
         """
         available = self._banners_width()
         right_width = self._right_width()
+        reserve = self._reserve()
 
         def parts(row):
             left = _left(row)
@@ -1378,35 +1409,25 @@ class GachaHistoryTab(BaseTab):
         def cut(part, pairs):
             return part if _heading(part) else part[:2 + 2 * pairs]
 
-        def most(parts_):
-            return max([(len(part) - 2) // 2 for part in parts_
-                        if not _heading(part)] + [1])
-
-        def rebuilt(row, full, side):
+        def rebuilt(row, full):
             if isinstance(row, Paired):
-                return Paired(rebuilt(row.left, full, side),
-                              cut(row.right, side))
+                return Paired(rebuilt(row.left, full), row.right)
             if isinstance(row, Beside):
                 return Beside(*(cut(part, full) for part in row.parts))
             return cut(row, full)
 
-        full = most([part for row in rows for part in parts(row)])
-        side = most([row.right for row in rows if isinstance(row, Paired)])
-        paired = [n for n, row in enumerate(rows) if isinstance(row, Paired)]
+        full = max([(len(part) - 2) // 2 for row in rows
+                    for part in parts(row) if not _heading(part)] + [1])
+        paired = any(isinstance(row, Paired) for row in rows)
+        # spacing: heading ↔ element -- run, run ↔
+        limit = (available - right_width - px(BESIDE_GAP) if paired
+                 else available)
         while True:
-            out = [rebuilt(row, full, side) for row in rows]
-            layout = self._overall_layout(out, font, bold, available,
-                                          right_width)
-            ends, left_ends = layout[3], layout[4]
-            # spacing: heading ↔ element -- run, run ↔
-            left_over = (max([left_ends[n] for n in paired] + [0])
-                         + px(BESIDE_GAP) > available - right_width
-                         or max(left_ends + [0]) > available)
-            right_over = max([ends[n] for n in paired] + [0]) > available
-            if left_over and full > 1:
+            out = [rebuilt(row, full) for row in rows]
+            left_ends = self._overall_layout(out, font, bold, available,
+                                             right_width, reserve)[4]
+            if full > 1 and max(left_ends + [0]) > limit:
                 full -= 1
-            elif right_over and side > 1:
-                side -= 1
             else:
                 return out
 
@@ -1450,10 +1471,12 @@ class GachaHistoryTab(BaseTab):
         return runs
 
     @classmethod
-    def _overall_layout(cls, rows, font, bold, room=None, right_width=None):
+    def _overall_layout(cls, rows, font, bold, room=None, right_width=None,
+                        reserve=None):
         """(tab stops, widest line, {line: its own stops}, each line's
         end, each line's first column's end), in pixels from the line's
-        start. The rows' columns are `_column_stops`'.
+        start. The rows' columns are `_column_stops`', each column at
+        least as wide as `reserve`'s field in it.
 
         A `Beside` line's first part is one of those rows. A run of such
         lines is laid out together, part by part: each part starts
@@ -1464,15 +1487,17 @@ class GachaHistoryTab(BaseTab):
 
         A `Paired` line's second part starts the second column:
         `right_width` short of `room`, or `BESIDE_GAP` past the furthest
-        first column of the paired lines where that is further. Its
-        rows' columns are their own, set from there, and those lines
-        carry them after their first column's stops.
+        first column of the paired lines and of `reserve` where that is
+        further. Its rows' columns are their own, set from there, and
+        those lines carry them after their first column's stops. What
+        runs past `room` is clipped there (`_write_sheet`).
         """
         sides = [_left(row) for row in rows]
         lefts = [row.parts[0] if isinstance(row, Beside) else row
                  for row in sides]
+        reserved = [reserve] if reserve else []
         stops = cls._column_stops(
-            [row for row in lefts if not _heading(row)], font)
+            [row for row in lefts if not _heading(row)] + reserved, font)
 
         def note_at(part, start):
             # spacing: header subtext -- label, label ↔
@@ -1515,13 +1540,19 @@ class GachaHistoryTab(BaseTab):
         left_ends = list(ends)
         paired = [n for n, row in enumerate(rows) if isinstance(row, Paired)]
         if paired:
+            # The first column's lines, and its reserved record, which
+            # keeps the column clear of the second however short its
+            # records' units are.
+            furthest = [ends[n] for n in paired]
+            if reserve:
+                furthest.append(finish(reserve, 0, stops))
             # spacing: heading ↔ element -- run, run ↔
-            start = max(ends[n] for n in paired) + px(BESIDE_GAP)
+            start = max(furthest) + px(BESIDE_GAP)
             if room and right_width:
                 start = max(start, room - right_width)
             local = cls._column_stops(
                 [rows[n].right for n in paired
-                 if not _heading(rows[n].right)], font, start)
+                 if not _heading(rows[n].right)] + reserved, font, start)
             for n in paired:
                 own = list(beside[n]) if n in beside else (
                     [] if _heading(lefts[n]) else stops[:len(lefts[n]) - 1])

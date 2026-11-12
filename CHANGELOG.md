@@ -25,9 +25,9 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - Each fragment's expected gain, its chance of any gain and the most it can gain, for a plain readjustment (1 Quartz) and with the best substat excluded (2 Quartz). Use says which does more per Quartz, and the list is ranked by that.
   - Score: Gear Score, under the combatant's assigned preset, or Build Score, the Optimizer's score of the combatant's equipped build with the fragment in its slot.
   - For: one combatant, or several with a weight each, every fragment read for the one it does most for.
-  - Slots and Sets checkboxes, and Fragments (all, worn by them, unequipped), narrow the list.
+  - Slots and Sets checkboxes, and MFs (all, worn by them, unequipped), narrow the list.
   - Your Shuffling Quartz count: red at 0, orange at 1, yellow at 2, green above.
-  - Worked out in the background: the window stays free, the list says Loading... meanwhile, and a score or combatant already worked out shows at once.
+  - Worked out in the background: the window stays free, the list says Loading... meanwhile, and a score or combatant already worked out shows at once. A new capture works out again only what it changed: a readjusted fragment, one newly at its top level, or the build of a combatant whose gear, level or settings changed.
 - Memory Fragments tab: two rows under Main Stats. The first is the Units needed to level every fragment to 3 and use up your Core of Memory. The second is what you hold against that: spare in green, or short in red with the x6 runs of Growth - Unit - Difficulty 6 it comes to.
 - Checklist tab: hovering a Core in Expiring Items says what it does.
 - Checklist tab: Activity (Weeklies), the week's Activity points out of 1000, read like Activity (Dailies): green once the week's reward is claimed, blinking orange with 1000 reached and the reward still to claim.
@@ -43,7 +43,8 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - A darker highlight for selected rows and text, offered Epione cards, and hovered headings and scrollbars.
 - Capture: a failure while you are on another tab blinks the Capture tab's bar red, in place of a red dot beside its name.
 - About: Support Development is now two links: a Support me on Ko-fi badge, and Donate through GitHub, to GitHub Sponsors.
-- Stats & Gacha History tab: the Prism Module's and the Card Skin Packs' records are a second column beside the Combatant & Partner banners', ending on the same line, which leaves the standings more room.
+- Stats & Gacha History tab: the Prism Module's and the Card Skin Packs' records are a second column beside the Combatant & Partner banners', the Prism Module's from the top line and the Card Skin Packs' ending on the last, which leaves the standings more room. Every record's units have room for three of the longest Combatant names; ties the first column has no room for are left off, and the second column's run on under the Pulls list.
+- Stats & Gacha History tab: the Pulls list's columns sit closer, and the Banners list, the gacha figures and the standings take the width saved. The Overall Gacha Stats title, and the Great Rift Stats title under it, stand a little further from what is above them.
 - Stats & Gacha History tab: the Full-Scale Offensive and Sortie lists sit at the window's foot and show as many seasons as each other. Once they need more room than the Banners list's width, they stretch across the window and the Pulls list ends above them.
 
 ### Fixed

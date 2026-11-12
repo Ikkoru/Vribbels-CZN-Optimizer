@@ -121,6 +121,22 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
   - **In the client:** what a package holds (`reward_box_fixed`, its item's `multiple_link`), and the payment event points a product pays (`shop_product_point`).
   - **A past package can carry today's name.** Imp's Mischief II and III (4501086, 4501087) were named by the text ids of 4501094 and 4501095, which build 126 rewrote for the Nightmare Carnival Chests, so the client now names those two as the chests too. A period's packages are named right by the client build of their period (`client_archive`).
 
+- **T27 — Recalibrate presets' Gear Score weights from the user's own Memory Fragments.** **Before building: consider whether this is smart, and ponder and research how gear scores should be weighted.**
+
+  **The request:** a button on the Gear Score tab that recalculates the weights of the presets selected in the list from the user's Memory Fragments. The button and a line explaining it sit in the empty space right of the buttons block above the list. The list gains a second column reading `Default`, `Manual`, or the date the user recalibrated that preset. A second button reverts the selected presets to their weights before the last adjustment, manual or recalibrated. Consecutive manual edits or recalibrations never erase the remembered earlier weights: each is kept with the date it was applied.
+
+  **The plan as proposed:**
+  - **What recalibrating means:** the preset's weights derived again against the combatant's own build instead of the shipped average build. The derivation (`docs/preset_weights.md`, `docs/preset_weights.py`) already takes a reference build.
+    - **Equipped build:** instant.
+    - **The Optimizer's best build:** truer to what the combatant could wear, at an Optimizer run per preset (minutes).
+    - Offer both, the equipped build by default.
+  - **The status column:** `Default` for a preset never edited, which keeps following new release defaults; `Manual` for one edited by hand; a date for one recalibrated then. Recalibrating stops a preset following release defaults, as a manual edit already does.
+  - **History:** every change kept per preset with its weights, its kind and its date, in a file of its own beside `presets.json`. Revert steps back one entry at a time. Restore Defaults adds an entry rather than wiping the history.
+  - **Preview first:** the old and new weights side by side before applying, changes over 10% highlighted.
+  - **Alternative:** save the recalibrated weights as a new preset (`Khalipe (mine)`) rather than overwriting. No history is needed then, and the shipped preset keeps following releases.
+  - **Further ideas:** recalibrate every assigned preset at once; flag a recalibrated preset whose weights would now move by more than some threshold since its date.
+  - **Caveat:** weights taken from the current build drift as the build changes. Crit Rate's weight falls toward 0 as the build nears the crit cap, for one. That suits deciding what to roll next better than a long-lived preset.
+
 ---
 
 ## TBD (parked — ignore for now)

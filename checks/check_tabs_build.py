@@ -4277,7 +4277,7 @@ def _no_inset_labels_hug_their_text(tab):
     return out
 
 
-def _sheet_complaints(label, text, holder):
+def _sheet_complaints(label, text, holder, clip_from=None):
     """(complaints, the lines set as headings) for one Stats & Gacha
     History sheet as it is written.
 
@@ -4286,7 +4286,8 @@ def _sheet_complaints(label, text, holder):
     field reaching its next stop, where Tk falls through to a tab
     spacing of its own; a holder narrower than a line, which clips the
     line's end; and one shorter than the lines, which clips the last
-    rows.
+    rows. A field starting at `clip_from` or past it may run past the
+    holder: that part of the sheet is clipped by design.
 
     Every line carries exactly one pitch tag -- the first line the one
     that charges nothing above it, a heading its own, every other row
@@ -4334,6 +4335,9 @@ def _sheet_complaints(label, text, holder):
             at += len(field) + 1
             end = starts[i] + font.measure(field)
             limit = starts[i + 1] if i + 1 < len(fields) else width
+            if (i + 1 == len(fields) and clip_from is not None
+                    and starts[i] >= clip_from):
+                continue
             if end > limit:
                 out.append(f"{label} line {n}: {field!r} ends at {end}px, "
                            f"past {limit}, the "
@@ -4349,26 +4353,33 @@ def _sheet_complaints(label, text, holder):
 
 
 def _gacha_overall_fits(tab, gh):
-    """The Overall Gacha Stats sheet shows all it holds.
+    """The Overall Gacha Stats sheet shows all it holds, in two columns.
 
     The stops and the holder are worked out again on every fill, so the
     history is handed a streak of three different units here -- wider
     than anything the sheet held before it. `_sheet_complaints` says
     what a fill can get wrong.
 
-    A record's ties sit beside it, as many as fit the sheet's share of
-    the Banners list's width and the oldest first; forty are handed
-    over here.
+    The Prism Module's records are a second column on the Combatant &
+    Partner banners' first lines and the Card Skin Packs' on their last,
+    starting its measured width short of the Banners list's. Every
+    section's units column has the room of the `SET_NAMES` longest
+    combatant names, whatever it holds.
 
-    The Prism Module's and the Card Skin Packs' records are a second
-    column beside the Combatant & Partner banners', its last line on
-    theirs, starting its measured width short of the Banners list's.
+    A first-column record's ties sit beside it, as many as end short of
+    the second column and the oldest first; forty are handed over here.
+    A second-column record's are never cut, and run past the Banners
+    list's width, clipped there by a holder no wider than that list:
+    forty go to the Prism Module's fastest 5-star.
 
     Returns a list of complaints.
     """
+    import tkinter.font as tkfont
     from datetime import datetime
+    from ui.scaling import px
     from ui.tabs.gacha_history_tab import (
-        OVERALL_TITLE, PRISM_ONLY, SKINS_ONLY, STREAK, WITH_PRISM,
+        BESIDE_GAP, BESIDE_TAG, BOLD_TAG, HEADING_FONT, OVERALL_TITLE,
+        PRISM_ONLY, SKINS_ONLY, STREAK, UNITS_TO_DATE, WITH_PRISM,
         WITH_SKINS, WITHOUT_PRISM)
 
     out = []
@@ -4379,14 +4390,14 @@ def _gacha_overall_fits(tab, gh):
                 "build a three-unit streak from"]
     tab.history.overall.streak = [
         gh.Standout(3, list(units.values())[:3])]
-    # More ties than the sheet's share of the Banners list's width can
-    # hold, a day apart and handed over oldest first, as the history
-    # lists them.
+    # More ties than the room holds, a day apart and handed over oldest
+    # first, as the history lists them.
     day = 86400
     first = pulls[0]
-    tab.history.overall.fastest = [
-        gh.Standout(1, [gh.Pull(res_id=first.res_id, at=1000 + i * day,
-                                number=i)]) for i in range(40)]
+    ties = [gh.Standout(1, [gh.Pull(res_id=first.res_id, at=1000 + i * day,
+                                    number=i)]) for i in range(40)]
+    tab.history.overall.fastest = ties
+    tab.history.overall.prism_fastest = ties
     tab._fill_overall()
     text = tab.overall_text
     available = tab.summary_tree.master.winfo_reqwidth()
@@ -4396,49 +4407,121 @@ def _gacha_overall_fits(tab, gh):
                    f"Banners list's {available}: it widens their column "
                    f"and squeezes the pulls list.")
     streak = STREAK % gh.STREAK_PULLS
-    row = text.get("5.0", "5.end").split("\t")
-    # The first column's fields: the second column's start after them.
-    row = row[:row.index(streak)] if streak in row else row
-    dates = row[3::2]
-    oldest = datetime.fromtimestamp(1000).strftime("%Y-%m-%d")
-    if len(dates) < 2 or dates != sorted(dates) or dates[0] != oldest:
-        out.append(f"forty tied fastest 5-stars show the dates {dates}: "
-                   f"as many as fit, oldest first from {oldest}.")
-    problems, headings = _sheet_complaints(OVERALL_TITLE, text,
-                                           tab.overall_holder)
-    out.extend(problems)
-    # The wider sections sit beside the first, on its heading's line.
-    if headings != ["\t".join((WITHOUT_PRISM, WITH_PRISM, WITH_SKINS))]:
-        out.append(f"the {OVERALL_TITLE} sheet's headings read {headings}")
-    # The second column: the Prism Module's four lines, then the Card
-    # Skin Packs', the last on the first column's last, every one of
-    # them starting at one stop, its width short of the room -- the stop
-    # before its first field on the line's own (`BESIDE_TAG`).
-    from ui.tabs.gacha_history_tab import BESIDE_TAG
     last = int(text.index("end-1c").split(".")[0])
     lines = {n: text.get(f"{n}.0", f"{n}.end").split("\t")
              for n in range(1, last + 1)}
+    sheet = [int(float(str(v))) for v in text.tk.splitlist(text.cget("tabs"))]
+
+    def stops(n):
+        """Line `n`'s field starts: its own stops where it has them."""
+        tag = BESIDE_TAG % (n - 1)
+        own = (text.tk.splitlist(text.tag_cget(tag, "tabs"))
+               if tag in text.tag_names(f"{n}.0") else ())
+        return [0] + ([int(float(str(v))) for v in own] if own else sheet)
+
+    # The second column: the Prism Module's four lines from the first,
+    # the Card Skin Packs' four ending on the last, every one of them
+    # starting at one stop, its width short of the room.
     want = tab._banners_width() - tab._right_width()
     starts = {}
     for n, fields in lines.items():
         for name in (PRISM_ONLY, SKINS_ONLY):
             if name in fields[1:]:
-                own = [int(float(str(v))) for v in text.tk.splitlist(
-                    text.tag_cget(BESIDE_TAG % (n - 1), "tabs"))]
-                starts[name] = (n, ([0] + own)[fields.index(name)])
+                starts[name] = (n, stops(n)[fields.index(name)])
     if lines[last].count(streak) != 2 \
-            or starts.get(PRISM_ONLY, (0,))[0] != last - 7 \
+            or starts.get(PRISM_ONLY, (0,))[0] != 1 \
             or starts.get(SKINS_ONLY, (0,))[0] != last - 3:
         out.append(f"the {OVERALL_TITLE} sheet's second column starts its "
                    f"{PRISM_ONLY} records on line "
                    f"{starts.get(PRISM_ONLY, (None,))[0]} and its "
                    f"{SKINS_ONLY} records on line "
-                   f"{starts.get(SKINS_ONLY, (None,))[0]} of {last}: its "
-                   f"last line is the first column's, {streak!r} on both.")
-    if {at for _n, at in starts.values()} != {want}:
+                   f"{starts.get(SKINS_ONLY, (None,))[0]} of {last}: the "
+                   f"Prism Module's on the first line, the Card Skin Packs' "
+                   f"ending on the last, {streak!r} on both.")
+    column = {at for _n, at in starts.values()}
+    if column != {want}:
         out.append(f"the {OVERALL_TITLE} sheet's second column starts at "
-                   f"{sorted(at for _n, at in starts.values())}px, not "
-                   f"{want}: its measured width short of the Banners list's.")
+                   f"{sorted(column)}px, not {want}: its measured width "
+                   f"short of the Banners list's.")
+    second = min(column) if column else available
+    # Every first-column line ends BESIDE_GAP short of the second
+    # column, the forty-tie line included, and that line keeps its
+    # oldest ties.
+    normal = tkfont.nametofont("TkDefaultFont")
+    bold = tkfont.Font(font=HEADING_FONT)
+    for n, fields in lines.items():
+        starts_n = stops(n)
+        own = [i for i, at in enumerate(starts_n[:len(fields)])
+               if at < second]
+        i = own[-1]
+        at = len("\t".join(fields[:i])) + (1 if i else 0)
+        font = bold if BOLD_TAG in text.tag_names(f"{n}.{at}") else normal
+        end = starts_n[i] + font.measure(fields[i])
+        if end + px(BESIDE_GAP) > second:
+            out.append(f"the {OVERALL_TITLE} sheet's line {n} ends its first "
+                       f"column at {end}px, under the second column at "
+                       f"{second}: its ties are cut to end "
+                       f"{px(BESIDE_GAP)} short of it.")
+    row = [f for f, at in zip(lines[5], stops(5)) if at < second]
+    dates = row[3::2]
+    oldest = [datetime.fromtimestamp(1000 + i * day).strftime("%Y-%m-%d")
+              for i in range(40)]
+    # One more pair would have run under the second column: the pair's
+    # units and date at the sheet's gaps past the last date shown.
+    from ui.tabs.gacha_history_tab import TIE_TO_TIE
+    last_date = stops(5)[len(row) - 1] + normal.measure(row[-1])
+    more = (last_date + px(TIE_TO_TIE) + normal.measure(row[2])
+            + px(UNITS_TO_DATE) + normal.measure(row[-1]))
+    if not dates or dates != oldest[:len(dates)] \
+            or more + px(BESIDE_GAP) <= second:
+        out.append(f"forty tied fastest 5-stars show the dates {dates}: "
+                   f"as many as fit, oldest first from {oldest[0]}.")
+    prism = [f for f, at in zip(lines[2], stops(2)) if at >= second]
+    if len(prism[3::2]) != 40:
+        out.append(f"forty tied {PRISM_ONLY} fastest 5-stars show "
+                   f"{len(prism[3::2])} dates: the second column's ties are "
+                   f"never cut, the room clipping them.")
+    if int(tab.overall_holder.cget("width")) != available:
+        out.append(f"the {OVERALL_TITLE} sheet's holder is "
+                   f"{tab.overall_holder.cget('width')}px with forty ties "
+                   f"past the room: as wide as the Banners list, "
+                   f"{available}, clipping them there.")
+    # The units columns' room: the longest combatant names and their
+    # gap, in each column, on the streak line both hold.
+    from game_data import CHARACTERS
+    from ui.tabs.gacha_history_tab import SET_NAMES
+    names = ", ".join(sorted(
+        {unit["name"] for unit in CHARACTERS.values()
+         if isinstance(unit, dict) and unit.get("name")},
+        key=normal.measure, reverse=True)[:SET_NAMES])
+    room = normal.measure(names) + px(UNITS_TO_DATE)
+    at = stops(last)
+    for label, units_at in (("first", 2), ("second", 6)):
+        if units_at + 1 >= len(at) or at[units_at + 1] - at[units_at] < room:
+            got = (at[units_at + 1] - at[units_at]
+                   if units_at + 1 < len(at) else None)
+            out.append(f"the {OVERALL_TITLE} sheet's {label} column's units "
+                       f"are {got}px to their date: the room of {names!r}, "
+                       f"{room}.")
+    problems, headings = _sheet_complaints(OVERALL_TITLE, text,
+                                           tab.overall_holder,
+                                           clip_from=second)
+    out.extend(problems)
+    # The wider sections sit beside the first, on its heading's line,
+    # and the Prism Module's heading on it too.
+    if headings != ["\t".join((WITHOUT_PRISM, WITH_PRISM, WITH_SKINS,
+                               PRISM_ONLY))]:
+        out.append(f"the {OVERALL_TITLE} sheet's headings read {headings}")
+    # The Pulls list's columns sit closer than the Banners list's, the
+    # width that saves going to the Banners list and the sheet.
+    from ui.tabs.gacha_history_tab import COLUMN_GAP, PULLS_COLUMN_GAP
+    for tree, gap, name in ((tab.pulls_tree, PULLS_COLUMN_GAP, "Pulls"),
+                            (tab.summary_tree, COLUMN_GAP, "Banners")):
+        spacers = {int(tree.column(c, "width")) for c in tree["columns"]
+                   if str(c).startswith("gap")}
+        if spacers != {px(gap)}:
+            out.append(f"the {name} list's columns are {sorted(spacers)}px "
+                       f"apart, not {px(gap)}.")
     # The spacing audit finds this panel by its exact title and these
     # rows by their words. A rename the registry does not follow leaves
     # those rows reading nothing, and only an audit would say so.
@@ -4454,6 +4537,12 @@ def _gacha_overall_fits(tab, gh):
                        f"row {needle.strip()!r}, which the sheet no longer "
                        f"has. Update `GACHA_RECORD_ROWS` or "
                        f"`GACHA_FIGURE_ROWS`.")
+    fields = {f for fields_ in lines.values() for f in fields_}
+    for head in registry.GACHA_SECTION_HEADS:
+        if head not in fields:
+            out.append(f"the spacing registry ends a {OVERALL_TITLE} "
+                       f"record's fields at the heading {head!r}, which the "
+                       f"sheet no longer has. Update `GACHA_SECTION_HEADS`.")
     # The tab's help text, found by its opening words the same way.
     from ui import spacing_audit as sa
     if sa.find_descendant_text(tab.frame, registry.GACHA_HELP_PREFIX) is None:
@@ -7110,10 +7199,38 @@ FAULTS = [
      "ui.tabs.gacha_history_tab:GachaHistoryTab._overall_layout",
      "start = max(start, room - right_width)", "pass",
      "its measured width short of"),
-    ("the gacha sheet's second column top-aligned",
-     "ui.tabs.gacha_history_tab:_bottom_aligned",
-     "first = len(rows) - len(right)", "first = 0",
-     "its last line is the first column's"),
+    ("the Card Skin Packs' records right under the Prism Module's",
+     "ui.tabs.gacha_history_tab:_paired",
+     "first = max(len(top), len(rows) - len(bottom))", "first = len(top)",
+     "the Prism Module's on the first line"),
+    ("the Prism Module's records right over the Card Skin Packs'",
+     "ui.tabs.gacha_history_tab:_paired",
+     "right = {n: part for n, part in enumerate(top)}",
+     "right = {first - len(top) + n: part for n, part in enumerate(top)}",
+     "the Prism Module's on the first line"),
+    ("the sheet's units columns kept for one name",
+     "ui.tabs.gacha_history_tab:GachaHistoryTab._reserve",
+     '", ".join(names), WIDEST_DATE)', "names[0], WIDEST_DATE)",
+     "the room of"),
+    ("the second column's ties cut to the room",
+     "ui.tabs.gacha_history_tab:GachaHistoryTab._fit_ties",
+     "return Paired(rebuilt(row.left, full), row.right)",
+     "return Paired(rebuilt(row.left, full), cut(row.right, 1))",
+     "never cut"),
+    ("the first column's ties run on under the second",
+     "ui.tabs.gacha_history_tab:GachaHistoryTab._fit_ties",
+     "limit = (available - right_width - px(BESIDE_GAP) if paired",
+     "limit = (available if paired",
+     "under the second column"),
+    ("the sheet's holder as wide as what it holds",
+     "ui.tabs.gacha_history_tab:GachaHistoryTab._write_sheet",
+     "holder.configure(width=min(widest, room), height=height or 1)",
+     "holder.configure(width=widest, height=height or 1)",
+     "past the Banners list's"),
+    ("the Pulls list's columns at the Banners list's gap",
+     "ui.tabs.gacha_history_tab:GachaHistoryTab.setup_ui",
+     "height=20, gap=PULLS_COLUMN_GAP)", "height=20)",
+     "the Pulls list's columns"),
     ("the Offensive's and the Sortie's lists right under the Great Rift's",
      "ui.tabs.gacha_history_tab:GachaHistoryTab.setup_ui",
      ["body.grid_rowconfigure(2, weight=1)",
