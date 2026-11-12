@@ -105,7 +105,7 @@ COLUMN_GAP = 18
 # The Pulls list's spacer, narrower: the width it gives up goes to the
 # Banners list's last column (`_fit_banners`), and so to the gacha sheet
 # and the standings under it.
-PULLS_COLUMN_GAP = 8
+PULLS_COLUMN_GAP = 6
 # The standings' spacer, narrower: their columns are short figures that
 # read as one table, where the banners' are separate facts.
 STANDINGS_COLUMN_GAP = 8
