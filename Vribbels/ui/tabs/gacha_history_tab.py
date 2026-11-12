@@ -72,7 +72,7 @@ SUMMARY_COLUMNS = (
     ("game", "Expected avg", ("99.9",), tk.E),
     ("luck", "Luck", ("Bottom 50%", "Bottom 0.1%", "Bottom <0.1%"), tk.E),
     ("fifty", "50/50 won", ("99 of 99",), tk.E),
-    ("fours", "4★", ("999",), tk.E),
+    ("fours", "4★", ("9999",), tk.E),
     ("four_avg", "Avg 4★ pull", ("99.9",), tk.E),
     ("pity", "Pity now", ("99",), tk.E),
     ("read", "Last read", ("0000-00-00 00:00",), tk.W),
@@ -105,7 +105,7 @@ COLUMN_GAP = 18
 # The Pulls list's spacer, narrower: the width it gives up goes to the
 # Banners list's last column (`_fit_banners`), and so to the gacha sheet
 # and the standings under it.
-PULLS_COLUMN_GAP = 6
+PULLS_COLUMN_GAP = 4
 # The standings' spacer, narrower: their columns are short figures that
 # read as one table, where the banners' are separate facts.
 STANDINGS_COLUMN_GAP = 8
@@ -180,7 +180,7 @@ SKINS_ONLY = gh.SKIN_LABEL
 # to open in game to fill their records.
 SKINS_NOTE = "Shop > Lumina Theater > Probability Info > Pack Purchase History"
 HEADING_FONT = ("Segoe UI", 9, "bold")
-STREAK = "Most 5★s in %d pulls"
+STREAK = "Most 5★ in %d pulls"
 # The room every section's columns keep (`_reserve`): a record's widest
 # value, then this many ties, each a date and units as wide as one of
 # the longest combatant names, the longest first. A section's columns

@@ -92,9 +92,11 @@ SET_COLUMNS = 5
 # The note beside the filters, by measure.
 _KEEPS = ("Readjustment keeps each substat's starting value and performs "
           "its 4 upgrades again; you keep Before or After, so it only "
-          "gains. Reroll: 1 Quartz. Exclude: 2. ")
-_COLUMNS = ("Chance: of any rise. Best: the most it can rise. Use, Per "
-            "Quartz: the better option per Quartz.")
+          "gains.\n"
+          "Reroll: 1 Quartz. Exclude: 2.\n\n")
+_COLUMNS = ("\n\nChance: of any rise.\n"
+            "Best: the most it can rise.\n"
+            "Use, Per Quartz: the better option per Quartz.")
 NOTES = {
     rj.GEAR: _KEEPS + (
         "Gain: the expected rise in Gear Score under the combatant's "
@@ -129,7 +131,7 @@ SETTLE_MS = 400
 KEEP_ANSWERS = 40000
 
 # Between the stacked dropdowns' rows.
-DROPDOWN_ROW_GAP = 3   # spacing: TBD -- the Substat Readjustment tab's stacked dropdowns
+DROPDOWN_ROW_GAP = 4   # spacing: TBD -- the Substat Readjustment tab's stacked dropdowns
 
 
 def _words(pairs, value):
