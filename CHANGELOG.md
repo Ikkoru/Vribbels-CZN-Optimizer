@@ -43,8 +43,9 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - A darker highlight for selected rows and text, offered Epione cards, and hovered headings and scrollbars.
 - Capture: a failure while you are on another tab blinks the Capture tab's bar red, in place of a red dot beside its name.
 - About: Support Development is now two links: a Support me on Ko-fi badge, and Donate through GitHub, to GitHub Sponsors.
-- Stats & Gacha History tab: the Prism Module's and the Card Skin Packs' records are a second column beside the Combatant & Partner banners', the Prism Module's from the top line and the Card Skin Packs' ending on the last, which leaves the standings more room. Every record's units have room for three of the longest Combatant names; ties the first column has no room for are left off, and the second column's run on under the Pulls list.
-- Stats & Gacha History tab: the Pulls list's columns sit closer, and the Banners list, the gacha figures and the standings take the width saved. The Overall Gacha Stats title, and the Great Rift Stats title under it, stand a little further from what is above them.
+- Stats & Gacha History tab: the Prism Module's and the Card Skin Packs' records are a second column beside the Combatant & Partner banners', the Prism Module's from the top line and the Card Skin Packs' ending on the last, which leaves the standings more room. Every record has room for three ties, each with one of the longest Combatant names; ties past those the first column has no room for are left off, and the second column's run on under the Pulls list.
+- Stats & Gacha History tab: the Pulls list's columns sit closer, and the Banners list, the gacha figures and the standings take the width saved. The Overall Gacha Stats title, and the Great Rift Stats title under it, stand 4px further from what is above them.
+- Lists: the header row reaches the list's sides, with no strip of the rows' colour beside it, and the columns start 3px nearer its left edge.
 - Stats & Gacha History tab: the Full-Scale Offensive and Sortie lists sit at the window's foot and show as many seasons as each other. Once they need more room than the Banners list's width, they stretch across the window and the Pulls list ends above them.
 
 ### Fixed

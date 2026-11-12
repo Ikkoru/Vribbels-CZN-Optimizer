@@ -111,7 +111,7 @@ NOBODY = "Give a combatant a weight above 0."
 NO_PRESET = "%s has no Gear Score preset: assign one on the Combatants tab."
 FAILED = "Could not work it out: %s"
 HELD = "%d Shuffling Quartz"
-COUNT = "%d Memory Fragments"
+COUNT = "%d MFs"
 # The Quartz count's colour by how many readjustments it pays for: the
 # palette's, red at none up to green past an exclusion's two.
 HELD_COLOURS = ((0, "red"), (1, "orange"), (2, "yellow"))
@@ -315,10 +315,14 @@ class ReadjustTab(BaseTab):
 
         self.note_label = ttk.Label(top, text="", justify=tk.LEFT,
                                     foreground=self.colors["fg_dim"])
-        # spacing: control group ↔ control group -- panel, label ↔
+        # The note reads as one more panel beside Sets, at the rule's
+        # 4 less the label's own 2px inset; the counts are a group of
+        # their own past it.
+        # spacing: content frame -> content frame -- panel, label ↔
+        # spacing: control group ↔ control group -- label, label ↔
         # spacing: tab list -> first element -- tab, label ↕
         self.note_label.pack(side=tk.LEFT, anchor=tk.N, fill=tk.X,
-                             expand=True, padx=px((14, 14)),
+                             expand=True, padx=px((2, 14)),
                              pady=(px_after(1, 0), 0))
         self.note_label.bind("<Configure>", self._rewrap)
 

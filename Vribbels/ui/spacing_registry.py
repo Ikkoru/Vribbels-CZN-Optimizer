@@ -902,6 +902,10 @@ CONTENT_FRAME_ENTRIES = [
     ("Substat Readjustment", "dropdowns -> Slots", 4, "h",
      lambda cap, app: _gap(_group_of("Score:"), _panel_at("Slots"),
                            "h")(cap, app)),
+    # Its note, beside the Sets panel, reads as one more of them.
+    ("Substat Readjustment", "Sets -> note", 4, "h",
+     lambda cap, app: _gap(_panel_at("Sets"),
+                           _by_text(READJUST_NOTE_PREFIX), "h")(cap, app)),
     # Four more pairs of panels sitting side by side. The rule's other
     # thirty-odd marker sites are pads on borderless containers with
     # nothing painted at either end; these draw an edge each.
@@ -1112,16 +1116,16 @@ PANEL_OVER_TEXT_ENTRIES = [
      _panel_gap("Requirements", "Capture Log", "v")),
     ("Capture", "Upgrade Log Settings -> Capture Log title", 10, None,
      _panel_gap("Upgrade Log Settings", "Capture Log", "v")),
-    # 2 past the rule, as is the Great Rift's title under the sheet:
+    # 4 past the rule, as is the Great Rift's title under the sheet:
     # the sheet is label rows, and at the rule both titles read as more
     # of them.
-    ("Stats & Gacha History", "Banners -> Overall Gacha Stats title", 12, None,
+    ("Stats & Gacha History", "Banners -> Overall Gacha Stats title", 14, None,
      _panel_gap("Banners", GACHA_OVERALL_TITLE, "v")),
     # The standings under the gacha sheet: the Great Rift's list. The
     # Offensive's and the Sortie's sit at the window's foot, slack above
     # them, so nothing above them is a distance to hold.
     ("Stats & Gacha History", "Overall Gacha Stats -> Great Rift Stats title",
-     12, None, _sheet_over_panel(
+     14, None, _sheet_over_panel(
          lambda app: app.gacha_tab_instance.overall_text, GACHA_RIFT_TITLE)),
 
     # Text above, a panel below. The three tab headings differ only in
@@ -2229,8 +2233,6 @@ CONTROL_GROUP_ENTRIES = [
      _gap(_by_text("Export JSON"), _group_of("Show:"), "h")),
     ("Stats & Gacha History", "Show group -> help text", 16, None,
      _gap(_group_of("Show:"), _by_text(GACHA_HELP_PREFIX), "h")),
-    ("Substat Readjustment", "Sets -> note", 16, None,
-     _gap(_panel_at("Sets"), _by_text(READJUST_NOTE_PREFIX), "h")),
 ]
 
 # (tab, name, locator) for controls read against the tab list on their
@@ -4270,7 +4272,7 @@ EXCEPTION_ENTRIES = {
     "Epione: heading -> first scenario": "exception",
     "Epione: option -> option": "exception",
     "Epione: card top -> its first line": "exception",
-    # The gacha sheet's title and the Great Rift's under it, each 2 past
+    # The gacha sheet's title and the Great Rift's under it, each 4 past
     # `panel ↕ unrelated label`: marked at `_make_sheet` and
     # `UNDER_SHEET_PAD`.
     "Banners -> Overall Gacha Stats title": "exception",
@@ -5795,7 +5797,7 @@ GACHA_ENTRIES = [
                      sections=True, heads=GACHA_SECTION_HEADS,
                      drawn=True), "h"),
     # The units column is kept wide enough for the sheet's reserved
-    # names (`_reserve`) whatever it holds, so the gap is read from the
+    # name (`_reserve`) whatever it holds, so the gap is read from the
     # further of the units' ink and that width.
     ("Stats & Gacha History", "Overall Gacha Stats: units -> date", 5, RULE_LABEL_ELEMENT,
      _text_field_gap(_gacha_overall, GACHA_RECORD_ROWS, index=2,

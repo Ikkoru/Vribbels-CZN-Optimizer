@@ -788,10 +788,10 @@ class OptimizerGUI:
         # spacing: unique -- Treeview internals, which are style options -- tree, text ↔↕
         # rather than anything a geometry manager can reach
         #
-        # `padding` here is BOTH levers at once, and that is not obvious.
-        # It insets the tree area, and it is also what the cell's own
-        # `Treedata.padding` element resolves `padding` to -- so it sets
-        # the inset from a column's edge to its text as well.
+        # `padding` here is the inset from a column's edge to its text:
+        # what the cell's own `Treedata.padding` element resolves
+        # `padding` to. The layout below has no padding element, so it
+        # insets nothing else.
         #
         # **Setting it at all makes `Treeview.Cell` padding inert.** Any
         # value, 0 included: once the widget's own style defines
@@ -804,23 +804,15 @@ class OptimizerGUI:
         # how one sat here unnoticed.
         #
         # To tune the cell inset, change THIS number. To get an
-        # independent cell lever back, drop `padding` from this call --
-        # the tree area does not move when you do, because the borderless
-        # layout below has already removed the field element that the
-        # theme's own padding was insetting from.
+        # independent cell lever back, drop `padding` from this call.
         #
         # `rowheight` is the only vertical spacing a Treeview has, since
         # its rows are contiguous. Below the font's line box (15px at
         # Segoe UI 9) a row clips its own text.
         #
-        # `padding` is a FOUR-TUPLE so the bottom can differ. It insets
-        # the tree area on every side it is given, and the bottom side
-        # of it is the only thing between the last row and the widget's
-        # edge -- 0 there closes a gap that has no matching one at the
-        # top, where the heading sits instead. It is shared by every
-        # list in the app but the Stats & Gacha History tab's, whose
-        # style has a layout of its own -- so this moves all the others
-        # at once.
+        # It is shared by every list in the app but the Stats & Gacha
+        # History tab's, whose style sets its own -- so this moves all
+        # the others at once.
         #
         # 3 at the sides, the heading's own inset, so a cell's text sits
         # as far from its column's edge as its heading's does.
@@ -834,12 +826,13 @@ class OptimizerGUI:
         # `Flush.TNotebook` uses above. `fieldbackground` belongs to that
         # element and goes with it; the empty area below the last row
         # falls back to `background`, which is set just above.
+        #
+        # No padding element either. With one, `padding` insets the tree
+        # area as well as the text, and the heading row stops short of
+        # the list's sides, a strip of the rows' colour beside it.
         try:
             self.style.layout("Treeview", [
-                ("Treeview.padding", {
-                    "sticky": "nswe",
-                    "children": [("Treeview.treearea", {"sticky": "nswe"})],
-                }),
+                ("Treeview.treearea", {"sticky": "nswe"}),
             ])
         except tk.TclError:
             pass

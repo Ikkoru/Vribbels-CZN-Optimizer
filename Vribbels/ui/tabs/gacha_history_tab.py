@@ -182,11 +182,11 @@ SKINS_NOTE = "Shop > Lumina Theater > Probability Info > Pack Purchase History"
 HEADING_FONT = ("Segoe UI", 9, "bold")
 STREAK = "Most 5★s in %d pulls"
 # The room every section's columns keep (`_reserve`): a record's widest
-# value, a tie's date, and between them units as wide as this many of
-# the longest combatant names -- a streak's several 5-stars. A section's
-# columns sit at least that far apart whatever it holds, so the second
-# column stays put as the records change, and a tie past the room runs
-# under the Pulls list.
+# value, then this many ties, each a date and units as wide as one of
+# the longest combatant names, the longest first. A section's columns
+# sit at least that far apart whatever it holds, so the second column
+# stays put as the records change, and a tie past the room runs under
+# the Pulls list.
 WIDEST_COUNT = "99 pulls"
 WIDEST_DATE = "0000-00-00"
 SET_NAMES = 3
@@ -234,8 +234,8 @@ TIP_TAG = "tipped"
 # `panel ↕ unrelated label`. Under the gacha sheet it is less than
 # under a list: the sheet's last line box already reaches past its
 # baseline by more than a list does past its last row. Under the sheet
-# it is also 2 past the rule, as the sheet's own title is (`_make_sheet`).
-UNDER_SHEET_PAD = 4    # spacing: exception -- panel ↕ unrelated label -- run, title ↕
+# it is also 4 past the rule, as the sheet's own title is (`_make_sheet`).
+UNDER_SHEET_PAD = 6    # spacing: exception -- panel ↕ unrelated label -- run, title ↕
 UNDER_LIST_PAD = 5     # spacing: panel ↕ unrelated label -- panel, title ↕
 
 # One pitch tag per line, setting its `spacing1` -- the line's own word
@@ -612,13 +612,13 @@ class GachaHistoryTab(BaseTab):
         # spacing: exception -- panel ↕ unrelated label -- panel, title ↕
         # The leading pad is the lever on the gap from the panel above
         # to this title; the banners keep the 2 every panel on this tab
-        # has. 2 past the rule, as the title of the Great Rift's list
+        # has. 4 past the rule, as the title of the Great Rift's list
         # under the sheet is (`UNDER_SHEET_PAD`): the sheet is label rows
         # on the window's own background, and at the rule its title and
         # the Great Rift's read as two more of its rows.
         frame.grid(row=row, column=0, sticky="nw",
                    padx=(px_after(2, 2), px(2)),
-                   pady=(px_after(2, 7), px(2)))
+                   pady=(px_after(2, 9), px(2)))
         # A Text sizes in characters and lines, and a sheet is sized in
         # pixels -- its rows carry `spacing1` a line count cannot see --
         # so the holder is sized and the Text fills it. See
@@ -750,14 +750,8 @@ class GachaHistoryTab(BaseTab):
 
     @staticmethod
     def _style_lists():
-        """This tab's list style: the shared one, with wider text insets.
-
-        **A layout with no padding element**, because the shared
-        style's `padding` is two levers at once -- it insets the tree
-        area as well as every cell's text -- and widened on the area it
-        pulls the heading row in from both ends, leaving a strip of the
-        list's background beside it. Without the element, `padding`
-        reaches only the text. Everything else, colours and row height
+        """This tab's list style: the shared one, with its own text
+        insets and row height. Everything else, the layout and colours
         included, falls through to `Treeview` and `Treeview.Heading`.
 
         **An empty foreground map, and NOT a no-op.** A style's state
@@ -775,11 +769,6 @@ class GachaHistoryTab(BaseTab):
         # every tab already laid out.
         if not first_time(style, TREE_STYLE):
             return
-        try:
-            style.layout(TREE_STYLE, [
-                ("Treeview.treearea", {"sticky": "nswe"})])
-        except tk.TclError:
-            pass
         style.map(TREE_STYLE, foreground=[])
         # spacing: unique -- Treeview internals, which are style options -- tree, text ↔
         style.configure(TREE_STYLE,
@@ -985,12 +974,17 @@ class GachaHistoryTab(BaseTab):
         self._fit_banners()
 
     def _share_excess(self, event):
-        """The body has a new width: share it out again. Only on a
-        change -- widening the Banners list lays the body out again and
-        comes back here at the same width."""
+        """The body has a new width: share it out again, and lay the
+        gacha sheet out to the Banners list's new width -- its second
+        column and its holder follow that width, and a holder left at the
+        old one clips the second column short of the Pulls list. Only on
+        a change -- widening the Banners list lays the body out again
+        and comes back here at the same width."""
         if event.width != self._body_width:
             self._body_width = event.width
             self._fit_banners()
+            if self._loaded:
+                self._fill_overall()
 
     def _fit_banners(self):
         """Give the Banners list all the width the window leaves beyond
@@ -1088,8 +1082,9 @@ class GachaHistoryTab(BaseTab):
 
     def _reserve(self):
         """The record every section's columns make room for: the streak's
-        figure, the widest value, units of the `SET_NAMES` longest
-        combatant names, and a date. Worked out once and kept."""
+        figure, the widest value, then a tie for each of the `SET_NAMES`
+        longest combatant names, longest first, each with a date. Worked
+        out once and kept."""
         if self._reserve_cached is None:
             from game_data import CHARACTERS
             font = tkfont.nametofont("TkDefaultFont")
@@ -1097,8 +1092,11 @@ class GachaHistoryTab(BaseTab):
                             if isinstance(unit, dict) and unit.get("name")},
                            key=font.measure, reverse=True)[:SET_NAMES]
             names += ["#99999"] * (SET_NAMES - len(names))
-            self._reserve_cached = (STREAK % gh.STREAK_PULLS, WIDEST_COUNT,
-                                    ", ".join(names), WIDEST_DATE)
+            ties = ()
+            for name in names:
+                ties += (name, WIDEST_DATE)
+            self._reserve_cached = (STREAK % gh.STREAK_PULLS,
+                                    WIDEST_COUNT) + ties
         return self._reserve_cached
 
     def _right_width(self):
@@ -1388,7 +1386,10 @@ class GachaHistoryTab(BaseTab):
         """`rows` with the first column's ties cut to as many pairs as
         end short of the second column, keeping the OLDEST -- on every
         line, so no line's ties run on under the second column's gap
-        between its sections. Without a second column, the cut is to the
+        between its sections. The second column starts past the reserved
+        record (`_reserve`) or its width short of the Banners list's,
+        whichever is further, so the first keeps the reserved record's
+        ties at least. Without a second column, the cut is to the
         Banners list's width.
 
         The second column's ties are never cut: past the Banners list's
@@ -1419,13 +1420,16 @@ class GachaHistoryTab(BaseTab):
         full = max([(len(part) - 2) // 2 for row in rows
                     for part in parts(row) if not _heading(part)] + [1])
         paired = any(isinstance(row, Paired) for row in rows)
-        # spacing: heading ↔ element -- run, run ↔
-        limit = (available - right_width - px(BESIDE_GAP) if paired
-                 else available)
         while True:
             out = [rebuilt(row, full) for row in rows]
-            left_ends = self._overall_layout(out, font, bold, available,
-                                             right_width, reserve)[4]
+            layout = self._overall_layout(out, font, bold, available,
+                                          right_width, reserve)
+            stops, left_ends = layout[0], layout[4]
+            limit = available
+            if paired:
+                held = stops[len(reserve) - 2] + font.measure(reserve[-1])
+                # spacing: heading ↔ element -- run, run ↔
+                limit = max(held, available - right_width - px(BESIDE_GAP))
             if full > 1 and max(left_ends + [0]) > limit:
                 full -= 1
             else:
