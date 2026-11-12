@@ -90,8 +90,9 @@ WEIGHT_ROWS = 30
 SET_COLUMNS = 5
 
 # The note beside the filters, by measure.
-_KEEPS = ("Readjustment keeps each substat type, re-shuffles the 4 upgrades "
-          "and rerolls the values; you keep Before or After.\n\n")
+_KEEPS = ("Readjustment keeps each substat type and starting value, "
+          "re-shuffles the 4 upgrades and rerolls their values; you "
+          "choose to keep Before or After.\n\n")
 _COLUMNS = ("\n\nChance: of a rise.\n"
             "Best: the most it can rise.\n"
             "Use, Per Quartz: the better option per Quartz.")
