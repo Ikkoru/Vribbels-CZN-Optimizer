@@ -309,20 +309,26 @@ class ReadjustTab(BaseTab):
         status = ttk.Frame(top)
         # spacing: tab list -> first element -- tab, label ↕
         status.pack(side=tk.RIGHT, anchor=tk.N, pady=(px_after(1, 0), 0))
-        # The negative trailing padding takes back the label's own 2px
-        # inset, which pack's padx cannot: the text ends the window-edge
-        # rule's distance in, as the list's box under it does.
+        # The negative padding takes back the label's own 2px inset at
+        # each side, which pack's padx cannot: the text ends the
+        # window-edge rule's distance in, as the list's box under it
+        # does, and starts exactly the note's pad past the note.
         # spacing: content frame -> content frame -- label, frame ↔
         self.held_label = ttk.Label(status, text="",
-                                    padding=px((0, 0, -2, 0)))
+                                    padding=px((-2, 0, -2, 0)))
         self.held_label.pack(anchor=tk.E)
         self.count_label = ttk.Label(status, text="",
                                      foreground=self.colors["fg_dim"],
-                                     padding=px((0, 0, -2, 0)))
+                                     padding=px((-2, 0, -2, 0)))
         self.count_label.pack(anchor=tk.E)
 
+        # No inset at the right, and wrapped at its box's edge
+        # (`_rewrap`): its trailing pad is then the least distance from
+        # its text to the counts', reached by a line that fills the
+        # wrap. A line broken short of that stands further off.
         self.note_label = ttk.Label(top, text="", justify=tk.LEFT,
-                                    foreground=self.colors["fg_dim"])
+                                    foreground=self.colors["fg_dim"],
+                                    padding=px((0, 0, -2, 0)))
         # The note reads as one more panel beside Sets, at the rule's
         # 4 less the label's own 2px inset; the counts are a group of
         # their own past it.
@@ -576,8 +582,9 @@ class ReadjustTab(BaseTab):
         """The note wrapped to the width its row leaves it. Only a
         change is written: a new wraplength moves the label's requested
         width, and a handler writing every time can bounce the row."""
-        # Less the label's own inset each side, inside its width.
-        width = max(px(200), event.width - px(4))
+        # Less the label's own inset at the left; the right one is
+        # taken back (`setup_ui`), so a full line ends at the box's edge.
+        width = max(px(200), event.width - px(2))
         try:
             if int(str(self.note_label.cget("wraplength"))) == width:
                 return
