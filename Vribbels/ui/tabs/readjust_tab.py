@@ -91,7 +91,7 @@ SET_COLUMNS = 5
 
 # The note beside the filters, by measure.
 _KEEPS = ("Readjustment keeps each substat's starting value and performs "
-          "its 4 upgrades again; you keep Before or After, so it only "
+          "its 4 upgrades again; you keep Before or After,0 so it only "
           "gains.\n"
           "Reroll: 1 Quartz. Exclude: 2.\n\n")
 _COLUMNS = ("\n\nChance: of any rise.\n"
@@ -330,7 +330,7 @@ class ReadjustTab(BaseTab):
         # spacing: control group ↔ control group -- label, label ↔
         # spacing: tab list -> first element -- tab, label ↕
         self.note_label.pack(side=tk.LEFT, anchor=tk.N, fill=tk.X,
-                             expand=True, padx=px((2, 14)),
+                             expand=True, padx=px((2, 1)),
                              pady=(px_after(1, 0), 0))
         self.note_label.bind("<Configure>", self._rewrap)
 
