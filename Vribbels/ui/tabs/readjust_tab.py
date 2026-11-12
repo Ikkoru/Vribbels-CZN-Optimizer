@@ -102,7 +102,7 @@ NOTES = {
     rj.BUILD: _KEEPS + (
         "Gain: the expected rise in the Optimizer's score of the "
         "combatant's equipped build with the MF in its slot, over the "
-        "higher of Now and the build as worn." % rj.REFINE_TOP) + _COLUMNS,
+        "higher of Now and the build as worn.") + _COLUMNS,
 }
 LOADING = "Loading..."
 NO_DATA = "No capture loaded: log in with the capture running."
@@ -520,14 +520,10 @@ class ReadjustTab(BaseTab):
         self._measured(self.tree, COLUMNS)
         bar = ttk.Scrollbar(parent, orient=tk.VERTICAL,
                             command=self.tree.yview)
-        across = ttk.Scrollbar(parent, orient=tk.HORIZONTAL,
-                               command=self.tree.xview)
-        self.tree.configure(yscrollcommand=bar.set,
-                            xscrollcommand=across.set)
-        # The scrollbars first (`docs/ui_runtime.md`): a list packed
-        # before them takes their room wherever it is too wide.
+        self.tree.configure(yscrollcommand=bar.set)
+        # The scrollbar first (`docs/ui_runtime.md`): a list packed
+        # before it takes its room wherever it is too wide.
         bar.pack(side=tk.RIGHT, fill=tk.Y)
-        across.pack(side=tk.BOTTOM, fill=tk.X)
         self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
     def _build_weights(self, parent):
