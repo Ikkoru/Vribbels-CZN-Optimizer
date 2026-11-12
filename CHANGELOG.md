@@ -24,7 +24,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - **Substat Readjustment tab**, after Memory Fragments: which fully upgraded Legendary Memory Fragments a Shuffling Quartz does most for. A readjustment performs a fragment's 4 upgrades again, and the game lets you keep Before or After, so it can only gain.
   - Each fragment's expected gain, its chance of any gain and the most it can gain, for a plain readjustment (1 Quartz) and with the best substat excluded (2 Quartz). Use says which does more per Quartz, and the list is ranked by that.
   - Score: Gear Score, under the combatant's assigned preset, or Build Score, the Optimizer's score of the combatant's equipped build with the fragment in its slot.
-  - For: one combatant, or several with a weight each, every fragment read for the one it does most for.
+  - For: one combatant, or several with a weight each, every fragment read for the one it does most for. Shift and Ctrl pick several in the Weights list, and Set weight gives the weight to all of them.
   - Slots and Sets checkboxes, and MFs (all, worn by them, unequipped), narrow the list.
   - Your Shuffling Quartz count: red at 0, orange at 1, yellow at 2, green above.
   - Worked out in the background: the window stays free, the list says Loading... meanwhile, and a score or combatant already worked out shows at once. A new capture works out again only what it changed: a readjusted fragment, one newly at its top level, or the build of a combatant whose gear, level or settings changed.

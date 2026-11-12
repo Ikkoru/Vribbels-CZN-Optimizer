@@ -2394,6 +2394,11 @@ WINDOW_EDGE_ENTRIES = [
     ("Stats & Gacha History", "status lines -> window edge", 4, None,
      _to_window_edge(
          lambda app: app.gacha_tab_instance.status_label.master)),
+    # The Quartz count and the MFs count under it, stacked at the
+    # filter row's right end.
+    ("Substat Readjustment", "Quartz count -> window edge", 4, None,
+     _to_window_edge(
+         lambda app: app.readjust_tab_instance.held_label.master)),
     # The Materials tab's two ends are window-edge gaps as well, and
     # they live in MATERIALS_ENTRIES instead -- their locator is one of
     # that tab's, defined further down than this table is.
@@ -5766,7 +5771,7 @@ def _gacha_pitch_tags(*names):
 GACHA_RECORD_ROWS = ("Fastest 5★	", "Slowest 5★	",
                      "Fastest rate-up	",
                      "Slowest rate-up	",
-                     "Most 5★s in 10 pulls	")
+                     "Most 5★ in 10 pulls	")
 GACHA_FIGURE_ROWS = ("Luck	", "Pulls	", "50/50s won	",
                      "Rate-Up pulls avg	") + GACHA_RECORD_ROWS
 # The second column's headings, which share a line with a first-column

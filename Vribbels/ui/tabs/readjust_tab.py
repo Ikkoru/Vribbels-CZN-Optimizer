@@ -309,10 +309,16 @@ class ReadjustTab(BaseTab):
         status = ttk.Frame(top)
         # spacing: tab list -> first element -- tab, label ↕
         status.pack(side=tk.RIGHT, anchor=tk.N, pady=(px_after(1, 0), 0))
-        self.held_label = ttk.Label(status, text="")
+        # The negative trailing padding takes back the label's own 2px
+        # inset, which pack's padx cannot: the text ends the window-edge
+        # rule's distance in, as the list's box under it does.
+        # spacing: content frame -> content frame -- label, frame ↔
+        self.held_label = ttk.Label(status, text="",
+                                    padding=px((0, 0, -2, 0)))
         self.held_label.pack(anchor=tk.E)
         self.count_label = ttk.Label(status, text="",
-                                     foreground=self.colors["fg_dim"])
+                                     foreground=self.colors["fg_dim"],
+                                     padding=px((0, 0, -2, 0)))
         self.count_label.pack(anchor=tk.E)
 
         self.note_label = ttk.Label(top, text="", justify=tk.LEFT,
@@ -528,7 +534,7 @@ class ReadjustTab(BaseTab):
                    ("weight", "Weight", ("10",), tk.E))
         self.weight_tree = ttk.Treeview(
             holder, columns=[c[0] for c in columns], show="headings",
-            height=WEIGHT_ROWS, selectmode="browse")
+            height=WEIGHT_ROWS, selectmode="extended")
         self._measured(self.weight_tree, columns, sortable=False)
         bar = ttk.Scrollbar(holder, orient=tk.VERTICAL,
                             command=self.weight_tree.yview)
@@ -640,11 +646,16 @@ class ReadjustTab(BaseTab):
         self.note_label.configure(text=NOTES[self.measure()])
 
     def _on_pick_weight(self, _event=None):
-        picked = self.weight_tree.selection()
+        """The spinbox shows the weight of the row last clicked, of
+        those picked (Shift and Ctrl pick several)."""
+        tree = self.weight_tree
+        picked = tree.selection()
         if picked:
-            self.weight_var.set(self._weights().get(picked[0], 0))
+            shown = tree.focus() if tree.focus() in picked else picked[0]
+            self.weight_var.set(self._weights().get(shown, 0))
 
     def _on_weight(self):
+        """The spinbox's weight given to every combatant picked."""
         picked = self.weight_tree.selection()
         if not picked:
             return
@@ -653,12 +664,13 @@ class ReadjustTab(BaseTab):
         except (tk.TclError, ValueError):
             return
         weights = self._weights()
-        if weights.get(picked[0], 0) == weight:
+        if all(weights.get(name, 0) == weight for name in picked):
             return
-        if weight:
-            weights[picked[0]] = weight
-        else:
-            weights.pop(picked[0], None)
+        for name in picked:
+            if weight:
+                weights[name] = weight
+            else:
+                weights.pop(name, None)
         self._save(WEIGHTS_KEY, weights)
         self._fill_weights()
         if self._settle is not None:
@@ -682,14 +694,19 @@ class ReadjustTab(BaseTab):
     def _fill_weights(self):
         weights = self._weights()
         tree = self.weight_tree
-        picked = tree.selection()
+        picked, focus = tree.selection(), tree.focus()
         tree.delete(*tree.get_children())
         for name in self._names():
             weight = weights.get(name, 0)
             tree.insert("", tk.END, iid=name, values=(name, weight),
                         tags=() if weight else ("off",))
-        if picked and tree.exists(picked[0]):
-            tree.selection_set(picked[0])
+        kept = [name for name in picked if tree.exists(name)]
+        if kept:
+            tree.selection_set(kept)
+        # The focus is the row a Shift-click picks a range from, and the
+        # one the spinbox shows; a refill clears it.
+        if focus and tree.exists(focus):
+            tree.focus(focus)
 
     def _combatants(self):
         """{combatant: weight} the controls ask for."""

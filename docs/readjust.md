@@ -34,7 +34,7 @@ A build-score combatant's settings are their Optimizer settings, its level the o
 
 Per Quartz is greedy: it compares one Quartz's worth. An exclusion can beat two plain readjustments and still lose to one per Quartz, since a second plain readjustment adds less than the first.
 
-The **Slots**, **Sets** and **MFs** filters only narrow what is drawn, from answers already worked out. The Quartz count is red at 0, orange at 1, yellow at 2 and green above. With several combatants, **Set weight** over the Weights list sets the weight of the one picked in it.
+The **Slots**, **Sets** and **MFs** filters only narrow what is drawn, from answers already worked out. The Quartz count is red at 0, orange at 1, yellow at 2 and green above. With several combatants, **Set weight** over the Weights list sets the weight of every combatant picked in it (Shift and Ctrl pick several), and shows the one last clicked.
 
 ## Where the work runs
 
