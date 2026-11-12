@@ -91,7 +91,7 @@ SET_COLUMNS = 5
 
 # The note beside the filters, by measure.
 _KEEPS = ("Readjustment keeps each substat's starting value and performs "
-          "its 4 upgrades again; you keep Before or After,0 so it only "
+          "its 4 upgrades again; you keep Before or After, so it only "
           "gains.\n"
           "Reroll: 1 Quartz. Exclude: 2.\n\n")
 _COLUMNS = ("\n\nChance: of any rise.\n"
