@@ -718,9 +718,10 @@ PERIOD_ITEMS = {
               "currency_chaos_delegation_module.png"),  # Used to speed up Chaos runs. Expire 14 days after acquisition.
 }
 
-# The `Great Rift Weekly Score` is `disaster_boss_rank_entities`, which
-# the capture keeps and the Checklist's Seasonal Accumulated Score row
-# reads. One payload carries the figure under two paths:
+# The `Great Rift Weekly Score` is `disaster_boss_rank_entities` up to
+# season 4 and `disaster_boss_reward_entities` from season 5, which the
+# capture keeps and the Checklist's Seasonal Accumulated Score row
+# reads. Up to season 4 one payload carries the figure under two paths:
 #
 #   .../disaster_s04_rank_01/week_total_score
 #   .../disaster_s04_rank_01/best_score

@@ -121,7 +121,13 @@ def run():
             "sends that holds the Great Rift weekly score, and the frame "
             "it arrives in is otherwise dropped whole."
         )
+    if not _template_saves(ADDON_TEMPLATE, "disaster_boss_reward_entities"):
+        failures.append(
+            "ADDON_TEMPLATE's save_data does not carry "
+            "'disaster_boss_reward_entities': from season 5 the Great Rift "
+            "weekly score is there, the rank row reading 0.")
     failures.extend(_one_rank_row_is_merged())
+    failures.extend(_boss_row_is_merged())
 
     return failures
 
@@ -248,6 +254,56 @@ def _one_rank_row_is_merged():
     return out
 
 
+def _boss_row_is_merged():
+    """From season 5 the Great Rift's weekly score is the boss's row.
+
+    The login lists `disaster_boss_reward_entities` whole, entering the
+    Great Rift sends the boss's row as `disaster_boss_reward_entity`,
+    and a run's clear sends it nested, under
+    `return_info.disaster_boss_hunt_result`. Each must reach the
+    snapshot's table, or the Checklist reads the rank row's 0.
+    """
+    import tempfile
+    from pathlib import Path
+    from .check_capture_rewards import _build_addon
+
+    out = []
+    row = {"season_id": "disaster_s05", "define_id": "disaster_s05_boss_01",
+           "score_week_id": 202, "week_total_score": 0}
+    entered = dict(row, week_total_score=84552)
+    cleared = dict(row, week_total_score=301151)
+    with tempfile.TemporaryDirectory() as tmp:
+        addon = _build_addon(Path(tmp), [])
+        addon._handle_server_payload({
+            "res": "ok", "qid": 1, "disaster_boss_reward_entities": {
+                "disaster_s05": {"disaster_s05_boss_01": row}}}, 100)
+        got = (addon.disaster_boss_rewards or {}).get("disaster_s05", {})
+        if got.get("disaster_s05_boss_01") != row:
+            out.append("the login's `disaster_boss_reward_entities` was not "
+                       "kept: from season 5 that table is the Great Rift's "
+                       "weekly score.")
+        addon._handle_server_payload({
+            "res": "ok", "qid": 2,
+            "disaster_boss_reward_entity": entered}, 100)
+        got = (addon.disaster_boss_rewards or {}).get("disaster_s05", {})
+        if got.get("disaster_s05_boss_01") != entered:
+            out.append("entering the Great Rift sent the boss's row, and "
+                       "the capture kept "
+                       f"{got.get('disaster_s05_boss_01')!r} instead.")
+        addon._handle_server_payload({
+            "res": "ok", "qid": 3, "return_info": {
+                "disaster_boss_hunt_result": {
+                    "disaster_boss_reward_entity": cleared}}}, 100)
+        got = (addon.disaster_boss_rewards or {}).get("disaster_s05", {})
+        if got.get("disaster_s05_boss_01") != cleared:
+            out.append("a Great Rift run's clear sends the boss's row under "
+                       "`return_info.disaster_boss_hunt_result`, and the "
+                       "capture kept "
+                       f"{got.get('disaster_s05_boss_01')!r}: the run's "
+                       "score waits for the next entry.")
+    return out
+
+
 def _town(spent, research=None):
     """A snapshot carrying the daily visit counter, and the research
     levels where `research` is given."""
@@ -272,6 +328,18 @@ def _template_saves(source, field):
 
 # What this check must catch, for `checks/faults.py`.
 FAULTS = [
+    ("the login's boss table not kept", "capture.manager:ADDON_TEMPLATE",
+     '            self.disaster_boss_rewards = data["disaster_boss_reward_entities"]\n',
+     "            pass\n",
+     "the login's `disaster_boss_reward_entities` was not kept"),
+    ("the clear's nested boss row not read", "capture.manager:ADDON_TEMPLATE",
+     '        hunt = hunt.get("disaster_boss_hunt_result") \\',
+     '        hunt = hunt.get("disaster_boss_hunt_result_") \\',
+     "under `return_info.disaster_boss_hunt_result`"),
+    ("the boss table not saved", "capture.manager:ADDON_TEMPLATE",
+     '            "disaster_boss_reward_entities": self.disaster_boss_rewards,\n',
+     "",
+     "'disaster_boss_reward_entities': from season 5"),
     ("a fixed allowance", "excursions:daily_passes",
      "    return total", "    return VISIT_TICKETS + 2",
      "what each research node it holds adds"),

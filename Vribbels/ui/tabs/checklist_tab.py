@@ -473,6 +473,10 @@ CYCLE_DONE = "cycle_done"
 # overflow the cap, and the row is red. See `_spend_state`.
 GRANT_FITS = "grant_fits"
 
+# The Great Rift's weekly score at its threshold with the week's reward
+# not yet claimed. Orange: the score is done, the claim is not.
+REWARD_UNCLAIMED = "reward_unclaimed"
+
 # What an EVENT row must read on every segment before it sorts to
 # the bottom of the Events block. See `_event_settled`.
 EVENT_SETTLED_STATES = frozenset({DONE, CYCLE_DONE})
@@ -3675,6 +3679,9 @@ CHAOS_PROGRESS_FULL = 8000
 # record once the week's reward is claimed -- it reads 0 before that.
 # `GREAT_RIFT_TARGET` is what stands in where it is 0 or absent.
 GREAT_RIFT_FIELD = "disaster_boss_rank_entities"
+# From season 5 the score is the boss's row, the rank row reading 0:
+# both are read, each nested season -> slot -> record.
+GREAT_RIFT_BOSS_FIELD = "disaster_boss_reward_entities"
 GREAT_RIFT_TARGET = 600000
 
 # The standings spell the week stamp their own way, where every other
@@ -4747,6 +4754,7 @@ class ChecklistTab(BaseTab):
         # still to open. See `LOCKED_PAGES`.
         text.tag_configure(LOCKED_PAGES, foreground=self.colors["orange"])
         text.tag_configure(GRANT_FITS, foreground=self.colors["orange"])
+        text.tag_configure(REWARD_UNCLAIMED, foreground=self.colors["orange"])
         text.tag_configure(MUTED, foreground=self.colors["fg_dim"])
         # A shop heading's total, in the same yes and no a hair darker
         # and a hair stronger. It answers for the whole block under it,
@@ -5925,7 +5933,7 @@ def _readings(raw, now=None, tracked=None):
     # and the row is about whether the threshold is cleared. No sign
     # marks a capped reading: a full bar reads as cleared, however far
     # past it the week went -- the Chaos progress row likewise.
-    score, target = _great_rift(raw, now)
+    score, target, claimed = _great_rift(raw, now)
     off_season = disaster_off_season(raw, now)
     opens = None if off_season else rift_opens(raw, now)
     if off_season:
@@ -5938,8 +5946,10 @@ def _readings(raw, now=None, tracked=None):
     elif score is None:
         out["seasonal_score"] = _one("%s/%d" % (NO_DATA, target), UNKNOWN)
     else:
-        out["seasonal_score"] = _one("%d/%d" % (min(score, target), target),
-                                     _done(score >= target))
+        reached = score >= target
+        out["seasonal_score"] = _one(
+            "%d/%d" % (min(score, target), target),
+            REWARD_UNCLAIMED if reached and not claimed else _done(reached))
 
     # The modules, by how long each copy has left. **The two windows
     # NEST**: everything inside 24 hours is inside seven days, so the
@@ -6600,7 +6610,8 @@ def _shelf_season(raw):
 
 
 def _great_rift(raw, now):
-    """(this week's score, the threshold that pays it out).
+    """(this week's score, the threshold that pays it out, whether the
+    week's reward is claimed).
 
     The standings nest season -> rank slot -> record, and every season
     the account has played keeps its row -- so the live one is picked
@@ -6616,12 +6627,18 @@ def _great_rift(raw, now):
     The threshold rides in the chosen row once the week's reward is
     claimed, and reads 0 until then; the client's top weekly tier, else
     `GREAT_RIFT_TARGET`, stands in for a 0 as for a row with none. A 0
-    taken at its word is a target every score clears.
+    taken at its word is a target every score clears. So a 0 is also
+    what says the reward waits: claimed is the row's threshold reached.
+
+    **From season 5 the score is on the boss's row**
+    (`GREAT_RIFT_BOSS_FIELD`), the rank row of the same week reading 0;
+    both tables are read, and the higher score of the week wins.
     """
     stand_in = _limit("rift_target") or GREAT_RIFT_TARGET
-    seasons = raw.get(GREAT_RIFT_FIELD)
+    tables = [raw.get(GREAT_RIFT_FIELD), raw.get(GREAT_RIFT_BOSS_FIELD)]
     live = None
-    for slots in (seasons or {}).values() if isinstance(seasons, dict) else ():
+    seasons = [s for t in tables if isinstance(t, dict) for s in t.values()]
+    for slots in seasons:
         for row in (slots or {}).values() if isinstance(slots, dict) else ():
             if not isinstance(row, dict) or not _is_count(
                     row.get("week_total_score")):
@@ -6633,13 +6650,14 @@ def _great_rift(raw, now):
             if live is None or rank > live[0]:
                 live = (rank, row)
     if live is None:
-        return None, stand_in
+        return None, stand_in, False
     row = live[1]
-    target = row.get("week_total_score_reward")
-    score = row["week_total_score"] if _this_week(
-        row, now, GREAT_RIFT_WEEK_STAMP) else 0
-    return score, (target if _is_count(target) and target > 0
-                   else stand_in)
+    paid = row.get("week_total_score_reward")
+    paid = paid if _is_count(paid) else 0
+    this_week = _this_week(row, now, GREAT_RIFT_WEEK_STAMP)
+    score = row["week_total_score"] if this_week else 0
+    target = paid if paid > 0 else stand_in
+    return score, target, this_week and paid >= target
 
 
 def rift_opens(raw, now):

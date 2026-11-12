@@ -194,9 +194,10 @@ The excursion board and the Great Rift standings arrive in a frame carrying no r
 | Attribute        | Wire key                        | Snapshot key                    | What it is                                            |
 | ---------------- | ------------------------------- | ------------------------------- | ------------------------------------------------------ |
 | `char_visits`    | `char_visits`                   | `char_visits`                   | the excursion board, one row per combatant that has been on one |
-| `disaster_ranks` | `disaster_boss_rank_entities`   | `disaster_boss_rank_entities`   | Great Rift standings; the only carrier of the weekly score |
+| `disaster_ranks` | `disaster_boss_rank_entities`   | `disaster_boss_rank_entities`   | Great Rift standings; the weekly score up to season 4 |
+| `disaster_boss_rewards` | `disaster_boss_reward_entities` | `disaster_boss_reward_entities` | the weekly score from season 5, season -> boss -> row, the rank row reading 0. Entering sends the boss's row as `disaster_boss_reward_entity`, a run's clear under `return_info.disaster_boss_hunt_result`; both merged by slot |
 
-Each is replaced whole rather than merged: the reply IS the board, so a row's absence is a reading. `excursions.py` reads `char_visits`; `checklist_tab.py` reads `disaster_boss_rank_entities` for the Great Rift.
+Each is replaced whole rather than merged: the reply IS the board, so a row's absence is a reading. `excursions.py` reads `char_visits`; `checklist_tab.py` reads `disaster_boss_rank_entities` and `disaster_boss_reward_entities` for the Great Rift, the week's higher score winning, and colours a reached week orange until `week_total_score_reward` says its reward is claimed.
 
 The standings arrive whole only when the Great Rift's screen lists them (`disaster/get_list`). Every reply about one rank -- entering it, finishing a run, claiming its weekly reward -- carries that rank's row alone, as `disaster_boss_rank_entity`, singular, and it is merged into its season and slot. Without it a run's new score waits for the next time the list is opened. The row's `week_total_score_reward` reads 0 until the week's reward is claimed and the threshold after, so a 0 there is not a target.
 

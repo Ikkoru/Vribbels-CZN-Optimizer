@@ -107,7 +107,7 @@ def _run():
         unsure_ceiling, EVENT_FINISHED_FIELD,
         EVENT_CLIENT_FIELD, event_totals_onto, EVENT_TOTALS_FIELD,
         LIKELY_DONE,
-        GRANT_FITS, SOON_SETTLED, EXPIRING_KEY_PREFIX,
+        GRANT_FITS, SOON_SETTLED, EXPIRING_KEY_PREFIX, REWARD_UNCLAIMED,
     )
     import checklist_manager
 
@@ -813,6 +813,37 @@ def _run():
                 f"('300000/300000', {DONE!r}). The figure runs to seven "
                 f"digits and the row is about clearing the threshold, so "
                 f"it caps, with no sign beside it.")
+    # **At the threshold with the week's reward unclaimed, ORANGE**:
+    # `week_total_score_reward` stays 0 until the claim. And from season
+    # 5 the score is the BOSS's row, the rank row of the week reading 0.
+    raw = _snapshot()
+    raw["disaster_boss_rank_entities"] = {"disaster_s05": {
+        "disaster_s05_rank_01": {"score_week_id": this_week,
+                                 "week_total_score": 0,
+                                 "week_total_score_reward": 0}}}
+    raw["disaster_boss_reward_entities"] = {"disaster_s05": {
+        "disaster_s05_boss_01": {"score_week_id": this_week,
+                                 "week_total_score": 786742,
+                                 "week_total_score_reward": 0}}}
+    got = _readings(raw, now)["seasonal_score"]
+    want = [("%d/%d" % (GREAT_RIFT_TARGET, GREAT_RIFT_TARGET),
+             REWARD_UNCLAIMED)]
+    if got != want:
+        failures.append(
+            f"a season-5 Great Rift week at 786742 on the boss's row, its "
+            f"reward unclaimed, reads {got!r}, not {want!r}. The rank "
+            f"row reads 0 from season 5, so the boss's row "
+            f"(`disaster_boss_reward_entities`) is the score; and a "
+            f"reached threshold with nothing claimed is orange.")
+    raw["disaster_boss_reward_entities"]["disaster_s05"][
+        "disaster_s05_boss_01"]["week_total_score_reward"] = \
+        GREAT_RIFT_TARGET
+    got = _readings(raw, now)["seasonal_score"]
+    want = [("%d/%d" % (GREAT_RIFT_TARGET, GREAT_RIFT_TARGET), DONE)]
+    if got != want:
+        failures.append(
+            f"the same week with its reward claimed reads {got!r}, not "
+            f"{want!r}.")
     got = _readings(_snapshot(), now)["seasonal_score"]
     if got != [(f"{NO_DATA}/{GREAT_RIFT_TARGET}", UNKNOWN)]:
         failures.append(
@@ -2786,6 +2817,16 @@ def _expiring(now):
 
 # What this check must catch, for `checks/faults.py`.
 FAULTS = [
+    ("the Great Rift's boss row not read",
+     "ui.tabs.checklist_tab:_great_rift",
+     "raw.get(GREAT_RIFT_FIELD), raw.get(GREAT_RIFT_BOSS_FIELD)]",
+     "raw.get(GREAT_RIFT_FIELD)]",
+     "a season-5 Great Rift week"),
+    ("a reached, unclaimed Great Rift week read as done",
+     "ui.tabs.checklist_tab:_readings",
+     "REWARD_UNCLAIMED if reached and not claimed else _done(reached))",
+     "_done(reached))",
+     "a season-5 Great Rift week"),
     ("a weekly task issued last week paying this week",
      "ui.tabs.checklist_tab:_activity_weekly_points",
      "weekly_reset.last_weekly_reset(now)", "0",

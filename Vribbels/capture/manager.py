@@ -588,8 +588,11 @@ class Addon:
         self.char_visits = None
 
         # The Great Rift standings, season -> rank slot -> record. The
-        # weekly score is in there and in nothing else the game sends.
+        # weekly score is in there, up to season 4.
         self.disaster_ranks = None
+        # From season 5 the weekly score is on a table of its own,
+        # season -> boss -> record, the rank row staying at 0.
+        self.disaster_boss_rewards = None
         # The Sortie ladders, keyed by res_id. See where they are read
         # for why they are merged rather than replaced.
         self.assault_char_achievements = {}
@@ -904,6 +907,9 @@ class Addon:
         standings = previous.get("disaster_boss_rank_entities")
         if isinstance(standings, dict):
             self.disaster_ranks = standings
+        boss_rewards = previous.get("disaster_boss_reward_entities")
+        if isinstance(boss_rewards, dict):
+            self.disaster_boss_rewards = boss_rewards
         rankings = previous.get("chaos_assault_rankings")
         if isinstance(rankings, dict):
             self.sortie_rankings = rankings
@@ -2140,9 +2146,9 @@ class Addon:
             self._save_pending = True
 
         # The Great Rift standings, keyed by season and then by rank
-        # slot. This is where the weekly score lives -- nothing else
-        # carries it -- and the frame it arrives in holds a dozen other
-        # disaster records the snapshot does not want, so it is picked
+        # slot. The weekly score lives here up to season 4 (from season
+        # 5, the boss table below), and the frame it arrives in holds a
+        # dozen other disaster records the snapshot does not want, so it is picked
         # out by name and kept aside like the two above.
         if isinstance(data.get("disaster_boss_rank_entities"), dict):
             self.disaster_ranks = data["disaster_boss_rank_entities"]
@@ -2163,6 +2169,32 @@ class Addon:
             ranks[row["season_id"]] = season
             self.disaster_ranks = ranks
             self._save_pending = True
+        # **From season 5 the weekly score is the BOSS's row**,
+        # `disaster_boss_reward_entities` (season -> boss -> record),
+        # while the rank row stays at 0. The login's list sends the
+        # table whole; entering the Great Rift sends the boss's row,
+        # and a run's clear sends it nested, under
+        # `return_info.disaster_boss_hunt_result`. Merged by slot as
+        # the rank rows are.
+        if isinstance(data.get("disaster_boss_reward_entities"), dict):
+            self.disaster_boss_rewards = data["disaster_boss_reward_entities"]
+            self._save_pending = True
+        hunt = data.get("return_info")
+        hunt = hunt.get("disaster_boss_hunt_result") \
+            if isinstance(hunt, dict) else None
+        for row in (data.get("disaster_boss_reward_entity"),
+                    hunt.get("disaster_boss_reward_entity")
+                    if isinstance(hunt, dict) else None):
+            if isinstance(row, dict) and row.get("season_id") \
+                    and row.get("define_id"):
+                rewards = dict(self.disaster_boss_rewards) \
+                    if isinstance(self.disaster_boss_rewards, dict) else {}
+                season = rewards.get(row["season_id"])
+                season = dict(season) if isinstance(season, dict) else {}
+                season[row["define_id"]] = row
+                rewards[row["season_id"]] = season
+                self.disaster_boss_rewards = rewards
+                self._save_pending = True
         # **A Great Rift ranking page**: `enter_disaster_rank` answers
         # with the player's own division, `request_rank_list` with the
         # one asked for -- twenty rows of OTHER players each, and one
@@ -4182,6 +4214,7 @@ class Addon:
             "characters": self.character_data,
             "char_visits": self.char_visits,
             "disaster_boss_rank_entities": self.disaster_ranks,
+            "disaster_boss_reward_entities": self.disaster_boss_rewards,
             "assault_char_achievement_entities":
                 self.assault_char_achievements or None,
             "assault_char_title_entities": self.assault_char_titles or None,
