@@ -90,22 +90,19 @@ WEIGHT_ROWS = 30
 SET_COLUMNS = 5
 
 # The note beside the filters, by measure.
-_KEEPS = ("Readjustment keeps each substat's starting value and performs "
-          "its 4 upgrades again; you keep Before or After, so it only "
-          "gains.\n"
-          "Reroll: 1 Quartz. Exclude: 2.\n\n")
-_COLUMNS = ("\n\nChance: of any rise.\n"
+_KEEPS = ("Readjustment keeps each substat type, re-shuffles the 4 upgrades "
+          "and rerolls the values; you keep Before or After.\n\n")
+_COLUMNS = ("\n\nChance: of a rise.\n"
             "Best: the most it can rise.\n"
             "Use, Per Quartz: the better option per Quartz.")
 NOTES = {
     rj.GEAR: _KEEPS + (
         "Gain: the expected rise in Gear Score under the combatant's "
-        "preset. ") + _COLUMNS,
+        "assigned preset.") + _COLUMNS,
     rj.BUILD: _KEEPS + (
         "Gain: the expected rise in the Optimizer's score of the "
         "combatant's equipped build with the MF in its slot, over the "
-        "higher of Now and the build as worn; the top %d sampled off the "
-        "real score. " % rj.REFINE_TOP) + _COLUMNS,
+        "higher of Now and the build as worn." % rj.REFINE_TOP) + _COLUMNS,
 }
 LOADING = "Loading..."
 NO_DATA = "No capture loaded: log in with the capture running."
@@ -336,7 +333,7 @@ class ReadjustTab(BaseTab):
         # spacing: control group ↔ control group -- label, label ↔
         # spacing: tab list -> first element -- tab, label ↕
         self.note_label.pack(side=tk.LEFT, anchor=tk.N, fill=tk.X,
-                             expand=True, padx=px((2, 1)),
+                             expand=True, padx=px((2, 10)),
                              pady=(px_after(1, 0), 0))
         self.note_label.bind("<Configure>", self._rewrap)
 
