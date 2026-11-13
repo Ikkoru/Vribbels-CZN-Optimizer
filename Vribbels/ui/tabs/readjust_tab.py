@@ -98,10 +98,10 @@ _COLUMNS = ("\n\nChance: of a rise.\n"
             "Use, Per Quartz: the better option per Quartz.")
 NOTES = {
     rj.GEAR: _KEEPS + (
-        "Gain: the expected rise in Gear Score under the combatant's "
+        "Gain: the expected average rise in Gear Score under the combatant's "
         "assigned preset.") + _COLUMNS,
     rj.BUILD: _KEEPS + (
-        "Gain: the expected rise in the Optimizer's score of the "
+        "Gain: the expected average rise in the Optimizer's score of the "
         "combatant's equipped build with the MF in its slot, over the "
         "higher of Now and the build as worn.") + _COLUMNS,
 }
