@@ -11,7 +11,7 @@ ASCII throughout: a name's other characters are written as escapes.
 """
 
 
-BUILD = 158
+BUILD = 166
 
 # {schedule id: English name}. See game_client.event_names.
 EVENT_NAMES = {
@@ -4674,8 +4674,8 @@ DISASTER_CHALLENGES = {
                 ['disaster_s05_memory_07', 'Memory: Greed', 1, None],
                 ['disaster_s05_memory_08', 'Memory: Kaleidoscope', 1, None],
                 ['disaster_s05_memory_09', 'Memory: Loss', 1, None],
-                ['disaster_s05_memory_11', 'To be updated soon.', 1, 'event_disaster_005_chapter_3'],
                 ['disaster_s05_memory_10', 'Memory: Duress', 1, None],
+                ['disaster_s05_memory_11', 'To be updated soon.', 1, 'event_disaster_005_chapter_3'],
             ]},
             'achieve_info_s05_167': {'kind': 'chaos', 'collection': 'chaos_10_05', 'items': [
                 ['chaos_10_card_01', 'Warrior of the Bitter Cold', 1, None],
