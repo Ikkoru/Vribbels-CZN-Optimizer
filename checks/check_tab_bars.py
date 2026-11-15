@@ -238,7 +238,7 @@ def run():
         probe = tk.Tk()
         probe.destroy()
     except Exception as e:                    # no display
-        raise Skip(f"Tk will not start here ({type(e).__name__})")
+        raise Skip(f"Tk will not start here ({type(e).__name__})") from e
     import czn_optimizer_gui as gui
     from ui.utils import tab_bars
     colors = dict(gui.COLORS)

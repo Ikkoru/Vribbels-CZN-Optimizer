@@ -48,6 +48,10 @@ ignore = [
     # A loop that appends is often the readable form, with a comment per
     # branch; the hot path is the optimizer's, which builds no lists.
     "PERF401",
+    # A lambda that only calls something defers the lookup to the call,
+    # and the spacing registry relies on that: its entries name helpers
+    # defined further down the module.
+    "PLW0108",
 ]
 # Codes `# noqa` names for tools other than ruff, kept as documentation.
 external = ["BLE001", "E129"]

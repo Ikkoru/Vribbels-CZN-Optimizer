@@ -49,7 +49,7 @@ def path():
     return _path
 
 
-def note(where: str, exc: BaseException = None) -> None:
+def note(where: str, exc: BaseException | None = None) -> None:
     """Record an error: `where` it happened and, with `exc`, its
     traceback; without one, the traceback being handled, if any. Never
     raises."""

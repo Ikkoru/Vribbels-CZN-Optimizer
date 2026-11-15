@@ -5735,7 +5735,7 @@ class CaptureManager:
             return content
 
         except Exception as e:
-            raise CaptureError(f"Failed to modify hosts file: {e}")
+            raise CaptureError(f"Failed to modify hosts file: {e}") from e
 
     def _read_hosts(self) -> str:
         """The hosts file's text, every byte of it kept.
@@ -5838,7 +5838,7 @@ class CaptureManager:
         try:
             content = self._read_hosts()
         except OSError as e:
-            raise CaptureError(f"Could not read the hosts file: {e}")
+            raise CaptureError(f"Could not read the hosts file: {e}") from e
 
         if HOSTS_BLOCK_START not in content:
             return False
@@ -5849,7 +5849,7 @@ class CaptureManager:
             raise CaptureError(
                 "A capture redirect left in the hosts file could not be "
                 f"removed: {e}\n\nEditing it needs Administrator rights."
-            )
+            ) from e
 
         self._flush_dns()
         return True
@@ -6030,7 +6030,7 @@ addons =[Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode},
             return addon_script
 
         except Exception as e:
-            raise CaptureError(f"Failed to generate addon script: {e}")
+            raise CaptureError(f"Failed to generate addon script: {e}") from e
 
     @staticmethod
     def _region_from_line(line):
@@ -6258,7 +6258,7 @@ addons =[Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode},
             self.modify_hosts_file()
             self.log_callback("Hosts file modified", "success")
         except CaptureError as e:
-            raise CaptureError(f"Failed to modify hosts file: {e}")
+            raise CaptureError(f"Failed to modify hosts file: {e}") from e
 
         # Generate addon script
         try:
@@ -6327,7 +6327,7 @@ addons =[Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode},
         except Exception as e:
             self.log_callback(f"[X] Failed to start proxy: {e}", "error")
             self.restore_hosts_file()
-            raise CaptureError(f"Failed to start proxy: {e}")
+            raise CaptureError(f"Failed to start proxy: {e}") from e
 
         # Set BEFORE the first payload can arrive, so any snapshot the
         # addon writes this session is newer than it.

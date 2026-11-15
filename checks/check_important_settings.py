@@ -418,7 +418,7 @@ def run():
         probe = tk.Tk()
         probe.destroy()
     except Exception as exc:                # noqa: BLE001
-        raise Skip(f"Tk cannot open a display here ({exc})")
+        raise Skip(f"Tk cannot open a display here ({exc})") from exc
 
     failures = []
     for scale_name in SCALES:

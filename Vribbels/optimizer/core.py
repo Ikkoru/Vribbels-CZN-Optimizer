@@ -306,7 +306,7 @@ def _final_shield_heal_def(base, partner_flat, mf_pct, pot_pct, gear_flat,
 
 
 def compute_build_stats(gear: list, cs: dict,
-                        set_effect_shares: dict = None) -> dict:
+                        set_effect_shares: dict | None = None) -> dict:
     """Final ATK/DEF/HP layered formula over a 6-piece build.
 
     `cs` is the char-static dict (see GearOptimizer._build_char_static);
@@ -326,7 +326,7 @@ def compute_build_stats(gear: list, cs: dict,
 
 
 def _stats_from_rows(rows, set_counts: dict, cs: dict,
-                     set_effect_shares: dict = None) -> dict:
+                     set_effect_shares: dict | None = None) -> dict:
     """`compute_build_stats` over a build's stat rows and its set
     counts (`count_sets`)."""
     # ----- Memory Fragment (substats + main stats) -----------------------
@@ -546,7 +546,7 @@ def _stats_from_rows(rows, set_counts: dict, cs: dict,
 
 
 def count_locked_slots(combo, sets_selected: list,
-                       set_counts: dict = None) -> int:
+                       set_counts: dict | None = None) -> int:
     """Count how many slots are "locked" into a chosen set's satisfied bonus.
 
     A slot is locked if it belongs to a fully-satisfied bonus from one of
@@ -686,7 +686,7 @@ def build_score_precompute(settings: dict) -> dict:
 
 
 def damage_card_multiplier(gear: list, sp: dict,
-                           set_counts: dict = None) -> float:
+                           set_counts: dict | None = None) -> float:
     """The damage card multiplier for one build.
 
     The user's average buffs plus the conditional DMG multi / DMG add

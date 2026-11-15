@@ -47,7 +47,7 @@ def _read_export(path):
     try:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
-        raise SystemExit("cannot read %s: %s" % (path, exc))
+        raise SystemExit("cannot read %s: %s" % (path, exc)) from exc
     facts = shared_facts.read_document(data)
     if facts is None:
         raise SystemExit("%s is not a shared facts export" % path)
@@ -65,7 +65,7 @@ def _read_shipped():
         raise SystemExit(
             "%s will not read (%s). Nothing written: folding into it would "
             "rebuild it from your captures alone. Restore it from git."
-            % (TARGET.name, exc))
+            % (TARGET.name, exc)) from exc
     if not shared_facts.whole(data):
         raise SystemExit(
             "%s is not a whole shared facts file: another kind or version, "

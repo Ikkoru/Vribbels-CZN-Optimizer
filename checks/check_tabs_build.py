@@ -6991,7 +6991,7 @@ def run():
         from tkinter import ttk
         root = tk.Tk()
     except Exception as e:                    # no display, headless CI
-        raise Skip(f"Tk will not start here ({type(e).__name__})")
+        raise Skip(f"Tk will not start here ({type(e).__name__})") from e
 
     work = Path(tempfile.mkdtemp())
     try:

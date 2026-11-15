@@ -121,7 +121,7 @@ def main() -> int:
     try:
         data = json.loads(TARGET.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        raise SystemExit(f"{TARGET.name} does not parse: {exc}")
+        raise SystemExit(f"{TARGET.name} does not parse: {exc}") from exc
     if not isinstance(data, dict):
         raise SystemExit(f"{TARGET.name}: root is not an object")
 

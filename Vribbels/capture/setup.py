@@ -341,4 +341,4 @@ def open_certificate(cert_path: Path) -> None:
     try:
         os.startfile(str(cert_path))
     except Exception as e:
-        raise Exception(f"Failed to open certificate: {e}")
+        raise Exception(f"Failed to open certificate: {e}") from e

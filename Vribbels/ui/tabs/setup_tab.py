@@ -2603,7 +2603,7 @@ class SetupTab(BaseTab):
         try:
             from character_preset_manager import normalize_to_v2
         except ImportError:
-            raise RuntimeError("character_preset_manager not available")
+            raise RuntimeError("character_preset_manager not available") from None
         default_v2 = normalize_to_v2(default_raw)
         default_assignments = default_v2.get("assignments", {})
         default_name_hints = default_v2.get("name_hints", {})

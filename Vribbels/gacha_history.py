@@ -1145,7 +1145,7 @@ def write_verified(path, data, rows_field, must_hold, key):
     except (OSError, ValueError) as e:
         _discard(tmp)
         raise StoreError("the copy of %s could not be written: %s"
-                         % (path.name, e))
+                         % (path.name, e)) from e
     rows = back.get(rows_field) if isinstance(back, dict) else None
     problems = [] if back == data else ["the copy does not read back as "
                                         "what was written"]
@@ -1171,7 +1171,7 @@ def write_verified(path, data, rows_field, must_hold, key):
             except OSError:
                 pass
         _discard(tmp)
-        raise StoreError("%s could not be replaced: %s" % (path.name, e))
+        raise StoreError("%s could not be replaced: %s" % (path.name, e)) from e
 
 
 def _discard(path):

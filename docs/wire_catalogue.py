@@ -118,7 +118,9 @@ def main(argv):
     print("%-*s  %-4s %6s  %-19s  %s"
           % (width, "command|key", "read", "seen", "first seen", "sample"))
     for name, is_read, row in listed:
-        print("%-*s  %-4s %6d  %-19s  %s"
+        # PLE1307 is wrong here: ruff counts `*` as no argument, so it
+        # pairs %6d with "yes".
+        print("%-*s  %-4s %6d  %-19s  %s"  # noqa: PLE1307
               % (width, name[:width], "yes" if is_read else "-",
                  int(row.get("count", 0)), str(row.get("first"))[:19],
                  str(row.get("sample"))[:60]))

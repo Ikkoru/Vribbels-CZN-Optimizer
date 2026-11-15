@@ -489,7 +489,7 @@ def _verified(text, table, theirs, keys):
     try:
         held = ast.literal_eval(node)
     except ValueError as exc:
-        raise SyncError(f"{table} no longer reads as a literal: {exc}")
+        raise SyncError(f"{table} no longer reads as a literal: {exc}") from exc
     if set(held) != keys:
         raise SyncError(f"{table} would hold {sorted(set(held) ^ keys)} "
                         f"otherwise than it should")

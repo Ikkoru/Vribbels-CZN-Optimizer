@@ -895,7 +895,7 @@ class CaptureTab(BaseTab):
         except ValueError:
             return "value_good"
 
-    def capture_log_msg(self, msg: str, tag: str = None, stamp=None):
+    def capture_log_msg(self, msg: str, tag: str | None = None, stamp=None):
         """Add a message to the capture log.
 
         Safe to call from any thread. Tk is single-threaded, and this is
@@ -982,7 +982,7 @@ class CaptureTab(BaseTab):
         self.capture_log.insert(tk.END, "\n", tag)
         return lag
 
-    def log_upgrade_msg(self, msg: str, tag: str = None, stamp=None,
+    def log_upgrade_msg(self, msg: str, tag: str | None = None, stamp=None,
                         beats=()):
         """capture_log_msg for '[LIVE] Upgraded' lines: also remembers the
         line's extent via Tk marks so a Log Presets toggle can rewrite the
@@ -1006,7 +1006,7 @@ class CaptureTab(BaseTab):
         self._trim_log()
         t.see(tk.END)
 
-    def rewrite_last_upgrade_line(self, msg: str, tag: str = None,
+    def rewrite_last_upgrade_line(self, msg: str, tag: str | None = None,
                                   beats=()):
         """Replace the last Upgraded line (recorded by log_upgrade_msg)
         with `msg`, its Debug WS timing kept: the line still reports the

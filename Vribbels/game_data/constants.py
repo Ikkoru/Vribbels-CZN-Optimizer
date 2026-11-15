@@ -895,7 +895,7 @@ def table_art(res_id):
         return ItemArt(row[at], rarity)
     return None
 
-def get_level_from_exp(exp: int, exp_table: list = None) -> int:
+def get_level_from_exp(exp: int, exp_table: list | None = None) -> int:
     """Convert experience points to level with interpolation between
     the table's checkpoints.
 

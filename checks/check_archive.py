@@ -613,7 +613,7 @@ def run():
         tarfile.open  # noqa: B018 -- lzma may be missing from a build
         import lzma   # noqa: F401
     except Exception as e:                                    # noqa: BLE001
-        raise Skip(f"no lzma here ({type(e).__name__})")
+        raise Skip(f"no lzma here ({type(e).__name__})") from e
     problems = []
     for probe in (_round_trip, _below_high_does_nothing,
                   _failed_verify_keeps_everything,

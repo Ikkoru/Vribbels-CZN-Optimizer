@@ -33,7 +33,7 @@ def _renders_past_the_screen(render):
     try:
         root = tk.Tk()
     except tk.TclError as exc:
-        raise Skip(f"Tk will not start here ({exc})")
+        raise Skip(f"Tk will not start here ({exc})") from exc
     try:
         root.attributes("-alpha", 0.0)
         width = root.winfo_screenwidth() + 300

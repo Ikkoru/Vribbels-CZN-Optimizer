@@ -378,13 +378,13 @@ class GearOptimizer:
             f.calculate_priority_score(self.priorities)
 
     def get_gear_by_slot(self, slot_num: int, include_equipped: bool = True,
-                         exclude_char: str = None, excluded_heroes: list[str] = None,
-                         required_sets: list[int] = None,
-                         required_main: list[str] = None, top_percent: float = 100,
+                         exclude_char: str | None = None, excluded_heroes: list[str] | None = None,
+                         required_sets: list[int] | None = None,
+                         required_main: list[str] | None = None, top_percent: float = 100,
                          use_priority_score: bool = False, min_rarity: int = 2,
                          min_level: int = 0,
-                         offelement_attribute: str = None,
-                         score_weights: dict = None) -> list[MemoryFragment]:
+                         offelement_attribute: str | None = None,
+                         score_weights: dict | None = None) -> list[MemoryFragment]:
         """
         Get filtered and ranked gear for a specific slot.
 
@@ -708,9 +708,9 @@ class GearOptimizer:
         }
 
     def calculate_build_stats(self, gear: list[MemoryFragment],
-                               char_name: str = None, *,
-                               effective_level: int = None,
-                               set_effect_shares: dict = None) -> dict[str, float]:
+                               char_name: str | None = None, *,
+                               effective_level: int | None = None,
+                               set_effect_shares: dict | None = None) -> dict[str, float]:
         """
         Calculate final stats for a gear build.
 
@@ -814,7 +814,7 @@ class GearOptimizer:
         )
 
     def compute_build_breakdown(self, gear: list, char_name: str, *,
-                                settings: dict = None) -> dict:
+                                settings: dict | None = None) -> dict:
         """Per-source breakdown of a build's final stats.
 
         `settings` is keyword-only, as is `calculate_build_stats`'
@@ -1390,8 +1390,8 @@ class GearOptimizer:
             for gear, _trim, stats in results
         ]
 
-    def optimize(self, char_name: str, settings: dict, progress_callback: Callable = None,
-                 cancel_flag: list = None) -> list[tuple[list[MemoryFragment], float, dict]]:
+    def optimize(self, char_name: str, settings: dict, progress_callback: Callable | None = None,
+                 cancel_flag: list | None = None) -> list[tuple[list[MemoryFragment], float, dict]]:
         """
         Find optimal gear combinations for a character.
 

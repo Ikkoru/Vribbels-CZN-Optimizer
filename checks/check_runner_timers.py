@@ -40,7 +40,7 @@ def run():
         import tkinter as tk
         tk.Tk().destroy()
     except Exception as exc:                # noqa: BLE001
-        raise Skip(f"Tk will not start here ({type(exc).__name__})")
+        raise Skip(f"Tk will not start here ({type(exc).__name__})") from exc
 
     from checks import run_all
 
