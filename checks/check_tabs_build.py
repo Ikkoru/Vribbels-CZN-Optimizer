@@ -6446,6 +6446,66 @@ def _tab_bar(notebook, page):
             int(notebook.tk.call("image", "width", name)))
 
 
+def _a_thread_marks_through_the_inbox(tab):
+    """A startup job's `[X]` line marks the tab without touching Tk.
+
+    `OptimizerGUI._background_say` runs on the archiver's and the stats
+    history's threads. Calling `root.after` there raises `RuntimeError`
+    in the thread before `mainloop` runs -- and both jobs start during
+    startup -- and inside it makes the thread wait on the UI thread.
+    The mark goes through the Capture tab's inbox instead, raised by
+    the UI thread's next `drain_inbox`. No mainloop runs here, which is
+    the startup case.
+
+    Returns a list of complaints.
+    """
+    import threading
+    from types import SimpleNamespace
+    import czn_optimizer_gui as gui
+
+    out = []
+    alert = getattr(tab, "_alert", None)
+    if alert is None:
+        return out
+    alert.clear()
+    tab._title_pending = False
+    win = SimpleNamespace(capture_tab_instance=tab, root=tab.root)
+    say = gui.OptimizerGUI._background_say.__get__(win)
+    raised = []
+
+    def job():
+        try:
+            say("[X] boom")
+        except Exception as e:      # what the thread would die of
+            raised.append(e)
+
+    # The line goes back out afterwards: later parts read the log from
+    # its first line.
+    start = tab.capture_log.index("end-1c")
+    worker = threading.Thread(target=job)
+    worker.start()
+    worker.join(10)
+    if raised:
+        out.append(
+            f"`_background_say` raised {type(raised[0]).__name__} on a "
+            f"worker thread before the main loop ran: {raised[0]}. A "
+            f"thread must not call into Tk, `root.after` included "
+            f"(docs/ui_runtime.md); the failure mark goes through the "
+            f"Capture tab's inbox.")
+    tab.drain_inbox()
+    if not (alert.showing or tab._title_pending
+            or tab._title_blink is not None):
+        out.append(
+            "an `[X]` line from a worker thread did not mark the Capture "
+            "tab once the UI thread drained its inbox. A startup job's "
+            "abort then reaches only a user who happens to read the log.")
+    tab.capture_log.delete(start, "end-1c")
+    alert.clear()
+    tab._stop_title_blink()
+    tab._title_pending = False
+    return out
+
+
 def _the_failure_mark_lights_and_clears(tab):
     """The tab's mark goes up on a failure and comes off when read.
 
@@ -7038,6 +7098,8 @@ def run():
             failures.extend(_a_tooltip_marks_what_it_is_bound_to(root))
             failures.extend(
                 _the_failure_mark_lights_and_clears(built["CaptureTab"]))
+            failures.extend(
+                _a_thread_marks_through_the_inbox(built["CaptureTab"]))
             failures.extend(_messagebox_defaults_name_their_own_buttons())
             failures.extend(_archive_size_carries_its_tooltip(
                 built["SetupTab"]))
@@ -7207,6 +7269,14 @@ def run():
 # What this check must catch, for `checks/faults.py`.
 RESTORE = "ui.tabs.setup_tab:SetupTab._build_restore"
 FAULTS = [
+    ("a worker's failure mark through root.after",
+     "czn_optimizer_gui:OptimizerGUI._background_say",
+     'self.capture_tab_instance._inbox.put(("flag", None))',
+     "self.root.after(0, self.capture_tab_instance.flag_failure)",
+     "on a worker thread before the main loop ran"),
+    ("the inbox ignoring a flag", "ui.tabs.capture_tab:CaptureTab.drain_inbox",
+     '            elif kind == "flag":\n                self.flag_failure()\n',
+     "", "did not mark the Capture tab"),
     ("the failure mark dark when it goes up",
      "ui.utils.alert:TabAlert.raise_alert", "self._schedule()",
      "self._tick()", "in the alert colour"),

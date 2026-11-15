@@ -1768,8 +1768,12 @@ class OptimizerGUI:
         # the log and leave the folder correct, and a mark raised for
         # something that fixed itself is one nobody reads the next time
         # it means something.
+        #
+        # **Through the tab's inbox, never `root.after`**: this runs on a
+        # worker thread, where `after` raises before `mainloop` and waits
+        # on the UI thread inside it (docs/ui_runtime.md).
         if tag == "error":
-            self.root.after(0, self.capture_tab_instance.flag_failure)
+            self.capture_tab_instance._inbox.put(("flag", None))
 
     def auto_load(self):
         latest = self.capture_manager.get_latest_capture()

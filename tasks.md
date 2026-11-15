@@ -10,7 +10,6 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
 Found by the 2026-11-14 audit. Evidence, the change and the proof for each are in `plan_audit_fixes.md`, under the same id; they land before 2.7.0.
 
-- **A7 — `_background_say` calls `root.after` from the archiver's and the stats history's threads.**
 - **A11 — `check_tab_bars` fails on and off** with nothing changed: every full run while the maintainer was away, one run in four alone. It reads the compositor's copy of a window; a display asleep is the suspect.
 
 ### 1b) Needs maintainer assistance figuring out

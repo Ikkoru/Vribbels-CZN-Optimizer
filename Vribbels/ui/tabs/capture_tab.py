@@ -264,7 +264,8 @@ class CaptureTab(BaseTab):
         # until then.
         self._prereq_result = None
         # What other threads hand this tab: log lines, the status text,
-        # the detected region. Put on by them, taken off on the UI
+        # the detected region, a failure to mark (`flag_failure`). Put
+        # on by them, taken off on the UI
         # thread by `drain_inbox`. See `capture_log_msg` for why no
         # other thread touches Tk.
         self._inbox = queue.Queue()
@@ -969,6 +970,8 @@ class CaptureTab(BaseTab):
                 self.set_capture_status(value)
             elif kind == "region":
                 self.set_detected_region(value)
+            elif kind == "flag":
+                self.flag_failure()
 
     def _insert_lag(self, stamp, tag):
         """End the line being written, with its timing where it has one.
@@ -1063,6 +1066,9 @@ class CaptureTab(BaseTab):
 
     def flag_failure(self):
         """Mark the tab, and pulse the log's title, for a failure.
+
+        UI thread only. Another thread puts `("flag", None)` in `_inbox`
+        instead, for the reason `capture_log_msg` gives.
 
         For a failure the user must ACT on. Anything that retries and
         carries on belongs in the log alone -- a mark raised for
