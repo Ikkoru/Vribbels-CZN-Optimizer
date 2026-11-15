@@ -52,6 +52,7 @@ def run():
         listing = subprocess.run(
             ["git", "ls-files"], cwd=str(REPO_ROOT),
             capture_output=True, text=True, timeout=30,
+            check=False,
         )
     except (OSError, subprocess.SubprocessError) as e:
         return [f"could not list tracked files ({type(e).__name__}: {e})"]

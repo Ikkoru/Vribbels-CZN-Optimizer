@@ -35,7 +35,7 @@ def main(argv):
              "--font-gauge", f"--audit-scale={scale}"],
             cwd=HERE.parent, env=env, stdin=subprocess.DEVNULL,
             capture_output=True, text=True, encoding="utf-8",
-            errors="replace", timeout=900)
+            errors="replace", timeout=900, check=False)
         start = run.stdout.find("--- font gauge")
         print(run.stdout[start:] if start >= 0
               else run.stdout[-800:] + run.stderr[-800:])

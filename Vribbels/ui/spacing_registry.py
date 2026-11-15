@@ -3232,8 +3232,8 @@ def _first_filled_text(title):
     def find(app):
         frame = _panel(app, title)
         for widget in sa.find_descendants_class(frame, "Text"):
-            lines = [l for l in widget.get("1.0", "end-1c").splitlines()
-                     if l.strip()]
+            lines = [ln for ln in widget.get("1.0", "end-1c").splitlines()
+                     if ln.strip()]
             if len(lines) >= 2:
                 return widget
         return None

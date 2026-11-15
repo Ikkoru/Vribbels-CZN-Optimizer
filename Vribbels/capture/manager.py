@@ -5647,7 +5647,7 @@ class CaptureManager:
         if sys.platform == "win32":
             os.startfile(self.output_folder)
         else:
-            subprocess.run(["xdg-open", str(self.output_folder)])
+            subprocess.run(["xdg-open", str(self.output_folder)], check=False)
 
     def set_region(self, region_id: str):
         """Deprecated: the region is observed, not chosen.
@@ -5804,7 +5804,8 @@ class CaptureManager:
                 text=True,
                 timeout=10,
                 stdin=subprocess.DEVNULL,
-                **kwargs
+                **kwargs,
+                check=False,
             )
         except (OSError, subprocess.SubprocessError) as e:
             self.log_callback(f"Could not flush the DNS cache: {e}", "warning")

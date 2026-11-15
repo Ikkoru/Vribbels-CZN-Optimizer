@@ -243,7 +243,7 @@ def _spawn(check, index, work):
             [sys.executable, str(Path(__file__).resolve()), "--one", check,
              str(index)],
             capture_output=True, text=True, encoding="utf-8",
-            errors="replace", env=env, timeout=TIMEOUT_S)
+            errors="replace", env=env, timeout=TIMEOUT_S, check=False)
     except subprocess.TimeoutExpired:
         return {"kind": "crashed", "detail": f"timed out after {TIMEOUT_S}s"}
     for line in reversed(done.stdout.splitlines()):

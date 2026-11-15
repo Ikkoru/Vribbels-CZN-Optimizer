@@ -115,7 +115,8 @@ def check_prerequisites() -> PrerequisiteStatus:
                 text=True,
                 timeout=5,
                 stdin=subprocess.DEVNULL,
-                **kwargs
+                **kwargs,
+                check=False,
             )
             if result.returncode == 0:
                 has_mitmproxy = True
@@ -155,7 +156,8 @@ def install_mitmproxy(timeout: int = 120) -> bool:
         ["pip", "install", "mitmproxy"],
         capture_output=True,
         text=True,
-        timeout=timeout
+        timeout=timeout,
+        check=False,
     )
 
     if result.returncode != 0:
@@ -254,7 +256,7 @@ def _certutil(args, timeout=15):
         kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     return subprocess.run(["certutil"] + list(args), capture_output=True,
                           text=True, errors="replace", timeout=timeout,
-                          stdin=subprocess.DEVNULL, **kwargs)
+                          stdin=subprocess.DEVNULL, **kwargs, check=False)
 
 
 def _in_store(flags) -> bool:

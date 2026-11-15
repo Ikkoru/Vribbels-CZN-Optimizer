@@ -624,7 +624,7 @@ def _an_unequipped_combatant_shows_its_stats(tab):
     out = []
     for stat in ("ATK", "DEF", "HP", "CRate"):
         label = ht.HERO_STAT_DISPLAY[stat] + "\t"
-        line = next((l for l in card if label in l), "")
+        line = next((ln for ln in card if label in ln), "")
         value = line.split(label, 1)[1].split("\t", 1)[0] if label in line \
             else None
         if not value or value == "-":
@@ -5151,7 +5151,7 @@ def _checklist_prices_apart_take_the_middle(tab):
             tags = text.tag_names("%d.0" % line)
             price = text.search(words, "%d.0" % line, "%d.end" % line)
             colour = mod._label_tag(heads[key], {
-                k: l for k, l, _w in rows}[heads[key]])
+                k: label for k, label, _w in rows}[heads[key]])
             if (len(parts) != 3 or parts[1] != words
                     or mod.MIDDLE_STOP_PREFIX + heads[key] not in tags):
                 out.append(

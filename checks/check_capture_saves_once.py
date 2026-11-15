@@ -91,7 +91,7 @@ def run():
     ]
     addon.websocket_message(_Flow(batch))
 
-    saves = [l for l in lines if str(l).startswith("Saved:")]
+    saves = [ln for ln in lines if str(ln).startswith("Saved:")]
     if len(saves) != 1:
         failures.append(
             f"one frame of {len(batch)} replies produced {len(saves)} "
@@ -115,7 +115,7 @@ def run():
     addon.websocket_message(_Flow(batch))
     addon.websocket_message(_Flow(
         [{"res": "ok", "event_schedules": {"GACHA": {"a": {}}}}]))
-    saves = [l for l in lines if str(l).startswith("Saved:")]
+    saves = [ln for ln in lines if str(ln).startswith("Saved:")]
     if len(saves) != 1:
         failures.append(
             f"logging in reported {len(saves)} saves, not 1. The lobby "
@@ -130,7 +130,7 @@ def run():
     upgraded = dict(batch[0]["piece_items"][0])
     upgraded["level"] = 3
     addon.websocket_message(_Flow([{"res": "ok", "piece": upgraded}]))
-    saves = [l for l in lines if str(l).startswith("Saved:")]
+    saves = [ln for ln in lines if str(ln).startswith("Saved:")]
     if len(saves) != 1:
         failures.append(
             f"the save after an upgrade reported itself again: {saves!r}. "
@@ -144,7 +144,7 @@ def run():
     addon.websocket_message(_Flow([{
         "res": "ok", "piece_items": batch[0]["piece_items"] + [
             {"id": 999, "res_id": 11001, "level": 0}]}]))
-    saves = [l for l in lines if str(l).startswith("Saved:")]
+    saves = [ln for ln in lines if str(ln).startswith("Saved:")]
     if len(saves) != 2:
         failures.append(
             f"a save whose fragment count moved did not report itself: "

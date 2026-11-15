@@ -1663,7 +1663,8 @@ class SetupTab(BaseTab):
         try:
             result = subprocess.run(
                 cmd, capture_output=True, text=True, timeout=5,
-                stdin=subprocess.DEVNULL, **kwargs
+                stdin=subprocess.DEVNULL, **kwargs,
+                check=False,
             )
         except (OSError, subprocess.SubprocessError):
             return ""

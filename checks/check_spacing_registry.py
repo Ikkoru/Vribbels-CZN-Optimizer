@@ -41,6 +41,7 @@ What it enforces beyond "it imports":
 import glob
 import importlib
 import re
+from pathlib import Path
 
 from ._harness import REPO_ROOT, SOURCE_ROOT, add_source_to_path
 
@@ -71,8 +72,8 @@ def _rule_targets():
     the distance varies" -- because there the condition is what decides
     and the registry derives it per entry.
     """
-    doc = open(REPO_ROOT / "docs" / "ui_spacing.md",
-                  encoding="utf-8").read()
+    doc = (REPO_ROOT / "docs" / "ui_spacing.md").read_text(
+        encoding="utf-8")
     targets = {}
     for row in doc.splitlines():
         cells = [c.strip() for c in row.split("|")]
@@ -100,8 +101,8 @@ def _unique_rows():
     would otherwise look exactly like one that cannot be, which is the
     hole this table exists to close.
     """
-    doc = open(REPO_ROOT / "docs" / "ui_spacing.md",
-                  encoding="utf-8").read()
+    doc = (REPO_ROOT / "docs" / "ui_spacing.md").read_text(
+        encoding="utf-8")
     section = doc.split(UNIQUES_HEADING, 1)
     if len(section) < 2:
         return None, None, None
@@ -129,7 +130,7 @@ def _unique_whats():
     for path in glob.glob(str(SOURCE_ROOT / "**" / "*.py"), recursive=True):
         if "__pycache__" in path or "_capture_addon" in path:
             continue
-        text = open(path, encoding="utf-8", errors="replace").read()
+        text = Path(path).read_text(encoding="utf-8", errors="replace")
         for m in re.finditer(r"#\s*spacing:\s*unique -- (.+?)\s*$",
                              text, re.MULTILINE):
             whats.add(m.group(1).rsplit(" -- ", 1)[0])
@@ -147,7 +148,7 @@ def _excepted_rules():
     for path in glob.glob(str(SOURCE_ROOT / "**" / "*.py"), recursive=True):
         if "__pycache__" in path or "_capture_addon" in path:
             continue
-        text = open(path, encoding="utf-8", errors="replace").read()
+        text = Path(path).read_text(encoding="utf-8", errors="replace")
         for m in re.finditer(r"#\s*spacing:\s*exception -- (.+?)\s*$",
                              text, re.MULTILINE):
             excepted.add(m.group(1).rsplit(" -- ", 1)[0])
@@ -162,7 +163,7 @@ def _minimum_rules():
     for path in glob.glob(str(SOURCE_ROOT / "**" / "*.py"), recursive=True):
         if "__pycache__" in path or "_capture_addon" in path:
             continue
-        text = open(path, encoding="utf-8", errors="replace").read()
+        text = Path(path).read_text(encoding="utf-8", errors="replace")
         for m in MARKER.finditer(text):
             body, floor = minimum_of(m.group(1))
             if floor:

@@ -25,6 +25,7 @@ ends with its arrow.
 
 import glob
 import re
+from pathlib import Path
 
 from ._harness import REPO_ROOT, SOURCE_ROOT
 
@@ -121,7 +122,7 @@ def _doc_rules():
     `RULE_` constant, which they are, legitimately, right up until they
     are ruled.
     """
-    doc = open(REPO_ROOT / "docs" / "ui_spacing.md", encoding="utf-8").read()
+    doc = Path(REPO_ROOT / "docs" / "ui_spacing.md").read_text(encoding="utf-8")
 
     rules = _marker_column(_between(doc, RULES_HEADING, UNRULED_HEADING))
 
@@ -188,8 +189,8 @@ def run():
     except DocLayoutChanged as e:
         return [str(e)]
 
-    reg = open(SOURCE_ROOT / "ui" / "spacing_registry.py",
-                  encoding="utf-8").read()
+    reg = (SOURCE_ROOT / "ui" / "spacing_registry.py").read_text(
+        encoding="utf-8")
     consts = set(re.findall(r'^RULE_\w+ = "([^"]+)"', reg, re.MULTILINE))
 
     for rule in rules:
@@ -208,7 +209,7 @@ def run():
         if "__pycache__" in path or "_capture_addon" in path:
             continue
         rel = path.replace(str(SOURCE_ROOT), "").lstrip("\\/")
-        text = open(path, encoding="utf-8", errors="replace").read()
+        text = Path(path).read_text(encoding="utf-8", errors="replace")
         # Matched per line, deliberately. A marker naming a rule or a TBD
         # must fit on ONE line; joining continuation comments to find a
         # longer one also welds unrelated prose onto the end of a

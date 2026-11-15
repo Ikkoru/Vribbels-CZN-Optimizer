@@ -105,10 +105,10 @@ class World(pd.Reference):
 
     def assigned_preset(self, name):
         if not hasattr(self, "_assigned"):
-            osm = json.load(open("settings/optimizer_settings.json",
-                                    encoding="utf-8"))["characters"]
-            cp = json.load(open("settings/character_preset.json",
-                                   encoding="utf-8"))["assignments"]
+            osm = json.loads(Path("settings/optimizer_settings.json")
+                             .read_text(encoding="utf-8"))["characters"]
+            cp = json.loads(Path("settings/character_preset.json")
+                            .read_text(encoding="utf-8"))["assignments"]
             self._assigned = {s.get("name_hint"): cp.get(rid)
                               for rid, s in osm.items()}
         return self._assigned.get(name)
@@ -197,7 +197,7 @@ def season_part(snapshot, now=None):
     import shop_stock
     from chaos_estimate import part_of
     from ui.tabs import checklist_tab
-    raw = json.load(open(snapshot, encoding="utf-8"))
+    raw = json.loads(Path(snapshot).read_text(encoding="utf-8"))
     now = time.time() if now is None else now
     name, window = schedules.live(shop_stock.season_group_of(
         checklist_tab.SEASONAL_SHOP_CATEGORY), raw, now)
@@ -270,7 +270,7 @@ def main(argv):
     print("Proposal written to %s" % PROPOSAL)
     if "--write" in argv:
         target = SOURCE / "default_settings" / "presets.json"
-        shipped = json.load(open(target, encoding="utf-8"))
+        shipped = json.loads(Path(target).read_text(encoding="utf-8"))
         shipped["presets"].update(proposal)
         target.write_text(json.dumps(shipped, indent=2), encoding="utf-8")
         stored["max_rolls"] = current_max_rolls()

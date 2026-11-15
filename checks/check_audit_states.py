@@ -63,7 +63,7 @@ def _roots(*argv):
     run = subprocess.run(
         [sys.executable, "-c", ROOTS_PROBE, *argv], cwd=str(SOURCE_ROOT),
         capture_output=True, text=True, stdin=subprocess.DEVNULL,
-        timeout=120)
+        timeout=120, check=False)
     if run.returncode:
         return None, (run.stderr.strip().splitlines() or ["?"])[-1]
     return json.loads(run.stdout.strip().splitlines()[-1]), ""

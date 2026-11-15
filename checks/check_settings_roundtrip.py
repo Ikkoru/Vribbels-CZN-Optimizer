@@ -92,7 +92,7 @@ def _layout_covers_every_key():
 
 def _writes_atomically(path: Path) -> bool:
     """True when the module's `_write` saves through `write_json`."""
-    tree = ast.parse(open(path, encoding="utf-8").read())
+    tree = ast.parse(Path(path).read_text(encoding="utf-8"))
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef) and node.name == "_write":
             return any(isinstance(call, ast.Call)
@@ -112,8 +112,8 @@ def _write_json_is_atomic(root):
     import json_file
 
     out = []
-    tree = ast.parse(open(SOURCE_ROOT / "json_file.py",
-                             encoding="utf-8").read())
+    tree = ast.parse((SOURCE_ROOT / "json_file.py").read_text(
+        encoding="utf-8"))
     body = next((ast.dump(node) for node in ast.walk(tree)
                  if isinstance(node, ast.FunctionDef)
                  and node.name == "write_json"), "")

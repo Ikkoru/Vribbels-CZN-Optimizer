@@ -45,7 +45,7 @@ def main(argv):
              "--scale-survey", f"--audit-scale={run_scale}", *extra],
             cwd=HERE.parent, env=env, stdin=subprocess.DEVNULL,
             capture_output=True, text=True, encoding="utf-8",
-            errors="replace", timeout=600)
+            errors="replace", timeout=600, check=False)
         said = [line for line in run.stdout.splitlines()
                 if line.startswith("scale survey")]
         print("\n".join(said) or run.stdout[-800:] + run.stderr[-800:])

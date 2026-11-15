@@ -73,7 +73,7 @@ def run():
         raise Skip("Windows only")
     done = subprocess.run([sys.executable, "-c", PROBE],
                           cwd=str(SOURCE_ROOT), capture_output=True,
-                          text=True, stdin=subprocess.DEVNULL, timeout=120)
+                          text=True, stdin=subprocess.DEVNULL, timeout=120, check=False)
     if done.returncode:
         tail = (done.stderr.strip().splitlines() or ["?"])[-1]
         if "TclError" in tail and "display" in tail:

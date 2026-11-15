@@ -708,7 +708,7 @@ def _addon(gh, root, failures):
                for line in log):
         failures.append(
             f"the Capture Log did not report the one new pull: "
-            f"{[l for l in log if l.startswith('[GACHA]')]}")
+            f"{[ln for ln in log if ln.startswith('[GACHA]')]}")
 
     # A page holding nothing new, and not the first, changes nothing.
     held = path.read_text(encoding="utf-8")
@@ -806,7 +806,7 @@ def _pulls_and_reach(gh, root, failures):
     if not any(line == "[GACHA] Pulls recorded: +2" for line in log):
         failures.append(
             f"a pull reached no Capture Log line: "
-            f"{[l for l in log if l.startswith('[GACHA]')]}")
+            f"{[ln for ln in log if ln.startswith('[GACHA]')]}")
     _send(addon, _ask(41, "history", id=BANNER, last_db_id=0),
           _page(41, [_record(32, BANNER, 2000, [FOUR, THREE]),
                      _record(31, BANNER, 1000, [THREE])], False))

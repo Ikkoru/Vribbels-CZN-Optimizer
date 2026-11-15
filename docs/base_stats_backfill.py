@@ -76,7 +76,8 @@ def _logs():
     out = []
     archive = SNAPSHOTS / "archived_captures.tar.xz"
     if archive.exists():
-        tar = tarfile.open(archive, "r:xz")
+        # Left open: each member is read later, through its opener.
+        tar = tarfile.open(archive, "r:xz")  # noqa: SIM115
         members = sorted((m for m in tar.getmembers()
                           if Path(m.name).name.startswith("websocket_debug_")),
                          key=lambda m: Path(m.name).name)

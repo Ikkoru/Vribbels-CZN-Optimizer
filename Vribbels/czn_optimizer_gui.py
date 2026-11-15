@@ -71,9 +71,8 @@ if not check_data_files():
     sys.exit(1)
 
 # === GAME DATA IMPORTS ===
-from game_data import *
-from models import *
-from capture import *
+from game_data import CHARACTERS
+from capture import CaptureManager, MAINTAINER_ENV, OUTPUT_DIR
 from capture.constants import BASE_DIR
 import audit_states
 from optimizer import GearOptimizer
@@ -1219,7 +1218,8 @@ class OptimizerGUI:
             import faulthandler
             path = Path(program_dir) / "settings" / "hang_traceback.txt"
             path.parent.mkdir(parents=True, exist_ok=True)
-            self._hang_dump_file = open(path, "w", encoding="utf-8")
+            # Held open for the session: faulthandler writes into it.
+            self._hang_dump_file = open(path, "w", encoding="utf-8")  # noqa: SIM115
             faulthandler.dump_traceback_later(
                 30, repeat=True, file=self._hang_dump_file, exit=False
             )
@@ -1460,7 +1460,7 @@ class OptimizerGUI:
                 command, capture_output=True, timeout=600,
                 cwd=str(CLIENT_TOOL.parent.parent),
                 env={**os.environ, "PYTHONIOENCODING": "utf-8"},
-                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), check=False)
         except (OSError, subprocess.SubprocessError) as exc:
             perf_log.log("client_tool:FAILED", option=option, error=repr(exc))
             return [f"{CLIENT_TOOL.name} {option} did not run: {exc}"]

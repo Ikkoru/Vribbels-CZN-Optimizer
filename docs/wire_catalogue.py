@@ -74,7 +74,7 @@ QUOTED = re.compile(r"[\"']([a-z_][a-z0-9_]*)[\"']")
 
 def keys_the_addon_reads():
     """Every wire key named in the capture source."""
-    text = open(ADDON, encoding="utf-8").read()
+    text = Path(ADDON).read_text(encoding="utf-8")
     found = set()
     for pattern in READS:
         found |= {m.group(1) for m in pattern.finditer(text)}
@@ -94,7 +94,7 @@ def main(argv):
         print("No catalogue yet at %s." % book)
         print("It is written as a capture runs -- start one, play, stop.")
         return 1
-    rows = json.loads(open(book, encoding="utf-8").read())["keys"]
+    rows = json.loads(Path(book).read_text(encoding="utf-8"))["keys"]
     read = keys_the_addon_reads()
 
     show_all = "--all" in argv

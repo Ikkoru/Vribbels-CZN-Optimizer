@@ -39,6 +39,7 @@ catch there.
 """
 
 import ast
+from pathlib import Path
 
 from ._harness import SOURCE_ROOT
 
@@ -160,7 +161,7 @@ def run():
         if "__pycache__" in rel:
             continue
         try:
-            tree = ast.parse(open(path, encoding="utf-8").read(),
+            tree = ast.parse(Path(path).read_text(encoding="utf-8"),
                              filename=str(path))
         except SyntaxError:
             continue                      # compileall is what reports this

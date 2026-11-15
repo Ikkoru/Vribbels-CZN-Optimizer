@@ -998,7 +998,7 @@ def run():
         done = subprocess.run(
             [sys.executable, "-m", __name__, scale_name], cwd=REPO_ROOT,
             capture_output=True, text=True, encoding="utf-8",
-            errors="replace", timeout=300)
+            errors="replace", timeout=300, check=False)
         lines = done.stdout.strip().splitlines()
         if done.returncode != 0 or not lines:
             failures.append(

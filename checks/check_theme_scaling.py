@@ -85,7 +85,7 @@ def _read(scale):
     run = subprocess.run([sys.executable, "-c", PROBE, scale,
                           json.dumps(PIXEL_OPTIONS)],
                          cwd=str(SOURCE_ROOT), capture_output=True,
-                         text=True, stdin=subprocess.DEVNULL, timeout=120)
+                         text=True, stdin=subprocess.DEVNULL, timeout=120, check=False)
     if run.returncode:
         tail = (run.stderr.strip().splitlines() or ["?"])[-1]
         if "TclError" in tail and "display" in tail:

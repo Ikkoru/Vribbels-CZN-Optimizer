@@ -99,7 +99,7 @@ def _the_proxy_dies_with_the_program():
         os._exit(0)
     """)
     run = subprocess.run([sys.executable, "-c", helper], capture_output=True,
-                         text=True, timeout=60)
+                         text=True, timeout=60, check=False)
     try:
         pid = int(run.stdout.strip().splitlines()[-1])
     except (ValueError, IndexError):
@@ -109,7 +109,7 @@ def _the_proxy_dies_with_the_program():
         out.append("the job helper could not put its child in the job.")
     elif _alive(pid, 1.0):
         subprocess.run(["taskkill", "/F", "/PID", str(pid)],
-                       capture_output=True)
+                       capture_output=True, check=False)
         out.append(
             "a program killed with os._exit left its job's child running "
             "a second later. That is a crashed capture's proxy.")

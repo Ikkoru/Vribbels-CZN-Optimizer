@@ -105,7 +105,7 @@ def run():
         failures.append(
             f"a capture without Debug WS stamped its lines: {plain!r}. "
             f"Only a debug capture is timed.")
-    line = next((l for l in stamped if "Received" in l), "")
+    line = next((ln for ln in stamped if "Received" in ln), "")
     text, stamp = split_lag(line)
     if stamp is None:
         failures.append(
