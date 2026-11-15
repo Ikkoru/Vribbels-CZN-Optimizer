@@ -34,7 +34,7 @@ The topic docs are NOT loaded; read them on demand.
 
 | To check | Do this |
 | --- | --- |
-| Any file touched | `python -m compileall -q Vribbels` |
+| Any file touched | `python -m compileall -q Vribbels`; the capture addon is a string, so after touching it `run_all.py check_addon_template` |
 | Anything, before handing over | `python checks/run_all.py` |
 | A `game_data/` table | `game_data_validator.check_data_files()` and `find_data_problems()` — the launch-time checks, invoked directly |
 | A settings or defaults-sync change | Point the managers at a COPY of `Vribbels/settings/` in the scratchpad, never the live folder |
