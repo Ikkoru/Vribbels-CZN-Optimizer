@@ -8,6 +8,16 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
 ### 1a) Can fix without maintainer input
 
+Found by the 2026-11-14 audit. Evidence, the change and the proof for each are in `plan_audit_fixes.md`, under the same id; they land before 2.7.0.
+
+- **A1 — The Checklist redraws in stages while the game logs in.** A login saves 13 partial snapshots in 3.4 s and the window reloads on each. The reload is held until the login goes quiet.
+- **A2 — With a Shielding/Healing weight between 1 and 99, the Results list is not the best 100**, and at 70 its top row was wrong. The trim keeps no headroom, its references are far off, and the display divides by the survivors' maxima.
+- **A6 — A capture that ends badly**: mitmdump outlives a killed program; the hosts file is rewritten in place, in text mode; a stale zstd dictionary beside the snapshots wins over a newer shipped one.
+- **A7 — `_background_say` calls `root.after` from the archiver's and the stats history's threads.**
+- **A11 — `check_tab_bars` fails on and off** with nothing changed: every full run while the maintainer was away, one run in four alone. It reads the compositor's copy of a window; a display asleep is the suspect.
+
+### 1b) Needs maintainer assistance figuring out
+
 *N/A*
 
 ### 1b) Needs maintainer assistance figuring out
@@ -27,7 +37,13 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
   `check_defaults_follow` covers values following a release and a deleted Gear Score preset's assignment, not these.
 
+- **A3 — Exact speedups in the optimizer's per-combo path** (`plan_audit_fixes.md`). `compute_build_stats` is two thirds of a run; results stay byte-identical. The maintainer's ruling: nothing larger than this.
+- **A4 — The exe carries 35 MB it never loads**: NumPy, Pillow's AVIF and WebP codecs, `game_data`'s compiled files (`plan_audit_fixes.md`).
+- **A5 — Nothing records an error.** No exception hook is set and the build has no stderr; an always-on `settings/error_log.txt` (`plan_audit_fixes.md`).
+
 ### 2b) Needs maintainer assistance figuring out
+
+- **A10 — Capture without `--ssl-insecure`.** mitmdump does not verify the game server's certificate, so the link from the PC to the server is unauthenticated while capturing. Needs the maintainer in game: whether the addon can set each upstream connection's SNI to the hostname the client asked for, so that verification passes on both regions.
 
 - **I33 — What a loss looks like.** Needs the maintainer in game. With capture on, lose in as many modes as convenient: a Simulation stage, a Battle Mission, the Basin, the Great Rift, the Full-Scale Offensive, a Sortie. For each:
 
@@ -78,6 +94,12 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 ---
 
 ## 3) Big changes
+
+- **T28 — The UI moves from Tk to Qt (PySide6).** Decided by the maintainer on 2026-11-14: a full port beside the Tk UI, hardest tabs first, spacing by relationship levels, each tab open to redesign. 2.7.0 ships on Tk and Tk is then frozen to bug fixes and game-data updates; the Qt build is 3.0.0. The plan, its gates and what is still to ask are in `plan_qt_port.md`. Its phase 0, moving what each tab shows into a toolkit-free `Vribbels/views/`, can start now.
+  - It settles T21 and T22 by construction, and supersedes T17 and the `ui_spacing.md` note under TBD; they are removed when the port ships.
+  - T23's UI (its phase 4 on) is built in Qt, after the existing tabs.
+
+- **T29 — The capture addon as a file of its own.** It is a 5,300-line string in `capture/manager.py` that no tool reads as Python. After 2.7.0: `plan_capture_addon.md`.
 
 - **T8 — Simulated-leveling mode: score MFs at their projected level 5.** A separate, clearly labeled optimizer mode that levels every under-5 fragment on paper before enumerating. The user sees what their inventory could become, not only what it is. It must stay visibly distinct from a normal run: the builds it produces aren't equippable today.
 
