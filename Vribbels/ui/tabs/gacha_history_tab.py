@@ -1194,7 +1194,7 @@ class GachaHistoryTab(BaseTab):
         # seasons alike.
         tags = [(DIVISION_TAG % sh.RIFT_DIVISION_ROWS[name],)
                 if name in sh.RIFT_DIVISION_ROWS else () for name in rows]
-        for name, tag in zip(rows, tags):
+        for name, tag in zip(rows, tags, strict=True):
             labels.insert("", tk.END, values=(name, ""),
                           tags=tag + ((TIP_TAG,) if name in ROW_TIPS else ()))
         columns = columns or [(NO_VALUE, [None] * len(rows))]
@@ -1250,7 +1250,7 @@ class GachaHistoryTab(BaseTab):
             space = max(1, room_ - edges - self._columns_width(parts.labels))
             shown_rift = min(self._columns_width(parts.data), space)
             self._fit_list(parts, shown_rift)
-        for parts, width_ in zip(pair, shown):
+        for parts, width_ in zip(pair, shown, strict=True):
             self._fit_list(parts, width_)
 
     def _fit_list(self, parts, shown):
@@ -1274,7 +1274,7 @@ class GachaHistoryTab(BaseTab):
         edges = self._panel_edges()
         return sum(max(self._columns_width(p.labels) + s, p.header.winfo_reqwidth())
                    + edges for p, s in zip(
-                       (self.offensive_list, self.sortie_list), shown)) \
+                       (self.offensive_list, self.sortie_list), shown, strict=True)) \
             + 2 * px(2)
 
     def _share(self, room):
@@ -1289,15 +1289,15 @@ class GachaHistoryTab(BaseTab):
         if self._pair_width(natural) <= room:
             return natural
         per = []
-        for parts, width in zip(pair, natural):
+        for parts, width in zip(pair, natural, strict=True):
             count = sum(1 for c in parts.data["columns"]
                         if not str(c).startswith("gap"))
             per.append((width + px(STANDINGS_COLUMN_GAP)) / max(1, count))
 
         def at(k):
-            return [min(n, int(k * s)) for n, s in zip(natural, per)]
+            return [min(n, int(k * s)) for n, s in zip(natural, per, strict=True)]
 
-        low, high = 0.0, max(n / s for n, s in zip(natural, per))
+        low, high = 0.0, max(n / s for n, s in zip(natural, per, strict=True))
         for _ in range(40):
             mid = (low + high) / 2
             if self._pair_width(at(mid)) <= room:
@@ -1307,7 +1307,7 @@ class GachaHistoryTab(BaseTab):
         shown = at(low)
         free = [max(0, p.header.winfo_reqwidth()
                     - self._columns_width(p.labels)) for p in pair]
-        shown = [max(s, min(n, f)) for s, n, f in zip(shown, natural, free)]
+        shown = [max(s, min(n, f)) for s, n, f in zip(shown, natural, free, strict=True)]
         for i in range(len(pair)):
             left = room - self._pair_width(shown)
             if left > 0 and shown[i] < natural[i]:

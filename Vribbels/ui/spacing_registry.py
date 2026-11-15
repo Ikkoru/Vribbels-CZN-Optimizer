@@ -3121,7 +3121,7 @@ def _text_field_gap(locator, needles, index=0, advance=False,
                          if t + "\t" in needles or t in heads]
                 closes = opens[1:] + [len(fields)]
                 pairs = [(s, s + index, s + index + 1)
-                         for s, close in zip(opens, closes)
+                         for s, close in zip(opens, closes, strict=True)
                          if s + index + 1 < close
                          and fields[s][0] + "\t" in needles]
             else:

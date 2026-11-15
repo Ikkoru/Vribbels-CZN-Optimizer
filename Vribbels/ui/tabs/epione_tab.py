@@ -302,7 +302,7 @@ class EpioneTab(BaseTab):
         self._style_lists()
         for (key, title, _width, anchor), width, style in zip(
                 LIST_COLUMNS, px_spans([c[2] for c in LIST_COLUMNS]),
-                LIST_STYLES):
+                LIST_STYLES, strict=True):
             tree = ttk.Treeview(holder, columns=(key,), show="headings",
                                 selectmode="browse", style=style)
             # Side by side, as one list's two columns.
@@ -334,7 +334,7 @@ class EpioneTab(BaseTab):
         if not first_time(style, LIST_STYLES[0]):
             return
         for name, sides in zip(LIST_STYLES,
-                               ((LIST_INSET, 0), (0, LIST_INSET))):
+                               ((LIST_INSET, 0), (0, LIST_INSET)), strict=True):
             # spacing: unique -- Treeview internals, which are style options -- tree, text ↔
             style.configure(name, padding=px((sides[0], 0, sides[1], 0)))
 

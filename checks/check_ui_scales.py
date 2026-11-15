@@ -383,7 +383,7 @@ def _font_ratio():
                       for face in faces])
         root.destroy()
     scaling.set_scale("100%")
-    return max([2.0] + [high / low for low, high in zip(*sizes)])
+    return max([2.0] + [high / low for low, high in zip(*sizes, strict=True)])
 
 
 def _build(scale, work, problems):
@@ -513,7 +513,7 @@ def run():
             continue
         if len(was) != len(now) or any(
                 b and (a == b or a > math.ceil(b * ratio))
-                for a, b in zip(now, was)):
+                for a, b in zip(now, was, strict=True)):
             wrong.append((key, was, now))
 
     if wrong:

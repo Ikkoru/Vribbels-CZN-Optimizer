@@ -1539,7 +1539,7 @@ class SetupTab(BaseTab):
             # align. The heights above are still worth setting, so this
             # half is skipped rather than the whole call.
             lowest = max(tops)
-            for panel, top in zip(panels, tops):
+            for panel, top in zip(panels, tops, strict=True):
                 panel.pack_configure(
                     pady=(px(BOTTOM_ROW_GAP) + lowest - top, px(2)))
             self.frame.update_idletasks()

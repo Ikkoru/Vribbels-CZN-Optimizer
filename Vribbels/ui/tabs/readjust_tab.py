@@ -801,7 +801,7 @@ class ReadjustTab(BaseTab):
             if len(got) == len(fragments) \
                     and template["measure"] == rj.BUILD:
                 def value(fid):
-                    _now, plain, exclude, _s = got[fid]
+                    _now, plain, exclude, _s = got[fid]  # noqa: B023 -- called within this iteration
                     return max(plain.per_quartz, exclude.per_quartz)
                 top = sorted(got, key=lambda fid: (-value(fid), fid))
                 todo = []

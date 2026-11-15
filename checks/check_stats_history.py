@@ -23,6 +23,7 @@ No Tk and no captured data needed: the logs are written here.
 """
 
 import gzip
+import itertools
 import json
 import tempfile
 import threading
@@ -149,7 +150,7 @@ def _readings(sh):
     out = []
     if len(sh.SHARES) != 30 or sh.SHARES[0] != 1.0 \
             or sh.SHARES[-1] != 0.001 \
-            or any(a <= b for a, b in zip(sh.SHARES, sh.SHARES[1:])):
+            or any(a <= b for a, b in itertools.pairwise(sh.SHARES)):
         out.append(f"SHARES is not thirty shares falling from 100% to "
                    f"0.1%: {sh.SHARES}. Every subdivision's `top N%` and "
                    f"the field's size are read off it.")
@@ -507,11 +508,11 @@ def _recorded_tops(sh):
                    "disaster_s09_rank_best_2_25": [
                        top(25, 1200000, at + 100)]}}}}
     try:
-        cells = {heading: dict(zip(rows_, values)) for rows_, columns in
+        cells = {heading: dict(zip(rows_, values, strict=True)) for rows_, columns in
                  [sh.rift_table(raw, None)] for heading, values in columns}
         # No captured tops here: a part's own tops give it a column
         # anyway, and this is to see the record give one alone.
-        asia = {heading: dict(zip(rows_, values)) for rows_, columns in
+        asia = {heading: dict(zip(rows_, values, strict=True)) for rows_, columns in
                 [sh.rift_table({"detected_region": "asia"}, None)]
                 for heading, values in columns}
     finally:

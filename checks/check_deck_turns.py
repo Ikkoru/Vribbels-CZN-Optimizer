@@ -733,7 +733,7 @@ def _created_report():
         if got != want:
             names = ("list", "needs a draw", "copies", "grows", "changes nothing",
                      "hidden", "gone")
-            wrong = [f"{n} {g!r} not {w!r}" for n, g, w in zip(names, got, want) if g != w]
+            wrong = [f"{n} {g!r} not {w!r}" for n, g, w in zip(names, got, want, strict=True) if g != w]
             out.append(f"{what}: {'; '.join(wrong)}. See `created_cards` in "
                        f"decks/created.py and plan.md D14.")
         if noted and not any(noted in n for n in m.notes):

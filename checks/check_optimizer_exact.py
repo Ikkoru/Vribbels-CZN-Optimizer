@@ -99,7 +99,7 @@ def run():
             if shown != want:
                 absent = [i for i, ids in enumerate(want)
                           if ids not in set(shown)]
-                first = next((i for i, (a, b) in enumerate(zip(want, shown))
+                first = next((i for i, (a, b) in enumerate(zip(want, shown, strict=False))
                               if a != b), min(len(want), len(shown)))
                 failures.append(
                     f"at Shielding/Healing weight {weight}, the {path} "

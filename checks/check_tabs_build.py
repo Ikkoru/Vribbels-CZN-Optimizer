@@ -715,7 +715,7 @@ def _capture_log_find_marks_all(tab):
 
     def marked():
         ranges = log.tag_ranges(ct.FIND_TAG)
-        return [log.get(a, b) for a, b in zip(ranges[::2], ranges[1::2])]
+        return [log.get(a, b) for a, b in zip(ranges[::2], ranges[1::2], strict=True)]
 
     try:
         log.delete("1.0", "end")
@@ -1798,7 +1798,7 @@ def _checklist_redraw_replaces_nothing(tab):
     tab.refresh_checklist()
     after = widgets(frame, [])
     if len(before) != len(after) or any(a is not b for a, b in
-                                        zip(before, after)):
+                                        zip(before, after, strict=True)):
         return [
             f"refreshing the Checklist with unchanged data replaced its "
             f"widgets ({len(before)} before, {len(after)} after, "
@@ -1829,7 +1829,7 @@ def _checklist_redraw_replaces_nothing(tab):
     tab._fill(title, text, rows, moved)
     patched = widgets(frame, [])
     if len(after) != len(patched) or any(a is not b for a, b in
-                                         zip(after, patched)):
+                                         zip(after, patched, strict=True)):
         return [
             f"changing one reading in the {title} column replaced its "
             f"widgets ({len(after)} before, {len(patched)} after). A row's "
@@ -1896,7 +1896,7 @@ def _checklist_redraw_replaces_nothing(tab):
     for other, before_widgets in others.items():
         now = widgets(tab.column_texts[other][0], [])
         if len(before_widgets) != len(now) or any(
-                a is not b for a, b in zip(before_widgets, now)):
+                a is not b for a, b in zip(before_widgets, now, strict=True)):
             return [
                 f"ticking a product in the {title} column rebuilt the "
                 f"{other} column too. Every column redrawing for a change "
@@ -1933,7 +1933,7 @@ def _log_presets_redraw_replaces_nothing(tab):
     tab.refresh_log_presets()
     after = widgets(frame, [])
     if len(before) != len(after) or any(a is not b for a, b in
-                                        zip(before, after)):
+                                        zip(before, after, strict=True)):
         return [
             f"refreshing Log Presets with unchanged assignments replaced "
             f"its widgets ({len(before)} before, {len(after)} after). "
@@ -1973,7 +1973,7 @@ def _log_presets_keep_through_a_new_width(tab):
     finally:
         del frame.winfo_width
     if len(before) != len(after) or any(a is not b for a, b in
-                                        zip(before, after)):
+                                        zip(before, after, strict=True)):
         return [
             f"Log Presets rebuilt its checkboxes when the panel's width "
             f"changed and its column count ({shown}) did not. The panel "
@@ -2016,7 +2016,7 @@ def _set_filters_redraw_replaces_nothing(tab):
         tab.populate_set_filters()
         after = widgets(frame, [])
         if len(before) != len(after) or any(a is not b for a, b in
-                                            zip(before, after)):
+                                            zip(before, after, strict=True)):
             out.append(
                 f"reloading with the same fragments replaced the Sets "
                 f"filters ({len(before)} widgets before, {len(after)} "
@@ -2047,7 +2047,7 @@ def _set_filters_redraw_replaces_nothing(tab):
                 f"row holding {len(before)} widget(s). The case cannot "
                 f"say anything about a row that was never built.")
         elif len(before) != len(after) or any(a is not b for a, b in
-                                              zip(before, after)):
+                                              zip(before, after, strict=True)):
             out.append(
                 f"reloading with the same fragments replaced the unknown "
                 f"mains row ({len(before)} widgets before, {len(after)} "
@@ -2068,7 +2068,7 @@ def _set_filters_redraw_replaces_nothing(tab):
             tab.optimizer.fragments = held
         after = widgets(frame, [])
         if len(before) == len(after) and all(a is b for a, b in
-                                             zip(before, after)):
+                                             zip(before, after, strict=True)):
             out.append(
                 "dropping a fragment rebuilt nothing. The bracketed count "
                 "beside each set name is read off the fragments, so a gate "
@@ -2416,7 +2416,7 @@ def _tooltip_columns_align(root, colors):
             f"the values line up without anything being measured; one per "
             f"cell aligns only by accident.")
     else:
-        for at, (label, column) in enumerate(zip(labels, zip(*rows))):
+        for at, (label, column) in enumerate(zip(labels, zip(*rows, strict=True), strict=True)):
             if label.cget("text") != "\n".join(column):
                 out.append(
                     f"column {at} reads {label.cget('text')!r}, not its own "
@@ -3384,7 +3384,7 @@ def _expiring_tips_sit_on_the_names(tab):
     for tag, name in held.items():
         ranges = text.tag_ranges(tag)
         spans = [text.get(start, end)
-                 for start, end in zip(ranges[::2], ranges[1::2])]
+                 for start, end in zip(ranges[::2], ranges[1::2], strict=True)]
         if spans != [name]:
             out.append(f"{name!r}'s tip sits on {spans}, not on its name "
                        f"alone: the underline and the hover say where the "
@@ -4478,7 +4478,7 @@ def _gacha_overall_fits(tab, gh):
                        f"column at {end}px, under the second column at "
                        f"{second}: its ties are cut to end "
                        f"{px(BESIDE_GAP)} short of it.")
-    row = [f for f, at in zip(lines[5], stops(5)) if at < second]
+    row = [f for f, at in zip(lines[5], stops(5), strict=True) if at < second]
     dates = row[3::2]
     oldest = [datetime.fromtimestamp(1000 + i * day).strftime("%Y-%m-%d")
               for i in range(40)]
@@ -4493,7 +4493,7 @@ def _gacha_overall_fits(tab, gh):
         out.append(f"forty tied fastest 5-stars show the dates {dates}: "
                    f"as many as fit, {SET_NAMES} at least, oldest first "
                    f"from {oldest[0]}.")
-    prism = [f for f, at in zip(lines[2], stops(2)) if at >= second]
+    prism = [f for f, at in zip(lines[2], stops(2), strict=True) if at >= second]
     if len(prism[3::2]) != 40:
         out.append(f"forty tied {PRISM_ONLY} fastest 5-stars show "
                    f"{len(prism[3::2])} dates: the second column's ties are "
@@ -4722,7 +4722,7 @@ def _standings_lists_fit(tab):
         rows = [[str(parts.labels.item(a)["values"][0])]
                 + [str(v) for v in data.item(b)["values"][::2]]
                 for a, b in zip(parts.labels.get_children(),
-                                data.get_children())]
+                                data.get_children(), strict=True)]
         return heads, rows
 
     try:
@@ -5022,7 +5022,7 @@ def _rift_divisions_take_their_colours(tab):
         parts = tab.rift_list
         seen = set()
         for a, b in zip(parts.labels.get_children(),
-                        parts.data.get_children()):
+                        parts.data.get_children(), strict=True):
             name = str(parts.labels.item(a)["values"][0])
             division = sh.RIFT_DIVISION_ROWS.get(name)
             want = (DIVISION_TAG % division,) if division else ()
@@ -7379,7 +7379,7 @@ FAULTS = [
      "the window's whole width"),
     ("the pair's room shared by width rather than by season",
      "ui.tabs.gacha_history_tab:GachaHistoryTab._share",
-     "return [min(n, int(k * s)) for n, s in zip(natural, per)]",
+     "return [min(n, int(k * s)) for n, s in zip(natural, per, strict=True)]",
      "return [min(n, int(k * 50)) for n in natural]",
      "each shows as many as the other"),
     ("an Expiring Items tip reaching back across the column gap",

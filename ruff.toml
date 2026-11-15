@@ -52,6 +52,10 @@ ignore = [
     # and the spacing registry relies on that: its entries name helpers
     # defined further down the module.
     "PLW0108",
+    # Normalizing a loop or `with` variable on entry (`line =
+    # line.strip()`, `folder = Path(folder)`) reads plainly; a second
+    # name for each would not.
+    "PLW2901",
 ]
 # Codes `# noqa` names for tools other than ruff, kept as documentation.
 external = ["BLE001", "E129"]

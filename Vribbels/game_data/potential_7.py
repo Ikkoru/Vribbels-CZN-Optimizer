@@ -261,7 +261,7 @@ def conditions(effect: dict) -> tuple:
     if stat is None:
         return ()
     if isinstance(stat, tuple):
-        return tuple(zip(stat, effect.get("at") or ()))
+        return tuple(zip(stat, effect.get("at") or (), strict=False))
     return ((stat, effect.get("at")),)
 
 

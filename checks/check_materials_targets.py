@@ -137,7 +137,7 @@ def _module_windows_partition():
             f"it is counted nowhere, so the rows come to less than is held."
         )
     if any(a is None or b is None or a >= b
-           for a, b in zip(limits, limits[1:-1] + [None])
+           for a, b in zip(limits, limits[1:-1] + [None], strict=False)
            if b is not None):
         out.append(f"the module's windows do not increase: {limits}")
 

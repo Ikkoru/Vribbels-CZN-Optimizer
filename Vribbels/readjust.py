@@ -277,7 +277,7 @@ class _Piece:
         self.main_stat = fragment.main_stat
         totals = fragment.get_total_stats()
         if values is not None:
-            for sub, value in zip(fragment.substats, values):
+            for sub, value in zip(fragment.substats, values, strict=True):
                 totals[sub.name] = totals.get(sub.name, 0) - sub.value + value
         self._totals = totals
 

@@ -254,7 +254,7 @@ def advanced_costs():
     out = []
     for label, costs in ADVANCED_TARGETS:
         running = [total + (cost or 0)
-                   for total, cost in zip(running, costs)]
+                   for total, cost in zip(running, costs, strict=True)]
         out.append((label, tuple(running)))
     return tuple(out)
 
@@ -311,7 +311,7 @@ def gacha_pulls(quantities):
     because a part-paid pull buys nothing.
     """
     return sum(quantities.get(res_id, 0) // per
-               for res_id, per in zip(GACHA_ITEMS, GACHA_PER_PULL))
+               for res_id, per in zip(GACHA_ITEMS, GACHA_PER_PULL, strict=True))
 
 
 def _rounded_percent(part, whole):
@@ -1244,7 +1244,7 @@ class MaterialsTab(BaseTab):
         """
         now = time.time()
         counts = _module_buckets(self._module_expiries, now)
-        for (label, _hours, caption), held in zip(self.module_labels, counts):
+        for (label, _hours, caption), held in zip(self.module_labels, counts, strict=True):
             urgent = MODULE_URGENT.get(caption) if held else None
             self._draw_icon(label, MODULE_ITEM, held, caption,
                             self.colors[urgent] if urgent else None)
@@ -1367,6 +1367,6 @@ class MaterialsTab(BaseTab):
                 (label, tuple(
                     NO_DATA if not cost
                     else f"{100 * item_quantities.get(res_id, 0) // cost}%"
-                    for res_id, cost in zip(res_ids, costs)))
+                    for res_id, cost in zip(res_ids, costs, strict=True)))
                 for label, costs in advanced_costs()
             ])

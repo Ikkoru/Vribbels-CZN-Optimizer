@@ -76,7 +76,7 @@ def _groups(tab_bars, colors):
                        f"a key of the palette.")
     keys = [tab_bars.GROUP_COLOURS.get(tab_bars.TAB_GROUPS.get(t))
             for t in titles]
-    for left, right, a, b in zip(titles, titles[1:], keys, keys[1:]):
+    for left, right, a, b in zip(titles, titles[1:], keys, keys[1:], strict=False):
         if a != b and frozenset((a, b)) in ALIKE:
             out.append(
                 f"{left!r} and {right!r} sit side by side in {a} and {b}, "
@@ -137,9 +137,9 @@ def _rendered(tab_bars, titles, colors):
         for n, title in enumerate(titles):
             if n == 1:
                 # One built on first need, as most of the app's are.
-                slot = lazy.add("slot", title, lambda: SimpleNamespace(
-                    get_frame=lambda: built))
                 built = ttk.Frame(notebook, height=40)
+                slot = lazy.add("slot", title, lambda frame=built:
+                                SimpleNamespace(get_frame=lambda: frame))
                 pages.append(None)
                 continue
             page = ttk.Frame(notebook, height=40)
@@ -208,7 +208,7 @@ def _rendered(tab_bars, titles, colors):
                            None)
 
                 def at(x, y):
-                    return image.getpixel((x0 + x, y0 + y)) == colour
+                    return image.getpixel((x0 + x, y0 + y)) == colour  # noqa: B023 -- called within this iteration
 
                 thick = px(tab_bars.BAR_PX)
                 if top is None or not at(mid, top):

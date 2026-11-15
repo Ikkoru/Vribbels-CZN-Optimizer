@@ -443,7 +443,7 @@ def _sum_tables(gh, failures):
                     nxt[total + n] += p * step[n]
             want = nxt
             got = gh._sum_odds(base, count)
-            worst = max((abs(a - b) for a, b in zip(got, want)),
+            worst = max((abs(a - b) for a, b in zip(got, want, strict=True)),
                         default=0.0)
             if len(got) != len(want) or worst > 1e-15:
                 failures.append(

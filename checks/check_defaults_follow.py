@@ -807,7 +807,7 @@ def _notice_builds():
             def walk(widget):
                 for child in widget.winfo_children():
                     if isinstance(child, (ttk.Button, tk.Button)):
-                        buttons[child.cget("text")] = child
+                        buttons[child.cget("text")] = child  # noqa: B023 -- called within this iteration
                     walk(child)
             walk(dlg)
             wanted = {"OK", "Open Backup Folder", "Undo"} if backup \

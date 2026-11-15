@@ -118,7 +118,7 @@ def definition(source, qualname):
 def _pairs(old, new):
     if isinstance(old, str):
         return [(old, new)]
-    return list(zip(old, new))
+    return list(zip(old, new, strict=True))
 
 
 def anchor_problems(fault):

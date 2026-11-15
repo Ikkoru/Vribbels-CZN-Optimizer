@@ -154,7 +154,7 @@ def _resample(source, target):
     its edges. LANCZOS otherwise, where there is a fraction to
     interpolate and nearest neighbour would drop or repeat rows.
     """
-    whole = all(t % s == 0 and t >= s for s, t in zip(source, target))
+    whole = all(t % s == 0 and t >= s for s, t in zip(source, target, strict=True))
     return (Image.Resampling.NEAREST if whole
             else Image.Resampling.LANCZOS)
 

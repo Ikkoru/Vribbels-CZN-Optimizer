@@ -2385,7 +2385,7 @@ def _run():
         """`pairs` is [(page, index)], `stamps` the issue time of each."""
         raw = _snapshot()
         missions = {}
-        for (page, index), stamp in zip(pairs, stamps):
+        for (page, index), stamp in zip(pairs, stamps, strict=True):
             name = "event_probe_%02d_%02d" % (page, index)
             missions[name] = {"res_id": name, "issued_time": stamp,
                               "complete_time": 1 if len(missions) < claimed

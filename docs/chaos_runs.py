@@ -1042,7 +1042,7 @@ def existing():
         cells = line.split("\t")
         if cells and cells[0]:
             cells += [""] * (len(header) - len(cells))
-            rows[cells[0]] = dict(zip(header, cells))
+            rows[cells[0]] = dict(zip(header, cells, strict=False))
     return header, rows
 
 
@@ -1465,7 +1465,7 @@ def changes(rows):
                              % (date, what, raw, row["amplified"]))
             if key in last and last[key][0] != amount:
                 was, when, there = last[key]
-                moved = ["%s -> %s" % (a, b) for a, b in zip(there, where)
+                moved = ["%s -> %s" % (a, b) for a, b in zip(there, where, strict=True)
                          if a != b]
                 out.append([date, what, _amounts([was]), _amounts([amount]),
                             [(when, QUIET)], ", ".join(moved)
@@ -1841,7 +1841,7 @@ def split_test(ks, ns, rng):
     gain, at = _best_split(ks, ns)
     if at is None:
         return None, None
-    pairs = list(zip(ks, ns))
+    pairs = list(zip(ks, ns, strict=True))
     beaten = 0
     for _ in range(SHIFT_TRIALS):
         rng.shuffle(pairs)
@@ -2316,10 +2316,10 @@ def shipped_figures(rows):
         shipped = chaos_estimate.SHIPPED.get("disaster_" + season) or {}
 
         def line(key, value, note=""):
-            same = shipped.get(key) == value
+            same = shipped.get(key) == value  # noqa: B023 -- called within this iteration
             text = '           "%s": %s,%s' % (key, value, note)
             if not same:
-                text += "  # shipped: %s" % (shipped.get(key),)
+                text += "  # shipped: %s" % (shipped.get(key),)  # noqa: B023 -- called within this iteration
             print(paint(text, GOOD if same else FLAG))
 
         print('       "disaster_%s": {' % season)

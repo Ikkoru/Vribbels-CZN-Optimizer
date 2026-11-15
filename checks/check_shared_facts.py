@@ -473,7 +473,7 @@ def _readers(sf):
                                         None, shipped)
     finally:
         sh.RIFT_RECORDED_TOPS = finals
-    cells = {heading: dict(zip(rows, values)) for heading, values in columns}
+    cells = {heading: dict(zip(rows, values, strict=True)) for heading, values in columns}
     if not cells.get("4 p2", {}).get("Out of") \
             or cells.get("5 p1", {}).get("Top #") is not None \
             or not cells.get("5 p1", {}).get("Out of"):
@@ -482,7 +482,7 @@ def _readers(sf):
                    f"a shipped half it never played gets a column of the "
                    f"field's figures alone.")
     if [heading for heading, _v in asia] != ["4 p2"] or dict(
-            zip(asia_rows, asia[0][1])).get("Out of"):
+            zip(asia_rows, asia[0][1], strict=True)).get("Out of"):
         out.append("an Asia account's Great Rift list took Global tops. "
                    "The two servers rank different players.")
 
@@ -497,7 +497,7 @@ def _readers(sf):
                                        "score": 45512, "top_score": 65084,
                                        "read_at": 5}]}}}
     rows, columns = sh.sortie_table(raw, None, shipped)
-    cells = {heading: dict(zip(rows, values)) for heading, values in columns}
+    cells = {heading: dict(zip(rows, values, strict=True)) for heading, values in columns}
     if cells.get("6", {}).get("Out of") != "24,684" \
             or cells.get("6", {}).get("Top #") is not None \
             or cells.get("7", {}).get("Out of") != "19,552":
@@ -514,7 +514,7 @@ def _readers(sf):
         OFFENSIVE: {"readings": [{"rank": 506, "rank_percent": None,
                                   "read_at": 5}]}}}
     rows, columns = sh.offensive_table(raw, None, shipped)
-    cells = {heading: dict(zip(rows, values)) for heading, values in columns}
+    cells = {heading: dict(zip(rows, values, strict=True)) for heading, values in columns}
     if cells.get("5", {}).get("Out of") != "~57,500" \
             or cells.get("5", {}).get("Top #") != "506" \
             or cells.get("4", {}).get("Out of") != "~41,000":

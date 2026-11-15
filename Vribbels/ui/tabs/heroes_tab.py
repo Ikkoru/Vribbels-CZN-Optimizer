@@ -589,7 +589,7 @@ def _fade(colour: str, toward: str, amount: float) -> str:
 
     a, b = parts(colour), parts(toward)
     return "#" + "".join(
-        f"{round(x + (y - x) * amount):02x}" for x, y in zip(a, b))
+        f"{round(x + (y - x) * amount):02x}" for x, y in zip(a, b, strict=True))
 
 
 class HeroesTab(BaseTab):
@@ -838,7 +838,7 @@ class HeroesTab(BaseTab):
         self.hero_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         for col_id, title, width_px in zip(
-                HERO_COL_IDS, HERO_COL_TITLES, px_spans(HERO_COL_PX)):
+                HERO_COL_IDS, HERO_COL_TITLES, px_spans(HERO_COL_PX), strict=True):
             # Left-align Combatant, Partner and Preset; centre the rest.
             # The second "Level" is the PARTNER's -- it follows the Partner
             # column, which is what disambiguates it.

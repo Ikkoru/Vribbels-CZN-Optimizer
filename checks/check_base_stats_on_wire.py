@@ -335,7 +335,7 @@ def _a_guest_is_marked():
 
 
 def _plus(base, add):
-    return [b + a for b, a in zip(base, add)]
+    return [b + a for b, a in zip(base, add, strict=True)]
 
 
 def _the_readings_resolve():

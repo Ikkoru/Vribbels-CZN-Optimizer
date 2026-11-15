@@ -153,7 +153,7 @@ def configure(style):
 
 def _inset(pad):
     """A title's distance from each edge of a clam tab padded `pad`."""
-    return tuple(p + e for p, e in zip(pad, CLAM_EDGE))
+    return tuple(p + e for p, e in zip(pad, CLAM_EDGE, strict=True))
 
 
 class TabBars:

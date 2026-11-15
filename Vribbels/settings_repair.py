@@ -369,7 +369,7 @@ def _at(data, path):
 
 def _matches(pattern, path):
     return len(pattern) <= len(path) and all(
-        want is ANY or want == got for want, got in zip(pattern, path))
+        want is ANY or want == got for want, got in zip(pattern, path, strict=False))
 
 
 def _combatant(res_id, entry=None):

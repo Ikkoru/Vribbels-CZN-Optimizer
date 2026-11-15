@@ -307,7 +307,7 @@ class Tooltip:
         body = tk.Frame(tip, bg=self.colors["bg_lighter"],
                         relief=tk.SOLID, borderwidth=px(1),
                         padx=px(4), pady=px(4))
-        for at, column in enumerate(zip(*rows)):
+        for at, column in enumerate(zip(*rows, strict=True)):
             # spacing: label ↔ its element -- label, label ↔
             tk.Label(
                 body, text="\n".join(column),

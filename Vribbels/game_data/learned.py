@@ -90,7 +90,7 @@ def _class_gains(names):
         for step in (61, 62):
             if step in levels and step - 1 in levels:
                 gain = tuple(a - b for a, b in zip(levels[step],
-                                                   levels[step - 1]))
+                                                   levels[step - 1], strict=True))
                 seen.setdefault((*level_curve(char), step),
                                 set()).add(gain)
     out = {}

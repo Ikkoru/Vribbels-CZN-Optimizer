@@ -252,7 +252,7 @@ class Capture:
                 if second is first:
                     continue
                 if all(min(a, b) <= p <= max(a, b)
-                       for p, a, b in zip(pixel, first, second)):
+                       for p, a, b in zip(pixel, first, second, strict=True)):
                     return True
         if FRINGE_LIGHTNESS and colours and pixel not in self._solid:
             here = lightness(pixel)

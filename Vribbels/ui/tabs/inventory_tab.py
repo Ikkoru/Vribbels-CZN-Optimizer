@@ -361,7 +361,7 @@ class InventoryTab(BaseTab):
         # Left col: 3,2,1 (top->bottom). Right col: 4,5,6 (top->bottom).
         left_slots = [3, 2, 1]
         right_slots = [4, 5, 6]
-        for row, (left_slot, right_slot) in enumerate(zip(left_slots, right_slots)):
+        for row, (left_slot, right_slot) in enumerate(zip(left_slots, right_slots, strict=True)):
             for col, slot_num in [(0, left_slot), (1, right_slot)]:
                 slot_name = EQUIPMENT_SLOTS[slot_num]
                 var = tk.BooleanVar(value=True)
@@ -624,7 +624,7 @@ class InventoryTab(BaseTab):
                     ("highest_gs", "Highest GS", 67),
                     ("highest_potential", "Highest Potential", 369)]
         spans = px_spans([w for _col, _txt, w in col_defs])
-        for (col, txt, _w), w in zip(col_defs, spans):
+        for (col, txt, _w), w in zip(col_defs, spans, strict=True):
             # Text-ish cells (slot/set/main/subs/equipped) are left-aligned;
             # numeric/short columns (lvl, gs, potential, highest_gs) stay
             # centered. highest_potential joins the left-aligned group

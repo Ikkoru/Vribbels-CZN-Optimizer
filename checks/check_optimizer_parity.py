@@ -90,7 +90,7 @@ def _compare(name, par, seq, stats_par, stats_seq):
     failures = []
     if [_key(e) for e in par] != [_key(e) for e in seq]:
         where = next(
-            (i for i, (a, b) in enumerate(zip(par, seq))
+            (i for i, (a, b) in enumerate(zip(par, seq, strict=False))
              if _key(a) != _key(b)),
             min(len(par), len(seq)),
         )

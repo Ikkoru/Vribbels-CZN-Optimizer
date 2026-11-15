@@ -228,7 +228,7 @@ def run():
         want = _band_enumerated(fragment, weights, bounds)
         got = compute_fragment_potential_band(fragment, weights, bounds)
         slack = rolls * _DIST_BIN / 2 + 0.05
-        if any(abs(g - w) > slack for g, w in zip(got, want)):
+        if any(abs(g - w) > slack for g, w in zip(got, want, strict=True)):
             failures.append(
                 f"{what}: the likely band reads {got[0]}-{got[1]}, where "
                 f"every outcome enumerated puts a tenth of them below "

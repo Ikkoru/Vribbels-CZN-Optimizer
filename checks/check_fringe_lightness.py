@@ -146,7 +146,7 @@ def run():
 
     # The seam the exact-match rule exists for: a blend of two background
     # shades is still empty space.
-    seam = tuple((a + b) // 2 for a, b in zip(bg, palette["bg_strip"]))
+    seam = tuple((a + b) // 2 for a, b in zip(bg, palette["bg_strip"], strict=True))
     if not verdict(seam):
         failures.append(
             f"the tab-strip seam colour {seam} is treated as ink. It is a "

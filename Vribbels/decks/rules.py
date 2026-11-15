@@ -126,7 +126,7 @@ def weight(deck, catalogue):
         if assumed:
             out.assumed.append(held.card)
     for card_id, figure in zip(copies, _by_count(
-            catalogue.point("cd_copy_revise_by_count", []), len(copies))):
+            catalogue.point("cd_copy_revise_by_count", []), len(copies)), strict=True):
         charge("copy", card_id, figure)
 
     held_ids = {held.card for held in present}
@@ -138,7 +138,7 @@ def weight(deck, catalogue):
     # these are the ones MAX_REMOVALS counts.
     removals = own_removals(deck)
     for card_id, figure in zip(removals, _by_count(
-            catalogue.point("cd_remove_revise_by_count", []), len(removals))):
+            catalogue.point("cd_remove_revise_by_count", []), len(removals)), strict=True):
         charge("removal", card_id, figure)
 
     for piece in deck.equipment:

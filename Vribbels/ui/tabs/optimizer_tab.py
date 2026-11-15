@@ -1907,7 +1907,7 @@ class OptimizerTab(BaseTab):
             self._exclude_reset.pack_forget()
             self._exclude_spacer.pack_forget()
             for button, pack in zip(self._exclude_all_none,
-                                    self._exclude_all_none_packs):
+                                    self._exclude_all_none_packs, strict=True):
                 if not button.winfo_manager():
                     button.pack(before=self._exclude_order_box, **pack)
             return
@@ -1915,7 +1915,7 @@ class OptimizerTab(BaseTab):
             return
         width = sum(b.winfo_reqwidth() + _horizontal_pads(pack)
                     for b, pack in zip(self._exclude_all_none,
-                                       self._exclude_all_none_packs))
+                                       self._exclude_all_none_packs, strict=True))
         for button in self._exclude_all_none:
             button.pack_forget()
         # spacing: border edge -> button -- panel, button ↔
@@ -1955,7 +1955,7 @@ class OptimizerTab(BaseTab):
             "crate": "Crit%", "cdmg": "CDMG%", "element": "Elem%",
             "extra": "Extra%", "dot": "DoT%", "ego": "Ego",
         }
-        spans = dict(zip(cols, px_spans([widths[c] for c in cols])))
+        spans = dict(zip(cols, px_spans([widths[c] for c in cols]), strict=True))
         for c in cols:
             # The heading takes its column's anchor: a heading defaults to
             # centred whatever the cells below do, which leaves a
@@ -2011,7 +2011,7 @@ class OptimizerTab(BaseTab):
             ("owner",     "Owner",      67),  # stretches
         ]
         spans = px_spans([w for _col, _txt, w in col_defs])
-        for (col, txt, _w), w in zip(col_defs, spans):
+        for (col, txt, _w), w in zip(col_defs, spans, strict=True):
             # Text-ish columns are left-aligned; the numeric lvl and gs
             # stay centered. The heading takes the same anchor as its
             # column, so a title never floats over a differently-aligned

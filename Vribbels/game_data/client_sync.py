@@ -274,7 +274,7 @@ def marked(table, folder=HERE):
     comments = _comments(text)
     node = _table(ast.parse(text), table)
     out = {}
-    for key_node, value in zip(node.keys, node.values):
+    for key_node, value in zip(node.keys, node.values, strict=True):
         key = ast.literal_eval(key_node)
         if table in lines:
             if comments.get(key_node.lineno) == CLIENT:
@@ -283,7 +283,7 @@ def marked(table, folder=HERE):
         if not isinstance(value, ast.Dict) or not value.keys \
                 or _block(value, comments):
             continue
-        for field_node, field_value in zip(value.keys, value.values):
+        for field_node, field_value in zip(value.keys, value.values, strict=True):
             span = range(field_node.lineno, field_value.end_lineno + 1)
             if any(comments.get(line) == CLIENT for line in span):
                 out.setdefault(key, {})[ast.literal_eval(field_node)] = \
@@ -307,7 +307,7 @@ def _sync_entries(text, name, table, whole, stated, said):
     edits = []
     held = set()
     key_indent, field_indent = _indents(node)
-    for key_node, value in zip(node.keys, node.values):
+    for key_node, value in zip(node.keys, node.values, strict=True):
         key = ast.literal_eval(key_node)
         held.add(key)
         if not isinstance(value, ast.Dict) or not value.keys:
@@ -336,7 +336,7 @@ def _sync_entries(text, name, table, whole, stated, said):
                             f"rewritten from the client")
             continue
         fact = stated.get(key)
-        for field_node, field_value in zip(value.keys, value.values):
+        for field_node, field_value in zip(value.keys, value.values, strict=True):
             span = range(field_node.lineno, field_value.end_lineno + 1)
             if not any(comments.get(line) == CLIENT for line in span):
                 continue
@@ -396,7 +396,7 @@ def _sync_lines(text, name, table, theirs, said):
     edits, held = [], set()
     key_indent, _field = _indents(node)
     starts = [key_node.lineno for key_node in node.keys]
-    for key_node, value in zip(node.keys, node.values):
+    for key_node, value in zip(node.keys, node.values, strict=True):
         key = ast.literal_eval(key_node)
         held.add(key)
         if comments.get(key_node.lineno) != CLIENT:
@@ -569,7 +569,7 @@ def _block(entry, comments):
 def _indents(node):
     """(the table's key indent, an entry's field indent), as its first
     dict entry has them; the hand tables' 4 and 8 where none does."""
-    for key_node, value in zip(node.keys, node.values):
+    for key_node, value in zip(node.keys, node.values, strict=True):
         if isinstance(value, ast.Dict) and value.keys \
                 and value.keys[0].lineno > key_node.lineno:
             return key_node.col_offset, value.keys[0].col_offset
@@ -580,7 +580,7 @@ def _indents(node):
 
 def _who(key, value):
     """An entry's name, for the lines said about it."""
-    for field_node, field_value in zip(value.keys, value.values):
+    for field_node, field_value in zip(value.keys, value.values, strict=True):
         if isinstance(field_node, ast.Constant) and field_node.value == "name" \
                 and isinstance(field_value, ast.Constant):
             return str(field_value.value)

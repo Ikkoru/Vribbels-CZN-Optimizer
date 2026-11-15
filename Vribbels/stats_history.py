@@ -574,7 +574,7 @@ def _join_recorded(tops, region):
         at = calendar.timegm(time.strptime(read, "%Y-%m-%d %H:%M:%S"))
         held = tops.setdefault("disaster_s%02d" % season, {}).setdefault(
             "disaster_s%02d_rank_%02d" % (season, half), {})
-        for rank_id, score in zip(_division_ids(season, half), scores):
+        for rank_id, score in zip(_division_ids(season, half), scores, strict=False):
             samples = held.setdefault(rank_id, [])
             if score is not None and at not in {x.get("read_at")
                                                 for x in samples}:

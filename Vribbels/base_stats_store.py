@@ -437,7 +437,7 @@ def audit(battles, guests=()):
             continue
         seen.add(rid)
         program = _base_at(char, level)
-        if all(w is None or w == p for w, p in zip(wire, program)):
+        if all(w is None or w == p for w, p in zip(wire, program, strict=True)):
             continue
         unknown_gain = level > 60 and any(
             level_bonus(char, step) is None for step in range(61, level + 1))
@@ -448,7 +448,7 @@ def audit(battles, guests=()):
                       else _base_at(char, 60))
             out["gains"].append((char["name"], char.get("class"),
                                  char.get("grade"), level,
-                                 [w - b for w, b in zip(wire, base60)]))
+                                 [w - b for w, b in zip(wire, base60, strict=True)]))
             continue
         out["differs"].append((char["name"], level, wire, program, last,
                                how))
@@ -599,7 +599,7 @@ def formula_gaps(builds):
 
         def gap(what, server, program, tolerance=0.051):
             if server is not None and abs(server - program) >= tolerance:
-                out.append((rid, what, server, round(program, 3)))
+                out.append((rid, what, server, round(program, 3)))  # noqa: B023 -- called within this iteration
 
         for s in STATS:
             rate_out = st.get("S_%s_INC_RATE_OUT" % s, 0)

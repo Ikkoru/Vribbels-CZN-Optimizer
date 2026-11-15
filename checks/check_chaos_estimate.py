@@ -95,7 +95,7 @@ def _sums(ce, table):
     shipped = table[LIVE]
     flat = set(shipped["flat"])
     want = 0
-    for part, nodes in zip((1, 2, 3), TREES[LIVE]):
+    for part, nodes in zip((1, 2, 3), TREES[LIVE], strict=True):
         bosses = shipped["bosses"][max(part, 2)]
         want += 21 * (sum(amount if place in flat else _ceil(amount, nodes)
                           for place, amount in bosses.items())

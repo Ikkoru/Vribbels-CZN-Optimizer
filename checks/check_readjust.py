@@ -103,7 +103,7 @@ class _Linear:
     def swapped(self, fragment, values=None):
         subs = fragment.substats
         return [(s, s.value if values is None else v)
-                for s, v in zip(subs, values or [None] * len(subs))]
+                for s, v in zip(subs, values or [None] * len(subs), strict=True)]
 
     def rel(self, gear):
         return sum(self.points(s, v) for s, v in gear) / 100

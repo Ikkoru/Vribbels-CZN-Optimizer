@@ -178,7 +178,7 @@ def run():
         cs = opt._build_char_static(plain, 60)
     finally:
         for table, value in zip((partners.SIGNATURE_PARTNERS,
-                                 partners.PARTNER_EXCEPTIONS), saved):
+                                 partners.PARTNER_EXCEPTIONS), saved, strict=True):
             if value is not None:
                 table[plain] = value
     cls = CHARACTERS[names[plain]].get("class")

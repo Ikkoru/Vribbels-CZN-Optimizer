@@ -906,7 +906,7 @@ _GAIN = {
     "Vanguard": {4: (6, 3, 9), 5: (6, 4, 10)},
 }
 LEVEL_BONUS_BY_CLASS = {
-    (cls, grade): {level: dict(zip(("atk", "def", "hp"), gain))
+    (cls, grade): {level: dict(zip(("atk", "def", "hp"), gain, strict=True))
                    for level in (61, 62)}
     for cls, grades in _GAIN.items() for grade, gain in grades.items()
 }
@@ -1000,13 +1000,13 @@ def _learned_at(char_data, level, known):
                          for step in range(top, 60, -1)]
                 if None not in gains:
                     return tuple(v - sum(g[k] for g in gains) for v, k in
-                                 zip(known[top], ("atk", "def", "hp")))
+                                 zip(known[top], ("atk", "def", "hp"), strict=True))
         table = table_stats_at_level(char_data, 60)
         return table["base_atk"], table["base_def"], table["base_hp"]
     below = _learned_at(char_data, level - 1, known)
     gain = _gain(char_data, level, known) or {}
     return tuple(v + gain.get(k, 0) for v, k in
-                 zip(below, ("atk", "def", "hp")))
+                 zip(below, ("atk", "def", "hp"), strict=True))
 
 
 def _gain(char_data, step, known):
@@ -1016,7 +1016,7 @@ def _gain(char_data, step, known):
     if step in known and step - 1 in known:
         return dict(zip(("atk", "def", "hp"),
                         (a - b for a, b in zip(known[step],
-                                               known[step - 1]))))
+                                               known[step - 1], strict=True)), strict=True))
     pair = level_curve(char_data)
     agreed = (learned.GAINS.get(pair) or {}).get(step)
     if agreed is not None:

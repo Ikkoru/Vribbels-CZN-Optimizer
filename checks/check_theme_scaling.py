@@ -145,7 +145,7 @@ def run():
             continue                     # not a distance at all
         held = list(fixed.get(key, ())) or [0] * len(one)
         if len(held) != len(one) or two != [
-                2 * (value - part) + part for value, part in zip(one, held)]:
+                2 * (value - part) + part for value, part in zip(one, held, strict=True)]:
             out.append(f"at 200% the style option {key} reads {now!r} "
                        f"where 100% reads {was!r}: not twice it, so "
                        f"everything it spaces sits off its 100% distance "

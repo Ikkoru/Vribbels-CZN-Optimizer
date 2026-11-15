@@ -1052,7 +1052,7 @@ def shop_pages_open(shop, period, raw, now):
                    - {None})
     # A season with fewer dates than pages leaves the ones it cannot
     # date open.
-    opens = dict(zip(pages, starts))
+    opens = dict(zip(pages, starts, strict=False))
     return {page for page in pages if opens.get(page, 0) <= now}
 
 
@@ -3762,7 +3762,7 @@ def limit_mismatches(raw=None, now=None):
         for name, ours, theirs in zip(
                 ("PASS_WEEK_EXP_FULL", "PASS_LEVEL_FULL", "PASS_DAILY_COUNT"),
                 (PASS_WEEK_EXP_FULL, PASS_LEVEL_FULL, PASS_DAILY_COUNT),
-                _limit("passes", pass_id)):
+                _limit("passes", pass_id), strict=True):
             compare(f"{name} ({pass_id})", ours, theirs)
     compare("SIMULATION_RUNS", SIMULATION_RUNS,
             _limit("simulation", SIMULATION_STAGE))
@@ -4510,7 +4510,7 @@ class ChecklistTab(BaseTab):
             self._definitions = seen
         built = self._fit_event_names(size_event_readings(columns_for(
             raw, self._tracked, time.time(), self._definitions), readings))
-        for frame, (title, rows) in zip(self._column_frames, built):
+        for frame, (title, rows) in zip(self._column_frames, built, strict=True):
             drawn = self._draw(rows, readings, title)
             # **What the rows reserve counts too**, not only what they
             # draw: an event reading a digit wider moves the deadlines'
@@ -5157,7 +5157,7 @@ class ChecklistTab(BaseTab):
             return
         self._rendered[title] = drawn
         moved = [(index, after) for index, (before, after)
-                 in enumerate(zip(was or (), drawn)) if before != after]
+                 in enumerate(zip(was or (), drawn, strict=False)) if before != after]
         # **A line holding a `Finished?` box is never patched.** The
         # patch rewrites everything from the row's first tab to the end
         # of the line, and the box is in that stretch -- so a countdown
@@ -5289,7 +5289,7 @@ class ChecklistTab(BaseTab):
         column ends on a shop product, `EXPIRING_GAP` where it ends on
         words. The first tallest, left to right, where two tie."""
         tallest, last = 0, None
-        for frame, (title, *_rest) in zip(self._column_frames, COLUMNS):
+        for frame, (title, *_rest) in zip(self._column_frames, COLUMNS, strict=True):
             tall = self._column_height(frame)
             if tall > tallest:
                 rows = (self.column_texts.get(title) or (None, ()))[1]
@@ -5759,7 +5759,7 @@ def _same_rows(was, drawn):
     if was is None or len(was) != len(drawn):
         return False
     return all(before[0][:3] == after[0][:3] and before[0][4] == after[0][4]
-               for before, after in zip(was, drawn))
+               for before, after in zip(was, drawn, strict=True))
 
 
 def _patch_value(text, lineno, drawn):
