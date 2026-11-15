@@ -5,7 +5,6 @@ Capture system constants for CZN data interception.
 import sys
 from pathlib import Path
 from dataclasses import dataclass
-from typing import List
 
 
 @dataclass
@@ -13,7 +12,7 @@ class ServerConfig:
     """Configuration for a game server region."""
     region_id: str           # Internal ID: "global" or "asia"
     display_name: str        # User-facing name: "Global" or "Asia"
-    hosts: List[str]         # Game server hostnames
+    hosts: list[str]         # Game server hostnames
     # The client sends this in its auth request; the server never
     # echoes it, so nothing in a capture can be matched against it.
     # Kept as documentation of what the region IS, not as a lever --

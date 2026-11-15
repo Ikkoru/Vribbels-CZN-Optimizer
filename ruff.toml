@@ -1,0 +1,53 @@
+# The lint `checks/check_lint.py` holds the code to: rules that catch a
+# bug or a pattern that turns into one, a cost the code need not pay, or
+# a spelling Python has a plainer one for. Style that changes nothing
+# but appearance (quotes, docstrings, annotations, line length, import
+# order) is not linted. The check pins the ruff version it runs, so a
+# release that adds a rule to a family selected here cannot fail it
+# overnight.
+
+target-version = "py314"
+extend-exclude = ["Vribbels/build", "Vribbels/dist", "_tmp", "past_plans"]
+
+[lint]
+select = [
+    "E4", "E7", "E9",   # pycodestyle's errors: imports, statements, syntax
+    "F",                # pyflakes: undefined, unused, redefined names
+    "B",                # bugbear: likely bugs and design problems
+    "PLE", "PLW",       # pylint's errors and warnings
+    "C4",               # comprehensions: needless calls and copies
+    "PERF",             # needless work in loops
+    "PIE",              # needless statements
+    "SIM",              # simpler spellings of the same logic
+    "UP",               # spellings older Pythons needed and 3.14 does not
+    "RUF",              # ruff's own: mutable defaults, implicit Optional...
+    "FURB",             # refurb: the standard library's plainer way
+    "RET503",           # a function that returns a value on some paths
+                        # and falls off the end on others
+    "ISC001", "ISC002", # implicit string concatenation: a missing comma
+    "PGH004",           # a blanket `# noqa` that silences everything
+    "T10",              # a debugger breakpoint left in
+]
+ignore = [
+    # printf-style `%` formatting reads as plainly as an f-string, and
+    # converting hundreds of messages is churn for nothing found.
+    "UP031",
+    # Module-level state held on purpose: the worker pool, the logs'
+    # paths, the client's tables.
+    "PLW0603",
+    # The interface's own text uses typographic characters on purpose
+    # (×, –, …).
+    "RUF001", "RUF002", "RUF003",
+    # `[a] + rest` against `[a, *rest]`, and sorted `__all__`/`__slots__`:
+    # appearance only.
+    "RUF005", "RUF022", "RUF023",
+    # `contextlib.suppress` is slower than the try it replaces and reads
+    # no plainer; a conditional expression is not always plainer than an
+    # if/else.
+    "SIM105", "SIM108",
+    # A loop that appends is often the readable form, with a comment per
+    # branch; the hot path is the optimizer's, which builds no lists.
+    "PERF401",
+]
+# Codes `# noqa` names for tools other than ruff, kept as documentation.
+external = ["BLE001", "E129"]

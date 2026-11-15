@@ -92,7 +92,7 @@ def load_addon(work):
     write, so nothing of this lands in the maintainer's snapshots.
     """
     sys.path.insert(0, str(SOURCE))
-    from capture.manager import CaptureManager       # noqa: E402
+    from capture.manager import CaptureManager
 
     manager = CaptureManager(work, log_callback=lambda *a, **k: None)
     script = manager._generate_addon_script(debug_mode=False)

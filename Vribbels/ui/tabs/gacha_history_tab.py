@@ -850,7 +850,7 @@ class GachaHistoryTab(BaseTab):
 
     @staticmethod
     def _star_tag(stars):
-        return "stars_%s" % (stars if stars else "unknown")
+        return "stars_%s" % (stars or "unknown")
 
     # ------------------------------------------------------------ reading
 

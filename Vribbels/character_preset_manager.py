@@ -56,7 +56,6 @@ dict do NOT persist -- use the API methods.
 
 import json
 from pathlib import Path
-from typing import Optional
 
 from json_file import write_json
 
@@ -71,7 +70,7 @@ UNREAD = ("character_preset.json could not be read when the program "
           "it can be.")
 
 
-def assignment_problem(key, preset) -> Optional[str]:
+def assignment_problem(key, preset) -> str | None:
     """Why character_preset.json could not hold this assignment, or None."""
     if not isinstance(key, str) or not key.strip():
         return "Character key must be a non-empty string."
@@ -80,7 +79,7 @@ def assignment_problem(key, preset) -> Optional[str]:
     return None
 
 
-def structure_problem(data) -> Optional[str]:
+def structure_problem(data) -> str | None:
     """Why `CharacterPresetManager.load` would refuse `data`, or None.
     What `settings_repair` holds a repaired file to as well.
 
@@ -273,7 +272,7 @@ class CharacterPresetManager:
         self._id_to_name_cache = None
 
         self.corrupted: bool = False
-        self.corruption_error: Optional[str] = None
+        self.corruption_error: str | None = None
 
     def invalidate_name_cache(self):
         """Drop the cached CHARACTERS lookup tables. Call this if game
@@ -309,7 +308,7 @@ class CharacterPresetManager:
 
     # ----- name <-> id resolution -----
 
-    def _resolve_name_to_id(self, character_name: str) -> Optional[str]:
+    def _resolve_name_to_id(self, character_name: str) -> str | None:
         """Translate a character display name to its res_id-as-string.
 
         Resolution order:
@@ -402,24 +401,24 @@ class CharacterPresetManager:
     def is_corrupted(self) -> bool:
         return self.corrupted
 
-    def get_preset_for(self, character_name: str) -> Optional[str]:
+    def get_preset_for(self, character_name: str) -> str | None:
         """Return the assigned preset name, or None if default/unassigned."""
         rid = self._resolve_name_to_id(character_name)
         if rid is None:
             return None
         return self.assignments_by_id.get(rid)
 
-    def get_preset_by_id(self, res_id) -> Optional[str]:
+    def get_preset_by_id(self, res_id) -> str | None:
         """Return the assigned preset for a res_id (int or str)."""
         return self.assignments_by_id.get(str(res_id))
 
-    def get_name_hint(self, res_id) -> Optional[str]:
+    def get_name_hint(self, res_id) -> str | None:
         """Return the stored display-name hint for a res_id, if any."""
         return self.name_hints.get(str(res_id))
 
     # ----- mutations (no-op or refused while corrupted) -----
 
-    def set_preset_for(self, character_name: str, preset_name: Optional[str]):
+    def set_preset_for(self, character_name: str, preset_name: str | None):
         """Assign a preset (or None for default) to a character and persist.
 
         Translates the name to a res_id internally and writes through to
@@ -437,7 +436,7 @@ class CharacterPresetManager:
         self.name_hints[rid] = character_name
         self._write()
 
-    def set_preset_by_id(self, res_id, preset_name: Optional[str],
+    def set_preset_by_id(self, res_id, preset_name: str | None,
                          name_hint: str = ""):
         """ID-first variant of set_preset_for. `name_hint` updates the
         display-name hint (cosmetic). Empty hint leaves the existing one

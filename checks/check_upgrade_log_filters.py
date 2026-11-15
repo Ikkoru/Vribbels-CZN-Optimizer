@@ -73,8 +73,8 @@ def run():
     from settings_manager import SettingsManager
 
     failures = []
-    all_on = {key: True for key in UPGRADE_LOG_FILTERS}
-    all_off = {key: False for key in UPGRADE_LOG_FILTERS}
+    all_on = dict.fromkeys(UPGRADE_LOG_FILTERS, True)
+    all_off = dict.fromkeys(UPGRADE_LOG_FILTERS, False)
 
     # An ATK-scaling damage dealer and a DEF-scaling healer, so one
     # rejects what the other takes. Then three ATK-scaling healers, for

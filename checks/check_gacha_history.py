@@ -30,6 +30,7 @@ import tempfile
 from pathlib import Path
 
 from ._harness import SOURCE_ROOT, add_source_to_path, note
+from datetime import UTC
 
 NAME = "gacha history"
 
@@ -246,11 +247,11 @@ def _dated(gh, folder, failures):
     dates a whole export's 50/50s read `?`. Real units, so the rarity
     comes from the tables: Khalipe off-banner, then Narja on hers.
     """
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     def at(text):
         return int(datetime.strptime(text, "%Y-%m-%d %H:%M").replace(
-            tzinfo=timezone.utc).timestamp())
+            tzinfo=UTC).timestamp())
 
     cases = {
         # The changeover is 02:00 UTC on the day one closes and the next
@@ -688,7 +689,7 @@ def _addon(gh, root, failures):
     if BANNER not in store.get("read", {}):
         failures.append("reading a banner's first page did not record it "
                         "as read")
-    if not any(GACHA_MARKER == line for line in log):
+    if not any(line == GACHA_MARKER for line in log):
         failures.append(
             f"the addon never printed {GACHA_MARKER!r}. The Gacha History "
             f"tab would sit on what it read at startup all capture.")

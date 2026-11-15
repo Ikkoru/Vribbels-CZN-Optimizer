@@ -21,6 +21,7 @@ No Tk and no snapshot needed.
 """
 
 from ._harness import add_source_to_path
+from datetime import UTC
 
 NAME = "expiry captions"
 
@@ -43,8 +44,8 @@ def run():
     failures = []
 
     # --- the reset the captions count down to -------------------------
-    from datetime import datetime, timezone
-    at = datetime.fromtimestamp(SUNDAY_RESET, timezone.utc)
+    from datetime import datetime
+    at = datetime.fromtimestamp(SUNDAY_RESET, UTC)
     if (at.weekday(), at.hour, at.minute) != (weekly_reset.RESET_WEEKDAY,
                                               weekly_reset.RESET_HOUR, 0):
         failures.append(

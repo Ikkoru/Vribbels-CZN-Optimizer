@@ -143,7 +143,7 @@ def _module_windows_partition():
     # One copy per hour out to a week, plus one already expired: every
     # one has to land in exactly one row.
     now = 1_000_000
-    copies = [now - 60] + [now + h * 3600 for h in range(0, 24 * 7)]
+    copies = [now - 60] + [now + h * 3600 for h in range(24 * 7)]
     counts = _module_buckets(copies, now)
     if sum(counts) != len(copies):
         out.append(

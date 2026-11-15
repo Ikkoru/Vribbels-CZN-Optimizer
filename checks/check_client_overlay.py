@@ -131,8 +131,8 @@ def _synthetic(overlay, characters, partners):
                        f"tables as typed (`client_overlay.hand`).")
         overlay.apply(None)
         if CHARACTERS[rid].get("base_atk") != before_c[rid].get("base_atk") \
-                or "level_gains" in CHARACTERS[rid] and \
-                "level_gains" not in before_c[rid]:
+                or ("level_gains" in CHARACTERS[rid] and \
+                "level_gains" not in before_c[rid]):
             out.append("a second apply left the first one's figures standing "
                        "on the hand table.")
         if 99001 in CHARACTERS or 99002 in PARTNERS:
@@ -142,8 +142,8 @@ def _synthetic(overlay, characters, partners):
             out.append("apply undid a change no overlay made: the tables are "
                        "shared, and it may put back only its own.")
         CHARACTERS[rid].pop("_probe", None)
-        if CHARACTERS != before_c or PARTNERS != before_p \
-                or PARTNER_CLASS_STATS != before_s:
+        if before_c != CHARACTERS or before_p != PARTNERS \
+                or before_s != PARTNER_CLASS_STATS:
             out.append("after the second apply the tables are not what they "
                        "were before the first.")
     finally:

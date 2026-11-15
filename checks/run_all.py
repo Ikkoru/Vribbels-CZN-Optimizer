@@ -89,6 +89,7 @@ from checks import (                                    # noqa: E402
     check_game_data,
     check_important_settings,
     check_instruction_files,
+    check_faults_fit,
     check_item_art,
     check_lazy_tabs,
     check_materials_targets,
@@ -146,6 +147,7 @@ from checks import (                                    # noqa: E402
 CHECKS = [
     check_repo_root,
     check_instruction_files,
+    check_faults_fit,
     check_sortie_progress,
     check_spacing_markers,
     check_spacing_registry,

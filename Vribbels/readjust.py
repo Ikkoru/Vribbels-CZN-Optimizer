@@ -40,7 +40,6 @@ import atexit
 import os
 import random
 from dataclasses import dataclass
-from typing import Optional
 
 from game_data.constants import MAX_LEVEL, MAX_LEVEL_PER_RARITY, STATS
 from models.memory_fragment import (_convolve, compute_gs_bounds,
@@ -107,7 +106,7 @@ class Option:
     """One way to readjust: `excluded` the substat left out (None for
     none), what it costs, and what it gains over before -- the mean,
     the chance of any gain at all, the most it can."""
-    excluded: Optional[str]
+    excluded: str | None
     cost: int
     mean: float
     chance: float

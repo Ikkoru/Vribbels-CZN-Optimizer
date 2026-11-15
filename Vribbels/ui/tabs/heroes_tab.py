@@ -64,7 +64,6 @@ import time
 import tkinter as tk
 from tkinter import ttk, messagebox
 from tkinter import font as tkfont
-from typing import Optional
 
 import excursions
 import game_client
@@ -353,7 +352,7 @@ def widest_node_wording(measure):
             if not node.stat:
                 wordings.add(get_potential_node_does(res_id, node))
                 continue
-            for level in range(0, node.max_level + 1):
+            for level in range(node.max_level + 1):
                 stat, bonus = get_potential_stat_bonus(
                     res_id, node.wire, level)
                 if stat is None:
@@ -536,7 +535,7 @@ def _default_font():
 
 
 def compute_fragment_gs(
-    fragment, weights: dict, bounds: Optional[tuple[float, float]] = None
+    fragment, weights: dict, bounds: tuple[float, float] | None = None
 ) -> float:
     """Pure function: gear score for one fragment using the given stat
     weights, normalized to a 0-100 scale via the preset's theoretical bounds.
@@ -2004,7 +2003,7 @@ class HeroesTab(BaseTab):
 
     # ----- Per-character preset helpers ----------------------------------
 
-    def _hero_gs(self, gear: list, preset_name: Optional[str]) -> float:
+    def _hero_gs(self, gear: list, preset_name: str | None) -> float:
         """One combatant's total Gear Score under a preset's weights.
 
         Each fragment's bounds exclude its own main stat (Philosophy B),
@@ -2028,7 +2027,7 @@ class HeroesTab(BaseTab):
         return gs
 
     def _apply_preset_to_row(self, hero_name: str,
-                             preset_name: Optional[str]) -> None:
+                             preset_name: str | None) -> None:
         """Re-do one combatant's Preset and GS cells where they stand.
 
         A preset assignment moves exactly those two, and only for this
@@ -2052,7 +2051,7 @@ class HeroesTab(BaseTab):
                 f"{hero['gs']:.0f}" if hero["gs"] > 0 else "-")
             self.hero_tree.set(iid, "preset", hero["preset"])
 
-    def _get_assigned_preset(self, hero_name: str) -> Optional[str]:
+    def _get_assigned_preset(self, hero_name: str) -> str | None:
         """Return the preset name currently assigned to a character.
 
         Returns None if:
@@ -2075,7 +2074,7 @@ class HeroesTab(BaseTab):
             return name
         return None
 
-    def _weights_for_preset(self, preset_name: Optional[str]) -> dict:
+    def _weights_for_preset(self, preset_name: str | None) -> dict:
         """Resolve a preset name to its weights dict. None => default (1.0 all).
 
         Returning an empty dict is fine: compute_fragment_gs uses

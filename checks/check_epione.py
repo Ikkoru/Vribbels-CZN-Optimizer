@@ -363,7 +363,7 @@ def _value_iteration(offers):
     expectation to a fixed point -- the same quantity `whiffs_to_come`
     solves in closed form, reached another way."""
     states = list(product(range(3), repeat=4))
-    value = {state: 0.0 for state in states}
+    value = dict.fromkeys(states, 0.0)
     # A dead pair is at most half the offers, so each round halves what
     # is left to converge at worst.
     for _ in range(300):
@@ -401,8 +401,8 @@ def _whiff_failures():
                        f"iterating the expectation gives {truth[state]:.4f} "
                        f"({len(wrong)} states disagree)")
     # Advice, one per side: openers 1 and 2 on the left.
-    stab = {n: 45 for n in range(1, 5)}
-    stab.update({n: 40 for n in range(5, 13)})
+    stab = dict.fromkeys(range(1, 5), 45)
+    stab.update(dict.fromkeys(range(5, 13), 40))
     stab[10] = 50        # opener 3's second follow-up cures best
     held = _held(stab)
     first = f"counseling_{ID}_01"

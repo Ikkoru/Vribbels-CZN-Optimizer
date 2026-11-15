@@ -482,7 +482,7 @@ def _family_corroborates(ct):
             f"{got!r}, not ~6/6 likely done: every row the family says "
             f"the event holds is in hand.")
     # A family paying a final reward: the final is what is left.
-    finals = {k: (6, 1, 0) for k in agree}
+    finals = dict.fromkeys(agree, (6, 1, 0))
     got, _raw_ = event(finals, claimed=6)
     if got != [("6/7", ct.FINAL_WAITING)]:
         out.append(f"a family paying a final reward left {got!r}, not "

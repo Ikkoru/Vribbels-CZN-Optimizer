@@ -533,7 +533,7 @@ def _switch_backup_undo(scratch, shipped_dir, STATS):
     import defaults_sync
     import preset_derivation
     from character_preset_manager import normalize_to_v2
-    from preset_manager import PresetManager, weights_equal
+    from preset_manager import PresetManager
     from settings_manager import SettingsManager
     out = []
     scratch.mkdir()
@@ -767,7 +767,7 @@ def _notice_says():
             out.append(f"the notice lacks {wanted!r}.")
     if text.find("Gamma") < text.find("Beta"):
         out.append("the notice lists what it kept before what it updated.")
-    if defaults_notice.SWITCH_WORDS != " ".join(setup_tab.FOLLOW_TEXT.split()):
+    if " ".join(setup_tab.FOLLOW_TEXT.split()) != defaults_notice.SWITCH_WORDS:
         out.append("the notice names the Setup & Settings switch otherwise "
                    "than its label reads (`setup_tab.FOLLOW_TEXT`).")
     if "backups" in defaults_notice.notice_text(_sample_report(backup=False)):

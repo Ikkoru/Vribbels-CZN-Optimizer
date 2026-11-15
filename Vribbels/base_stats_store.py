@@ -625,7 +625,7 @@ def formula_gaps(builds):
                     if p.main_stat and p.main_stat.name == attribute + " DMG%")
                 + node_7.get("Element%", 0))
         for field, value in (build.get("inner") or {}).items():
-            stat = field[2:] if field.startswith("S_") else field
+            stat = field.removeprefix("S_")
             if stat in STATS and tier is not None:
                 # The program's inner value rounded as the server rounds
                 # it: the flat to a whole number first, then the sum.

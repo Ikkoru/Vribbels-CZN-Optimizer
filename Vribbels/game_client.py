@@ -432,7 +432,7 @@ ITEM_RARITY_WORDS = {"RARITY_COMMON": "Common", "RARITY_UNCOMMON": "Uncommon",
 # Markup the text carries for the game's own renderer: tags, a line
 # break, and a keyword's marker `$Name#level$`, drawn as the name.
 MARKUP = re.compile(r"<[^>]*>")
-BREAK = re.compile(r"<br\s*/?>", re.I)
+BREAK = re.compile(r"<br\s*/?>", re.IGNORECASE)
 KEYWORD = re.compile(r"\$([^$#]*)(?:#\d*)?\$")
 
 

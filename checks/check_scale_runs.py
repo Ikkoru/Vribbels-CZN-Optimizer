@@ -30,8 +30,8 @@ NAME = "a gap of two parts is the gap scaled once"
 def _arithmetic(scaling, checkbox, scale):
     out = []
     px, after, inset = scaling.px, scaling.px_after, scaling.px_inset
-    for a in range(0, 13):
-        for b in range(0, 13):
+    for a in range(13):
+        for b in range(13):
             if px(a) + after(a, b) != px(a + b):
                 out.append(f"At {scale} px({a}) + px_after({a}, {b}) is "
                            f"{px(a) + after(a, b)}, not px({a + b}) = "
@@ -69,7 +69,7 @@ def _checkbox_inset(checkbox, scale):
     root = tk.Tk()
     root.attributes("-alpha", 0.0)
     try:
-        colours = {k: "#000000" for k in ("bg", "fg", "bg_light")}
+        colours = dict.fromkeys(("bg", "fg", "bg_light"), "#000000")
         box = checkbox.make_checkbox(root, colours, text="x")
         side = int(box.cget("padx")) + checkbox.FOCUS_INSET
         want = scaling.px_inset(checkbox.SIDE_INSET)

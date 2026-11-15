@@ -755,8 +755,11 @@ def _build_checklist(scale_name, work, snap):
     from ui.context import AppContext
     from optimizer.optimizer import GearOptimizer
     from config import AppConfig
-    import settings_manager, preset_manager, character_preset_manager
-    import optimizer_settings_manager, log_presets_manager
+    import settings_manager
+    import preset_manager
+    import character_preset_manager
+    import optimizer_settings_manager
+    import log_presets_manager
     import checklist_manager
 
     root = tk.Tk()

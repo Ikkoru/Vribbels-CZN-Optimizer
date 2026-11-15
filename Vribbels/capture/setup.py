@@ -11,10 +11,9 @@ import sys
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 
-def find_mitmdump() -> Optional[str]:
+def find_mitmdump() -> str | None:
     """
     Find the mitmdump executable, checking multiple locations.
 
@@ -75,9 +74,9 @@ class PrerequisiteStatus:
     """Status of capture system prerequisites."""
     is_admin: bool
     has_mitmproxy: bool
-    mitmproxy_version: Optional[str]
+    mitmproxy_version: str | None
     has_certificate: bool
-    certificate_path: Optional[Path]
+    certificate_path: Path | None
 
 
 def check_prerequisites() -> PrerequisiteStatus:

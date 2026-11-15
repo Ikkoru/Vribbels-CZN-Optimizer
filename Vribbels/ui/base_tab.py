@@ -21,7 +21,7 @@ class BaseTab(ABC):
     Each tab receives an AppContext for accessing shared state and services.
     """
 
-    def __init__(self, parent: tk.Widget, context: 'AppContext'):
+    def __init__(self, parent: tk.Widget, context: AppContext):
         """
         Initialize the tab.
 
@@ -41,7 +41,6 @@ class BaseTab(ABC):
         Called once during initialization to build the tab's interface.
         Must be implemented by subclasses.
         """
-        pass
 
     def get_frame(self) -> ttk.Frame:
         """Return the tab's root frame for adding to notebook."""

@@ -136,7 +136,6 @@ import collections
 import itertools
 import math
 from dataclasses import dataclass, field
-from typing import Optional
 
 from .stat import Stat, SubstatRoll
 from game_data import (
@@ -753,9 +752,9 @@ class MemoryFragment:
     set_id: int
     level: int
     locked: bool
-    equipped_to: Optional[str]
+    equipped_to: str | None
     equipped_char_id: int
-    main_stat: Optional[Stat] = None
+    main_stat: Stat | None = None
     substats: list[Stat] = field(default_factory=list)
     gear_score: float = 0.0
     priority_score: float = 0.0
@@ -763,7 +762,7 @@ class MemoryFragment:
     potential_high: float = 0.0
 
     @classmethod
-    def from_json(cls, data: dict) -> "MemoryFragment":
+    def from_json(cls, data: dict) -> MemoryFragment:
         res_id = data["res_id"]
         res_str = str(res_id)
         slot_num = int(res_str[2])
@@ -833,8 +832,8 @@ class MemoryFragment:
 
     def calculate_base_score(
         self,
-        weights: Optional[dict] = None,
-        bounds: Optional[tuple[float, float]] = None,
+        weights: dict | None = None,
+        bounds: tuple[float, float] | None = None,
     ) -> float:
         """Compute and store this fragment's gear score, normalized to a
         0-100 scale based on the theoretical bounds for the given weights.
@@ -875,8 +874,8 @@ class MemoryFragment:
 
     def calculate_potential(
         self,
-        weights: Optional[dict] = None,
-        bounds: Optional[tuple[float, float]] = None,
+        weights: dict | None = None,
+        bounds: tuple[float, float] | None = None,
     ) -> tuple[float, float]:
         """Compute and store the worst- and best-case GS reachable through
         remaining upgrades, normalized to the same 0-100 scale as gear_score.

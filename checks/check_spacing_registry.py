@@ -40,7 +40,6 @@ What it enforces beyond "it imports":
 
 import glob
 import importlib
-import io
 import re
 
 from ._harness import REPO_ROOT, SOURCE_ROOT, add_source_to_path
@@ -72,7 +71,7 @@ def _rule_targets():
     the distance varies" -- because there the condition is what decides
     and the registry derives it per entry.
     """
-    doc = io.open(REPO_ROOT / "docs" / "ui_spacing.md",
+    doc = open(REPO_ROOT / "docs" / "ui_spacing.md",
                   encoding="utf-8").read()
     targets = {}
     for row in doc.splitlines():
@@ -101,7 +100,7 @@ def _unique_rows():
     would otherwise look exactly like one that cannot be, which is the
     hole this table exists to close.
     """
-    doc = io.open(REPO_ROOT / "docs" / "ui_spacing.md",
+    doc = open(REPO_ROOT / "docs" / "ui_spacing.md",
                   encoding="utf-8").read()
     section = doc.split(UNIQUES_HEADING, 1)
     if len(section) < 2:
@@ -130,9 +129,9 @@ def _unique_whats():
     for path in glob.glob(str(SOURCE_ROOT / "**" / "*.py"), recursive=True):
         if "__pycache__" in path or "_capture_addon" in path:
             continue
-        text = io.open(path, encoding="utf-8", errors="replace").read()
+        text = open(path, encoding="utf-8", errors="replace").read()
         for m in re.finditer(r"#\s*spacing:\s*unique -- (.+?)\s*$",
-                             text, re.M):
+                             text, re.MULTILINE):
             whats.add(m.group(1).rsplit(" -- ", 1)[0])
     return whats
 
@@ -148,9 +147,9 @@ def _excepted_rules():
     for path in glob.glob(str(SOURCE_ROOT / "**" / "*.py"), recursive=True):
         if "__pycache__" in path or "_capture_addon" in path:
             continue
-        text = io.open(path, encoding="utf-8", errors="replace").read()
+        text = open(path, encoding="utf-8", errors="replace").read()
         for m in re.finditer(r"#\s*spacing:\s*exception -- (.+?)\s*$",
-                             text, re.M):
+                             text, re.MULTILINE):
             excepted.add(m.group(1).rsplit(" -- ", 1)[0])
     return excepted
 
@@ -163,7 +162,7 @@ def _minimum_rules():
     for path in glob.glob(str(SOURCE_ROOT / "**" / "*.py"), recursive=True):
         if "__pycache__" in path or "_capture_addon" in path:
             continue
-        text = io.open(path, encoding="utf-8", errors="replace").read()
+        text = open(path, encoding="utf-8", errors="replace").read()
         for m in MARKER.finditer(text):
             body, floor = minimum_of(m.group(1))
             if floor:

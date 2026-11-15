@@ -17,7 +17,6 @@ Two conventions for adding entries:
   makes a target a plain number rather than one per glyph class.
 """
 
-import re
 import tkinter as tk
 from tkinter import font as tkfont
 

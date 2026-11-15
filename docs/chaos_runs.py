@@ -691,8 +691,7 @@ def rolled_of(run):
         for prefix, letter in ROLLED:
             if str(eid).startswith(prefix):
                 name = str(group).split("__")[0]
-                name = name[len("ZERO_"):] if name.startswith("ZERO_") \
-                    else name
+                name = name.removeprefix("ZERO_")
                 out.append("%s:%s%s" % (name, letter,
                                         str(eid)[len(prefix):]))
     return " ".join(out)

@@ -53,8 +53,7 @@ user's preset weights.
 import json
 import time
 import itertools
-from typing import Callable
-from pathlib import Path
+from collections.abc import Callable
 
 from models import MemoryFragment, CharacterInfo, UserInfo
 from game_data import (
@@ -85,7 +84,7 @@ from models.memory_fragment import compute_fragment_gs, compute_gs_bounds
 # implementation of each formula. SET_STAT_NAME_MAP is re-exported here
 # for back-compat with existing importers.
 from optimizer import core
-from optimizer.core import SET_STAT_NAME_MAP  # noqa: F401  (re-export)
+from optimizer.core import SET_STAT_NAME_MAP
 # Parallel enumeration path. Imported at module level (cheap -- no pool
 # or Manager is created until the first parallel run); optimize()
 # dispatches to it for large runs when optimizer_workers allows, with
@@ -142,7 +141,7 @@ class GearOptimizer:
         self.user_info: UserInfo = UserInfo()
         self.unequipped: list[MemoryFragment] = []
         self.capture_time = ""
-        self.priorities: dict[str, int] = {name: 0 for name in ALL_STAT_NAMES}
+        self.priorities: dict[str, int] = dict.fromkeys(ALL_STAT_NAMES, 0)
         self.raw_data = {}
         # Optional reference to SettingsManager, injected by
         # czn_optimizer_gui.py at startup. Read by _resolve_worker_count
@@ -161,7 +160,7 @@ class GearOptimizer:
         Args:
             filepath: Path to capture JSON file
         """
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             data = json.load(f)
 
         self.raw_data = data
@@ -780,7 +779,7 @@ class GearOptimizer:
         attribute = char_data.get("attribute", "Unknown")
         if attribute == "Unknown":
             override = settings.get("element_override")
-            return override if override else ""
+            return override or ""
         return attribute
 
     def _meets_have_at_least(self, stats: dict, settings: dict) -> bool:
@@ -1528,7 +1527,7 @@ class GearOptimizer:
                 offelement_attribute=offelement_attr,  # global "Ignore off-Element MFs"
                 score_weights=slot_filter_weights,  # per-character preset
             )
-            slot_candidates[slot_num] = candidates if candidates else []
+            slot_candidates[slot_num] = candidates or []
 
         # Per-slot candidate counts. The search space is the PRODUCT of
         # these, so they're what any scaling estimate has to be built from --

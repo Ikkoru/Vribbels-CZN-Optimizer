@@ -22,7 +22,6 @@ only, and prints what it changed.
 """
 
 import glob
-import io
 import json
 import os
 import sys
@@ -36,7 +35,7 @@ sys.path.insert(0, str(SOURCE))
 
 import preset_derivation as pd                                # noqa: E402
 from preset_derivation import (                               # noqa: E402
-    LEVEL, STATS_SHOWN, VARIANTS, archetype, baseline, combatant_of,
+    LEVEL, STATS_SHOWN, VARIANTS, archetype, combatant_of,
     current_max_rolls, derive_preset)
 
 ARCHETYPES = SOURCE / "default_settings" / pd.ARCHETYPES_FILE
@@ -56,7 +55,7 @@ class World(pd.Reference):
                             key=os.path.getmtime)
         opt.load_data(self.snapshot)
         self.by_id = {f.id: f for f in opt.fragments}
-        read = lambda p: json.load(io.open(p, encoding="utf-8"))
+        read = lambda p: json.load(open(p, encoding="utf-8"))
         osm = read("settings/optimizer_settings.json")["characters"]
         super().__init__({s["name_hint"]: s for s in osm.values()},
                          read("settings/presets.json")["presets"], opt)
@@ -104,9 +103,9 @@ class World(pd.Reference):
 
     def assigned_preset(self, name):
         if not hasattr(self, "_assigned"):
-            osm = json.load(io.open("settings/optimizer_settings.json",
+            osm = json.load(open("settings/optimizer_settings.json",
                                     encoding="utf-8"))["characters"]
-            cp = json.load(io.open("settings/character_preset.json",
+            cp = json.load(open("settings/character_preset.json",
                                    encoding="utf-8"))["assignments"]
             self._assigned = {s.get("name_hint"): cp.get(rid)
                               for rid, s in osm.items()}
@@ -196,7 +195,7 @@ def season_part(snapshot, now=None):
     import shop_stock
     from chaos_estimate import part_of
     from ui.tabs import checklist_tab
-    raw = json.load(io.open(snapshot, encoding="utf-8"))
+    raw = json.load(open(snapshot, encoding="utf-8"))
     now = time.time() if now is None else now
     name, window = schedules.live(shop_stock.season_group_of(
         checklist_tab.SEASONAL_SHOP_CATEGORY), raw, now)
@@ -269,7 +268,7 @@ def main(argv):
     print("Proposal written to %s" % PROPOSAL)
     if "--write" in argv:
         target = SOURCE / "default_settings" / "presets.json"
-        shipped = json.load(io.open(target, encoding="utf-8"))
+        shipped = json.load(open(target, encoding="utf-8"))
         shipped["presets"].update(proposal)
         target.write_text(json.dumps(shipped, indent=2), encoding="utf-8")
         stored["max_rolls"] = current_max_rolls()

@@ -47,9 +47,8 @@ def _snapshot(folder, stamp, filler=1):
 def _log(folder, stamp, lines=3):
     path = folder / ("websocket_debug_%s.jsonl.gz" % stamp)
     with open(path, "wb") as handle:
-        for n in range(lines):
-            handle.write(gzip.compress(
-                (json.dumps({"ts": stamp, "n": n}) + "\n").encode("utf-8")))
+        handle.writelines(gzip.compress(
+                (json.dumps({"ts": stamp, "n": n}) + "\n").encode("utf-8")) for n in range(lines))
     return path
 
 

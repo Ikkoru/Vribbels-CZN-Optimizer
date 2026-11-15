@@ -31,7 +31,6 @@ Never touches `Vribbels/settings/`. Everything happens in a temp copy.
 """
 
 import ast
-import io
 import json
 import re
 import shutil
@@ -60,7 +59,7 @@ KEY_CALL = re.compile(
     r"\b(?:sm|settings_manager|_settings)\s*\.\s*(?:get|set)"
     r"\(\s*['\"]([a-z_][a-z0-9_]*)['\"]")
 KEY_CONST = re.compile(
-    r"^[A-Z][A-Z0-9_]*_KEY\s*=\s*['\"]([a-z_][a-z0-9_]*)['\"]", re.M)
+    r"^[A-Z][A-Z0-9_]*_KEY\s*=\s*['\"]([a-z_][a-z0-9_]*)['\"]", re.MULTILINE)
 
 
 def _layout_covers_every_key():
@@ -93,7 +92,7 @@ def _layout_covers_every_key():
 
 def _writes_atomically(path: Path) -> bool:
     """True when the module's `_write` saves through `write_json`."""
-    tree = ast.parse(io.open(path, encoding="utf-8").read())
+    tree = ast.parse(open(path, encoding="utf-8").read())
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef) and node.name == "_write":
             return any(isinstance(call, ast.Call)
@@ -113,7 +112,7 @@ def _write_json_is_atomic(root):
     import json_file
 
     out = []
-    tree = ast.parse(io.open(SOURCE_ROOT / "json_file.py",
+    tree = ast.parse(open(SOURCE_ROOT / "json_file.py",
                              encoding="utf-8").read())
     body = next((ast.dump(node) for node in ast.walk(tree)
                  if isinstance(node, ast.FunctionDef)

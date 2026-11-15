@@ -13,12 +13,12 @@ a half-written intermediate.
 
 import json
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from json_file import write_json
 
 
-def structure_problem(data) -> Optional[str]:
+def structure_problem(data) -> str | None:
     """Why `SettingsManager.load` would refuse `data`, or None. What
     `settings_repair` holds a repaired file to as well."""
     if not isinstance(data, dict):
@@ -39,7 +39,7 @@ class SettingsManager:
         self.settings_file = self.presets_dir / "settings.json"
         self.settings: dict = {}
         self.corrupted = False
-        self.corruption_error: Optional[str] = None
+        self.corruption_error: str | None = None
         # Whether a failed write has been recorded this session: once
         # is enough to say the folder cannot be written.
         self._write_failure_noted = False

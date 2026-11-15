@@ -128,7 +128,7 @@ def _payouts(ce):
                 f"and reads back as {ce.base_of(paid, nodes)!r}, not {paid} "
                 f"and {base}: 1% a node, rounded up, as every captured "
                 f"payout is.")
-    off = [(base, nodes) for base in range(0, 400) for nodes in range(0, 40)
+    off = [(base, nodes) for base in range(400) for nodes in range(40)
            if ce.base_of(ce.amplified(base, nodes), nodes) != base]
     if off:
         failures.append(f"a payout reads back to another base: {off[:5]}.")

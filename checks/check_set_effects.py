@@ -122,7 +122,7 @@ FAULTS = [
      "for e in info.get(\"effects\") or () if isinstance(e, dict)]",
      "for e in (info.get(\"effects\") or ())[:1] if isinstance(e, dict)]",
      "each Final-stat bonus counts"),
-    ("the stat sheet on the one pair", "optimizer.core:compute_build_stats",
+    ("the stat sheet on the one pair", "optimizer.core:_stats_from_rows",
      "for raw_stat, value in set_effects(set_info):",
      "for raw_stat, value in [(set_info.get('stat'), set_info.get('value', 0))]:",
      "each Final-stat bonus counts"),

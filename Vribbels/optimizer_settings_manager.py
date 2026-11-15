@@ -83,7 +83,6 @@ level is what Auto already does. See
 
 import json
 from pathlib import Path
-from typing import Any, Optional
 
 from game_data import SETS
 from json_file import write_json
@@ -160,7 +159,7 @@ def _fresh_character_settings(name_hint: str = "") -> dict:
     }
 
 
-def structure_problem(data) -> Optional[str]:
+def structure_problem(data) -> str | None:
     """Why `OptimizerSettingsManager.load` would refuse `data`, or None.
     Anything inside an object it reads as far as it can. What
     `settings_repair` holds a repaired file to as well."""
@@ -180,7 +179,7 @@ class OptimizerSettingsManager:
             "characters": {},
         }
         self.corrupted: bool = False
-        self.corruption_error: Optional[str] = None
+        self.corruption_error: str | None = None
 
     # ------------------------------------------------------------------ load
 
@@ -245,7 +244,7 @@ class OptimizerSettingsManager:
                     except (TypeError, ValueError):
                         pct = 0
                     entry["set_effect_pcts"] = (
-                        {sid: pct for sid in _conditional_set_ids()}
+                        dict.fromkeys(_conditional_set_ids(), pct)
                         if pct else {}
                     )
 

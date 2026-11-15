@@ -31,7 +31,6 @@ teach the reader to skip the output.
 """
 
 import re
-from pathlib import Path
 
 from ._harness import REPO_ROOT, Skip
 
@@ -196,7 +195,7 @@ def run():
         front = _frontmatter(text)
         if label.startswith(".claude/rules/"):
             globs = re.findall(r'^\s*-\s*"?([^"\n]+?)"?\s*$',
-                               front.split("paths:", 1)[-1], re.M) \
+                               front.split("paths:", 1)[-1], re.MULTILINE) \
                 if "paths:" in front else []
             for pattern in globs:
                 if next(REPO_ROOT.glob(pattern), None) is None:
@@ -207,7 +206,7 @@ def run():
                         f"and nothing reports that.")
         if label.startswith(".claude/skills/"):
             for key in SKILL_KEYS:
-                if not re.search(rf"^{key}:\s*\S", front, re.M):
+                if not re.search(rf"^{key}:\s*\S", front, re.MULTILINE):
                     problems.append(
                         f"{label} has no `{key}` in its frontmatter. A "
                         f"skill is matched to a task on its name and "

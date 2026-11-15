@@ -65,7 +65,7 @@ def run():
             s = dict(world.settings[name], **spec.get("settings", {}))
             current = world.presets.get(preset) or world.presets.get(
                 spec.get("like", ""), {})
-            unit = tool.baseline(s, current)
+            unit = tool.pd.baseline(s, current)
             if derived.get(unit) != 1.0:
                 out.append(f"{preset} reads {derived.get(unit)} on its "
                            f"scaling stat {unit}, not 1. See `baseline` "

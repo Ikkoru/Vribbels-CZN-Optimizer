@@ -126,8 +126,7 @@ def _write_log(path, frames, cut=False):
     `cut` ends it halfway through a last member, as a capture killed
     mid-write does."""
     with open(path, "wb") as fh:
-        for data in frames:
-            fh.write(gzip.compress(_line(data).encode("utf-8")))
+        fh.writelines(gzip.compress(_line(data).encode("utf-8")) for data in frames)
         if cut:
             tail = gzip.compress(_line({"res": "ok", "my_rank": {}})
                                  .encode("utf-8"))

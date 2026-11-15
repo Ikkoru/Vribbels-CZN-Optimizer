@@ -98,7 +98,7 @@ def include_generic_key(column_key):
     return f"materials_include_generic_{column_key}"
 
 
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def _art_paths(res_id):
     """(icon path or "", plate path or None, whether it draws) for one
     item. Fixed for the session: the art ships with the program.

@@ -62,22 +62,22 @@ LINE_SWEEPS = {
         r"\b(used to|previously|formerly|no longer|renamed from|the old "
         r"|an earlier attempt|for months|went unread|we now)\b"
         r"|\bnow (does|reads|is|has|shows|comes|names|counts|takes|says"
-        r"|gives|keeps|holds|runs|lists)\b", re.I),
+        r"|gives|keeps|holds|runs|lists)\b", re.IGNORECASE),
     "stale-output": re.compile(
         r"\b\d[\d,]*\s+(captured|snapshots?|rows?|readings?|files?"
         r"|so far|ever)\b|\b\d+\s+of\s+the\b"
-        r"|(?<![\w/.:\\-])\d+/\d+(?![\w/.%:-])", re.I),
+        r"|(?<![\w/.:\\-])\d+/\d+(?![\w/.%:-])", re.IGNORECASE),
     "stale-status": re.compile(
-        r"\bnot pushed\b|\bis built\b|\blocal branch\b|\bhandoff\b", re.I),
+        r"\bnot pushed\b|\bis built\b|\blocal branch\b|\bhandoff\b", re.IGNORECASE),
     "dated": re.compile(r"\(updated \d{4}-\d\d-\d\d\)"),
     "unfollowable": re.compile(
         r"\bthe (second|third|fourth|fifth|first \d+|first (two|three|four))"
         r"\b(?!\s+(\w+\s+)?(row|column|line|step|item|entry|bullet|table"
         r"|section|part|half|of|in)\b)"
-        r"|\bsee `[^`]+\.md`(?!\s*[,(:\u00a7]| \*| section)", re.I),
+        r"|\bsee `[^`]+\.md`(?!\s*[,(:\u00a7]| \*| section)", re.IGNORECASE),
     "mirrored": re.compile(
         r"\bstored as .+ in\b|\bsingle source of truth\b"
-        r"|\bthis table is for documentation\b", re.I),
+        r"|\bthis table is for documentation\b", re.IGNORECASE),
 }
 # A heading that names nothing. The shape with a comma or "and" is one
 # the overlay lists as false here: its headings are cited by their words.
@@ -268,14 +268,14 @@ def privacy_patterns():
         ("a drive-letter path", re.compile(r"(?<![\w/\\])[A-Za-z]:[\\/]"
                                            r"(?![\\/])")),
         ("the user's folder", re.compile(
-            r"Users[\\/]+" + re.escape(home) + r"\b", re.I)),
+            r"Users[\\/]+" + re.escape(home) + r"\b", re.IGNORECASE)),
         ("an e-mail address", re.compile(
             r"[\w.+-]+@[\w-]+(\.[\w-]+)*\.[A-Za-z]{2,}")),
     ]
     host = socket.gethostname()
     if host and len(host) > 3:
         patterns.append(("the machine's name",
-                         re.compile(r"\b" + re.escape(host) + r"\b", re.I)))
+                         re.compile(r"\b" + re.escape(host) + r"\b", re.IGNORECASE)))
     ids = set()
     snaps = glob.glob(str(SNAPSHOTS / "memory_fragments_*.json"))
     if snaps:

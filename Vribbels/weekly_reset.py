@@ -17,7 +17,7 @@ UTC throughout. The local zone would move the deadline for anyone east
 or west of it, and a snapshot carries no timezone of its own.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, UTC
 
 # Sunday 18:00 UTC, as `datetime.weekday()` numbers the days (Monday
 # 0). Both are here rather than inline so that a corrected reset is one
@@ -44,7 +44,7 @@ def next_reset(now):
     Strictly: standing exactly on a reset, what is left is a whole week
     and not nothing -- the week that just began.
     """
-    at = datetime.fromtimestamp(now, timezone.utc)
+    at = datetime.fromtimestamp(now, UTC)
     reset = (at.replace(hour=RESET_HOUR, minute=0, second=0, microsecond=0)
              + timedelta(days=(RESET_WEEKDAY - at.weekday()) % 7))
     if reset <= at:
@@ -69,7 +69,7 @@ def last_weekly_reset(now):
 
 def last_daily_reset(now):
     """The `RESET_HOUR` boundary at or before `now`, epoch seconds."""
-    at = datetime.fromtimestamp(now, timezone.utc).replace(
+    at = datetime.fromtimestamp(now, UTC).replace(
         hour=RESET_HOUR, minute=0, second=0, microsecond=0)
     stamp = at.timestamp()
     return stamp if stamp <= now else stamp - DAY
@@ -88,14 +88,14 @@ def month_bounds(now):
     Monthly column with no countdown until the first capture. The wire
     is still preferred where it is there; this answers when it is not.
     """
-    at = datetime.fromtimestamp(last_daily_reset(now), timezone.utc)
+    at = datetime.fromtimestamp(last_daily_reset(now), UTC)
     # The boundary opens the NEXT calendar day, and that is the day the
     # game counts as today -- so the month is that day's, not the
     # boundary's own.
     today = (at + timedelta(days=1)).date()
 
     def opens(year, month):
-        first = datetime(year, month, 1, RESET_HOUR, tzinfo=timezone.utc)
+        first = datetime(year, month, 1, RESET_HOUR, tzinfo=UTC)
         return (first - timedelta(days=1)).timestamp()
 
     following = (today.year + today.month // 12,

@@ -64,7 +64,7 @@ def filter_flags(settings_manager) -> dict:
     it: typed text reaches a spinbox's variable unchecked.
     """
     if settings_manager is None:
-        flags = {key: True for key in UPGRADE_LOG_FILTERS}
+        flags = dict.fromkeys(UPGRADE_LOG_FILTERS, True)
         flags[SLOT6_ATK_HEAL_ABOVE_KEY] = SLOT6_ATK_HEAL_ABOVE
         return flags
     flags = {key: bool(settings_manager.get(key, True))

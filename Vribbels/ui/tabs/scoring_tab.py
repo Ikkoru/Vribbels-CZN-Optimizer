@@ -20,17 +20,16 @@ from ..base_tab import BaseTab
 from ..context import AppContext
 from ..utils.button_width import BUTTON_W_LARGE
 from ..utils.label_width import column_px
-from ..utils.spinbox_clamp import clamp_on_commit, commit_clamp, step_on_wheel
+from ..utils.spinbox_clamp import clamp_on_commit, step_on_wheel
 from ..utils.type_ahead import attach, find
 from ..utils.scrolled_text import make_scrolled_text
 from ..utils.tab_header import make_tab_header
-from game_data import STATS
 # User-facing stat-name overrides (e.g. "Flat ATK" -> "ATK Flat",
 # "CRate" -> "Crit%", "CDmg" -> "CDMG%"). Applied to the Stat Weight
 # Configuration labels so they match the rest of the app.
 from game_data.constants import DISPLAY_NAMES
 import error_log
-from preset_manager import SUPPORTED_STATS, UNREAD
+from preset_manager import UNREAD
 from models.memory_fragment import compute_gs_bounds
 from ui.scaling import px, px_after
 

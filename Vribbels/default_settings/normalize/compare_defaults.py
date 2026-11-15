@@ -30,7 +30,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 # `Vribbels/`, for `character_preset_manager` and the game data it reads.
 sys.path.insert(1, str(Path(__file__).resolve().parents[2]))
-import normalize_defaults                                   # noqa: E402
+import normalize_defaults
 
 FILES = ("presets.json", "character_preset.json", "optimizer_settings.json")
 

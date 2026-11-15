@@ -1078,7 +1078,6 @@ class SetupTab(BaseTab):
         dropdown would put a pass of up to half a minute behind a click
         that does not look like it starts one.
         """
-        from capture import archive
 
         top = ttk.Frame(parent)
         top.pack(fill=tk.X, anchor=tk.W)
@@ -1397,7 +1396,7 @@ class SetupTab(BaseTab):
         for text, face, lead in (
                 ("Vribbels CZN Optimizer (Ikkoru)", ("Segoe UI", 14, "bold"),
                  0),
-                (version if version else "Version Unknown",
+                (version or "Version Unknown",
                  ("Segoe UI", 14, "bold"), APP_INFO_LINE_GAP),
                 ("A fork of a Fribbels-inspired gear management and "
                  "optimization tool", ("Segoe UI", 9), APP_INFO_LINE_GAP)):
@@ -2293,7 +2292,7 @@ class SetupTab(BaseTab):
         Tombstoned defaults ARE included in missing -- this dialog is the
         intended way to bring them back, overriding the tombstone."""
         try:
-            with open(defaults_path, "r", encoding="utf-8") as f:
+            with open(defaults_path, encoding="utf-8") as f:
                 default_data = json.load(f)
         except Exception:
             return [], []
@@ -2336,7 +2335,7 @@ class SetupTab(BaseTab):
         compare correctly.
         """
         try:
-            with open(defaults_path, "r", encoding="utf-8") as f:
+            with open(defaults_path, encoding="utf-8") as f:
                 default_raw = json.load(f)
         except Exception:
             return [], []
@@ -2383,7 +2382,7 @@ class SetupTab(BaseTab):
         comparison since it's cosmetic).
         """
         try:
-            with open(defaults_path, "r", encoding="utf-8") as f:
+            with open(defaults_path, encoding="utf-8") as f:
                 default_raw = json.load(f)
         except Exception:
             return [], []
@@ -2464,7 +2463,7 @@ class SetupTab(BaseTab):
 
         # Read defaults' raw data once.
         try:
-            with open(defaults_path, "r", encoding="utf-8") as f:
+            with open(defaults_path, encoding="utf-8") as f:
                 default_raw = json.load(f)
         except Exception as exc:
             messagebox.showerror(

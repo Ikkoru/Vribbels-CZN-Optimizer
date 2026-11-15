@@ -43,7 +43,7 @@ import lzma
 import os
 import zipfile
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -252,7 +252,7 @@ def _write_latest(folder, client):
             # Last, so the record names every db file left undecoded.
             z.writestr("build.json", _json({
                 "build": client.archive.build,
-                "read_at": datetime.now(timezone.utc).isoformat(
+                "read_at": datetime.now(UTC).isoformat(
                     timespec="seconds"),
                 "undecoded": undecoded}))
 

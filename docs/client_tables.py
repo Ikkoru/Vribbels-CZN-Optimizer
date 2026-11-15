@@ -125,25 +125,25 @@ def shipped_source(client, partners=None):
     lines = [SHIPPED_HEAD, f"BUILD = {client.archive.build}", "",
              "# {schedule id: English name}. See game_client.event_names.",
              "EVENT_NAMES = {"]
-    lines += [f"    {ascii(key)}: {ascii(name)},"
+    lines += [f"    {key!a}: {name!a},"
               for key, name in sorted(names.items())]
     lines += ["}", "",
               "# {schedule id: (rewards, final, steps)}. See "
               "game_client.event_totals.",
               "EVENT_TOTALS = {"]
-    lines += [f"    {ascii(key)}: ({rewards}, {final}, {steps}),"
+    lines += [f"    {key!a}: ({rewards}, {final}, {steps}),"
               for key, (rewards, final, steps) in sorted(totals.items())]
     lines += ["}", "",
               "# {trial id: (slot ids)}. See game_client.trial_slots.",
               "TRIAL_SLOTS = {"]
-    lines += [f"    {ascii(key)}: {ascii(tuple(slots))},"
+    lines += [f"    {key!a}: {tuple(slots)!a},"
               for key, slots in sorted(game_client.trial_slots(client).items())]
     lines += ["}", "",
               "# {schedule id: {'define': define id, 'item': token res_id, "
               "'tiers': [[tier id, tokens], ...]}}.",
               "# See game_client.payment_events.",
               "PAYMENT_EVENTS = {"]
-    lines += [f"    {ascii(key)}: {ascii(event)},"
+    lines += [f"    {key!a}: {event!a},"
               for key, event in sorted(
                   game_client.payment_events(client).items())]
     lines += ["}", "",
@@ -152,28 +152,28 @@ def shipped_source(client, partners=None):
               "'final': 0 or 1}}.",
               "# See game_client.trauma_codes.",
               "TRAUMA_CODES = {"]
-    lines += [f"    {ascii(key)}: {ascii(code)},"
+    lines += [f"    {key!a}: {code!a},"
               for key, code in sorted(
                   game_client.trauma_codes(client).items())]
     lines += ["}", "",
               "# {schedule id: {'id': wire row id, 'pulls': every pull}}. "
               "See game_client.free_gachas.",
               "FREE_GACHAS = {"]
-    lines += [f"    {ascii(key)}: {ascii(event)},"
+    lines += [f"    {key!a}: {event!a},"
               for key, event in sorted(
                   game_client.free_gachas(client).items())]
     lines += ["}", "",
               "# {schedule id: {'define': define id, 'rewards': [reward id, "
               "...]}}. See game_client.login_rewards.",
               "LOGIN_REWARDS = {"]
-    lines += [f"    {ascii(key)}: {ascii(event)},"
+    lines += [f"    {key!a}: {event!a},"
               for key, event in sorted(
                   game_client.login_rewards(client).items())]
     lines += ["}", "",
               "# {chapter id: {'owner', 'group', 'number', 'name', 'opens', "
               "'stars', 'total'}}. See game_client.story_stars.",
               "STORY_STARS = {"]
-    lines += [f"    {ascii(key)}: {ascii(chapter)},"
+    lines += [f"    {key!a}: {chapter!a},"
               for key, chapter in sorted(
                   game_client.story_stars(client).items())]
     lines += ["}", "",
@@ -182,23 +182,23 @@ def shipped_source(client, partners=None):
               "LIMITS = {"]
     for kind, value in sorted(game_client.limits(client).items()):
         if isinstance(value, dict):
-            lines.append(f"    {ascii(kind)}: {{")
-            lines += [f"        {ascii(key)}: {ascii(figure)},"
+            lines.append(f"    {kind!a}: {{")
+            lines += [f"        {key!a}: {figure!a},"
                       for key, figure in sorted(value.items())]
             lines.append("    },")
         else:
-            lines.append(f"    {ascii(kind)}: {ascii(value)},")
+            lines.append(f"    {kind!a}: {value!a},")
     lines += ["}", "",
               "# {schedule id: (episode ids)}. See "
               "game_client.story_chapters.",
               "STORY_CHAPTERS = {"]
-    lines += [f"    {ascii(key)}: {ascii(tuple(episodes))},"
+    lines += [f"    {key!a}: {tuple(episodes)!a},"
               for key, episodes in sorted(
                   game_client.story_chapters(client).items())]
     lines += ["}", "",
               "# {item res_id: English name}. See game_client.item_names.",
               "ITEM_NAMES = {"]
-    lines += [f"    {res_id}: {ascii(name)},"
+    lines += [f"    {res_id}: {name!a},"
               for res_id, name in sorted(items.items())]
     lines += ["}", "",
               "# {combatant res_id: Excursion types}. See "
@@ -210,20 +210,20 @@ def shipped_source(client, partners=None):
               "# {daily task res_id: (score it counts to, Activity it "
               "pays)}. See game_client.daily_tasks.",
               "DAILY_TASKS = {"]
-    lines += [f"    {ascii(res_id)}: ({count}, {points}),"
+    lines += [f"    {res_id!a}: ({count}, {points}),"
               for res_id, (count, points) in sorted(tasks.items())]
     lines += ["}", "",
               "# {weekly task res_id: (score it counts to, Activity it "
               "pays)}. See game_client.weekly_tasks.",
               "WEEKLY_TASKS = {"]
-    lines += [f"    {ascii(res_id)}: ({count}, {points}),"
+    lines += [f"    {res_id!a}: ({count}, {points}),"
               for res_id, (count, points)
               in sorted(game_client.weekly_tasks(client).items())]
     lines += ["}", "",
               "# {set id: (name, pieces, words, stat, value)}. See "
               "game_client.set_effects.",
               "SET_EFFECTS = {"]
-    lines += [f"    {set_id}: {ascii(tuple(effect))},"
+    lines += [f"    {set_id}: {tuple(effect)!a},"
               for set_id, effect in sorted(
                   game_client.set_effects(client).items())]
     lines += ["}", "",
@@ -232,24 +232,24 @@ def shipped_source(client, partners=None):
               "POTENTIAL_TEXTS = {"]
     for res_id, nodes in sorted(game_client.potential_texts(client).items()):
         lines.append(f"    {res_id}: {{")
-        lines += [f"        {wire}: {ascii(words)},"
+        lines += [f"        {wire}: {words!a},"
                   for wire, words in sorted(nodes.items())]
         lines.append("    },")
     lines += ["}", "",
               "# {stage id: (English name, season)}. See "
               "game_client.chaos_names.",
               "CHAOS_NAMES = {"]
-    lines += [f"    {stage}: {ascii(named)},"
+    lines += [f"    {stage}: {named!a},"
               for stage, named in sorted(game_client.chaos_names(client).items())]
     lines += ["}", "",
               "# {Zero System special option id: the game's name}. See "
               "game_client.zero_specials.",
               "ZERO_SPECIALS = {"]
-    lines += [f"    {ascii(special)}: {ascii(name)},"
+    lines += [f"    {special!a}: {name!a},"
               for special, name in sorted(game_client.zero_specials(client).items())]
     lines += ["}", "",
               "# The Normal Rescues' 5-stars. See game_client.general_units.",
-              f"GENERAL_UNITS = {ascii(game_client.general_units(client))}",
+              f"GENERAL_UNITS = {game_client.general_units(client)!a}",
               "",
               "# {kind: the exp to reach each level, from level 1}. See",
               "# game_client.exp_tables; game_data.client_overlay lays it "
@@ -258,7 +258,7 @@ def shipped_source(client, partners=None):
               "EXP_TABLES = {"]
     for kind, reached in sorted(
             game_client.exp_tables(client).items()):
-        lines.append(f"    {ascii(kind)}: [")
+        lines.append(f"    {kind!a}: [")
         lines += _rows([str(exp) for exp in reached])
         lines.append("    ],")
     held = game_client.affinity(client)
@@ -285,15 +285,15 @@ def shipped_source(client, partners=None):
               "FRAGMENT_STATS = {", "    'mains': {"]
     for slot, options in sorted(fragments["mains"].items()):
         lines.append(f"        {slot}: [")
-        lines += [f"            {ascii(option)}," for option in options]
+        lines += [f"            {option!a}," for option in options]
         lines.append("        ],")
     lines += ["    },", "    'rolls': {"]
-    lines += [f"        {ascii(stat)}: {ascii(values)},"
+    lines += [f"        {stat!a}: {values!a},"
               for stat, values in fragments["rolls"].items()]
     lines += ["    },",
-              f"    'draws': {ascii(fragments['draws'])},",
-              f"    'max_levels': {ascii(fragments['max_levels'])},",
-              f"    'costs': {ascii(fragments['costs'])},",
+              f"    'draws': {fragments['draws']!a},",
+              f"    'max_levels': {fragments['max_levels']!a},",
+              f"    'costs': {fragments['costs']!a},",
               "}", ""]
     rarities = {}
     for res_id, word in sorted(game_client.item_rarities(client).items()):
@@ -303,7 +303,7 @@ def shipped_source(client, partners=None):
               "ITEM_RARITIES = {"]
     for word in game_client.ITEM_RARITY_WORDS.values():
         if word in rarities:
-            lines.append(f"    {ascii(word)}: [")
+            lines.append(f"    {word!a}: [")
             lines += _rows(rarities[word])
             lines.append("    ],")
     lines += ["}", "",
@@ -311,7 +311,7 @@ def shipped_source(client, partners=None):
               "# schedule it lasts until or None)} for every item the game",
               "# deletes after a while. See game_client.period_items.",
               "ITEM_PERIODS = {"]
-    lines += [f"    {res_id}: {ascii(tuple(rule))},"
+    lines += [f"    {res_id}: {tuple(rule)!a},"
               for res_id, rule in sorted(
                   game_client.period_items(client).items())]
     lines += ["}", "",
@@ -323,8 +323,8 @@ def shipped_source(client, partners=None):
     for res_id, passives in sorted(
             game_client.exploration_passives(client).items()):
         lines.append(f"    {res_id}: (")
-        lines += [f"        ({ascii(p['name'])}, {p['assigned']}, "
-                  f"{ascii(tuple(tuple(step) for step in p['steps']))}),"
+        lines += [f"        ({p['name']!a}, {p['assigned']}, "
+                  f"{tuple(tuple(step) for step in p['steps'])!a}),"
                   for p in passives]
         lines.append("    ),")
     lines += ["}", "",
@@ -337,8 +337,8 @@ def shipped_source(client, partners=None):
     for res_id, passives in sorted(
             game_client.exploration_effects(client).items()):
         lines.append(f"    {res_id}: (")
-        lines += [f"        ({ascii(effect)}, "
-                  f"{ascii(tuple((at, float(value)) for at, value in steps))}),"
+        lines += [f"        ({effect!a}, "
+                  f"{tuple((at, float(value)) for at, value in steps)!a}),"
                   for effect, steps in passives]
         lines.append("    ),")
     skins = game_client.card_skins(client)
@@ -348,11 +348,11 @@ def shipped_source(client, partners=None):
               "# combatant its Super Rare is for)}. See "
               "game_client.card_skins.",
               "CARD_SKINS = {"]
-    lines += [f"    {res_id}: {ascii(tuple(skin))},"
+    lines += [f"    {res_id}: {tuple(skin)!a},"
               for res_id, skin in sorted(skins["skins"].items())]
     lines += ["}", "CARD_SKIN_PACKS = {"]
-    lines += [f"    {ascii(pack)}: ({ascii(name)}, "
-              f"{ascii(dict(sorted(chances.items())))}, {featured!r}),"
+    lines += [f"    {pack!a}: ({name!a}, "
+              f"{dict(sorted(chances.items()))!a}, {featured!r}),"
               for pack, (name, chances, featured)
               in sorted(skins["packs"].items())]
     lines += ["}", "",
@@ -366,8 +366,8 @@ def shipped_source(client, partners=None):
     from game_data import from_client
     kept = getattr(from_client, "SEASON_NODES", {})
     trees = game_client.season_nodes(client)
-    lines += [f"    {ascii(season)}: "
-              f"{ascii(tuple(game_client.grown_season_nodes(kept.get(season), trees.get(season))))},"
+    lines += [f"    {season!a}: "
+              f"{tuple(game_client.grown_season_nodes(kept.get(season), trees.get(season)))!a},"
               for season in sorted(set(kept) | set(trees))]
     lines += ["}", "",
               "# {season: {'pages', 'gates', 'achievements', 'lists'}}: "
@@ -377,18 +377,18 @@ def shipped_source(client, partners=None):
               "# See game_client.disaster_challenges.",
               "DISASTER_CHALLENGES = {"]
     for season, held in sorted(game_client.disaster_challenges(client).items()):
-        lines += [f"    {ascii(season)}: {{",
-                  f"        'pages': {ascii(held['pages'])},",
-                  f"        'gates': {ascii(held['gates'])},",
+        lines += [f"    {season!a}: {{",
+                  f"        'pages': {held['pages']!a},",
+                  f"        'gates': {held['gates']!a},",
                   "        'achievements': ["]
-        lines += [f"            {ascii(achievement)},"
+        lines += [f"            {achievement!a},"
                   for achievement in held["achievements"]]
         lines += ["        ],", "        'lists': {"]
         for info, listed in sorted(held["lists"].items()):
-            lines.append(f"            {ascii(info)}: {{'kind': "
-                         f"{ascii(listed['kind'])}, 'collection': "
-                         f"{ascii(listed['collection'])}, 'items': [")
-            lines += [f"                {ascii(item)},"
+            lines.append(f"            {info!a}: {{'kind': "
+                         f"{listed['kind']!a}, 'collection': "
+                         f"{listed['collection']!a}, 'items': [")
+            lines += [f"                {item!a},"
                       for item in listed["items"]]
             lines.append("            ]},")
         lines += ["        },", "    },"]
@@ -400,15 +400,15 @@ def shipped_source(client, partners=None):
               "COUNSELING = {"]
     for res_id, held in sorted(game_client.counseling(client).items()):
         lines += [f"    {res_id}: {{",
-                  f"        'tiers': {ascii(held['tiers'])},",
-                  f"        'set': {ascii(held['set'])},",
+                  f"        'tiers': {held['tiers']!a},",
+                  f"        'set': {held['set']!a},",
                   "        'scenarios': ["]
         for scenario in held["scenarios"]:
             lines.append("            {" + ", ".join(
-                f"{ascii(key)}: {ascii(scenario[key])}"
+                f"{key!a}: {scenario[key]!a}"
                 for key in ("id", "story", "title", "line", "reward"))
                 + ", 'choices': [")
-            lines += [f"                {ascii(choice)},"
+            lines += [f"                {choice!a},"
                       for choice in scenario["choices"]]
             lines.append("            ]},")
         lines += ["        ],", "    },"]
@@ -421,10 +421,10 @@ def shipped_source(client, partners=None):
               "# and {what: the client's name}. See "
               "docs/client_tables.client_words.",
               "EGO_TEXTS = {"]
-    lines += [f"    {res_id}: {ascii(text)},"
+    lines += [f"    {res_id}: {text!a},"
               for res_id, text in sorted(words["ego"].items())]
     lines += ["}", "CLIENT_NAMES = {"]
-    lines += [f"    {ascii(what)}: {ascii(name)},"
+    lines += [f"    {what!a}: {name!a},"
               for what, name in sorted(words["names"].items())]
     lines += ["}", ""]
     return "\n".join(lines)
@@ -1492,7 +1492,7 @@ def main(argv=None):
         print(client_archive.archive(client, folder))
         return 0
     if args.list:
-        pattern = re.compile(args.list, re.I)
+        pattern = re.compile(args.list, re.IGNORECASE)
         for name in sorted(archive.files):
             if pattern.search(name):
                 print(name)
@@ -1506,12 +1506,12 @@ def main(argv=None):
         else:
             print("\n".join(lines))
     elif args.text:
-        pattern = re.compile(args.text, re.I)
+        pattern = re.compile(args.text, re.IGNORECASE)
         for key, value in client.text().items():
             if pattern.search(key) or pattern.search(value):
                 print(f"{key}\t{value}")
     elif args.grep:
-        pattern = re.compile(args.grep, re.I)
+        pattern = re.compile(args.grep, re.IGNORECASE)
         stubs, unread = 0, []
         for name in sorted(archive.files):
             if not (name.startswith("db/") and name.endswith(".db")):

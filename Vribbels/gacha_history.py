@@ -35,7 +35,7 @@ import operator
 import os
 import re
 import time
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from pathlib import Path
 
 import shared_facts
@@ -177,8 +177,7 @@ def pool_of(gacha_id):
     for prefix, pool in PREFIX_POOLS:
         if gacha_id.startswith(prefix):
             return pool
-    return gacha_id[len("gacha_"):] if gacha_id.startswith("gacha_") \
-        else gacha_id
+    return gacha_id.removeprefix("gacha_")
 
 
 def note_general_pool(rates):
@@ -306,7 +305,7 @@ CHANGEOVER_HOUR = 2        # UTC
 
 def _utc(day, hour=0):
     return datetime.strptime(day, "%Y-%m-%d").replace(
-        hour=hour, tzinfo=timezone.utc).timestamp()
+        hour=hour, tzinfo=UTC).timestamp()
 
 
 def _windows(banners, opens_hour, closes_after, suffix):
@@ -576,7 +575,7 @@ def _one_more_cycle(prev, step):
     for j in range(1, m + HARD_PITY):
         # core[i] meets step[j - i], for i in [first, last).
         first = j - HARD_PITY if j > HARD_PITY else 0
-        last = j if j < m else m
+        last = min(m, j)
         if last - first == HARD_PITY:
             out[lo + j] = _sumprod(core[first:last], back)
         else:
@@ -832,8 +831,8 @@ class History:
         """The Rescue families in the tab's order, then the Card Skin
         Packs."""
         known = [self.pools[p] for p in POOL_ORDER if p in self.pools]
-        rest = sorted((p for p in self.pools
-                       if p not in POOL_ORDER and p != SKIN_POOL))
+        rest = sorted(p for p in self.pools
+                       if p not in POOL_ORDER and p != SKIN_POOL)
         skins = [self.pools[SKIN_POOL]] if SKIN_POOL in self.pools else []
         return known + [self.pools[p] for p in rest] + skins
 

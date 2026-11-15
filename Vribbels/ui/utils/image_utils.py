@@ -22,7 +22,6 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageTk
 
 from .. import scaling
-from ui.scaling import px
 
 # What the files hold, and what is drawn.
 #
@@ -221,7 +220,7 @@ def _plated(icon, plate_path, size):
     return canvas
 
 
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def _art_on_disk(icon_path, plate_path, size):
     """The icon over its plate at `size`, before any words go on it.
 
@@ -239,7 +238,7 @@ def _art_on_disk(icon_path, plate_path, size):
     return _plated(img, plate_path, size)
 
 
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def _image_at(key):
     return Image.open(key).convert("RGBA")
 
@@ -328,7 +327,7 @@ def create_blank_icon(background, size=None):
     return ImageTk.PhotoImage(Image.new("RGB", size, background))
 
 
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def _font(name, size):
     """A TrueType face, loaded once per name and size.
 
@@ -370,7 +369,7 @@ def _label_box(font, text, pad, band=None):
     captions that has to keep one height whatever glyphs it holds.
     """
     ink = _ink(font, text)
-    top, bottom = band if band else (ink[1], ink[3])
+    top, bottom = band or (ink[1], ink[3])
     return (ink[0] - pad, top - pad, ink[2] - 1 + pad, bottom - 1 + pad)
 
 

@@ -62,7 +62,7 @@ def live(group, raw_data, now):
             continue
         if best is None or end < best[1]["end_time"]:
             best = (name, window)
-    return best if best else (None, None)
+    return best or (None, None)
 
 
 def all_live(group, raw_data, now):
@@ -123,7 +123,7 @@ def current(group, raw_data, now):
             continue
         if best is None or start > best[1]["start_time"]:
             best = (name, window)
-    return best if best else (None, None)
+    return best or (None, None)
 
 
 def season_start(group, raw_data, now):

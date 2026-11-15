@@ -2169,7 +2169,7 @@ def _finished_boxes_ask_only_where_it_is_open(tab):
     """
     import schedules
     from ui.tabs.checklist_tab import (
-        DONE, EVENT_KEY_PREFIX, FINISHED_LABEL, NOT_ASKED_GROUPS,
+        EVENT_KEY_PREFIX, FINISHED_LABEL, NOT_ASKED_GROUPS,
         unsure_ceiling)
     out = []
     drawn = tab._rendered.get("Other")
@@ -2924,7 +2924,7 @@ def _epione_marks_and_advises(tab):
             out.append("Epione: a counseling since the openers were marked "
                        "left them marked: the next counseling deals anew")
         tab._select(1)
-        if mod.NOT_KNOWN % "Nobody" != str(tab._note.cget("text")):
+        if str(tab._note.cget("text")) != mod.NOT_KNOWN % "Nobody":
             out.append(f"Epione: a combatant the client gives no counseling "
                        f"reads {tab._note.cget('text')!r}")
     except (tk.TclError, LookupError, AttributeError) as e:
@@ -3093,7 +3093,6 @@ def _checklist_heading_totals_are_marked(tab):
 
     Returns a list of complaints.
     """
-    import tkinter as tk
     from ui.tabs import checklist_tab as mod
     out = []
     seen = 0
@@ -4580,7 +4579,7 @@ def _gacha_overall_fits(tab, gh):
     # those rows reading nothing, and only an audit would say so.
     from ui import spacing_registry as registry
     title = str(tab.overall_holder.master.cget("text"))
-    if registry.GACHA_OVERALL_TITLE != title:
+    if title != registry.GACHA_OVERALL_TITLE:
         out.append(f"the spacing registry looks for a panel titled "
                    f"{registry.GACHA_OVERALL_TITLE!r}; the tab's is "
                    f"{title!r}. Update `GACHA_OVERALL_TITLE`.")
@@ -5136,7 +5135,6 @@ def _checklist_prices_apart_take_the_middle(tab):
 
     Returns a list of complaints.
     """
-    import tkinter as tk
     from ui.tabs import checklist_tab as mod
     out, seen = [], 0
     for title, (text, rows) in tab.column_texts.items():
@@ -7024,8 +7022,10 @@ def run():
         import ui.tabs as tabs_pkg
         from ui.context import AppContext
         from optimizer.optimizer import GearOptimizer
-        import preset_manager, character_preset_manager
-        import optimizer_settings_manager, settings_manager
+        import preset_manager
+        import character_preset_manager
+        import optimizer_settings_manager
+        import settings_manager
         import log_presets_manager
         import checklist_manager
         from config import AppConfig
@@ -7526,7 +7526,8 @@ FAULTS = [
     ("the counts left unaligned", "ui.tabs.epione_tab:EpioneTab._align_counts",
      "minsize=widest + inset)", "minsize=0)", "titles' columns are held"),
     ("a cure without its tier's colour", "ui.tabs.epione_tab:EpioneTab._fill_card",
-     "(state, TIER_TAG % min(band, len(TIER_COLOURS) - 1))", "(state,)",
+     "(state, CURE_TAG, TIER_TAG % min(band, len(TIER_COLOURS) - 1))",
+     "(state, CURE_TAG)",
      "does not carry tier"),
     ("the advice on the other card", "ui.tabs.epione_tab:EpioneTab._fill_card",
      "advised = offered and advice.opener == number",

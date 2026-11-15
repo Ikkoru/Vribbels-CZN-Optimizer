@@ -23,6 +23,7 @@ No Tk and no snapshot needed -- the shapes are synthesised here.
 """
 
 from ._harness import add_source_to_path
+from datetime import UTC
 
 NAME = "period items"
 
@@ -71,8 +72,8 @@ def run():
             f"built from."
         )
     else:
-        from datetime import datetime, timezone
-        want = datetime.fromtimestamp(1788710956, tz=timezone.utc).astimezone()
+        from datetime import datetime
+        want = datetime.fromtimestamp(1788710956, tz=UTC).astimezone()
         if f"{want:%Y-%m-%d %H:%M:%S}" not in lines[1]:
             failures.append(
                 f"the expiry line {lines[1]!r} does not carry the LOCAL "

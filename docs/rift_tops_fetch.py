@@ -30,7 +30,7 @@ import re
 import sys
 import time
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 
 SITE = "https://cznmetadecks.com/meta?define=%s"
 AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) VribbelsRiftTops/1.0"
@@ -78,7 +78,7 @@ def tops_of(html):
 def stamp(read):
     """The site's ISO time as the table writes one, UTC to the second."""
     at = datetime.fromisoformat(read.replace("Z", "+00:00"))
-    return at.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    return at.astimezone(UTC).strftime("%Y-%m-%d %H:%M:%S")
 
 
 def main():

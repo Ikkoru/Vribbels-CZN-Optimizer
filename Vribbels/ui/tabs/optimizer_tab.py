@@ -46,7 +46,6 @@ from tkinter import ttk, messagebox
 from tkinter import font as tkfont
 import threading
 import queue
-from typing import Optional
 
 from ui.base_tab import BaseTab
 from ui.context import AppContext
@@ -63,8 +62,8 @@ from ui.utils.style_once import first_time
 from ui.utils.tooltip import Tooltip
 from ui.utils.combobox_nav import bind_combobox_nav
 from game_data import (
-    SETS, FOUR_PIECE_SETS, TWO_PIECE_SETS, set_bonus,
-    SLOT_MAIN_STATS, RARITY_COLORS, ATTRIBUTE_COLORS,
+    SETS, set_bonus,
+    RARITY_COLORS, ATTRIBUTE_COLORS,
     CHARACTERS,
     get_character_by_name
 )
@@ -462,7 +461,7 @@ class OptimizerTab(BaseTab):
         # name, possibly suffixed with a res_id for unknown chars). The
         # res_id is the canonical key into OptimizerSettingsManager.
         self.selected_character = tk.StringVar()
-        self._current_res_id: Optional[int] = None
+        self._current_res_id: int | None = None
         # Suppresses writeback to settings during programmatic var loads
         # in on_hero_select. Each trace callback checks this first.
         self._loading_settings = False
@@ -2683,7 +2682,7 @@ class OptimizerTab(BaseTab):
     # res_id resolution + per-character settings load/save
     # =================================================================
 
-    def _resolve_res_id(self, hero_name: str) -> Optional[int]:
+    def _resolve_res_id(self, hero_name: str) -> int | None:
         """Return the res_id for `hero_name`, or None if unknown.
 
         Resolution order:
@@ -3319,7 +3318,7 @@ class OptimizerTab(BaseTab):
             best = max(best, 2)
         return best
 
-    def _maybe_bump_flex_slots(self) -> Optional[int]:
+    def _maybe_bump_flex_slots(self) -> int | None:
         """If the current Maximum Flex Slots is too low for the chosen sets to
         leave any valid build, raise it to the minimum that works. Persists
         the new value to OptimizerSettingsManager and updates the UI spinbox.
@@ -3369,7 +3368,7 @@ class OptimizerTab(BaseTab):
         # in practice -- run_optimization gates on hero selection).
         if self.opt_settings is None or self._current_res_id is None:
             s = {
-                "force_main": {k: False for k in ("slot4_hp", "slot5_hp", "slot6_hp", "slot6_ego")},
+                "force_main": dict.fromkeys(("slot4_hp", "slot5_hp", "slot6_hp", "slot6_ego"), False),
                 "sets_selected": [],
                 "max_flex_slots": 6,
                 "have_at_least": {},
@@ -3385,7 +3384,7 @@ class OptimizerTab(BaseTab):
             slot6_filter.append("HP%")
         if s["force_main"].get("slot6_ego"):
             slot6_filter.append("Ego")
-        slot6_filter = slot6_filter if slot6_filter else None
+        slot6_filter = slot6_filter or None
 
         # Selected sets -> split into 4-piece and 2-piece lists for the
         # optimizer's legacy fields (kept for back-compat; the
@@ -4285,9 +4284,9 @@ class OptimizerTab(BaseTab):
         top.geometry(f"{width}x{height}+{max(0, x)}+{max(0, y)}")
 
     def _populate_stats_compare(self, current_stats: dict,
-                                new_stats: Optional[dict],
-                                current_cond: Optional[dict] = None,
-                                new_cond: Optional[dict] = None):
+                                new_stats: dict | None,
+                                current_cond: dict | None = None,
+                                new_cond: dict | None = None):
         """Fill the Stats Comparison: `current_stats` and `new_stats`
         without any conditional set's effect, `current_cond` and
         `new_cond` with each one's share of it. A row the two disagree

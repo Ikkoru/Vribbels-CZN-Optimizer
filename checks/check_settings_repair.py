@@ -453,7 +453,7 @@ def _nothing_saves_over(root):
              "optimizer_settings.json", "checklist.json",
              "log_presets.json")
     base, settings, shipped = _folder(
-        root, "unrepaired", raw={file: broken for file in files})
+        root, "unrepaired", raw=dict.fromkeys(files, broken))
     defaults_sync.sync_defaults(settings, shipped)
     sm = settings_manager.SettingsManager(base)
     sm.load()

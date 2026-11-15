@@ -32,7 +32,6 @@ program has no use for. It is a list of things nobody has LOOKED at,
 which is a different and more useful thing than a list of bugs.
 """
 
-import io
 import json
 import re
 import sys
@@ -69,13 +68,13 @@ READS = [
 # **Erring towards READ here would hide the thing this exists to
 # find**, so the span is bounded tightly: only what is between that
 # `for key in (` and its closing bracket.
-TUPLES = re.compile(r"for key in \((.*?)\):", re.S)
+TUPLES = re.compile(r"for key in \((.*?)\):", re.DOTALL)
 QUOTED = re.compile(r"[\"']([a-z_][a-z0-9_]*)[\"']")
 
 
 def keys_the_addon_reads():
     """Every wire key named in the capture source."""
-    text = io.open(ADDON, encoding="utf-8").read()
+    text = open(ADDON, encoding="utf-8").read()
     found = set()
     for pattern in READS:
         found |= {m.group(1) for m in pattern.finditer(text)}
@@ -95,7 +94,7 @@ def main(argv):
         print("No catalogue yet at %s." % book)
         print("It is written as a capture runs -- start one, play, stop.")
         return 1
-    rows = json.loads(io.open(book, encoding="utf-8").read())["keys"]
+    rows = json.loads(open(book, encoding="utf-8").read())["keys"]
     read = keys_the_addon_reads()
 
     show_all = "--all" in argv

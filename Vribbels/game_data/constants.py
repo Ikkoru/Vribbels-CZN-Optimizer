@@ -51,7 +51,6 @@ capture/constants.py: they are about the capture pipeline rather than
 about the game's data.
 """
 
-from pathlib import Path
 from typing import NamedTuple
 
 # The six combatant/partner classes. Characters (characters.py) and
@@ -952,10 +951,10 @@ def get_partner_level_from_exp(exp: int) -> int:
 # pair on record agree with it.
 AFFINITY_TO_NEXT = {
     1: 80, 2: 120, 3: 150, 4: 150,
-    **{level: 200 for level in range(5, 15)},
-    **{level: 300 for level in range(15, 20)},
-    **{level: 400 for level in range(20, 30)},
-    **{level: 600 for level in range(30, 40)},
+    **dict.fromkeys(range(5, 15), 200),
+    **dict.fromkeys(range(15, 20), 300),
+    **dict.fromkeys(range(20, 30), 400),
+    **dict.fromkeys(range(30, 40), 600),
 }
 
 

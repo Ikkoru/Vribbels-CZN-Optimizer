@@ -269,7 +269,7 @@ def released_at(day=RELEASED_ON):
     that every run counts as after it."""
     try:
         return datetime.datetime.strptime(day, "%Y-%m-%d").replace(
-            tzinfo=datetime.timezone.utc).timestamp()
+            tzinfo=datetime.UTC).timestamp()
     except (TypeError, ValueError):
         return 0
 
@@ -707,7 +707,7 @@ def mark_values(live, runs, shipped=SHIPPED, stale=0, starts=None):
 def in_rate_event(when):
     """The name of the `RATE_EVENTS` window `when` falls in, or None."""
     day = datetime.datetime.fromtimestamp(
-        when, datetime.timezone.utc).strftime("%Y-%m-%d")
+        when, datetime.UTC).strftime("%Y-%m-%d")
     for first, last, name in RATE_EVENTS:
         if first <= day <= last:
             return name
@@ -822,7 +822,7 @@ def had_passives(run):
         return version >= PASSIVES_FROM
     closed = run.get("closed")
     return isinstance(closed, (int, float)) and datetime.datetime.fromtimestamp(
-        closed, datetime.timezone.utc).strftime("%Y-%m-%d") >= PASSIVES_ON
+        closed, datetime.UTC).strftime("%Y-%m-%d") >= PASSIVES_ON
 
 
 def invasion_raise(partners):

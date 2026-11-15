@@ -8,7 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 import tkinter as tk
 from tkinter import ttk
-from typing import Callable, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
+from collections.abc import Callable
 
 if TYPE_CHECKING:
     from optimizer import GearOptimizer
@@ -56,9 +57,9 @@ class AppContext:
     notebook: ttk.Notebook
 
     # Services
-    optimizer: 'GearOptimizer'
-    capture_manager: 'CaptureManager'
-    config: 'AppConfig'
+    optimizer: GearOptimizer
+    capture_manager: CaptureManager
+    config: AppConfig
 
     # Styling
     colors: dict
@@ -66,47 +67,47 @@ class AppContext:
 
     # Callbacks
     load_data_callback: Callable[[str], None]
-    refresh_callback: Optional[Callable[[], None]] = None
-    inventory_tab: Optional['InventoryTab'] = None
-    heroes_tab: Optional['HeroesTab'] = None
-    scoring_tab: Optional['ScoringTab'] = None
+    refresh_callback: Callable[[], None] | None = None
+    inventory_tab: InventoryTab | None = None
+    heroes_tab: HeroesTab | None = None
+    scoring_tab: ScoringTab | None = None
     # Used by the Setup & Settings tab's Restore Defaults flow to refresh the
     # Optimizer tab's displayed per-combatant settings after a restore.
     # Optional -- callers must check for None.
-    optimizer_tab: Optional['OptimizerTab'] = None
-    preset_manager: Optional['PresetManager'] = None
-    character_preset_manager: Optional['CharacterPresetManager'] = None
+    optimizer_tab: OptimizerTab | None = None
+    preset_manager: PresetManager | None = None
+    character_preset_manager: CharacterPresetManager | None = None
     # General-purpose persistent key-value store for user preferences
     # that don't fit into the other managers' shapes.
-    settings_manager: Optional['SettingsManager'] = None
+    settings_manager: SettingsManager | None = None
     # Find and read the game client again once its folder is set: the
     # app's `reread_game_client`. None where nothing wired it (a check
     # building a tab alone).
-    reread_game_client: Optional[Callable[[], None]] = None
+    reread_game_client: Callable[[], None] | None = None
     # Per-character optimizer-tab settings (Important Settings, Have at
     # Least minimums, selected sets, etc). Indexed by res_id so character
     # renames don't lose data. See optimizer_settings_manager.py.
-    optimizer_settings_manager: Optional['OptimizerSettingsManager'] = None
+    optimizer_settings_manager: OptimizerSettingsManager | None = None
     # Per-combatant selection flags behind the Capture tab's Log Presets
     # checklist (which assigned presets participate in the "[LIVE]
     # Upgraded" Highest-Potential lines). See log_presets_manager.py.
-    log_presets_manager: Optional['LogPresetsManager'] = None
+    log_presets_manager: LogPresetsManager | None = None
 
     # Which Checklist shop products the user tracks. See
     # checklist_manager.py.
-    checklist_manager: Optional['ChecklistManager'] = None
+    checklist_manager: ChecklistManager | None = None
     # Where `stats_history.py` keeps what it read out of old debug
     # captures: the user's settings folder.
-    stats_dir: Optional[Path] = None
+    stats_dir: Path | None = None
     # The game facts that ship with the program, read beside the
     # account's own -- see shared_facts.py. None reads as none shipped,
     # which is what a tab built without the app gets.
-    shared_facts: Optional[dict] = None
+    shared_facts: dict | None = None
     # Where the account's own facts are read from for the Share Game
     # Data panel: the folder holding `settings/` and `snapshots/`.
-    program_dir: Optional[Path] = None
+    program_dir: Path | None = None
     # Re-renders the LAST "[LIVE] Upgraded" capture-log line against the
     # current Log Presets selection. Set by the main GUI; the Capture
     # tab calls it after a checklist toggle. Optional -- callers must
     # check for None.
-    recompute_upgrade_line_callback: Optional[Callable[[], None]] = None
+    recompute_upgrade_line_callback: Callable[[], None] | None = None

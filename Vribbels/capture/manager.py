@@ -13,7 +13,7 @@ import sys
 import os
 import time
 from pathlib import Path
-from typing import Optional, Callable
+from collections.abc import Callable
 
 from . import job
 from .constants import PROXY_PORT, GAME_PORT, HOSTS_PATH
@@ -22,7 +22,6 @@ from .setup import find_mitmdump
 
 class CaptureError(Exception):
     """Raised when capture operations fail."""
-    pass
 
 
 # Markers delimiting the redirect block this program appends to the
@@ -5500,9 +5499,9 @@ class CaptureManager:
     def __init__(
         self,
         output_folder: Path,
-        log_callback: Callable[[str, Optional[str]], None],
-        status_callback: Optional[Callable[[str], None]] = None,
-        live_update_callback: Optional[Callable[[], None]] = None
+        log_callback: Callable[[str, str | None], None],
+        status_callback: Callable[[str], None] | None = None,
+        live_update_callback: Callable[[], None] | None = None
     ):
         """
         Initialize the capture manager.
@@ -5579,7 +5578,7 @@ class CaptureManager:
         """Check if currently capturing."""
         return self.capturing
 
-    def get_latest_capture(self) -> Optional[Path]:
+    def get_latest_capture(self) -> Path | None:
         """Most recent snapshot on disk, from ANY session, or None."""
         files = list(self.output_folder.glob("memory_fragments_*.json"))
         return max(files, key=lambda f: f.stat().st_mtime) if files else None
@@ -5610,7 +5609,7 @@ class CaptureManager:
                 # Held by something else, or gone already: it stays.
                 continue
 
-    def get_session_capture(self) -> Optional[Path]:
+    def get_session_capture(self) -> Path | None:
         """The snapshot THIS capture session wrote, or None.
 
         `get_latest_capture` answers a different question, and using it
@@ -5632,11 +5631,11 @@ class CaptureManager:
         return latest if (latest.stat().st_mtime
                           >= self._session_started_at - 1) else None
 
-    def _read_detected_region(self, capture_file: Path) -> Optional[str]:
+    def _read_detected_region(self, capture_file: Path) -> str | None:
         """Read detected_region from capture file."""
         import json
         try:
-            with open(capture_file, "r", encoding="utf-8") as f:
+            with open(capture_file, encoding="utf-8") as f:
                 data = json.load(f)
             return data.get("detected_region")
         except Exception:
@@ -5747,7 +5746,7 @@ class CaptureManager:
         and no newline translation, which would turn every bare LF into
         CRLF on the way back out.
         """
-        with open(self.hosts_path, "r", encoding="utf-8",
+        with open(self.hosts_path, encoding="utf-8",
                   errors="surrogateescape", newline="") as f:
             return f.read()
 
@@ -5864,7 +5863,7 @@ class CaptureManager:
         except CaptureError as e:
             self.log_callback(f"Failed to restore hosts: {e}", "error")
 
-    def _find_dictionary_path(self) -> Optional[Path]:
+    def _find_dictionary_path(self) -> Path | None:
         """The zstd dictionary the addon decompresses with, or None.
 
         The program's own copy: beside the source in a source run, in
@@ -6263,7 +6262,7 @@ addons =[Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode},
         # Generate addon script
         try:
             addon_script = self._generate_addon_script(debug_mode=debug_mode)
-        except CaptureError as e:
+        except CaptureError:
             self.restore_hosts_file()
             raise
 
@@ -6339,7 +6338,7 @@ addons =[Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode},
 
         self.log_callback("Capture started! Launch the game and load into the main menu.", "success")
 
-    def stop_capture(self) -> Optional[tuple[Path, Optional[str]]]:
+    def stop_capture(self) -> tuple[Path, str | None] | None:
         """
         Stop the capture process:
         1. Terminate proxy process

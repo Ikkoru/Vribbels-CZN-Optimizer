@@ -40,11 +40,11 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import replay_log                                             # noqa: E402
+import replay_log
 
 # A field whose value signs the account in, by its key.
 SECRET = re.compile(r"token|cookie|session|password|device_id|uuid|sign",
-                    re.I)
+                    re.IGNORECASE)
 BLANK = "<blanked>"
 
 
@@ -132,7 +132,7 @@ def print_changes(logs, pattern, width, start="", end=""):
         print(f"== {name}")
         for stamp, request, reply in requests(lines):
             when = clock(stamp)
-            if start and when < start or end and when[:len(end)] > end:
+            if (start and when < start) or (end and when[:len(end)] > end):
                 continue
             found = []
             _matches(request, "ask", pattern, found)
@@ -165,7 +165,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if args.changes:
         print_changes(replay_log.find_logs(args.logs),
-                      re.compile(args.changes, re.I), args.width,
+                      re.compile(args.changes, re.IGNORECASE), args.width,
                       args.start, args.end)
         return 0
     names = {name for name in args.cmd.split(",") if name}
@@ -174,8 +174,8 @@ def main(argv=None):
         print(f"== {name}")
         for stamp, request, reply in requests(lines):
             when = clock(stamp)
-            if args.start and when < args.start or \
-                    args.end and when[:len(args.end)] > args.end:
+            if (args.start and when < args.start) or \
+                    (args.end and when[:len(args.end)] > args.end):
                 continue
             asked = command(request)
             if names and not (names & {request.get("cmd"), asked,

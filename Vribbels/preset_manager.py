@@ -32,7 +32,7 @@ format on the next save.
 
 import json
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from json_file import write_json
 
@@ -68,7 +68,7 @@ def weights_equal(a, b) -> bool:
         return False
 
 
-def preset_problem(name, weights) -> Optional[str]:
+def preset_problem(name, weights) -> str | None:
     """Why presets.json could not hold this preset, or None."""
     if not isinstance(name, str) or not name.strip():
         return "Preset name must be a non-empty string."
@@ -83,7 +83,7 @@ def preset_problem(name, weights) -> Optional[str]:
     return None
 
 
-def structure_problem(data) -> Optional[str]:
+def structure_problem(data) -> str | None:
     """Why `PresetManager.load` would refuse `data`, or None. What
     `settings_repair` holds a repaired file to as well."""
     if not isinstance(data, dict):
@@ -105,7 +105,7 @@ def structure_problem(data) -> Optional[str]:
 class PresetManager:
     """Loads, saves, and manages user-defined scoring weight presets."""
 
-    def __init__(self, base_dir: Path, settings_manager: Optional[Any] = None):
+    def __init__(self, base_dir: Path, settings_manager: Any | None = None):
         """
         Args:
             base_dir: The program's base directory. The 'presets' folder will
@@ -126,14 +126,14 @@ class PresetManager:
         # wired up. Only the property below reads it; production calls
         # always go through settings_manager. Set during load() either
         # from a legacy presets.json field or to None.
-        self._legacy_selected: Optional[str] = None
+        self._legacy_selected: str | None = None
         self.corrupted: bool = False
-        self.corruption_error: Optional[str] = None
+        self.corruption_error: str | None = None
 
     # ----- selected_preset: backed by SettingsManager when available -----
 
     @property
-    def selected_preset(self) -> Optional[str]:
+    def selected_preset(self) -> str | None:
         """Name of the currently-selected preset, or None.
 
         Reads from SettingsManager['selected_preset'] when wired up;
@@ -231,7 +231,7 @@ class PresetManager:
     def has_preset(self, name: str) -> bool:
         return name in self.presets
 
-    def get_preset(self, name: str) -> Optional[dict]:
+    def get_preset(self, name: str) -> dict | None:
         """
         Return weights for a preset, padded with 1.0 for any missing supported stat.
         Returns None if the preset doesn't exist.
@@ -267,7 +267,7 @@ class PresetManager:
             self._set_selected_internal(None)
         self._write()
 
-    def set_selected(self, name: Optional[str]):
+    def set_selected(self, name: str | None):
         """Set the currently-active preset name and persist (no-op if corrupted).
 
         Persistence target is SettingsManager when wired up; otherwise the
@@ -284,7 +284,7 @@ class PresetManager:
         if self.settings_manager is None:
             self._write()
 
-    def _set_selected_internal(self, name: Optional[str]):
+    def _set_selected_internal(self, name: str | None):
         """Route a new selection to the right backing store. Used by
         save_preset / delete_presets / set_selected to avoid duplicating
         the SettingsManager-vs-fallback decision."""

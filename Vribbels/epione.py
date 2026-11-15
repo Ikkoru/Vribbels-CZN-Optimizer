@@ -23,7 +23,7 @@ No Tk and no managers: this takes the snapshot dict and returns data.
 """
 
 from collections import namedtuple
-from functools import lru_cache
+from functools import cache
 from itertools import combinations
 
 # Where the snapshot keeps the records: inside the login's roster
@@ -175,7 +175,7 @@ def pairs(sides, pairing=PAIRING):
             if sides[i] == "L" and sides[j] == "R"]
 
 
-@lru_cache(maxsize=None)
+@cache
 def whiffs_to_come(left, offers):
     """How many counselings of a scenario are expected to offer nothing
     new before every option in it is picked, picking well every time.

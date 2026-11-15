@@ -24,14 +24,13 @@ ends with its arrow.
 """
 
 import glob
-import io
 import re
 
 from ._harness import REPO_ROOT, SOURCE_ROOT
 
 NAME = "spacing markers"
 
-MARKER = re.compile(r"#\s*spacing:\s*(.+?)\s*$", re.M)
+MARKER = re.compile(r"#\s*spacing:\s*(.+?)\s*$", re.MULTILINE)
 # Horizontal, vertical, or a lever that acts in both -- a frame padding
 # or a style inset reaches all four edges at once, and writing one arrow
 # for it would drop the site out of the other arrow's grep.
@@ -101,7 +100,7 @@ def _vocabulary(doc):
     # next section swept up the Treeview levers, the clam colour options
     # and the digit table, all of which are first-column-backticked too.
     block = doc.split(VOCAB_HEADING)[1]
-    block = re.split(r"^#{2,4} ", block, maxsplit=1, flags=re.M)[0]
+    block = re.split(r"^#{2,4} ", block, maxsplit=1, flags=re.MULTILINE)[0]
     words = set()
     for row in block.splitlines():
         cell = re.match(r"^\|\s*`([^`]+)`\s*\|", row)
@@ -122,7 +121,7 @@ def _doc_rules():
     `RULE_` constant, which they are, legitimately, right up until they
     are ruled.
     """
-    doc = io.open(REPO_ROOT / "docs" / "ui_spacing.md", encoding="utf-8").read()
+    doc = open(REPO_ROOT / "docs" / "ui_spacing.md", encoding="utf-8").read()
 
     rules = _marker_column(_between(doc, RULES_HEADING, UNRULED_HEADING))
 
@@ -130,7 +129,7 @@ def _doc_rules():
     # Columns are hand-aligned with padding, so a cell needs stripping
     # before it can be compared against a marker in the code.
     tbd = {cell.strip() for cell in
-           re.findall(r"^\|([^|]+)\|", tbd_block, re.M)}
+           re.findall(r"^\|([^|]+)\|", tbd_block, re.MULTILINE)}
     tbd -= {"Description", ""}
     tbd = {t for t in tbd if set(t) - set("- ")}     # drop the ruler row
     return rules, tbd, _vocabulary(doc)
@@ -189,9 +188,9 @@ def run():
     except DocLayoutChanged as e:
         return [str(e)]
 
-    reg = io.open(SOURCE_ROOT / "ui" / "spacing_registry.py",
+    reg = open(SOURCE_ROOT / "ui" / "spacing_registry.py",
                   encoding="utf-8").read()
-    consts = set(re.findall(r'^RULE_\w+ = "([^"]+)"', reg, re.M))
+    consts = set(re.findall(r'^RULE_\w+ = "([^"]+)"', reg, re.MULTILINE))
 
     for rule in rules:
         if rule not in consts:
@@ -209,7 +208,7 @@ def run():
         if "__pycache__" in path or "_capture_addon" in path:
             continue
         rel = path.replace(str(SOURCE_ROOT), "").lstrip("\\/")
-        text = io.open(path, encoding="utf-8", errors="replace").read()
+        text = open(path, encoding="utf-8", errors="replace").read()
         # Matched per line, deliberately. A marker naming a rule or a TBD
         # must fit on ONE line; joining continuation comments to find a
         # longer one also welds unrelated prose onto the end of a

@@ -171,12 +171,12 @@ def _allowance(ex):
     real = game_client.known_limits
     try:
         # The module's own figures, nothing stated by any client.
-        game_client.known_limits = lambda: {}
+        game_client.known_limits = dict
         base = ex.VISIT_TICKETS
         nodes = sorted(ex.VISIT_RESEARCH)
         top = base + sum(f[-1] for f in ex.VISIT_RESEARCH.values())
         for levels, want, what in (
-                ({node: 1 for node in nodes}, base + sum(
+                (dict.fromkeys(nodes, 1), base + sum(
                     ex.VISIT_RESEARCH[n][0] for n in nodes), "every node"),
                 ({}, base, "no research"),
                 ({nodes[0]: 1}, base + ex.VISIT_RESEARCH[nodes[0]][0],

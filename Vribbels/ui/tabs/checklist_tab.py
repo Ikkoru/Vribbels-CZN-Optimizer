@@ -89,7 +89,7 @@ import functools
 import json
 import math
 import time
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 import tkinter as tk
 from tkinter import ttk
 from tkinter import font as tkfont
@@ -991,7 +991,7 @@ def _supply_rounds(raw, name):
     out = []
     for day in days:
         midnight = int(datetime.strptime(day, "%Y-%m-%d").replace(
-            tzinfo=timezone.utc).timestamp())
+            tzinfo=UTC).timestamp())
         out.append(next((s for s in starts
                          if midnight <= s < midnight + 86400), midnight))
     return out
@@ -1365,7 +1365,7 @@ def _stalled(raw, name, window, now):
     return _is_count(since) and since > 0 and now - since >= STALLS_AFTER
 
 
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def _event_key(name):
     """An event or mission id with the differences between the two
     normalised away. See `EVENT_NOISE_WORDS`.
@@ -1531,8 +1531,7 @@ def event_label(name):
     found = game_client.event_name(name)
     if found:
         return found
-    return name[len(EVENT_ID_PREFIX):] if name.startswith(
-        EVENT_ID_PREFIX) else name
+    return name.removeprefix(EVENT_ID_PREFIX)
 
 
 def cut_to_fit(font, name, room):
@@ -3791,7 +3790,7 @@ def limit_mismatches(raw=None, now=None):
         stated = _client_rounds(raw, season) if raw else None
         if stated is None:
             continue
-        theirs = tuple(datetime.fromtimestamp(t, timezone.utc).strftime(
+        theirs = tuple(datetime.fromtimestamp(t, UTC).strftime(
             "%Y-%m-%d") for t in stated)
         compare(f"SUPPLY_ROUNDS[{season!r}]", tuple(days), theirs)
     return out
@@ -5014,7 +5013,7 @@ class ChecklistTab(BaseTab):
         if manager is None:
             return {}
         taken = _dig(raw, ("characters", "server_time"))
-        day = weekly_reset.day_index(taken if taken else now)
+        day = weekly_reset.day_index(taken or now)
         made = _dig(raw, ("characters", "user", "createAt"))
         since = weekly_reset.day_index(made) if _is_count(made) and made else None
         out = {}
@@ -5565,10 +5564,8 @@ def _tally(words):
     and neither changes what the two numbers are.
     """
     words = str(words)
-    if words.endswith(UNKNOWN_MORE):
-        words = words[:-len(UNKNOWN_MORE)]
-    if words.startswith(EXPECTED_VALUE):
-        words = words[len(EXPECTED_VALUE):]
+    words = words.removesuffix(UNKNOWN_MORE)
+    words = words.removeprefix(EXPECTED_VALUE)
     parts = words.split("/")
     if len(parts) != 2 or not all(p.strip().isdigit() for p in parts):
         return None
@@ -5610,8 +5607,7 @@ def _at_ceiling(words):
     suffix is the whole reason such a row can settle at all.
     """
     words = str(words)
-    if words.endswith(UNKNOWN_MORE):
-        words = words[:-len(UNKNOWN_MORE)]
+    words = words.removesuffix(UNKNOWN_MORE)
     parts = words.split("/")
     if len(parts) != 2 or not all(p.strip().isdigit() for p in parts):
         return False

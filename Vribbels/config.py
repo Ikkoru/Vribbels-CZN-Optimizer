@@ -24,7 +24,7 @@ class AppConfig:
     every tab through AppContext.config.
     """
 
-    def __init__(self, settings_manager: "SettingsManager"):
+    def __init__(self, settings_manager: SettingsManager):
         self._settings = settings_manager
 
     @property

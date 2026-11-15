@@ -18,7 +18,7 @@ read off the wrong row shows in the total.
 import json
 import tarfile
 import tempfile
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from pathlib import Path
 
 from ._harness import SOURCE_ROOT, add_source_to_path, note
@@ -29,7 +29,7 @@ NAME = "deck weights and deck-building rules"
 # Some made before it, in Seasons 1 and 2, weigh otherwise: made under
 # rules since changed. A patch that reprices a row reweighs every deck
 # made before it, so the day moves to the patch's.
-RULES_SINCE = datetime(2026, 7, 1, tzinfo=timezone.utc)
+RULES_SINCE = datetime(2026, 7, 1, tzinfo=UTC)
 
 ME = 1001
 CLASS, OTHER_CLASS = "class_a", "class_c"
@@ -443,7 +443,7 @@ def _wire_report():
 
 
 def _day(stamp):
-    return datetime.fromtimestamp(stamp or 0, timezone.utc).date()
+    return datetime.fromtimestamp(stamp or 0, UTC).date()
 
 
 def _captured_report():

@@ -25,7 +25,7 @@ which is what lets it be exercised without a window.
 """
 
 import re
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 
 import game_client
 import item_amounts
@@ -53,7 +53,7 @@ EXPIRY_FIELDS = ("end_time", "expire_time")
 # client has used: `Abyssal Core (Time-Limited)`, `Core of Potential
 # [Time-Limited]`, `Time-Limited Command Delegation Module - 14 Days`.
 TIME_LIMITED = re.compile(
-    r"[(\[]\s*time[- ]limited\s*[)\]]|^\s*time[- ]limited\b", re.I)
+    r"[(\[]\s*time[- ]limited\s*[)\]]|^\s*time[- ]limited\b", re.IGNORECASE)
 
 # The Time-Limited Command Delegation Modules, every length the game has
 # sold: 7, 14 and 21 days. The Checklist's Delegation Module rows and
@@ -66,7 +66,7 @@ TIME_LIMITED = re.compile(
 # a launch from source shows, for one the client holds, and
 # `checks/check_period_items.py` for one the shipped table holds.
 MODULE_ITEMS = (3920025, 3920026, 3920027)
-MODULE_NAME = re.compile(r"\bdelegation module\b", re.I)
+MODULE_NAME = re.compile(r"\bdelegation module\b", re.IGNORECASE)
 # The clock a period item named like a module is NOT one on: 2000052 is
 # a subscription's grant of the Command Delegation Module currency the
 # Checklist's Chaos Delegation row reads, folded into that currency.
@@ -152,7 +152,7 @@ def expiring(raw, now=None, name_of=None):
     `now` is epoch seconds, defaulting to the real clock. `name_of` maps
     a res_id to its name, `game_data.constants.item_names` by default.
     """
-    now = datetime.now(tz=timezone.utc).timestamp() if now is None else now
+    now = datetime.now(tz=UTC).timestamp() if now is None else now
     if name_of is None:
         name_of = item_names().get
     found = {}
@@ -205,10 +205,10 @@ def describe(res_id, expiries, now=None):
     if named is None or not expiries:
         return []
     name = named[0]
-    now = datetime.now(tz=timezone.utc).timestamp() if now is None else now
+    now = datetime.now(tz=UTC).timestamp() if now is None else now
     lines = [f"{name}: {len(expiries)}"]
     for end in expiries:
-        when = datetime.fromtimestamp(end, tz=timezone.utc).astimezone()
+        when = datetime.fromtimestamp(end, tz=UTC).astimezone()
         lines.append(f"    expires {when:{WHEN_FORMAT}}"
                      f"  ({remaining(end - now)})")
     return lines

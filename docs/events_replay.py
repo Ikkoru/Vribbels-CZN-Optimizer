@@ -41,7 +41,6 @@ import json
 import os
 import re
 import sys
-import tarfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent

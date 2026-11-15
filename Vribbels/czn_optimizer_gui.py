@@ -50,22 +50,15 @@ Startup ordering, threading and the anti-flicker machinery are in
 import json
 import os
 import sys
-import itertools
 import socket
 import subprocess
-import shutil
 import ctypes
 import re
 import threading
 import time
-import webbrowser
-from dataclasses import dataclass, field
-from typing import Optional, Callable
 from pathlib import Path
 import tkinter as tk
-from tkinter import ttk, messagebox, scrolledtext
-from datetime import datetime
-from PIL import Image, ImageTk, ImageDraw, ImageFont
+from tkinter import ttk, messagebox
 
 # === GAME DATA CHECKS ===
 # MUST come before the game_data import below and before any project
@@ -87,7 +80,6 @@ from optimizer import GearOptimizer
 # Slot V element main-stat names, shared with the optimizer's off-element
 # candidacy filter; the Upgraded-line element-mismatch filter tests the
 # same set.
-from optimizer.optimizer import SLOT5_ELEMENT_MAINS
 from config import AppConfig
 from ui import AppContext, MaterialsTab, SetupTab, CaptureTab, InventoryTab, OptimizerTab, HeroesTab, ScoringTab, ChecklistTab, DisasterTab, GachaHistoryTab, EpioneTab, ReadjustTab
 from ui.utils.button_width import BUTTON_PAD_X

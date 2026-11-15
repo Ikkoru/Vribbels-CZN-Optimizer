@@ -39,7 +39,6 @@ catch there.
 """
 
 import ast
-import io
 
 from ._harness import SOURCE_ROOT
 
@@ -78,7 +77,7 @@ def _calls_winfo_id(tree, func_name):
 
 def _parse(relpath):
     path = SOURCE_ROOT / relpath
-    return ast.parse(io.open(path, encoding="utf-8").read(), filename=str(path))
+    return ast.parse(open(path, encoding="utf-8").read(), filename=str(path))
 
 
 def run():
@@ -161,7 +160,7 @@ def run():
         if "__pycache__" in rel:
             continue
         try:
-            tree = ast.parse(io.open(path, encoding="utf-8").read(),
+            tree = ast.parse(open(path, encoding="utf-8").read(),
                              filename=str(path))
         except SyntaxError:
             continue                      # compileall is what reports this

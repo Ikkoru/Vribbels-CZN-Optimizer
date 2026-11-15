@@ -44,7 +44,6 @@ import os
 import tkinter as tk
 import time
 from dataclasses import dataclass, field, replace
-from typing import Optional
 
 from game_data.characters import ATTRIBUTE_COLORS
 from game_data.constants import RARITY_BG_COLORS, RARITY_COLORS
@@ -275,7 +274,7 @@ def _hex_to_rgb(value: str):
 
 # ------------------------------------------------------- painted-edge finding
 
-def last_painted_row(cap: Capture, box: Box, x: int) -> Optional[int]:
+def last_painted_row(cap: Capture, box: Box, x: int) -> int | None:
     """Bottom-most painted row of `box` along column `x`.
 
     Scanning a single column is deliberate: it finds the ink in that
@@ -289,28 +288,28 @@ def last_painted_row(cap: Capture, box: Box, x: int) -> Optional[int]:
     return None
 
 
-def first_painted_row(cap: Capture, box: Box, x: int) -> Optional[int]:
+def first_painted_row(cap: Capture, box: Box, x: int) -> int | None:
     for y in range(box.top, box.bottom + 1):
         if cap.contains(x, y) and not cap.is_background(x, y):
             return y
     return None
 
 
-def last_painted_col(cap: Capture, box: Box, y: int) -> Optional[int]:
+def last_painted_col(cap: Capture, box: Box, y: int) -> int | None:
     for x in range(box.right, box.left - 1, -1):
         if cap.contains(x, y) and not cap.is_background(x, y):
             return x
     return None
 
 
-def first_painted_col(cap: Capture, box: Box, y: int) -> Optional[int]:
+def first_painted_col(cap: Capture, box: Box, y: int) -> int | None:
     for x in range(box.left, box.right + 1):
         if cap.contains(x, y) and not cap.is_background(x, y):
             return x
     return None
 
 
-def painted_extent_v(cap: Capture, box: Box, bg=None) -> Optional[tuple]:
+def painted_extent_v(cap: Capture, box: Box, bg=None) -> tuple | None:
     """(topmost, bottom-most) painted row anywhere in `box`.
 
     Used where the reference is the whole element rather than one
@@ -345,7 +344,7 @@ def painted_extent_v(cap: Capture, box: Box, bg=None) -> Optional[tuple]:
     return top, bottom
 
 
-def painted_extent_h(cap: Capture, box: Box, bg=None) -> Optional[tuple]:
+def painted_extent_h(cap: Capture, box: Box, bg=None) -> tuple | None:
     left = right = None
     for x in range(box.left, box.right + 1):
         col_painted = any(
@@ -684,7 +683,7 @@ class TrackedGap:
     scenario: str = "default"
     target_source: str = "rule"
     provisional: bool = False
-    hand: Optional[int] = None
+    hand: int | None = None
     couples_with: tuple = field(default_factory=tuple)
     window: object = None            # app -> the widget to capture
     minimum: bool = False
@@ -886,7 +885,7 @@ def find_descendant_text(root, prefix: str):
     return None
 
 
-def leftmost_painted(cap: Capture, widgets, bg=None) -> Optional[int]:
+def leftmost_painted(cap: Capture, widgets, bg=None) -> int | None:
     """Smallest painted left edge across `widgets`.
 
     For a rule that talks about "the checkboxes" rather than one
@@ -905,7 +904,7 @@ def leftmost_painted(cap: Capture, widgets, bg=None) -> Optional[int]:
 
 
 def labelframe_title_bottom(cap: Capture, frame, limit_y: int,
-                            probe_offset: int = 8, bg=None) -> Optional[int]:
+                            probe_offset: int = 8, bg=None) -> int | None:
     """Bottom-most painted row of a ttk.LabelFrame's TITLE.
 
     The title is drawn by the style, not by a child widget, so it has no

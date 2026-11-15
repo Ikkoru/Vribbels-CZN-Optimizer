@@ -98,7 +98,7 @@ def member_name(path) -> str:
     name is all that says so, and nothing downstream needs more.
     """
     name = Path(path).name
-    return name[:-3] if name.endswith(".gz") else name
+    return name.removesuffix(".gz")
 
 
 def _source(path: Path):

@@ -1611,7 +1611,8 @@ FAULTS = [
      "        pass", "a run taken up by the next capture reads"),
     ("a run in progress kept only as it entered",
      "capture.manager:ADDON_TEMPLATE",
-     "if asked in (CHAOS_ENTERS, CHAOS_RESOLVES, CHAOS_FIGHTS, CHAOS_PAYS):",
+     "if asked in (CHAOS_ENTERS, CHAOS_RESOLVES, CHAOS_FIGHTS, CHAOS_PAYS,\n"
+     "                     CHAOS_PICKS):",
      "if False:", "a run taken up by the next capture reads"),
     ("another run's leftovers taken up", "capture.manager:ADDON_TEMPLATE",
      "        if not (run and kept and events[:len(kept)] == kept",
