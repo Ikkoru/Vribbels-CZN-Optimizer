@@ -5647,7 +5647,7 @@ class CaptureManager:
         if sys.platform == "win32":
             os.startfile(self.output_folder)
         else:
-            subprocess.run(["xdg-open", str(self.output_folder)], check=False)
+            subprocess.run(["xdg-open", str(self.output_folder)], check=False)  # noqa: S607 -- not Windows, never elevated
 
     def set_region(self, region_id: str):
         """Deprecated: the region is observed, not chosen.
@@ -5798,8 +5798,12 @@ class CaptureManager:
                 subprocess, "CREATE_NO_WINDOW", 0
             )
         try:
+            # System32's, by full path: the program runs elevated, and a
+            # bare name is looked for in its own folder first.
+            ipconfig = os.path.join(os.environ.get("SYSTEMROOT", "C:/Windows"),
+                                    "System32", "ipconfig.exe")
             result = subprocess.run(
-                ["ipconfig", "/flushdns"],
+                [ipconfig, "/flushdns"],
                 capture_output=True,
                 text=True,
                 timeout=10,

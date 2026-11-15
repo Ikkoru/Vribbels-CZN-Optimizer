@@ -6,6 +6,17 @@
 # release that adds a rule to a family selected here cannot fail it
 # overnight.
 
+# Considered and not selected, each counted over the code first:
+#   BLE/S110  a blind `except` -- UI best-effort handlers by design; the
+#             ones that hid failures report to error_log instead
+#   S603      every subprocess call -- no signal
+#   ARG       unused arguments -- Tk callbacks must take theirs
+#   DTZ       naive datetimes -- local time is meant where used
+#   ERA       commented-out code -- here it finds documentation
+#   I, E501, D, ANN, Q, COM, C901/PLR09  order, length, docstrings,
+#             annotations, quotes, commas, size: appearance or a
+#             restructure, not a defect
+
 target-version = "py314"
 extend-exclude = ["Vribbels/build", "Vribbels/dist", "_tmp", "past_plans"]
 
@@ -27,6 +38,9 @@ select = [
     "ISC001", "ISC002", # implicit string concatenation: a missing comma
     "PGH004",           # a blanket `# noqa` that silences everything
     "T10",              # a debugger breakpoint left in
+    "S607",             # a program started by a bare name: the app runs
+                        # elevated, and Windows looks for a bare name in
+                        # the app's own folder before System32
 ]
 ignore = [
     # printf-style `%` formatting reads as plainly as an f-string, and
@@ -59,3 +73,9 @@ ignore = [
 ]
 # Codes `# noqa` names for tools other than ruff, kept as documentation.
 external = ["BLE001", "E129"]
+
+[lint.per-file-ignores]
+# Run by the maintainer, never elevated: `git`, `taskkill` by name.
+"checks/**" = ["S607"]
+"docs/**" = ["S607"]
+"Vribbels/default_settings/normalize/**" = ["S607"]

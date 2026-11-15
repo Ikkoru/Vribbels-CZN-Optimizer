@@ -152,8 +152,14 @@ def install_mitmproxy(timeout: int = 120) -> bool:
         subprocess.TimeoutExpired: If installation takes longer than timeout
         Exception: If installation fails for other reasons
     """
+    # **By its full path, found on PATH.** The program runs elevated, and
+    # Windows looks for a bare name in the program's own folder first:
+    # a pip.exe left beside it would run as Administrator.
+    pip = shutil.which("pip")
+    if pip is None:
+        raise FileNotFoundError("pip is not on PATH")
     result = subprocess.run(
-        ["pip", "install", "mitmproxy"],
+        [pip, "install", "mitmproxy"],
         capture_output=True,
         text=True,
         timeout=timeout,
