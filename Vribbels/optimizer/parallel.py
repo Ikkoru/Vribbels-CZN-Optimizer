@@ -144,12 +144,17 @@ def evaluate_partition(slot_candidates_share: dict, ctx: dict,
     checked = 0
     unreported = 0
     cancelled = False
+    passed_sets = passed_hal = 0
+    # As in the sequential loop: the worst build kept at the last trim,
+    # (score, ids), below which a build is counted and not kept.
+    worst = None
+    evaluate, ok, hal_fail = (core.evaluate_combo, core.COMBO_OK,
+                              core.COMBO_HAL_FAIL)
 
     lists = [slot_candidates_share[s] for s in SLOT_ORDER]
     for combo in itertools.product(*lists):
         checked += 1
         unreported += 1
-        counters["total_combinations"] += 1
 
         if cancel_event is not None and checked % CANCEL_POLL_EVERY == 0:
             try:
@@ -161,19 +166,25 @@ def evaluate_partition(slot_candidates_share: dict, ctx: dict,
                 cancelled = True
                 break
 
-        status, score, stats = core.evaluate_combo(combo, ctx)
-        if status != core.COMBO_DUPLICATE and status != core.COMBO_SET_FAIL:
-            counters["passed_set_reqs"] += 1
-            if status == core.COMBO_OK:
-                counters["passed_have_at_least"] += 1
-                if stats["_D"] > d_max:
-                    d_max = stats["_D"]
-                if stats["_S"] > s_max:
-                    s_max = stats["_S"]
+        status, score, stats = evaluate(combo, ctx)
+        if status == ok:
+            passed_sets += 1
+            passed_hal += 1
+            if stats["_D"] > d_max:
+                d_max = stats["_D"]
+            if stats["_S"] > s_max:
+                s_max = stats["_S"]
+            if worst is None or score > worst[0] or (
+                    score == worst[0]
+                    and tuple(p.id for p in combo) < worst[1]):
                 results.append((list(combo), score, stats))
                 if len(results) > 2 * keep:
                     results.sort(key=core.result_sort_key)
                     results = results[:keep]
+                    last = results[-1]
+                    worst = (last[1], tuple(p.id for p in last[0]))
+        elif status == hal_fail:
+            passed_sets += 1
 
         if unreported >= PROGRESS_EVERY and progress_queue is not None:
             try:
@@ -188,6 +199,9 @@ def evaluate_partition(slot_candidates_share: dict, ctx: dict,
         except Exception:
             pass
 
+    counters["total_combinations"] = checked
+    counters["passed_set_reqs"] = passed_sets
+    counters["passed_have_at_least"] = passed_hal
     results.sort(key=core.result_sort_key)
     return results[:keep], counters, checked, cancelled, d_max, s_max
 

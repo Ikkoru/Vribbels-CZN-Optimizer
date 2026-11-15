@@ -1185,35 +1185,56 @@ class GearOptimizer:
         results = []
         keep = core.pool_size(max_results)
         d_max = s_max = float("-inf")
-        checked = 0
+        # The counters in locals, written out at the progress cadence
+        # and at the end: three dict updates a combo were a measurable
+        # share of the loop.
+        run = self.last_optimize_stats
+        base = (run["total_combinations"], run["passed_set_reqs"],
+                run["passed_have_at_least"])
+        checked = passed_sets = passed_hal = 0
+        # The worst build kept at the last trim, as (score, ids). A build
+        # scoring worse can never come back -- the list already holds
+        # `keep` better ones -- so it is counted and not kept.
+        worst = None
+        evaluate, ok, hal_fail = (core.evaluate_combo, core.COMBO_OK,
+                                  core.COMBO_HAL_FAIL)
+
+        def write_counters():
+            run["total_combinations"] = base[0] + checked
+            run["passed_set_reqs"] = base[1] + passed_sets
+            run["passed_have_at_least"] = base[2] + passed_hal
+
         for combo in itertools.product(*[slot_candidates[s] for s in SLOT_ORDER]):
             if cancel_flag and cancel_flag[0]:
                 break
 
             checked += 1
-            self.last_optimize_stats["total_combinations"] += 1
+            status, total_score, stats = evaluate(combo, ctx)
+            if status == ok:
+                passed_sets += 1
+                passed_hal += 1
+                if stats["_D"] > d_max:
+                    d_max = stats["_D"]
+                if stats["_S"] > s_max:
+                    s_max = stats["_S"]
+                if worst is None or total_score > worst[0] or (
+                        total_score == worst[0]
+                        and tuple(p.id for p in combo) < worst[1]):
+                    results.append((list(combo), total_score, stats))
+                    if len(results) > 2 * keep:
+                        results.sort(key=core.result_sort_key)
+                        results = results[:keep]
+                        last = results[-1]
+                        worst = (last[1], tuple(p.id for p in last[0]))
+            elif status == hal_fail:
+                passed_sets += 1
 
-            status, total_score, stats = core.evaluate_combo(combo, ctx)
-            if status == core.COMBO_DUPLICATE or status == core.COMBO_SET_FAIL:
-                continue
-            self.last_optimize_stats["passed_set_reqs"] += 1
-            if status == core.COMBO_HAL_FAIL:
-                continue
-            self.last_optimize_stats["passed_have_at_least"] += 1
-            if stats["_D"] > d_max:
-                d_max = stats["_D"]
-            if stats["_S"] > s_max:
-                s_max = stats["_S"]
+            if checked % 5000 == 0:
+                write_counters()
+                if progress_callback:
+                    progress_callback(checked, total_perms, len(results))
 
-            results.append((list(combo), total_score, stats))
-
-            if progress_callback and checked % 5000 == 0:
-                progress_callback(checked, total_perms, len(results))
-
-            if len(results) > 2 * keep:
-                results.sort(key=core.result_sort_key)
-                results = results[:keep]
-
+        write_counters()
         results.sort(key=core.result_sort_key)
         return results[:keep], checked, d_max, s_max
 
@@ -1539,6 +1560,10 @@ class GearOptimizer:
         ctx = self.build_run_context(
             char_name, settings, sets_selected, max_flex_slots
         )
+
+        # Every candidate's stat row, once, for every combo to read --
+        # the workers' copy rides in the ctx with the rest.
+        ctx["rows"] = core.build_stat_rows(slot_candidates)
 
         # The substat tiebreaker's per-run constants, on `score_pre` so
         # that they reach the workers with everything else the score

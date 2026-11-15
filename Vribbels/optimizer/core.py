@@ -208,6 +208,103 @@ def _half_up(value: float) -> int:
     return int(math.floor(value + 0.5))
 
 
+# What a fragment brings to a build, in the order a stat row holds it:
+# the eleven summed stats `compute_build_stats` reads, then the set,
+# then the main stat's name and value (the element DMG% it may carry).
+ROW_STATS = ("ATK%", "DEF%", "HP%", "Flat ATK", "Flat DEF", "Flat HP",
+             "CRate", "CDmg", "Ego", "Extra DMG%", "DoT%")
+_ROW_SET = len(ROW_STATS)
+_ROW_MAIN_NAME = _ROW_SET + 1
+_ROW_MAIN_VALUE = _ROW_SET + 2
+_NO_STATS = (0,) * len(ROW_STATS)
+
+
+def stat_row(piece) -> tuple:
+    """`piece`'s stat row: each of `ROW_STATS` as `get_total_stats()`
+    sums it (0 where absent), its set id, its main stat's name and value
+    (None and 0 without one).
+
+    **Exactly the numbers the per-piece dict holds**, so a sum over rows
+    in gear order is the sum over dicts in gear order, float for float.
+    Built once per candidate per run (`build_stat_rows`) rather than a
+    dict per fragment per combo.
+    """
+    totals = piece.get_total_stats()
+    main = piece.main_stat
+    return tuple(totals.get(name, 0) for name in ROW_STATS) + (
+        piece.set_id, main.name if main else None,
+        main.value if main else 0)
+
+
+def build_stat_rows(slot_candidates: dict) -> dict:
+    """{fragment id: stat_row} for every candidate of a run. Rides in
+    `ctx["rows"]`, so the workers read rows rather than rebuild them."""
+    rows = {}
+    for candidates in slot_candidates.values():
+        for fragment in candidates or ():
+            rows[fragment.id] = stat_row(fragment)
+    return rows
+
+
+def count_sets(rows) -> dict:
+    """{set id: pieces} over a build's rows, in the order the sets first
+    appear -- the order every set walk below takes them in, which fixes
+    the order their bonuses are added in."""
+    counts = {}
+    for row in rows:
+        set_id = row[_ROW_SET]
+        counts[set_id] = counts.get(set_id, 0) + 1
+    return counts
+
+
+# ----- The layered Final ATK/DEF/HP formulas ------------------------------
+# Final X = ((Base X + Partner X) × (1 + MF X% + Potential X%)
+#            + Gear Flat X + Affinity Flat X)
+#         × (1 + Partner X% + Equipment X%)
+#         + Equipment Flat X
+# Module-level: defined inside the kernel they were made anew for every
+# combo.
+def _inner(base, partner_flat, mf_pct, pot_pct, gear_flat, affection_flat):
+    """Inner stat = the build's value BEFORE the outer multiplier
+    (Partner flat class stats included inside the multiplier).
+    Feeds _final, and is exposed under the "_inner_X" keys for the
+    Have-at-least check, the "Potential 7 X" rows in the Stat
+    Contributions popup, and the Pot7 rows in Stats Comparison --
+    checks that exist primarily (but not exclusively) for the
+    in-game Potential 7 stat requirements. Per in-game
+    verification, those checks DO see the Partner's flat class
+    stats, but ignore Partner passive bonuses (including the
+    Partner% outer multiplier), Equipment (% and flat), and
+    conditional set procs -- exactly what this inner value omits.
+    """
+    inner_mult = 1 + (mf_pct + pot_pct) / 100
+    return (base + partner_flat) * inner_mult + gear_flat + affection_flat
+
+
+def _final(base, partner_flat, mf_pct, pot_pct, gear_flat, affection_flat,
+           partner_pct, equip_pct, equip_flat):
+    outer_mult = 1 + (partner_pct + equip_pct) / 100
+    inner = _inner(base, partner_flat, mf_pct, pot_pct, gear_flat,
+                   affection_flat)
+    return inner * outer_mult + equip_flat
+
+
+def _final_shield_heal_def(base, partner_flat, mf_pct, pot_pct, gear_flat,
+                           affection_flat, partner_pct, equip_pct,
+                           equip_flat):
+    """Shield_Heal_DEF: a Final-DEF variant where Partner_FLAT_DEF is
+    pulled OUT of the inner multiplier (treated as additive flat
+    instead). The only difference from regular Final DEF. See
+    docs/game_formulas.md §4.1 for the formula derivation."""
+    inner_mult = 1 + (mf_pct + pot_pct) / 100
+    outer_mult = 1 + (partner_pct + equip_pct) / 100
+    # Difference vs _final: partner_flat is NOT added to `base`
+    # before applying inner_mult -- it's added as a separate flat
+    # contribution. The rest of the layered structure is identical.
+    inner = base * inner_mult + partner_flat + gear_flat + affection_flat
+    return inner * outer_mult + equip_flat
+
+
 def compute_build_stats(gear: list, cs: dict,
                         set_effect_shares: dict = None) -> dict:
     """Final ATK/DEF/HP layered formula over a 6-piece build.
@@ -219,7 +316,19 @@ def compute_build_stats(gear: list, cs: dict,
     means no conditional set effect touches Final stats. Returns the
     exact dict shape calculate_build_stats returns, underscore-prefixed
     scoring internals included.
+
+    Builds the rows on the fly; `evaluate_combo` reads a run's from
+    `ctx["rows"]`. Both go through `_stats_from_rows`, the one
+    implementation.
     """
+    rows = [stat_row(piece) for piece in gear]
+    return _stats_from_rows(rows, count_sets(rows), cs, set_effect_shares)
+
+
+def _stats_from_rows(rows, set_counts: dict, cs: dict,
+                     set_effect_shares: dict = None) -> dict:
+    """`compute_build_stats` over a build's stat rows and its set
+    counts (`count_sets`)."""
     # ----- Memory Fragment (substats + main stats) -----------------------
     # Sum % and flat contributions from the 6 fragments. Set bonuses are
     # applied below and lumped into the same "Memory Fragment %" bucket
@@ -229,19 +338,18 @@ def compute_build_stats(gear: list, cs: dict,
     crit_rate, crit_dmg = 0, 0
     ego, extra_dmg, dot_dmg = 0, 0, 0
 
-    for piece in gear:
-        piece_stats = piece.get_total_stats()
-        mf_atk_pct += piece_stats.get("ATK%", 0)
-        mf_def_pct += piece_stats.get("DEF%", 0)
-        mf_hp_pct += piece_stats.get("HP%", 0)
-        gear_flat_atk += piece_stats.get("Flat ATK", 0)
-        gear_flat_def += piece_stats.get("Flat DEF", 0)
-        gear_flat_hp += piece_stats.get("Flat HP", 0)
-        crit_rate += piece_stats.get("CRate", 0)
-        crit_dmg += piece_stats.get("CDmg", 0)
-        ego += piece_stats.get("Ego", 0)
-        extra_dmg += piece_stats.get("Extra DMG%", 0)
-        dot_dmg += piece_stats.get("DoT%", 0)
+    for row in rows:
+        mf_atk_pct += row[0]
+        mf_def_pct += row[1]
+        mf_hp_pct += row[2]
+        gear_flat_atk += row[3]
+        gear_flat_def += row[4]
+        gear_flat_hp += row[5]
+        crit_rate += row[6]
+        crit_dmg += row[7]
+        ego += row[8]
+        extra_dmg += row[9]
+        dot_dmg += row[10]
 
     # Set bonuses: count pieces per set, route satisfied bonuses into
     # the right bucket. See docs/game_formulas.md §5 for the full taxonomy:
@@ -252,9 +360,6 @@ def compute_build_stats(gear: list, cs: dict,
     #     touch Final stats; they're handled by the score functions
     #     (skipped here).
     shares = set_effect_shares or {}
-    set_counts = {}
-    for piece in gear:
-        set_counts[piece.set_id] = set_counts.get(piece.set_id, 0) + 1
     # Conditional crit-set contributions are tracked separately: they
     # count toward Final CRate/CDmg (and the score) at each set's own
     # effect-share weighting, but the Have-at-least gate must NOT
@@ -333,48 +438,9 @@ def compute_build_stats(gear: list, cs: dict,
     ego += cs["partner_ego"] + cs["partner_ego_cond"]
 
     # ----- Apply the layered Final ATK/DEF/HP formulas -------------------
-    # Final X = ((Base X + Partner X) × (1 + MF X% + Potential X%)
-    #            + Gear Flat X + Affinity Flat X)
-    #         × (1 + Partner X% + Equipment X%)
-    #         + Equipment Flat X
-    def _inner(base, partner_flat, mf_pct, pot_pct, gear_flat, affection_flat):
-        """Inner stat = the build's value BEFORE the outer multiplier
-        (Partner flat class stats included inside the multiplier).
-        Feeds _final, and is exposed under the "_inner_X" keys for the
-        Have-at-least check, the "Potential 7 X" rows in the Stat
-        Contributions popup, and the Pot7 rows in Stats Comparison --
-        checks that exist primarily (but not exclusively) for the
-        in-game Potential 7 stat requirements. Per in-game
-        verification, those checks DO see the Partner's flat class
-        stats, but ignore Partner passive bonuses (including the
-        Partner% outer multiplier), Equipment (% and flat), and
-        conditional set procs -- exactly what this inner value omits.
-        """
-        inner_mult = 1 + (mf_pct + pot_pct) / 100
-        return (base + partner_flat) * inner_mult + gear_flat + affection_flat
-
-    def _final(base, partner_flat, mf_pct, pot_pct, gear_flat, affection_flat,
-               partner_pct, equip_pct, equip_flat):
-        outer_mult = 1 + (partner_pct + equip_pct) / 100
-        inner = _inner(base, partner_flat, mf_pct, pot_pct, gear_flat,
-                       affection_flat)
-        return inner * outer_mult + equip_flat
-
-    # Shield_Heal_DEF: a Final-DEF variant where Partner_FLAT_DEF is
-    # pulled OUT of the inner multiplier (treated as additive flat
-    # instead). The only difference from regular Final DEF. See
-    # docs/game_formulas.md §4.1 for the formula derivation. Computed
-    # here because it shares all the same inputs as Final DEF; consumed
-    # by compute_score via the _shield_heal_def return key.
-    def _final_shield_heal_def(base, partner_flat, mf_pct, pot_pct, gear_flat,
-                               affection_flat, partner_pct, equip_pct, equip_flat):
-        inner_mult = 1 + (mf_pct + pot_pct) / 100
-        outer_mult = 1 + (partner_pct + equip_pct) / 100
-        # Difference vs _final: partner_flat is NOT added to `base`
-        # before applying inner_mult -- it's added as a separate flat
-        # contribution. The rest of the layered structure is identical.
-        inner = base * inner_mult + partner_flat + gear_flat + affection_flat
-        return inner * outer_mult + equip_flat
+    # `_inner`, `_final` and `_final_shield_heal_def`, above. Shield_Heal_DEF
+    # shares all of Final DEF's inputs and is consumed by
+    # compute_score_components via the _shield_heal_def return key.
 
     # Potential-7 ATK/DEF/HP -- the inner build value: Partner flat
     # class stats included, no Partner passive % and no Equipment
@@ -479,7 +545,8 @@ def compute_build_stats(gear: list, cs: dict,
     }
 
 
-def count_locked_slots(combo, sets_selected: list) -> int:
+def count_locked_slots(combo, sets_selected: list,
+                       set_counts: dict = None) -> int:
     """Count how many slots are "locked" into a chosen set's satisfied bonus.
 
     A slot is locked if it belongs to a fully-satisfied bonus from one of
@@ -499,14 +566,15 @@ def count_locked_slots(combo, sets_selected: list) -> int:
 
     Returns 0 when sets_selected is empty (every slot is a wildcard) --
     the caller's max_flex_slots check then determines whether that's
-    acceptable.
+    acceptable. `set_counts` is the build's `count_sets`, where the
+    caller has it.
     """
     if not sets_selected:
         return 0
-    # Quick count: pieces per set in this build.
-    set_counts: dict = {}
-    for piece in combo:
-        set_counts[piece.set_id] = set_counts.get(piece.set_id, 0) + 1
+    if set_counts is None:
+        set_counts = {}
+        for piece in combo:
+            set_counts[piece.set_id] = set_counts.get(piece.set_id, 0) + 1
     locked = 0
     for set_id in sets_selected:
         if set_id not in SETS:
@@ -617,21 +685,25 @@ def build_score_precompute(settings: dict) -> dict:
     }
 
 
-def damage_card_multiplier(gear: list, sp: dict) -> float:
+def damage_card_multiplier(gear: list, sp: dict,
+                           set_counts: dict = None) -> float:
     """The damage card multiplier for one build.
 
     The user's average buffs plus the conditional DMG multi / DMG add
     set effects, each scaled by its own set's effect share. An empty
     shares dict -- no conditional set dialled up -- skips the set walk
     entirely, which is the common case. See docs §3.3 and §5.
+    `set_counts` is the build's `count_sets`, where the caller has it.
     """
     set_effect_shares = sp["set_effect_shares"]
     set_dmg_multi_total = 0.0
     set_dmg_add_total = 0.0
     if set_effect_shares:
-        set_counts: dict = {}
-        for piece in gear:
-            set_counts[piece.set_id] = set_counts.get(piece.set_id, 0) + 1
+        if set_counts is None:
+            set_counts = {}
+            for piece in gear:
+                set_counts[piece.set_id] = set_counts.get(piece.set_id,
+                                                          0) + 1
         for set_id, count in set_counts.items():
             share = set_effect_shares.get(set_id, 0.0)
             if not share or set_id not in SETS:
@@ -678,11 +750,25 @@ def compute_score_components(gear: list, stats: dict, sp: dict,
     See docs/game_formulas.md §3, §4, §5, §8. Constants that don't
     affect relative ranking are dropped from the comparison.
     """
+    # The components read only each piece's set and main stat; the
+    # summed stats come in through `stats`.
+    rows = [_NO_STATS + (piece.set_id,
+                         piece.main_stat.name if piece.main_stat else None,
+                         piece.main_stat.value if piece.main_stat else 0)
+            for piece in gear]
+    return _components_from_rows(rows, count_sets(rows), stats, sp,
+                                 attribute)
+
+
+def _components_from_rows(rows, set_counts: dict, stats: dict, sp: dict,
+                          attribute: str) -> tuple:
+    """`compute_score_components` over a build's stat rows and set
+    counts."""
     # ----- Card multiplier (damage only) -----
     # Shielding/healing has NO card multiplier at all: per
     # maintainer-verified game behavior, neither the Avg Multi/Add Buff%
     # assumptions nor DMG multi/add set effects affect shields or heals.
-    card_mult_dmg = damage_card_multiplier(gear, sp)
+    card_mult_dmg = damage_card_multiplier(None, sp, set_counts)
     crit_modifier = crit_multiplier(stats)
 
     # ----- Element DMG% -----
@@ -693,9 +779,9 @@ def compute_score_components(gear: list, stats: dict, sp: dict,
     element_dmg_pct = 0
     if attribute:
         elem_main_name = f"{attribute} DMG%"
-        for piece in gear:
-            if piece.main_stat and piece.main_stat.name == elem_main_name:
-                element_dmg_pct += piece.main_stat.value
+        for row in rows:
+            if row[_ROW_MAIN_NAME] == elem_main_name:
+                element_dmg_pct += row[_ROW_MAIN_VALUE]
         # Node 7's attribute damage is the combatant's own attribute,
         # which is the one every hit is scored as.
         element_dmg_pct += (stats.get("_p7") or {}).get("Element%", 0)
@@ -1052,10 +1138,18 @@ def evaluate_combo(combo, ctx: dict):
     if len(piece_ids) != len(set(piece_ids)):
         return (COMBO_DUPLICATE, 0.0, None)
 
+    # The run's stat rows (`build_stat_rows`), or this build's own for a
+    # caller that evaluates without them. One set count serves the set
+    # rule, the stats and the card multiplier.
+    by_id = ctx.get("rows")
+    rows = ([by_id[pid] for pid in piece_ids] if by_id is not None
+            else [stat_row(piece) for piece in combo])
+    set_counts = count_sets(rows)
+
     # Unified set-combo rule (see count_locked_slots for the shape
     # taxonomy): count slots locked into chosen-set bonuses; the build
     # is valid if its wildcard count fits under max_flex_slots.
-    locked = count_locked_slots(combo, ctx["sets_selected"])
+    locked = count_locked_slots(combo, ctx["sets_selected"], set_counts)
     if (6 - locked) > ctx["max_flex_slots"]:
         return (COMBO_SET_FAIL, 0.0, None)
 
@@ -1063,19 +1157,16 @@ def evaluate_combo(combo, ctx: dict):
     # DMG / Crit Rate sets contribute to Final stats at each set's own
     # weighting; conditional DMG multi / DMG add sets affect the
     # damage card multiplier separately inside the score functions.
-    stats = compute_build_stats(
-        list(combo), ctx["char_static"],
-        set_effect_shares=ctx["set_effect_shares"],
-    )
+    stats = _stats_from_rows(rows, set_counts, ctx["char_static"],
+                             ctx["set_effect_shares"])
 
     # Hard constraint: "Have at least this much". Builds that fail
     # any minimum are excluded entirely (not just docked points).
     if not meets_have_at_least(stats, ctx["hal"]):
         return (COMBO_HAL_FAIL, 0.0, None)
 
-    components = compute_score_components(
-        list(combo), stats, ctx["score_pre"], ctx["attribute"]
-    )
+    components = _components_from_rows(
+        rows, set_counts, stats, ctx["score_pre"], ctx["attribute"])
     term = substat_term(piece_ids, ctx["score_pre"])
     trim_score = trim_blend(components, ctx["score_pre"], ctx["gref"], term)
     # Carry the raw components and the substat term for the parent-side
