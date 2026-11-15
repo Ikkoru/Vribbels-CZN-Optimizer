@@ -67,8 +67,6 @@ EXPECTED_ABSENT = {
     "plan.md",                 # created only while a task is being planned
     ".defaults_sync.json",     # written beside the settings at runtime
     "paused_task.md",          # written to be deleted
-    "_tmp/skill_notes.md",     # the improvement queue, written as
-                               # lessons land and cleared on review
     "_capture_addon.py",       # generated into `snapshots/` per capture
     "captured.json",           # the Gacha History's own files, written
     "imported.json",           # into `snapshots/gacha_history/`

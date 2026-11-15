@@ -22,7 +22,7 @@ What the kit's `craft:doc-audit` needs to know about this repository; the skill 
 ## Last pass, queue
 
 - The last audit is the commit whose subject starts `Doc audit`: `git log --grep '^Doc audit' -1`.
-- The rule-misfire queue is `_tmp/skill_notes.md`.
+- The rule-misfire queue is this project's hub inbox (`~/.claude/CLAUDE.md`, the hub paragraph).
 
 ## False positives here
 
