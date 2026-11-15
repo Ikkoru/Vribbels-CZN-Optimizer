@@ -44,5 +44,7 @@ guards, watch it report, put it back. A check that has never failed is
 an untested claim. List the faults in the check's `FAULTS` and run them
 with `python checks/faults.py <check>`, which says how to write one:
 they stay with the check, so the proof runs again whenever the check or
-the code it guards changes.
+the code it guards changes. A fault names exact source text, so an edit
+to that code can leave it naming nothing; `check_faults_fit` says so on
+every run, and the fault is then rewritten to the code as it is.
 """
