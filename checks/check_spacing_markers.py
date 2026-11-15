@@ -247,7 +247,7 @@ def run():
                               failures)
             elif body.startswith("out of scope -- "):
                 continue
-            elif body.startswith("<rule>") or body.startswith("<elements>"):
+            elif body.startswith(("<rule>", "<elements>")):
                 continue          # the convention's own description
             else:
                 rule, suffix = _split_suffix(body)

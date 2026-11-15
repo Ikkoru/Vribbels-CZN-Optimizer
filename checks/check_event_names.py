@@ -42,6 +42,7 @@ from types import SimpleNamespace
 
 from ._harness import (add_source_to_path, newest_snapshot, note,
                        REPO_ROOT, SOURCE_ROOT)
+import itertools
 
 NAME = "event names, event totals and Excursion counts follow the game client"
 
@@ -927,7 +928,7 @@ def _fits(root, tab, mod, key, name, scale):
             f"widest row and the grid cannot shrink it: a name is cut to "
             f"`ChecklistTab._name_room`, so that room is more than the tab "
             f"has to give.")
-    for left, right in zip(columns, columns[1:]):
+    for left, right in itertools.pairwise(columns):
         gap = right.winfo_rootx() - (left.winfo_rootx() + left.winfo_width())
         if gap < 0:
             out.append(f"At {scale}, with {name!r} live, two Checklist "
@@ -945,7 +946,7 @@ def _fills(root, tab, mod, scale):
                       if frame.winfo_ismapped()),
                      key=lambda w: w.winfo_rootx())
     gaps = [right.winfo_rootx() - (left.winfo_rootx() + left.winfo_width())
-            for left, right in zip(columns, columns[1:])]
+            for left, right in itertools.pairwise(columns)]
     floor = px(mod.COLUMN_GAP_FLOOR)
     label = next((label for _t, (_text, rows) in tab.column_texts.items()
                   for key, label, _w in rows

@@ -245,9 +245,9 @@ def _fold_rules(sf):
     # rank no deeper -- or a shallower rank -- is growth not explaining.
     base = {"rank": 4737, "best_score": 1013210, "read_at": 500}
     for label, later, is_down in (
-            ("deeper and lower", dict(rank=4905, best_score=1012120), False),
-            ("as deep and lower", dict(rank=4737, best_score=1012120), True),
-            ("shallower", dict(rank=4600, best_score=1013210), True)):
+            ("deeper and lower", {"rank": 4905, "best_score": 1012120}, False),
+            ("as deep and lower", {"rank": 4737, "best_score": 1012120}, True),
+            ("shallower", {"rank": 4600, "best_score": 1013210}, True)):
         start = sf.fold(sf.empty(), {sf.TOPS: {"global": {SEASON: {HALF: {
             MASTER_I: base}}}}})[0]
         _held, added, _refused, down = sf.fold(start, {

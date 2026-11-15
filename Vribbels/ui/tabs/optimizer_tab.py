@@ -2754,7 +2754,7 @@ class OptimizerTab(BaseTab):
         # flag (so this check doesn't re-run on every launch) and leave
         # their state alone.
         all_known_rids = list(self.opt_settings.data.get("characters", {}).keys())
-        for name in self.optimizer.character_info.keys():
+        for name in self.optimizer.character_info:
             rid = self._resolve_res_id(name)
             if rid is not None and str(rid) not in all_known_rids:
                 all_known_rids.append(str(rid))
@@ -2785,7 +2785,7 @@ class OptimizerTab(BaseTab):
         # of whether a settings entry already existed for it).
         seen_rids = set(self._get_exclude_seen_rids())
         newly_seen = []
-        for name in self.optimizer.character_info.keys():
+        for name in self.optimizer.character_info:
             rid = self._resolve_res_id(name)
             if rid is None:
                 continue
@@ -3418,7 +3418,7 @@ class OptimizerTab(BaseTab):
         # Don't exclude the current character's gear -- their pieces should
         # be available for re-equip.
         current_rid_str = str(self._current_res_id) if self._current_res_id else None
-        for hero_name in self.optimizer.characters.keys():
+        for hero_name in self.optimizer.characters:
             rid = self._resolve_res_id(hero_name)
             if rid is None:
                 continue
@@ -3490,7 +3490,7 @@ class OptimizerTab(BaseTab):
                 if msg[1] != self._run_id:
                     continue
                 if msg[0] == "progress":
-                    _, _rid, checked, total, found = msg
+                    _, _rid, checked, total, _found = msg
                     pct = (checked / total * 100) if total > 0 else 0
                     # The optimizer trims its in-flight results list
                     # periodically (keeping top max_results), so a live
@@ -3523,7 +3523,7 @@ class OptimizerTab(BaseTab):
                         fragments=len(self.optimizer.fragments),
                         min_gear_level=self._current_min_gear_level(),
                         ignore_offelement=self._current_ignore_offelement(),
-                        **{k: v for k, v in stats.items()},
+                        **dict(stats.items()),
                     )
                     if duration >= 60:
                         time_note = f" in {int(duration // 60)}m {duration % 60:.0f}s"
@@ -3791,7 +3791,7 @@ class OptimizerTab(BaseTab):
         if idx >= len(self.optimization_results):
             return
 
-        gear, score, new_stats = self.optimization_results[idx]
+        gear, _score, new_stats = self.optimization_results[idx]
         char = self.selected_character.get()
         current_gear = self.optimizer.characters.get(char, [])
         # Compute the current build at the SAME effective level the

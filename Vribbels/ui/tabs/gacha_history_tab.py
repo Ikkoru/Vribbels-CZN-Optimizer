@@ -312,7 +312,7 @@ def _paired(rows, top, bottom):
     one above it starts under it instead, and a part past the last row
     is left out."""
     first = max(len(top), len(rows) - len(bottom))
-    right = {n: part for n, part in enumerate(top)}
+    right = dict(enumerate(top))
     right.update({first + n: part for n, part in enumerate(bottom)})
     return tuple(Paired(row, right[n]) if n in right else row
                  for n, row in enumerate(rows))

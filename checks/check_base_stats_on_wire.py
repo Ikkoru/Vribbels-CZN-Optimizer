@@ -545,7 +545,7 @@ def _overlay_with_a_pair_unknown():
     pairs = {}
     for rid, c in silent:
         pairs.setdefault((c["class"], c["grade"]), []).append((rid, c))
-    (x_id, x), (y_id, y) = next(v for v in pairs.values() if len(v) >= 2)[:2]
+    (x_id, x), (_y_id, y) = next(v for v in pairs.values() if len(v) >= 2)[:2]
     z_id, z = pick(lambda c: not c.get("level_curve") and (
         LEVEL_BONUS_BY_CLASS.get((c["class"], c["grade"])) or {}).get(61)
         and c is not x and c is not y)

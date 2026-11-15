@@ -58,8 +58,9 @@ def _truth(optimizer, settings):
         if status == core.COMBO_OK:
             rows.append((stats["_D"], stats["_S"], stats["_T"],
                          tuple(p.id for p in combo)))
-    d_ref = max(max(r[0] for r in rows), 1e-9)
-    s_ref = max(max(r[1] for r in rows), 1e-9)
+    d_ref = max(r[0] for r in rows)
+    s_ref = max(r[1] for r in rows)
+    d_ref, s_ref = max(d_ref, 1e-9), max(s_ref, 1e-9)
     truth = {}
     for weight in WEIGHTS:
         sp = dict(ctx["score_pre"], heal_share=weight / 100.0)

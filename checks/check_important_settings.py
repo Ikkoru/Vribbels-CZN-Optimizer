@@ -361,7 +361,7 @@ def _fill_sets_only_checked(tab):
     tab._potential_7_values = lambda _name, full: stood_in[full]
     try:
         for full, start, want in ((False, 900, 600), (True, 700, 1001)):
-            for stat, var in hal.items():
+            for var in hal.values():
                 var.set(7)
             hal["ATK"].set(start)
             tab._fill_potential_7(full)

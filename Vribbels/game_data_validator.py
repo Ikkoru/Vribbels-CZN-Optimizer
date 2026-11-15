@@ -45,6 +45,7 @@ import ast
 import re
 import sys
 from pathlib import Path
+import itertools
 
 # ===========================================================================
 # RULES -- edit these when the game releases data outside current bounds.
@@ -328,7 +329,7 @@ def _check_tier_tuple(rep: _Reporter, key, label: str, field: str,
     if not all(_is_number(v) for v in values):
         rep.add(key, label, f"{where} has a non-numeric value: {values}")
         return
-    if any(b < a for a, b in zip(values, values[1:])):
+    if any(b < a for a, b in itertools.pairwise(values)):
         rep.add(key, label, f"{where} is not ascending: {values}")
         return
     lo, hi = values[0], values[-1]

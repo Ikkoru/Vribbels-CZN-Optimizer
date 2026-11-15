@@ -168,16 +168,18 @@ def _add(tf: tarfile.TarFile, name: str, stream, size: int):
 def _retried(work, path, say):
     """`work()`, retried on the `OSError` a held file raises. None once
     `TRIES` attempts have failed, with the file named."""
-    for attempt in range(TRIES):
+    for _attempt in range(TRIES - 1):
         try:
             return work()
-        except OSError as exc:
-            if attempt + 1 == TRIES:
-                say("[!] %s could not be read (%s); left in place, the "
-                    "next compaction will take it."
-                    % (path.name, type(exc).__name__))
-                return None
+        except OSError:
             time.sleep(BACKOFF)
+    try:
+        return work()
+    except OSError as exc:
+        say("[!] %s could not be read (%s); left in place, the "
+            "next compaction will take it."
+            % (path.name, type(exc).__name__))
+        return None
 
 
 def _plan(adding: list, say) -> list:
@@ -343,19 +345,22 @@ def _delete(folder: Path, path: Path, verified: set, say) -> bool:
         raise Refused("%s is not a capture file" % path.name)
     if path not in verified:
         raise Refused("%s was not verified in this pass" % path.name)
-    for attempt in range(TRIES):
+    for _attempt in range(TRIES - 1):
         try:
             path.unlink()
             return True
-        except OSError as exc:
-            if attempt + 1 == TRIES:
-                # The archive is already good, so this is not a reason
-                # to abandon anything: the next compaction finds the
-                # file already inside and deletes it then.
-                say("[!] %s is archived but could not be deleted (%s)."
-                    % (path.name, type(exc).__name__))
-                return False
+        except OSError:
             time.sleep(BACKOFF)
+    try:
+        path.unlink()
+        return True
+    except OSError as exc:
+        # The archive is already good, so this is not a reason to
+        # abandon anything: the next compaction finds the file already
+        # inside and deletes it then.
+        say("[!] %s is archived but could not be deleted (%s)."
+            % (path.name, type(exc).__name__))
+        return False
 
 
 def compact(folder, preset=DEFAULT_PRESET, say=print, delete=True) -> dict:

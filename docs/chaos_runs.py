@@ -312,6 +312,7 @@ import glob
 import gzip
 import importlib.util
 import io
+import itertools
 import json
 import math
 import os
@@ -420,8 +421,7 @@ import game_client                                             # noqa: E402
 
 # Each Chaos's season, by name, for telling the live season's own
 # Chaos from a past one: `current`.
-CHAOS_SEASONS = {name: season for name, season
-                 in chaos_estimate.chaos_names().values()}
+CHAOS_SEASONS = dict(chaos_estimate.chaos_names().values())
 
 
 class _Flow:
@@ -438,7 +438,7 @@ class _Flow:
         msg.from_client = from_client
 
         class _WS:
-            messages = [msg]
+            messages = (msg,)
         self.websocket = _WS()
 
 
@@ -492,8 +492,9 @@ def read_log(path):
     lines = []
     try:
         with gzip.open(path, "rt", encoding="utf-8", errors="replace") as fh:
+            # One at a time, so the lines read before an EOFError stay.
             for line in fh:
-                lines.append(line)
+                lines.append(line)  # noqa: PERF402
     except EOFError:
         print(paint("   %s: still being written, read up to its last whole "
                     "line" % os.path.basename(path), QUIET), flush=True)
@@ -1677,7 +1678,7 @@ def _steps(rows, key):
     order = sorted(groups, key=lambda label: first[label])
     facts = {label: _group_facts(members) for label, members in groups.items()}
     out = []
-    for a, b in zip(order, order[1:]):
+    for a, b in itertools.pairwise(order):
         fa, fb = facts[a], facts[b]
         moved = ["%s %s -> %s" % (_named(key_), "/".join(
             map(_number, sorted(fa["amounts"][key_]))), "/".join(
@@ -2001,7 +2002,7 @@ def _shift_cell(ks, ns, among, per):
         return [("shifted: " + ", ".join(
             "%.3f %s from %s" % (sum(ks[a:b]) / max(1, sum(ns[a:b])), per,
                                  among[a]["date"][:10])
-            for a, b in zip(edges, edges[1:]))
+            for a, b in itertools.pairwise(edges))
             + " (p %s)" % ", ".join("%.3f" % p for _at, p in found), FLAG)]
     _at, p = split_test(ks, ns, random.Random(0))
     return [("none (p %.2f)" % p, GOOD)] if p is not None \
@@ -2506,7 +2507,7 @@ def main():
             others[(row["chaos"], row.get("door") or "",
                     row.get("special") or "", row["mode"])].append(row)
             continue
-        for _key_, _spot, amount, _mark, _raw in base_payouts(row) or ():
+        for _key, _spot, amount, _mark, _raw in base_payouts(row) or ():
             tally[amount] += 1
         # A run lost before its last fight paid what it paid, not what a
         # run pays (`chaos_estimate.is_full`).

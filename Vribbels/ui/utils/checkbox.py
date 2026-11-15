@@ -102,23 +102,23 @@ def make_checkbox(parent, colors, *, text="", variable=None, command=None,
     # do -- and that also changes what `fg` colours, since Tk draws the
     # tick in the same option as the text.
     colour = fg or colors["fg"]
-    opts = dict(
-        text=text, variable=variable,
-        bg=colors["bg"], fg=colour,
-        selectcolor=colors["bg_light"],
-        activebackground=colors["bg"], activeforeground=colour,
-        font=font, anchor=tk.W,
+    opts = {
+        "text": text, "variable": variable,
+        "bg": colors["bg"], "fg": colour,
+        "selectcolor": colors["bg_light"],
+        "activebackground": colors["bg"], "activeforeground": colour,
+        "font": font, "anchor": tk.W,
         # highlightthickness kills the ring Tk paints OUTSIDE the widget;
         # takefocus stops it ever being the focused widget, which is what
         # paints the dotted rectangle around the label. These filters are
         # clicked, never tabbed to, so nothing is lost -- but note that
         # this does remove them from the keyboard tab order.
-        highlightthickness=px(0), bd=0, takefocus=0,
+        "highlightthickness": px(0), "bd": 0, "takefocus": 0,
         # Themed even though the ring above is off: it defaults to
         # SystemButtonFace, and that is the one near-white value left on
         # a widget whose every other colour comes from the palette.
-        highlightbackground=colors["bg"],
-    )
+        "highlightbackground": colors["bg"],
+    }
     if command is not None:
         opts["command"] = command
     pad_x = kwargs.pop("padx", None)

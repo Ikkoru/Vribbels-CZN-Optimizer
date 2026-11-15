@@ -6250,7 +6250,7 @@ addons =[Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode},
 
         # Get first resolved IP for upstream connection
         # (Using IP avoids circular DNS lookup through modified hosts file)
-        real_ip = list(self.game_server_ips.values())[0]
+        real_ip = next(iter(self.game_server_ips.values()))
 
         # Modify hosts file
         try:

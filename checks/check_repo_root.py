@@ -33,6 +33,7 @@ ALLOWED = {
     "LICENSE",
     "README.md",
     "requirements.txt",
+    "ruff.toml",
     "tasks.md",
     "zCreate exe.bat",
     "zRUN Chaos Runs Spreadsheet.cmd",

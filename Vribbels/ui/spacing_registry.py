@@ -24,6 +24,7 @@ from . import spacing_audit as sa
 # The resolvers' own distances -- a glyph's overshoot, a scan's reach --
 # are 100% numbers, and the font and the layout both double at 200%.
 from .scaling import px
+import itertools
 
 
 # Rule names. Canonical text lives in the Marker column of the rules
@@ -563,8 +564,6 @@ def _border_inner_edges(cap, frame):
     point is not worth a re-freeze.
     """
     fb = sa.box_of(frame)
-    mid_y = (fb.top + fb.bottom) // 2
-    mid_x = (fb.left + fb.right) // 2
 
     def run_end(start, limit, step, painted):
         """Skip inward to the first paint, then walk to that run's end."""
@@ -1552,7 +1551,7 @@ def _neighbour_gaps(cap, frame, classes):
             edge[1] = max(edge[1], span[1])
         ordered = [cols[c] for c in sorted(cols)]
         return [sa.gap_between(a[1], b[0])
-                for a, b in zip(ordered, ordered[1:])]
+                for a, b in itertools.pairwise(ordered)]
 
     # Packed or placed: there are no columns to group by, so each row is
     # read left to right and the smallest gap at each position wins.
@@ -1576,7 +1575,7 @@ def _neighbour_gaps(cap, frame, classes):
     at = {}
     for _top, _bottom, spans in rows:
         spans.sort()
-        for i, (a, b) in enumerate(zip(spans, spans[1:])):
+        for i, (a, b) in enumerate(itertools.pairwise(spans)):
             gap = sa.gap_between(a[1], b[0])
             at[i] = gap if i not in at else min(at[i], gap)
     return [at[i] for i in sorted(at)]
@@ -2884,7 +2883,7 @@ def _text_columns(cap, box, fill, want=None):
             columns.append([first, last])
     while want and len(columns) > want:
         gaps = [sa.gap_between(a[1], b[0])
-                for a, b in zip(columns, columns[1:])]
+                for a, b in itertools.pairwise(columns)]
         at = gaps.index(min(gaps))
         columns[at][1] = columns[at + 1][1]
         del columns[at + 1]
@@ -3421,7 +3420,7 @@ def _text_line_reading(locator, kinds=None, label=None):
         pairs = [(sa.gap_between(a[1], b[0])
                   + (px(sa.UNDERLINE_BELOW) if na in underlined else 0),
                   na, nb)
-                 for (na, a, _ta), (nb, b, _tb) in zip(rows, rows[1:])
+                 for (na, a, _ta), (nb, b, _tb) in itertools.pairwise(rows)
                  if nb == na + 1]
         # **One kind of gap per entry.** A line carries the tag that
         # sets its `spacing1`, which is the tab's own word for what
@@ -4760,7 +4759,7 @@ def _materials_icon_pairs(app):
     the row leaves the note saying the same thing twice.
     """
     for title, index, _text, labels in _materials_walk(app):
-        for position, (first, second) in enumerate(zip(labels, labels[1:])):
+        for position, (first, second) in enumerate(itertools.pairwise(labels)):
             yield (f"{title} row {index} icons {position}-{position + 1}",
                    first, second)
 
@@ -4981,7 +4980,7 @@ def _checklist_column(position):
         holders = sa.current_tab_widget(app).winfo_children()
         if not holders:
             raise LookupError("the Checklist tab has no columns")
-        columns = [child for child in holders[0].winfo_children()]
+        columns = list(holders[0].winfo_children())
         return columns[position]
     return find
 

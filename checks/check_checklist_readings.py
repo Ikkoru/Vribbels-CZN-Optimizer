@@ -1432,7 +1432,7 @@ def _run():
     parts = chaos_estimate.parts_shipped(season)
     chaos = chaos_estimate.season_chaos(season, (),
                                         [terms["days"] / parts] * parts)
-    if season_estimate(season) != int(round(sum(terms["fixed"]) + chaos)):
+    if season_estimate(season) != round(sum(terms["fixed"]) + chaos):
         failures.append(
             f"the estimate for {season} is not its own terms added up. "
             f"Every one of them is hand-counted, so one that stopped "
@@ -1446,7 +1446,7 @@ def _run():
     # and `B` stays above `X` rather than sinking under it.
     def two_pages(first, second):
         rows, at = [], 0
-        for page, items in (("shop_disaster_1", first),
+        for _page, items in (("shop_disaster_1", first),
                             ("shop_disaster_2", second)):
             for item in items:
                 at += 1
@@ -2196,27 +2196,27 @@ def _run():
         # what is claimed alone read `1/1+?` a day into a new event,
         # which says finished; no login event in the record has ended
         # under seven. See `ATTENDANCE_FLOOR`.
-        (dict(current_days=1, received_days=1),
+        ({"current_days": 1, "received_days": 1},
          "1/%d" % ATTENDANCE_FLOOR + UNKNOWN_MORE, CYCLE_DONE),
         # claimed up to date -- orange, the streak may have more days
-        (dict(current_days=4, received_days=4),
+        ({"current_days": 4, "received_days": 4},
          "4/%d" % ATTENDANCE_FLOOR + UNKNOWN_MORE, CYCLE_DONE),
         # a day shown up for and not claimed -- red
-        (dict(current_days=5, received_days=4),
+        ({"current_days": 5, "received_days": 4},
          "4/%d" % ATTENDANCE_FLOOR + UNKNOWN_MORE, TODO),
         # the game says the streak is over -- green, and the floor mark
         # comes off with it
-        (dict(current_days=7, received_days=7, completed=True), "7/7", DONE),
+        ({"current_days": 7, "received_days": 7, "completed": True}, "7/7", DONE),
         # **Days shown up for do not raise the ceiling.** Whatever
         # `current_days` says, the ceiling is one past what has been
         # claimed -- a streak has never been caught more than one
         # apart, and fifty-six over seven would be a tally of nothing.
-        (dict(current_days=56, received_days=7), "7/8" + UNKNOWN_MORE, TODO),
+        ({"current_days": 56, "received_days": 7}, "7/8" + UNKNOWN_MORE, TODO),
         # And past the floor the claimed count leads again.
-        (dict(current_days=9, received_days=9), "9/9" + UNKNOWN_MORE,
+        ({"current_days": 9, "received_days": 9}, "9/9" + UNKNOWN_MORE,
          CYCLE_DONE),
         # no shown-up count at all: nothing says a day is waiting
-        (dict(received_days=3),
+        ({"received_days": 3},
          "3/%d" % ATTENDANCE_FLOOR + UNKNOWN_MORE, CYCLE_DONE),
     )
     for fields, want, state in cases:
@@ -2237,12 +2237,12 @@ def _run():
         return _event_attendance(raw, "event_daily_16", WINDOW, now)
 
     for days, fields, want, state in (
-            (14, dict(current_days=1, received_days=1), "1/14", CYCLE_DONE),
-            (14, dict(current_days=5, received_days=4), "4/14", TODO),
-            (14, dict(current_days=14, received_days=14), "14/14", DONE),
+            (14, {"current_days": 1, "received_days": 1}, "1/14", CYCLE_DONE),
+            (14, {"current_days": 5, "received_days": 4}, "4/14", TODO),
+            (14, {"current_days": 14, "received_days": 14}, "14/14", DONE),
             # More claimed than the client's days: the client is not
             # this event's, and the streak's own reading answers.
-            (7, dict(current_days=9, received_days=9),
+            (7, {"current_days": 9, "received_days": 9},
              "9/9" + UNKNOWN_MORE, CYCLE_DONE)):
         got = _days(days, **fields)
         if got != [(want, state)]:
@@ -2262,13 +2262,13 @@ def _run():
         return _event_attendance(raw, "event_daily_16", WINDOW, now)
 
     for fields, want, state in (
-            (dict(current_days=4, received_days=3),
+            ({"current_days": 4, "received_days": 3},
              EXPECTED_VALUE + "3/7", TODO),
-            (dict(current_days=3, received_days=3),
+            ({"current_days": 3, "received_days": 3},
              EXPECTED_VALUE + "3/7", CYCLE_DONE),
-            (dict(current_days=7, received_days=7),
+            ({"current_days": 7, "received_days": 7},
              EXPECTED_VALUE + "7/7", LIKELY_DONE),
-            (dict(current_days=9, received_days=9),
+            ({"current_days": 9, "received_days": 9},
              "9/9" + UNKNOWN_MORE, CYCLE_DONE)):
         got = _family_days(7, **fields)
         if got != [(want, state)]:
@@ -2796,7 +2796,7 @@ def _expiring(now):
                 for n, (name, count) in enumerate(
                     (("Abyssal Core", "17"), ("Core", "3"),
                      ("Colorless Core", "120"), ("X", "1"), ("Y", "2")))]
-    lines, stops, width = expiring_layout(font, lines_in, 2)
+    lines, stops, _width = expiring_layout(font, lines_in, 2)
     keys = [[key for key, _s in line] for line in lines]
     if keys != [["k0", "k2", "k4"], ["k1", "k3"]]:
         failures.append(f"five lines two to a column were laid out as "

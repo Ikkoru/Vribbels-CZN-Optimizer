@@ -2034,7 +2034,7 @@ class HeroesTab(BaseTab):
         combatant. Rebuilding the whole list instead is visible as it
         blinking out and back.
         """
-        for index, hero in enumerate(self.hero_data_list):
+        for index, hero in enumerate(self.hero_data_list):  # noqa: B007 -- read after the loop
             if hero["name"] == hero_name:
                 break
         else:

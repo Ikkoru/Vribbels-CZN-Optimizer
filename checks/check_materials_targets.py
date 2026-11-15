@@ -23,6 +23,7 @@ No Tk: the tables and the column specs are all this needs.
 """
 
 from ._harness import add_source_to_path
+import itertools
 
 NAME = "materials targets"
 
@@ -233,7 +234,7 @@ def _advanced_accumulates_per_item():
                 f"steps {own} accumulate to {wanted}. A row reports what "
                 f"reaching it costs, everything above it included."
             )
-        if any(a > b for a, b in zip(totals, totals[1:])):
+        if any(a > b for a, b in itertools.pairwise(totals)):
             out.append(
                 f"item {res_id}'s column falls from one row to the next: "
                 f"{totals}. A later target cannot cost less than an "

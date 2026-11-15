@@ -55,7 +55,9 @@ class World(pd.Reference):
                             key=os.path.getmtime)
         opt.load_data(self.snapshot)
         self.by_id = {f.id: f for f in opt.fragments}
-        read = lambda p: json.load(open(p, encoding="utf-8"))
+        def read(p):
+            with open(p, encoding="utf-8") as fh:
+                return json.load(fh)
         osm = read("settings/optimizer_settings.json")["characters"]
         super().__init__({s["name_hint"]: s for s in osm.values()},
                          read("settings/presets.json")["presets"], opt)

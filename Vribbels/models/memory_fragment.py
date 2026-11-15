@@ -233,7 +233,7 @@ def compute_gs_bounds(
     Returns (0.0, 0.0) when no usable stat data exists.
     """
     stat_bounds = []  # list[(high_per_roll, low_per_roll)]
-    for _raw_name, info in STATS.items():
+    for info in STATS.values():
         if len(info) < 5:
             continue
         display_name = info[0]
@@ -386,7 +386,7 @@ def compute_fragment_potential(
 
             if len(fragment.substats) < 4:
                 main_name = fragment.main_stat.name if fragment.main_stat else None
-                for _raw, info in STATS.items():
+                for info in STATS.values():
                     name, _short, _is_pct, max_roll, min_roll = info
                     if max_roll <= 0:
                         # Main-stat-only entries (elemental DMG%) are not
@@ -489,7 +489,7 @@ def _roll_grid(info, weight, scale):
     percentage stat and 1 for a flat one."""
     _name, _short, is_pct, max_roll, min_roll = info
     step = 0.1 if is_pct else 1.0
-    count = max(1, int(round((max_roll - min_roll) / step)) + 1)
+    count = max(1, round((max_roll - min_roll) / step) + 1)
     return tuple(weight * (min_roll + i * step) / max_roll * 10 * scale
                  for i in range(count))
 
@@ -502,7 +502,7 @@ def _dist(grids):
     for grid in grids:
         each = share / len(grid)
         for value in grid:
-            at = int(round(value / _DIST_BIN))
+            at = round(value / _DIST_BIN)
             bins[at] = bins.get(at, 0.0) + each
     first = min(bins)
     chances = [0.0] * (max(bins) - first + 1)

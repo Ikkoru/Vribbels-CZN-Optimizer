@@ -241,9 +241,10 @@ def _locked_lines(locked, gates, constants, start, now):
 def _in(seconds):
     """`8d`, `5h`, `40m`: how long until an opening, rounded down as
     every countdown on the Checklist is."""
-    for size, unit in ((DAY, "d"), (3600, "h"), (60, "m")):
-        if seconds >= size or unit == "m":
-            return "%d%s" % (max(1, int(seconds // size)), unit)
+    for size, unit in ((DAY, "d"), (3600, "h")):
+        if seconds >= size:
+            return "%d%s" % (int(seconds // size), unit)
+    return "%dm" % max(1, int(seconds // 60))
 
 
 def _held_lists(raw):

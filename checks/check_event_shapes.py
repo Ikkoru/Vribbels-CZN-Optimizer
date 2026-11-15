@@ -191,7 +191,7 @@ def _client_totals(ct):
 
     # Every reward the client lists claimed is the whole event: green
     # with no word from the game, which no floor could ever be.
-    got, _raw_ = event({name: (3, 0, 0)}, claimed=3)
+    got, _raw_rows = event({name: (3, 0, 0)}, claimed=3)
     if got != [("3/3", ct.DONE)]:
         out.append(
             f"every reward the client lists claimed reads {got!r}, not "
@@ -209,7 +209,7 @@ def _client_totals(ct):
 
     # More rows than the client lists: paired wrongly, or the event
     # grew after the client was read. The wire's own reading answers.
-    got, _raw_ = event({name: (2, 0, 0)}, claimed=3)
+    got, _raw_rows = event({name: (2, 0, 0)}, claimed=3)
     if got != [("3/3" + ct.UNKNOWN_MORE, ct.FLOOR)]:
         out.append(
             f"three rows against a client total of two read {got!r}, not "
@@ -282,11 +282,11 @@ def _final_rewards(ct):
             f"a final reward the client lists asked Finished? "
             f"({asked!r}). The client says it exists, so there is nothing "
             f"for the answer to settle.")
-    got, _raw_ = event(held, claimed=2)
+    got, _raw_rows = event(held, claimed=2)
     if got != [("2/4", ct.TODO)]:
         out.append(f"a row still unclaimed beside a listed final reward "
                    f"reads {got!r}, not 2/4.")
-    got, _raw_ = event(held, claimed=3, final_taken=True)
+    got, _raw_rows = event(held, claimed=3, final_taken=True)
     if got != [("4/4", ct.DONE)]:
         out.append(
             f"a final reward the game has recorded as taken reads {got!r}, "
@@ -308,7 +308,7 @@ def _final_rewards(ct):
             f"a final reward known only from the family did not ask "
             f"Finished? ({asked!r}). The person who can see the game is the "
             f"one who knows whether this instalment has one.")
-    got, _raw_ = event(family, claimed=2)
+    got, _raw_rows = event(family, claimed=2)
     if got != [("2/4" + ct.UNKNOWN_MORE, ct.FLOOR)]:
         out.append(
             f"a row still unclaimed beside a family's final reward reads "
@@ -470,12 +470,12 @@ def _family_corroborates(ct):
             f"a likely-finished row asked {asked!r} where it should ask "
             f"Finished? at 6/6: other instalments are speaking for it, "
             f"and only the person who can see the game can say.")
-    got, _raw_ = event(agree, claimed=5)
+    got, _raw_rows = event(agree, claimed=5)
     if got != [("5/6", ct.FLOOR)]:
         out.append(f"a row short of the agreed total reads {got!r}, not "
                    f"5/6 on the floor.")
     # Rows trickling in: the family speaks, marked as the family's.
-    got, _raw_ = event(agree, claimed=6, batch=False)
+    got, _raw_rows = event(agree, claimed=6, batch=False)
     if got != [(ct.EXPECTED_VALUE + "6/6", ct.LIKELY_DONE)]:
         out.append(
             f"six trickled rows, all claimed, in a family of sixes read "
@@ -483,12 +483,12 @@ def _family_corroborates(ct):
             f"the event holds is in hand.")
     # A family paying a final reward: the final is what is left.
     finals = dict.fromkeys(agree, (6, 1, 0))
-    got, _raw_ = event(finals, claimed=6)
+    got, _raw_rows = event(finals, claimed=6)
     if got != [("6/7", ct.FINAL_WAITING)]:
         out.append(f"a family paying a final reward left {got!r}, not "
                    f"6/7 waiting on it.")
     # A family that does not repeat itself says nothing.
-    got, _raw_ = event({"event_schedule_probe_1": (6, 0, 0)}, claimed=6)
+    got, _raw_rows = event({"event_schedule_probe_1": (6, 0, 0)}, claimed=6)
     if got != [("6/6", ct.FLOOR)]:
         out.append(f"one instalment in the client read {got!r} as "
                    f"corroboration, not 6/6 on the floor.")

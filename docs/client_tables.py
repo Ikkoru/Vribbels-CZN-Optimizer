@@ -550,8 +550,7 @@ def season_payouts(client, season):
                          ("story_map_collect_star_reward@"
                           "story_map_collect_star_reward",
                           "Story star tiers")):
-        paying = [paid for paid in map(lambda r: _pays(r, item),
-                                       client.rows(table)) if paid]
+        paying = [paid for paid in (_pays(r, item) for r in client.rows(table)) if paid]
         out.append((words, sum(paying), f"{len(paying)} rows"))
     records = [row for row in client.rows(
         "disaster_rank_record_reward@disaster_rank_record_reward")

@@ -1074,8 +1074,7 @@ def _card_skin_luck(gh, folder, failures):
     from game_data import from_client
     skins = sorted(from_client.CARD_SKINS.items())
     by = {skin[1]: res_id for res_id, skin in skins}
-    pack, (_name, chances, featured) = sorted(
-        from_client.CARD_SKIN_PACKS.items())[0]
+    pack, (_name, chances, featured) = min(from_client.CARD_SKIN_PACKS.items())
     chance = chances["SUPER_RARE"]
     # Geometric: one Super Rare at 77 pulls is beaten by every player
     # who needed more, (1 - p)^77, and half of those who needed as many.
@@ -1141,7 +1140,7 @@ def _card_skin_luck(gh, folder, failures):
     batches, _skipped = gh.parse_import(data, export.name)
     skins, names = gh.parse_skin_import(data)
     other = folder / "other"
-    added, _known = gh.merge_import(other, batches, skins, names)
+    _added, _known = gh.merge_import(other, batches, skins, names)
     again, known = gh.merge_import(other, batches, skins, names)
     moved = gh.load(other).pools.get(gh.SKIN_POOL)
     if moved is None or [p.res_id for p in moved.pulls] != [

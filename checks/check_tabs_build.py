@@ -2481,7 +2481,6 @@ def _a_seasonal_tick_outlives_its_season(tab):
     from ui.tabs import checklist_tab as mod
 
     out = []
-    shop = (mod.SEASONAL_SHOP_CATEGORY, mod.shop_stock.ALL_SCREENS)
     live = (tab._definitions or {}).get(mod.SEASONAL_SHOP_CATEGORY) or {}
     # The newest season with shelves on the wire: between seasons the
     # live one has none listed yet.
@@ -4730,7 +4729,7 @@ def _standings_lists_fit(tab):
         # Nothing read: one empty column, so the list reads as a table.
         optimizer.raw_data, tab.stats = {}, None
         tab._fill_standings()
-        for title, parts, table, _registered in lists:
+        for title, parts, _table, _registered in lists:
             heads, rows = shown(parts)
             if heads != [NO_VALUE] or any(r[1:] != [NO_VALUE] for r in rows):
                 out.append(f"the {title} list with nothing read shows "
@@ -5151,8 +5150,8 @@ def _checklist_prices_apart_take_the_middle(tab):
             parts = drawn.split(mod.COLUMN_SEP)
             tags = text.tag_names("%d.0" % line)
             price = text.search(words, "%d.0" % line, "%d.end" % line)
-            colour = mod._label_tag(heads[key], dict(
-                (k, l) for k, l, _w in rows)[heads[key]])
+            colour = mod._label_tag(heads[key], {
+                k: l for k, l, _w in rows}[heads[key]])
             if (len(parts) != 3 or parts[1] != words
                     or mod.MIDDLE_STOP_PREFIX + heads[key] not in tags):
                 out.append(
@@ -5198,7 +5197,7 @@ def _checklist_reserve_follows_readings(tab):
         readings[key] = ((words, mod.TODO),
                          ("3d left", mod.LATER))
         tab._rebuild_columns(raw, readings)
-        for _title, (text, rows) in tab.column_texts.items():
+        for (text, rows) in tab.column_texts.values():
             if any(row[0] == key for row in rows):
                 stops = text.tk.splitlist(text.tag_cget(tag, "tabs"))
                 return int(float(str(stops[1]))) if len(stops) > 1 else None
@@ -7328,7 +7327,7 @@ FAULTS = [
      "the Prism Module's on the first line"),
     ("the Prism Module's records right over the Card Skin Packs'",
      "ui.tabs.gacha_history_tab:_paired",
-     "right = {n: part for n, part in enumerate(top)}",
+     "right = dict(enumerate(top))",
      "right = {first - len(top) + n: part for n, part in enumerate(top)}",
      "the Prism Module's on the first line"),
     ("the sheet's room kept for one tie",

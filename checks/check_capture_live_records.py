@@ -159,7 +159,7 @@ def _chaos_progress_moves(Addon):
         got = _readings(saved, NOW).get("chaos_progress")
         if got != [want]:
             failures.append(
-                f"after {sorted(fields)[0]} states the season's score, "
+                f"after {min(fields)} states the season's score, "
                 f"Galactic Disaster - Chaos reads {got!r}, not {[want]!r}."
                 f" See the season rows in capture/manager.py.")
     return failures

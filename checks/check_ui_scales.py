@@ -47,6 +47,7 @@ import tempfile
 from pathlib import Path
 
 from ._harness import add_source_to_path, SOURCE_ROOT, Skip, destroy_root
+import itertools
 
 NAME = "every distance doubles at 200%"
 
@@ -179,7 +180,7 @@ def _placed_distances(tab, problems):
             tab._reflow_exclude_heroes(force=True)
             places, rows = tab._exclude_places, tab._exclude_partition
             gaps = [places[b][0] - places[a][0] - places[a][2]
-                    for row in rows for a, b in zip(row, row[1:])]
+                    for row in rows for a, b in itertools.pairwise(row)]
             if not gaps:
                 problems.append(
                     "the Exclude panel placed no two names side by side, "

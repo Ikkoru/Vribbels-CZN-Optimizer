@@ -279,7 +279,7 @@ def replay(logs=(), until=None, seed=False, save=True, keep=False,
             prepare(run.folder)
         stop = _stop_at(until, found[-1][1])
         clock = _Clock()
-        for index, (name, lines) in enumerate(found):
+        for index, (_name, lines) in enumerate(found):
             clock.epoch = None
             run.addon = _addon(run.folder, clock, run.lines, save)
             if region:

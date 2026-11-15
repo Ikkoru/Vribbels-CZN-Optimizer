@@ -63,7 +63,7 @@ def _level_rules_report():
     from game_data.client_overlay import hand
     CHARACTERS = hand("CHARACTERS")
     out = []
-    rid, entry = next((k, c) for k, c in CHARACTERS.items()
+    _rid, entry = next((k, c) for k, c in CHARACTERS.items()
                       if isinstance(c, dict) and c.get("level_curve"))
     pair_key = level_curve(entry)
     saved_entry = dict(entry)

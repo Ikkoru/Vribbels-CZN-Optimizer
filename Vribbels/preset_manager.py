@@ -198,20 +198,20 @@ class PresetManager:
         #   (c) No SettingsManager: fall back to in-memory `_legacy_selected`.
         if self.settings_manager is not None:
             current = self.settings_manager.get("selected_preset")
-            if not isinstance(current, str) or not current:
-                if sel and sel in self.presets:
-                    try:
-                        self.settings_manager.set("selected_preset", sel)
-                    except Exception:
-                        pass
-                    # Clean up the legacy field from presets.json so the
-                    # file format matches the docstring going forward.
-                    # Best-effort: if it fails, the field stays and the
-                    # next save_preset/delete_presets will strip it.
-                    try:
-                        self._write()
-                    except Exception:
-                        pass
+            if ((not isinstance(current, str) or not current)
+                    and sel and sel in self.presets):
+                try:
+                    self.settings_manager.set("selected_preset", sel)
+                except Exception:
+                    pass
+                # Clean up the legacy field from presets.json so the
+                # file format matches the docstring going forward.
+                # Best-effort: if it fails, the field stays and the
+                # next save_preset/delete_presets will strip it.
+                try:
+                    self._write()
+                except Exception:
+                    pass
         else:
             if sel and sel in self.presets:
                 self._legacy_selected = sel

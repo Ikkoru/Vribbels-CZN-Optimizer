@@ -79,11 +79,11 @@ def make_scrolled_text(parent, colors, *, padx=4, pady=3, **kwargs):
             `docs/ui_spacing.md`.
         **kwargs: passed to the Text (`height`, `wrap`, `font`, ...).
     """
-    opts = dict(
-        bg=colors["bg_light"], fg=colors["fg"],
-        insertbackground=colors["fg"],
-        bd=0, highlightthickness=px(0),
-        padx=px(padx), pady=px(pady),
-    )
+    opts = {
+        "bg": colors["bg_light"], "fg": colors["fg"],
+        "insertbackground": colors["fg"],
+        "bd": 0, "highlightthickness": px(0),
+        "padx": px(padx), "pady": px(pady),
+    }
     opts.update(kwargs)
     return _ScrolledText(parent, **opts)

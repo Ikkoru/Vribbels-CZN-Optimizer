@@ -355,20 +355,20 @@ def run():
         # this reads, and only the table.
         expected = rule_targets.get(g.rule)
         where = "the docs table gives for that rule"
-        if expected is not None and g.target != expected:
-            # A target that misses its rule means the site breaks the
-            # rule, and a site that breaks a rule carries an `exception`
-            # or a `unique` saying so. This finds the marker for the
-            # RULE, not for this panel -- nothing ties an entry to a
-            # call site -- so it catches a miss nobody marked anywhere,
-            # not a miss marked on the wrong panel.
-            if g.rule not in excepted:
-                failures.append(
-                    f"{g.name!r} carries {g.target} where its rule asks "
-                    f"{expected}, but no `exception` or `unique` marker in "
-                    f"the widget code says that rule is broken. A miss with "
-                    f"nothing marking it reads as a target someone typed "
-                    f"wrong")
+        # A target that misses its rule means the site breaks the rule,
+        # and a site that breaks a rule carries an `exception` or a
+        # `unique` saying so. This finds the marker for the RULE, not for
+        # this panel -- nothing ties an entry to a call site -- so it
+        # catches a miss nobody marked anywhere, not a miss marked on the
+        # wrong panel.
+        if (expected is not None and g.target != expected
+                and g.rule not in excepted):
+            failures.append(
+                f"{g.name!r} carries {g.target} where its rule asks "
+                f"{expected}, but no `exception` or `unique` marker in "
+                f"the widget code says that rule is broken. A miss with "
+                f"nothing marking it reads as a target someone typed "
+                f"wrong")
         if expected is not None:
             if g.target_source == "rule" and g.target != expected:
                 failures.append(

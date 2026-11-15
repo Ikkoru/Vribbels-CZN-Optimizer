@@ -749,13 +749,12 @@ STAT MIN - MAX ROLLS:
             return
 
         # Confirm overwrite if the name already exists.
-        if self.preset_manager.has_preset(name):
-            if not messagebox.askyesno(
-                "Overwrite Preset",
-                f"A preset named '{name}' already exists.\n\n"
-                f"Overwrite it with the current weights?"
-            ):
-                return
+        if self.preset_manager.has_preset(name) and not messagebox.askyesno(
+            "Overwrite Preset",
+            f"A preset named '{name}' already exists.\n\n"
+            f"Overwrite it with the current weights?"
+        ):
+            return
 
         weights = {stat: var.get() for stat, var in self.stat_weight_vars.items()}
         try:

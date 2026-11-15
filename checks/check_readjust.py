@@ -59,7 +59,7 @@ def _counted(fragment, valuer, eligible):
     import readjust as rj
     subs = fragment.substats
     scaled = valuer.bind(fragment)
-    now, ref, extra = scaled.reference(fragment)
+    _now, ref, extra = scaled.reference(fragment)
     start = extra + sum(scaled.points(s, s.base_value) for s in subs)
     step = {}
     for i in eligible:

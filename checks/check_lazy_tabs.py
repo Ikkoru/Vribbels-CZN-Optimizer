@@ -272,7 +272,7 @@ def run():
             problems.append(f"czn_optimizer_gui.py has no `{name}`.")
             continue
         record = _call_lines(func, "_let_the_checklist_record")
-        loads = [n for n in _call_lines(func, "load_data")]
+        loads = list(_call_lines(func, "load_data"))
         if not record or not loads or min(record) > min(loads):
             problems.append(
                 f"`{name}` does not build the Checklist before it loads a "

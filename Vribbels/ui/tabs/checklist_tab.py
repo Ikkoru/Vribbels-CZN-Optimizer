@@ -114,6 +114,7 @@ from ..utils.spinbox_clamp import CLAMP_ALERT
 from ..utils.tab_header import HEADING_FONT, make_heading
 from ..utils.tooltip import Tooltip
 from ui.scaling import WINDOW_H, WINDOW_W, px
+import itertools
 
 
 # Each column's heading and its rows, left to right. Read off the
@@ -354,7 +355,7 @@ def season_estimate(season, raw=None, now=None,
                                         starts)
     if chaos is None:
         return None
-    return int(round(sum(terms["fixed"]) + chaos))
+    return round(sum(terms["fixed"]) + chaos)
 
 
 def _season_parts(season, terms, raw, now):
@@ -372,8 +373,8 @@ def _season_parts(season, terms, raw, now):
         end = window.get("end_time") if isinstance(window, dict) else None
         if starts and _is_count(end) and end > starts[-1]:
             edges = list(starts) + [end]
-            return list(starts), [int(round((later - earlier) / 86400.0))
-                                  for earlier, later in zip(edges, edges[1:])]
+            return list(starts), [round((later - earlier) / 86400.0)
+                                  for earlier, later in itertools.pairwise(edges)]
     parts = chaos_estimate.parts_shipped(season) or 1
     return None, [terms["days"] / parts] * parts
 
@@ -549,10 +550,10 @@ def countdown_words(seconds):
         return None
     if seconds <= 0:
         return COUNTDOWN_OVER
-    for size, unit in ((24 * 3600, "d"), (3600, "h"), (60, "m")):
-        if seconds >= size or unit == "m":
-            return "%d%s%s" % (max(1, int(seconds // size)), unit,
-                               COUNTDOWN_LEFT)
+    for size, unit in ((24 * 3600, "d"), (3600, "h")):
+        if seconds >= size:
+            return "%d%s%s" % (int(seconds // size), unit, COUNTDOWN_LEFT)
+    return "%dm%s" % (max(1, int(seconds // 60)), COUNTDOWN_LEFT)
 
 
 def is_countdown(words):
@@ -1175,13 +1176,13 @@ def shop_period(period, raw, now, group=shop_stock.ACCOUNT_SEASON_GROUP):
     if period == "monthly":
         start, end = (raw or {}).get("month_start"), (raw or {}).get("month_end")
         if _is_count(start) and _is_count(end) and end > start:
-            days = int(round((end - start) / 86400.0))
+            days = round((end - start) / 86400.0)
     elif period == "account":
         _name, window = schedules.current(group, raw, now)
         if isinstance(window, dict):
             span = (window.get("end_time") or 0) - (window.get("start_time") or 0)
             if span > 0:
-                days = int(round(span / 86400.0))
+                days = round(span / 86400.0)
     return word, max(1, days)
 
 
@@ -1660,7 +1661,7 @@ def _event_countdown(raw, name, window, now):
     if total is not None:
         days, mark = total[0], ""
     elif _is_count(span[1]) and span[1] > span[0]:
-        days, mark = int(round((span[1] - span[0]) / 86400.0)), EXPECTED_VALUE
+        days, mark = round((span[1] - span[0]) / 86400.0), EXPECTED_VALUE
     else:
         return []
     taken = len(claimed)
@@ -4675,8 +4676,8 @@ class ChecklistTab(BaseTab):
         # Packed LAST of the three, so it never maps as an empty
         # block waiting for its Text: a child packed into an unmapped
         # parent maps with it, all at once.
-        pack_holder = lambda: holder.pack(anchor=tk.N,
-                                          pady=px((HEADING_GAP, 0)))
+        def pack_holder():
+            holder.pack(anchor=tk.N, pady=px((HEADING_GAP, 0)))
 
         text = tk.Text(
             holder, wrap=tk.NONE, bd=0, highlightthickness=px(0),
@@ -4708,7 +4709,7 @@ class ChecklistTab(BaseTab):
         # unable to serve two headings of different lengths.
         for tag, tabs in stops.items():
             text.tag_configure(tag, tabs=tabs)
-        for key, label, _w in rows:
+        for key, _label, _w in rows:
             if not key.startswith(SHOP_HEAD_PREFIX):
                 continue
             # What the shop's currency has been earning. Bound to the
@@ -6232,7 +6233,7 @@ def currency_earned(raw, res_id):
         # in the ledger that every later reading has to climb back over.
         return None, None
     spent = 0
-    for _category, defines in shop_stock.definitions(raw).items():
+    for defines in shop_stock.definitions(raw).values():
         for product_id, define in (defines or {}).items():
             if (not isinstance(define, dict)
                     or define.get("price_link_item_id") != res_id):
@@ -6447,7 +6448,7 @@ def _basin(raw, now):
     name, _window = schedules.current(COUNTDOWNS["basin"], raw, now)
     if name not in sized:
         # No schedule for it: the last season the account has rows for.
-        name = sorted(sized)[-1]
+        name = max(sized)
     done = sum(1 for row in sized[name].values()
                if isinstance(row, dict) and row.get("score"))
     return done, total, _basin_claimed(raw, name)

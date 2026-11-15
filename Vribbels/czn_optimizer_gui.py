@@ -1025,7 +1025,7 @@ class OptimizerGUI:
         # a shop gaining one costs no write.
         self.checklist_manager = ChecklistManager(program_dir)
         self.checklist_manager.load()
-        self.log_presets_manager.ensure_ids(str(rid) for rid in CHARACTERS.keys())
+        self.log_presets_manager.ensure_ids(str(rid) for rid in CHARACTERS)
         # Fold any legacy config.json into settings.json and materialise
         # the canonical key order (SettingsManager.LAYOUT). Both historical
         # locations are offered, settings/ first: that is where
@@ -2293,7 +2293,7 @@ class OptimizerGUI:
 def is_admin():
     try:
         return ctypes.windll.shell32.IsUserAnAdmin()
-    except:
+    except (AttributeError, OSError):          # not Windows, or no shell32
         return False
 
 

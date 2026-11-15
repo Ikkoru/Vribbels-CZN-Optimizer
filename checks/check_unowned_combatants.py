@@ -153,7 +153,7 @@ def run():
 
     # Owned, wearing no partner: the same assumption, and nothing else
     # of the account's own replaced.
-    owned = sorted(names)[0]
+    owned = min(names)
     opt.character_info[owned] = CharacterInfo(
         res_id=names[owned], name=owned, friendship_bonus=(1, 2, 3))
     try:
@@ -171,7 +171,7 @@ def run():
                    f"account's own Affinity (1, 2, 3) and no Potential.")
 
     # Named by neither table: the class's 5-star flats and shared passive.
-    plain = sorted(names)[-1]
+    plain = max(names)
     saved = (partners.SIGNATURE_PARTNERS.pop(plain, None),
              partners.PARTNER_EXCEPTIONS.pop(plain, None))
     try:

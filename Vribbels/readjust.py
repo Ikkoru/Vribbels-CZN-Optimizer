@@ -92,7 +92,7 @@ def roll_values(sub):
         return [0.0]
     _name, _short, is_pct, high, low = info
     step = 0.1 if is_pct else 1.0
-    count = max(1, int(round((high - low) / step)) + 1)
+    count = max(1, round((high - low) / step) + 1)
     return [round(low + i * step, 4) for i in range(count)]
 
 
@@ -153,7 +153,7 @@ def _one_upgrade(grids, width):
     for grid in grids:
         each = share / len(grid)
         for value in grid:
-            at = int(round(value / width))
+            at = round(value / width)
             bins[at] = bins.get(at, 0.0) + each
     first = min(bins)
     chances = [0.0] * (max(bins) - first + 1)

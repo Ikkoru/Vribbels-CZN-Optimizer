@@ -205,7 +205,7 @@ def potential_7_check(atk, dfn, hp, crate, cdmg, extra, dot, ego) -> tuple:
 
 
 def _half_up(value: float) -> int:
-    return int(math.floor(value + 0.5))
+    return math.floor(value + 0.5)
 
 
 # What a fragment brings to a build, in the order a stat row holds it:

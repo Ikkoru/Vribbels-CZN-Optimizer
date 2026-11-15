@@ -249,7 +249,7 @@ class InventoryTab(BaseTab):
         # Mirror the checkbox widgets so we can disable/enable them dynamically.
         self.inv_main_stat_checks = {}
         # Display label -> canonical name (filled at startup).
-        self.inv_main_stat_canonical = {label: name for label, name in MAIN_STAT_DISPLAY}
+        self.inv_main_stat_canonical = dict(MAIN_STAT_DISPLAY)
 
         # Unknown main stats discovered in the loaded data (canonical name == raw).
         # Keyed by canonical name, displayed in their own row at the bottom.
@@ -640,7 +640,7 @@ class InventoryTab(BaseTab):
                                       "highest_potential"]
                       else tk.CENTER)
             self.inv_tree.heading(col, text=txt, anchor=anchor,
-                                  command=lambda c=col.lower(): self.sort_inventory(c))
+                                  command=lambda c=col.lower(): self.sort_inventory(c))  # noqa: B008 -- binds this column
             # Highest Potential is the ONLY stretching column, so every
             # pixel the window gains lands there instead of being shared
             # out across thirteen columns that were each sized to their
@@ -919,7 +919,7 @@ class InventoryTab(BaseTab):
             # only ever grow it: Tk rejects a negative, so a tighter gap
             # would have to come off the per-column count width instead.
             cnt.grid(row=row, column=base_col + 1, sticky=tk.E,
-                     padx=px((1, 2 if logical_col == len(col_count_widths) - 1 else 2)),
+                     padx=px((1, 2)),
                      pady=px((top_pad, 0)))
             # Clicking the count toggles the checkbox too (the count label
             # isn't part of the Checkbutton's own hit area).
@@ -983,7 +983,7 @@ class InventoryTab(BaseTab):
             # Only check if currently enabled (greyed-out ones stay unchecked).
             if str(self.inv_main_stat_checks[label].cget("state")) != "disabled":
                 var.set(True)
-        for canonical, var in self.inv_unknown_main_stat_vars.items():
+        for var in self.inv_unknown_main_stat_vars.values():
             var.set(True)
         self.refresh_inventory()
 
@@ -1009,7 +1009,7 @@ class InventoryTab(BaseTab):
         # Stats that should NEVER appear in the filter, even when present in
         # the data: the 11 displayed mains (always shown) and the three flat
         # slot 1/2/3 mains (always pass through, never shown).
-        known = set(c for _, c in MAIN_STAT_DISPLAY)
+        known = {c for _, c in MAIN_STAT_DISPLAY}
         known.update({"Flat ATK", "Flat DEF", "Flat HP"})
 
         seen_unknown = set()

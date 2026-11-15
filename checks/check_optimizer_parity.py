@@ -27,6 +27,7 @@ from pathlib import Path
 from . import _parity_fixture as fixture
 from ._harness import (add_source_to_path, newest_snapshot, describe, Skip,
                        SOURCE_ROOT)
+import itertools
 
 NAME = "optimizer parallel/sequential parity"
 
@@ -150,7 +151,7 @@ def _reached(items, results, stats, ran):
         >= parallel.PARALLEL_MIN_COMBOS,
         "trim": survived > 2 * core.pool_size(
             fixture.SETTINGS["max_results"]),
-        "ties": any(a == b for a, b in zip(scores, scores[1:])),
+        "ties": any(a == b for a, b in itertools.pairwise(scores)),
         "potential_7": len(steps) > 1,
         "have_at_least": stats.get("passed_set_reqs", 0) > survived > 0,
         "sets": types >= {("conditional", 4), ("conditional", 2),

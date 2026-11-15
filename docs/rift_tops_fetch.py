@@ -44,17 +44,15 @@ ROW = re.compile(r'"s":"([^"]+)","r":"disaster_s\d+_rank_best_\d+_(\d+)",'
 
 
 def fetch(url, pause):
-    for attempt in (1, 2):
-        try:
-            request = urllib.request.Request(url, headers={
-                "User-Agent": AGENT})
-            with urllib.request.urlopen(request, timeout=60) as reply:
-                return reply.read().decode("utf-8", "replace")
-        except OSError as e:
-            if attempt == 2:
-                raise
-            print("  retrying after %s" % e, file=sys.stderr)
-            time.sleep(pause)
+    request = urllib.request.Request(url, headers={"User-Agent": AGENT})
+    try:
+        with urllib.request.urlopen(request, timeout=60) as reply:
+            return reply.read().decode("utf-8", "replace")
+    except OSError as e:
+        print("  retrying after %s" % e, file=sys.stderr)
+        time.sleep(pause)
+    with urllib.request.urlopen(request, timeout=60) as reply:
+        return reply.read().decode("utf-8", "replace")
 
 
 def tops_of(html):
@@ -77,7 +75,7 @@ def tops_of(html):
 
 def stamp(read):
     """The site's ISO time as the table writes one, UTC to the second."""
-    at = datetime.fromisoformat(read.replace("Z", "+00:00"))
+    at = datetime.fromisoformat(read)
     return at.astimezone(UTC).strftime("%Y-%m-%d %H:%M:%S")
 
 

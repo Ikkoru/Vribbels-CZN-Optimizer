@@ -136,7 +136,7 @@ def _restore_overrides_the_gate(root):
     mgr = PresetManager(root)
     mgr.load()
     tab = SimpleNamespace(_preset_weights_equal=SetupTab._preset_weights_equal)
-    missing, changed = SetupTab._diff_presets(tab, mgr,
+    missing, _changed = SetupTab._diff_presets(tab, mgr,
                                               shipped / "presets.json")
     if ("B", "B") not in missing:
         return out + [

@@ -825,7 +825,7 @@ class ReadjustTab(BaseTab):
             if not any((sig, kind, c) in waiting for _fid, c in pairs) \
                     and future.cancel():
                 self._drop(job)
-        for sig, template, name, chunk, refine in wanted:
+        for sig, template, _name, chunk, refine in wanted:
             kind = "refine" if refine else "read"
             pairs = tuple((f.id, rj.content(f)) for f in chunk)
             job = (sig, kind, pairs)

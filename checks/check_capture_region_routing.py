@@ -80,7 +80,7 @@ def run():
                 "every connection keeps mitmproxy's launch upstream, so one "
                 "region reaches the wrong server."]
 
-    for host, region, ip in ((GLOBAL_HOST, "global", "10.0.0.1"),
+    for host, _region, ip in ((GLOBAL_HOST, "global", "10.0.0.1"),
                              (ASIA_HOST, "asia", "10.0.0.2")):
         data = _HookData(host)
         addon.server_connect(data)

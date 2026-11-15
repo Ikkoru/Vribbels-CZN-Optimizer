@@ -588,7 +588,7 @@ def _one_more_cycle(prev, step):
 # `math.sumprod` arrived in Python 3.12. The same sum without it, for an
 # older interpreter running from source.
 _sumprod = getattr(math, "sumprod", None) or (
-    lambda a, b: sum(map(operator.mul, a, b)))
+    lambda a, b: sum(map(operator.mul, a, b)))  # noqa: B912 -- map's strict= is 3.14's
 
 
 def luckier_than(pities, base):

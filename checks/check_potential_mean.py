@@ -108,7 +108,7 @@ def _band_enumerated(fragment, weights, bounds, tail=0.1):
     def grid(raw_name):
         name, _short, is_pct, max_roll, min_roll = STATS[raw_name]
         step = 0.1 if is_pct else 1.0
-        count = int(round((max_roll - min_roll) / step)) + 1
+        count = round((max_roll - min_roll) / step) + 1
         return [weights.get(name, 1.0) * (min_roll + i * step) / max_roll * 10
                 for i in range(count)]
 

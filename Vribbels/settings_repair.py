@@ -484,9 +484,9 @@ def _tidy_presets(data):
     lost = []
     if isinstance(presets, dict):
         for name in list(presets):
-            if preset_manager.preset_problem(name, presets[name]):
-                if isinstance(presets.pop(name), dict):
-                    lost.append(str(name))
+            if (preset_manager.preset_problem(name, presets[name])
+                    and isinstance(presets.pop(name), dict)):
+                lost.append(str(name))
     selected = data.get("selected_preset")
     if selected is not None and not isinstance(selected, str):
         del data["selected_preset"]
@@ -647,8 +647,8 @@ class Repair:
         if self.outcome == SET_ASIDE:
             instead = ("the shipped defaults are in its place"
                        if self.defaults else "it starts afresh")
-            return f"{self.name}: nothing in it could be read, so " \
-                   f"{instead}. {kept}"
+            return (f"{self.name}: nothing in it could be read, so "
+                    f"{instead}. {kept}")
         if not self.cost_something:
             return f"{self.name} was repaired, with nothing lost. {kept}"
         out = [f"{self.name} was repaired."]

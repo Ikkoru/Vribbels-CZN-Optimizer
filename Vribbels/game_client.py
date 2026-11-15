@@ -446,7 +446,7 @@ class Archive:
     def __init__(self, install=DEFAULT_INSTALL):
         self.root = Path(install) / GAMERES
         data = (self.root / "manifest.ssra").read_bytes()
-        (magic, version, self.build, chunks, files, _flags, str_off,
+        (_magic, _version, self.build, chunks, files, _flags, str_off,
          str_size, chunk_off, file_off, _extra) = _header(data)
         strings = data[str_off:str_off + str_size]
         self.groups = self._groups(data, str_off + str_size)

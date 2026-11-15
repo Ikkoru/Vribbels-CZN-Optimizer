@@ -102,7 +102,7 @@ def main(argv):
 
     listed = []
     for name, row in sorted(rows.items()):
-        command, _, key = name.partition("|")
+        _command, _, key = name.partition("|")
         if wanted and not any(w.lower() in name.lower() for w in wanted):
             continue
         if not show_all and key in read:
@@ -120,7 +120,7 @@ def main(argv):
     for name, is_read, row in listed:
         print("%-*s  %-4s %6d  %-19s  %s"
               % (width, name[:width], "yes" if is_read else "-",
-                 row.get("count", 0), str(row.get("first"))[:19],
+                 int(row.get("count", 0)), str(row.get("first"))[:19],
                  str(row.get("sample"))[:60]))
     print()
     print("%d shown, of %d pairs catalogued. The addon reads %d keys."

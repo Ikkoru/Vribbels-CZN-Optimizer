@@ -388,7 +388,7 @@ def _other_files(scratch, shipped_dir):
     if state_key not in SettingsManager.state_keys():
         return [f"{state_key} is no longer the program's own state: the "
                 f"check wants another key of that section."]
-    mine_settings = {k: v for k, v in layout}
+    mine_settings = dict(layout)
     mine_settings[tuned_key] = code[tuned_key] + 9
 
     _write(user / "presets.json",
@@ -552,8 +552,8 @@ def _switch_backup_undo(scratch, shipped_dir, STATS):
         n for n in shipped
         if preset_derivation.combatant_of(n) in ref.settings)[:2]
     shipped_cp = normalize_to_v2(_read(defaults / "character_preset.json"))
-    rid = sorted(r for r, p in shipped_cp["assignments"].items()
-                 if p in shipped)[0]
+    rid = min(r for r, p in shipped_cp["assignments"].items()
+                 if p in shipped)
     elsewhere = next(p for p in sorted(shipped)
                      if p != shipped_cp["assignments"][rid])
     key = "optimizer_min_gear_level"
@@ -841,7 +841,7 @@ def _history_lags(section):
     history = _read(path)
     if section == "presets":
         shipped = _read(root / "default_settings" / "presets.json")
-        history["presets"][sorted(shipped["presets"])[-1]] = []
+        history["presets"][max(shipped["presets"])] = []
     else:
         history["settings"]["optimizer_workers"] = [12345]
     _write(path, history)

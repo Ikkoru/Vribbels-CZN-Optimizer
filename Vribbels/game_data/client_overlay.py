@@ -57,6 +57,7 @@ from .constants import (AFFINITY_TO_NEXT, CHARACTER_EXP_TABLE,
                         SLOT_MAIN_STATS, SLOT_ORDER, STATS, SUBSTAT_DRAW)
 from .partners import DEFAULT_PARTNER, PARTNERS, PARTNER_CLASS_STATS
 from .sets import SETS
+import itertools
 
 _TABLES = {"CHARACTERS": CHARACTERS, "PARTNERS": PARTNERS,
            "PARTNER_CLASS_STATS": PARTNER_CLASS_STATS,
@@ -277,7 +278,7 @@ def _exp(tables):
         reached = (tables or {}).get(kind)
         if (isinstance(reached, (list, tuple)) and len(reached) > 1
                 and _ints(reached) and reached[0] == 0
-                and all(a <= b for a, b in zip(reached, reached[1:]))):
+                and all(a <= b for a, b in itertools.pairwise(reached))):
             _replace(name, [(exp, level)
                             for level, exp in enumerate(reached, 1)])
 

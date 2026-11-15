@@ -995,7 +995,7 @@ def debug_dump(cap: Capture, frame, child, out=print, bg=None):
     runs = painted_runs_v(cap, wide, bg)
     out(f"    painted runs: {runs}")
     out(f"    merged:       {merge_runs(runs)}")
-    for first, last in runs[:6]:
+    for first, _last in runs[:6]:
         out(f"      row {first}: first paint at "
             f"{_first_painted_x(cap, wide, first, bg)}")
     narrow = Box(fb.left + 8, fb.top, min(fb.left + 20, fb.right),
@@ -1594,7 +1594,7 @@ def _print_rows(rows, out, verbose=False, frozen=None):
 
     body = []
     for row in shown:
-        name, target, value, note, tab, axis, provisional, sibling = row[:8]
+        name, target, value, note, tab, axis, provisional, _sibling = row[:8]
         source = row[8] if len(row) > 8 else "rule"
         arrow = AXIS_MARK[axis]
         # A floor reads `>=8`: the column says what passes.

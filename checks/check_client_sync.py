@@ -155,7 +155,7 @@ def _written(folder):
     from game_data import client_sync
     out = []
     try:
-        said, changed = _run_sync(folder)
+        said, _changed = _run_sync(folder)
     except client_sync.SyncError as exc:
         return [f"the sync would write a table wrong, so wrote nothing: "
                 f"{exc}"]
@@ -283,9 +283,9 @@ def _level_terms():
 
     fact = {"name": "Probe", "grade": 5, "class": "Striker",
             "attribute": "Justice"}
-    lone = [pair for pair, curve in LEVEL_BONUS_BY_CLASS.items()
+    lone = next(pair for pair, curve in LEVEL_BONUS_BY_CLASS.items()
             if sum(c == curve for c in LEVEL_BONUS_BY_CLASS.values()) == 1
-            and pair != ("Striker", 5)][0]
+            and pair != ("Striker", 5))
     shared = [pair for pair, curve in LEVEL_BONUS_BY_CLASS.items()
               if pair[1] == 4 and LEVEL_BONUS_BY_CLASS.get(("Striker", 4)) == curve
               and pair != ("Striker", 4)]
@@ -441,8 +441,8 @@ def _ego_texts():
                    f"`skill_eff_ev_<id>` that effect's eff_value.")
 
     class _Archive:
-        files = ["db/card@skill_eff.db", "db/card(c1)@skill_eff.db",
-                 "db/card@desc.db"]
+        files = ("db/card@skill_eff.db", "db/card(c1)@skill_eff.db",
+                 "db/card@desc.db")
 
     class _Client:
         archive = _Archive()

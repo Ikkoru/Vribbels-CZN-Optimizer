@@ -264,7 +264,7 @@ def _one_capture_loose_twice_is_one_member():
     high = archive.KINDS[archive.LOGS][1]
     work = _folder(logs=high)
     try:
-        oldest = sorted(work.glob("websocket_debug_*.jsonl.gz"))[0]
+        oldest = min(work.glob("websocket_debug_*.jsonl.gz"))
         twin = _twin(oldest)
         result = archive.compact(work, say=_quiet)
         if result["failed"]:
@@ -288,7 +288,7 @@ def _one_capture_loose_twice_is_one_member():
     # Twins that DIFFER: neither may go in, and neither may go.
     work = _folder(logs=high)
     try:
-        oldest = sorted(work.glob("websocket_debug_*.jsonl.gz"))[0]
+        oldest = min(work.glob("websocket_debug_*.jsonl.gz"))
         twin = _twin(oldest, changed=True)
         result = archive.compact(work, say=_quiet)
         names = [name for name, _size in archive.contents(work)]
@@ -359,7 +359,7 @@ def _the_report_says_a_number_once_when_it_means_once():
     hiding exactly what the line is for.
     """
     out = []
-    high, low = archive.KINDS[archive.SNAPSHOTS][1:3]
+    high, _low = archive.KINDS[archive.SNAPSHOTS][1:3]
     work = _folder(snapshots=high)
     try:
         said = []
@@ -525,7 +525,7 @@ def _a_walk_reaches_archived_captures():
     high = archive.KINDS[archive.SNAPSHOTS][1]
     work = _folder(snapshots=high)
     try:
-        newest = sorted(work.glob("memory_fragments_*.json"))[-1].name
+        newest = max(work.glob("memory_fragments_*.json")).name
         archive.compact(work, say=_quiet)
 
         names = [name for name, _size in archive.contents(work)]

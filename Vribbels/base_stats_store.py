@@ -119,7 +119,7 @@ def read(snapshots):
 # ------------------------------------------------------------ resolving
 
 def _half_up(value):
-    return int(math.floor(value + 0.5))
+    return math.floor(value + 0.5)
 
 
 def solve_base(inner, partner, rate, flat):
