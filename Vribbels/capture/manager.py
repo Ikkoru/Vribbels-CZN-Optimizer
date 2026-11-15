@@ -15,6 +15,7 @@ import time
 from pathlib import Path
 from typing import Optional, Callable
 
+from . import job
 from .constants import PROXY_PORT, GAME_PORT, HOSTS_PATH
 from .setup import find_mitmdump
 
@@ -29,9 +30,12 @@ class CaptureError(Exception):
 # to rewrite; nothing outside them is ever touched.
 HOSTS_BLOCK_START = "# CZN-CAPTURE-START"
 HOSTS_BLOCK_END = "# CZN-CAPTURE-END"
+# The block's own lines and nothing else, so that adding it and taking
+# it out again gives back the file byte for byte. A line ending before
+# the block is the file's own: the block starts on a fresh line.
 _HOSTS_BLOCK_RE = re.compile(
-    r"\n*" + re.escape(HOSTS_BLOCK_START)
-    + r".*?" + re.escape(HOSTS_BLOCK_END) + r"\n*",
+    re.escape(HOSTS_BLOCK_START)
+    + r".*?" + re.escape(HOSTS_BLOCK_END) + r"(?:\r?\n)?",
     re.DOTALL,
 )
 
@@ -39,6 +43,25 @@ _HOSTS_BLOCK_RE = re.compile(
 def _strip_capture_block(content: str) -> str:
     """Return hosts-file text with the redirect block removed."""
     return _HOSTS_BLOCK_RE.sub("", content)
+
+
+def _line_ending(content: str) -> str:
+    """The line ending the file's last line uses; CRLF, Windows' own,
+    for a file with none."""
+    found = re.search(r"\r?\n(?!.*\n)", content, re.DOTALL)
+    return found.group(0) if found else "\r\n"
+
+
+def _add_capture_block(content: str, hosts: list) -> str:
+    """`content` with a redirect block for `hosts` appended, in the
+    file's own line ending. A file whose last line has no ending gains
+    one, so the block starts on a line of its own."""
+    eol = _line_ending(content)
+    if content and not content.endswith("\n"):
+        content += eol
+    lines = [HOSTS_BLOCK_START] + ["127.0.0.1 %s" % h for h in hosts] \
+        + [HOSTS_BLOCK_END]
+    return content + eol.join(lines) + eol
 
 
 def is_loopback_address(ip: str) -> bool:
@@ -5511,6 +5534,17 @@ class CaptureManager:
 
         self.capturing = False
         self.proxy_process = None
+        # The Job Object holding the proxy (`capture/job.py`): while
+        # this process holds the handle the proxy lives, and when this
+        # process ends, however it ends, the proxy ends with it.
+        self._proxy_job = None
+        # The hosts file, and where it is copied before this program
+        # first writes it in a run. Attributes so a check can point them
+        # at a scratch file.
+        self.hosts_path = HOSTS_PATH
+        self.hosts_backup_path = (Path(output_folder).parent / "settings"
+                                  / "backups" / "hosts_before_capture")
+        self._hosts_backed_up = False
         # Wall clock at the moment the proxy was launched. A snapshot
         # older than this belongs to an EARLIER session, which is the
         # difference between "this run captured nothing" and "this run
@@ -5678,9 +5712,7 @@ class CaptureManager:
             # surrogateescape round-trips any byte it cannot decode
             # unchanged, which is the only safe option on a file whose
             # encoding is not ours to know.
-            with open(HOSTS_PATH, "r", encoding="utf-8",
-                      errors="surrogateescape") as f:
-                content = f.read()
+            content = self._read_hosts()
 
             # Strip any block an earlier run left behind before appending
             # this one. Accepting a file that already carries the redirect
@@ -5695,17 +5727,9 @@ class CaptureManager:
             # passed through the proxy at all -- a silent no-capture.
             # The addon sends each connection on to its own region.
             from .constants import SERVERS
-            entries = ["\n" + HOSTS_BLOCK_START]
-            for server_config in SERVERS.values():
-                for host in server_config.hosts:
-                    entries.append(f"127.0.0.1 {host}")
-            entries.append(HOSTS_BLOCK_END + "\n")
-
-            new_content = content + "\n".join(entries)
-
-            with open(HOSTS_PATH, "w", encoding="utf-8",
-                      errors="surrogateescape") as f:
-                f.write(new_content)
+            hosts = [host for server_config in SERVERS.values()
+                     for host in server_config.hosts]
+            self._write_hosts(_add_capture_block(content, hosts))
 
             self._flush_dns()
 
@@ -5713,6 +5737,50 @@ class CaptureManager:
 
         except Exception as e:
             raise CaptureError(f"Failed to modify hosts file: {e}")
+
+    def _read_hosts(self) -> str:
+        """The hosts file's text, every byte of it kept.
+
+        The file belongs to the system and carries other people's
+        entries, so it is read the way it is written: UTF-8 with
+        surrogateescape, which round-trips any byte it cannot decode,
+        and no newline translation, which would turn every bare LF into
+        CRLF on the way back out.
+        """
+        with open(self.hosts_path, "r", encoding="utf-8",
+                  errors="surrogateescape", newline="") as f:
+            return f.read()
+
+    def _write_hosts(self, text: str) -> None:
+        """Write the hosts file, `text` exactly, onto the disk before
+        returning.
+
+        It is rewritten in place -- the file's permissions and
+        attributes are the system's, and a replace would swap them for
+        a new file's -- so a crash between the truncate and the write
+        could leave it empty. Before this program first writes it in a
+        run it is copied to `hosts_backup_path`, and the Capture Log
+        says where, once.
+        """
+        if not self._hosts_backed_up:
+            try:
+                import shutil
+                self.hosts_backup_path.parent.mkdir(parents=True,
+                                                    exist_ok=True)
+                shutil.copyfile(self.hosts_path, self.hosts_backup_path)
+                self._hosts_backed_up = True
+                self.log_callback(
+                    f"The hosts file as it was is copied to "
+                    f"{self.hosts_backup_path}", None)
+            except OSError as e:
+                self.log_callback(
+                    f"Could not copy the hosts file before changing it: {e}",
+                    "warning")
+        with open(self.hosts_path, "w", encoding="utf-8",
+                  errors="surrogateescape", newline="") as f:
+            f.write(text)
+            f.flush()
+            os.fsync(f.fileno())
 
     def _flush_dns(self):
         """Drop the OS resolver cache so a hosts-file edit takes effect.
@@ -5768,9 +5836,7 @@ class CaptureManager:
                 should use restore_hosts_file instead.
         """
         try:
-            with open(HOSTS_PATH, "r", encoding="utf-8",
-                      errors="surrogateescape") as f:
-                content = f.read()
+            content = self._read_hosts()
         except OSError as e:
             raise CaptureError(f"Could not read the hosts file: {e}")
 
@@ -5778,9 +5844,7 @@ class CaptureManager:
             return False
 
         try:
-            with open(HOSTS_PATH, "w", encoding="utf-8",
-                      errors="surrogateescape") as f:
-                f.write(_strip_capture_block(content))
+            self._write_hosts(_strip_capture_block(content))
         except OSError as e:
             raise CaptureError(
                 "A capture redirect left in the hosts file could not be "
@@ -5801,43 +5865,33 @@ class CaptureManager:
             self.log_callback(f"Failed to restore hosts: {e}", "error")
 
     def _find_dictionary_path(self) -> Optional[Path]:
-        """
-        Find the zstd dictionary file.
-        Searches in order: output_folder, Vribbels folder, bundled location.
-        If found in bundled location, copies to output_folder for addon script access.
+        """The zstd dictionary the addon decompresses with, or None.
 
-        Returns:
-            Path to dictionary file if found, None otherwise
+        The program's own copy: beside the source in a source run, in
+        the bundle in a frozen build. The addon reads the source copy
+        where it lies. A frozen build's bundle is a temporary folder
+        the addon is not meant to reach, so it reads a copy beside the
+        snapshots instead -- **refreshed whenever its bytes differ from
+        the bundle's**. Kept whenever one existed, a copy made by an
+        older release would outlive every newer dictionary shipped
+        after it.
         """
         import shutil
         dict_name = "zstd_dictionary.bin"
-
-        # Check output folder first (always accessible by addon script)
-        dict_path = self.output_folder / dict_name
-        if dict_path.exists():
-            return dict_path
-
-        # Check Vribbels folder (development mode)
-        vribbels_folder = Path(__file__).parent.parent
-        source_path = vribbels_folder / dict_name
-        if source_path.exists():
-            return source_path
-
-        # Check if running from PyInstaller bundle
-        if hasattr(sys, '_MEIPASS'):
-            bundled_path = Path(sys._MEIPASS) / dict_name
-            if bundled_path.exists():
-                # Copy to output folder so addon script can access it
-                # (addon runs as separate process without _MEIPASS access)
-                try:
-                    dest_path = self.output_folder / dict_name
-                    shutil.copy2(bundled_path, dest_path)
-                    return dest_path
-                except Exception:
-                    # Return bundled path as fallback
-                    return bundled_path
-
-        return None
+        shipped = Path(getattr(sys, "_MEIPASS", "")
+                       or Path(__file__).resolve().parent.parent) / dict_name
+        if not getattr(sys, "frozen", False):
+            return shipped if shipped.exists() else None
+        dest = self.output_folder / dict_name
+        if not shipped.exists():
+            return dest if dest.exists() else None
+        try:
+            if (not dest.exists()
+                    or dest.read_bytes() != shipped.read_bytes()):
+                shutil.copy2(shipped, dest)
+            return dest
+        except OSError:
+            return shipped
 
     def _generate_addon_script(self, debug_mode: bool = False) -> Path:
         """
@@ -6191,7 +6245,7 @@ addons =[Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode},
             raise CaptureError(
                 "The game server still resolves to this machine.\n\n"
                 "Something is redirecting it locally. Check "
-                f"{HOSTS_PATH} for an entry pointing "
+                f"{self.hosts_path} for an entry pointing "
                 "the game server at 127.0.0.1 and remove it."
             )
 
@@ -6258,6 +6312,17 @@ addons =[Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode},
                 startupinfo=startupinfo,
                 creationflags=creationflags
             )
+            # **Tied to this process at once.** Left to itself the proxy
+            # outlives a program that is killed or crashes: still bound
+            # to the port, nobody reading its pipe, and the next capture
+            # unable to start. A proxy that cannot be tied still runs,
+            # as it always has.
+            self._proxy_job = job.kill_on_close_job()
+            if (self._proxy_job is not None
+                    and not job.assign(self._proxy_job,
+                                       self.proxy_process.pid)):
+                job.close(self._proxy_job)
+                self._proxy_job = None
             threading.Thread(target=self._read_proxy_output, daemon=True).start()
         except Exception as e:
             self.log_callback(f"[X] Failed to start proxy: {e}", "error")
@@ -6295,6 +6360,9 @@ addons =[Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode},
             except subprocess.TimeoutExpired:
                 self.proxy_process.kill()
             self.proxy_process = None
+        # Whatever the proxy started goes with it.
+        job.close(self._proxy_job)
+        self._proxy_job = None
 
         # Restore hosts file
         self.restore_hosts_file()

@@ -415,6 +415,7 @@ class OptimizerGUI:
         self.auto_load()
         perf_log.log("startup:auto_load", secs=_time.perf_counter() - _t)
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+        self._install_session_end()
         _t = _time.perf_counter()
         self._reveal_window()
         perf_log.log("startup:reveal", secs=_time.perf_counter() - _t)
@@ -1679,6 +1680,24 @@ class OptimizerGUI:
         except Exception:
             pass
 
+    def _install_session_end(self):
+        """Stop a capture when Windows ends the session.
+
+        A shutdown or a sign-out never passes through `on_close`, so a
+        capture running then left the hosts redirect in place, and the
+        game could not connect until the program was next started as
+        Administrator. Tk hands Windows' `WM_QUERYENDSESSION` to the
+        `WM_SAVE_YOURSELF` protocol (`checks/check_capture_ends_cleanly.py`
+        holds that), and nothing else does.
+        """
+        self.root.protocol("WM_SAVE_YOURSELF", self._on_session_end)
+
+    def _on_session_end(self):
+        """Windows is ending the session: take the capture down, with
+        no dialog, since nobody is there to answer one."""
+        if self.capture_manager.is_capturing():
+            self.capture_manager.stop_capture()
+
     def _say_error_log_written(self, path):
         """The first error of a session went to the log: say where,
         once, in the Capture Log (thread-safe)."""
@@ -2360,14 +2379,13 @@ def run_as_admin() -> int:
         extra = ([DEV_FLAG]
                  if os.environ.get(MAINTAINER_ENV)
                  and DEV_FLAG not in sys.argv else [])
+        # Quoted the way the new process's C runtime splits them, so an
+        # argument holding a space or a quote arrives as one.
+        script = sys.executable
         if getattr(sys, 'frozen', False):
-            script = sys.executable
-            params = " ".join(sys.argv[1:] + extra)
+            params = subprocess.list2cmdline(sys.argv[1:] + extra)
         else:
-            script = sys.executable
-            params = f'"{sys.argv[0]}"'
-            if len(sys.argv) > 1 or extra:
-                params += " " + " ".join(sys.argv[1:] + extra)
+            params = subprocess.list2cmdline(sys.argv + extra)
 
         return ctypes.windll.shell32.ShellExecuteW(
             None, "runas", script, params, None, 1

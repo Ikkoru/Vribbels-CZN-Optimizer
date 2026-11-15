@@ -59,6 +59,8 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Checklist: an Event inside another Event's screen has its own name and rewards: Rules of Good Order reads its 17, and Nightmare Dream Park no longer counts them among its own.
 - Checklist: no longer redraws in stages while the game logs in.
 - Optimizer: with a Shielding/Healing weight between 1 and 99, the results are the true best 100.
+- Capture: the proxy no longer keeps running if the program is closed abruptly.
+- Capture: signing out or shutting down Windows during a capture no longer leaves the game unable to connect.
 - The Chaos estimate counts season 5's Environment Variables by part again: 13 in part 1, 19 in part 2.
 
 ## [2.6.3] - Senectus Tracking, Distortion Adaptation
