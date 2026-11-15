@@ -815,7 +815,7 @@ FAULTS = [
      'here = (event or "").partition("-")[0]', 'here = event or ""',
      "lights []"),
     ("a leaving not heard", "capture.manager:ADDON_TEMPLATE",
-     "        elif asked == EVENT_LEAVES or asked == CHAOS_CLOSES \\\\\n",
+     "        elif asked in (EVENT_LEAVES, CHAOS_CLOSES) \\\\\n",
      "        elif asked == CHAOS_CLOSES \\\\\n", "after encounter/exit_encounter"),
     ("a step moved on to not heard", "capture.manager:ADDON_TEMPLATE",
      'EVENT_SAYS = ("encounter/get_info", "encounter/next_encounter")',

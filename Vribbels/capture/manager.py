@@ -145,7 +145,7 @@ import zlib
 from collections import deque
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Callable
+from collections.abc import Callable
 
 try:
     import zstandard as zstd
@@ -523,10 +523,10 @@ class Addon:
     def __init__(
         self,
         output_dir: Path,
-        dict_path: Optional[Path] = None,
-        log_callback: Optional[Callable[[str], None]] = None,
+        dict_path: Path | None = None,
+        log_callback: Callable[[str], None] | None = None,
         debug_mode: bool = False,
-        catalogue_path: Optional[Path] = None
+        catalogue_path: Path | None = None
     ):
         """
         Initialize the capture addon.
@@ -827,7 +827,8 @@ class Addon:
         if debug_mode:
             ts = datetime.now().strftime("%Y%m%d_%H%M%S")
             debug_path = self.output_dir / f"websocket_debug_{ts}.jsonl.gz"
-            self.debug_file = open(debug_path, "wb")
+            # Held open for the capture: a frame is written per line.
+            self.debug_file = open(debug_path, "wb")  # noqa: SIM115
             self.log_callback(f"Debug logging to: {debug_path.name}")
 
         # Tracks delete (disassemble_piece) requests we're waiting on the
@@ -926,7 +927,7 @@ class Addon:
             saved = sorted(self.output_dir.glob("memory_fragments_*.json"))
             if not saved:
                 return
-            with open(saved[-1], "r", encoding="utf-8") as f:
+            with open(saved[-1], encoding="utf-8") as f:
                 previous = json.load(f)
         except Exception:
             return
@@ -1015,12 +1016,10 @@ class Addon:
         Try to decode binary data - may be compressed or plain JSON.
         Returns decoded string or None if unable to decode.
         """
-        size = len(raw_bytes)
-
         # Try plain UTF-8 first
         try:
             return raw_bytes.decode('utf-8')
-        except:
+        except Exception:
             pass
 
         # Check for Zstandard magic number (0x28 0xB5 0x2F 0xFD)
@@ -1034,7 +1033,7 @@ class Addon:
                     try:
                         decompressed = self.zstd_dctx.decompress(raw_bytes)
                         return decompressed.decode('utf-8')
-                    except:
+                    except Exception:
                         pass
 
                 # Try without dictionary as fallback
@@ -1042,7 +1041,7 @@ class Addon:
                     dctx = zstd.ZstdDecompressor()
                     decompressed = dctx.decompress(raw_bytes)
                     return decompressed.decode('utf-8')
-                except:
+                except Exception:
                     pass
             else:
                 self.log_callback("ERROR: zstandard module not installed!")
@@ -1054,21 +1053,21 @@ class Addon:
                 try:
                     decompressed = self.zstd_dctx.decompress(raw_bytes)
                     return decompressed.decode('utf-8')
-                except:
+                except Exception:
                     pass
             # Try without dictionary
             try:
                 dctx = zstd.ZstdDecompressor()
                 decompressed = dctx.decompress(raw_bytes)
                 return decompressed.decode('utf-8')
-            except:
+            except Exception:
                 pass
 
         # Try gzip decompression
         try:
             decompressed = gzip.decompress(raw_bytes)
             return decompressed.decode('utf-8')
-        except:
+        except Exception:
             pass
 
         # Try zlib decompression (with and without header)
@@ -1076,7 +1075,7 @@ class Addon:
             try:
                 decompressed = zlib.decompress(raw_bytes, wbits)
                 return decompressed.decode('utf-8')
-            except:
+            except Exception:
                 pass
 
         return None
@@ -1563,7 +1562,8 @@ class Addon:
             stated = self._settle_held_run(nested)
         else:
             for envelope, judged in zip(nested,
-                                        self._judged_together(nested)):
+                                        self._judged_together(nested),
+                                        strict=True):
                 stated |= self._apply_totals(envelope, judged=judged)
         if asked == CHAOS_CLOSES:
             self._flush_held_drops()
@@ -1752,7 +1752,7 @@ class Addon:
                         str(value["reward_id"])] = value
                     self._save_pending = True
                 continue
-            if key.endswith("_entity") or key.endswith("_entities"):
+            if key.endswith(("_entity", "_entities")):
                 self.event_defines[key] = value
                 self._save_pending = True
         # **Login tables with no reader yet whose names do not say
@@ -2894,7 +2894,7 @@ class Addon:
             if not candidate.exists():
                 continue
             try:
-                with open(candidate, "r", encoding="utf-8") as f:
+                with open(candidate, encoding="utf-8") as f:
                     data = json.load(f)
             except (OSError, ValueError) as e:
                 problems.append(candidate.name + ": " + str(e))
@@ -2947,7 +2947,7 @@ class Addon:
                 json.dump(store, f, indent=1)
                 f.flush()
                 os.fsync(f.fileno())
-            with open(tmp, "r", encoding="utf-8") as f:
+            with open(tmp, encoding="utf-8") as f:
                 back = json.load(f)
         except (OSError, ValueError) as e:
             self._gacha_discard(tmp)
@@ -3308,7 +3308,7 @@ class Addon:
                 continue
             there = True
             try:
-                with open(candidate, "r", encoding="utf-8") as f:
+                with open(candidate, encoding="utf-8") as f:
                     data = json.load(f)
             except (OSError, ValueError):
                 continue
@@ -3339,7 +3339,7 @@ class Addon:
                 f.write(json.dumps(store, separators=(",", ":")))
                 f.flush()
                 os.fsync(f.fileno())
-            with open(tmp, "r", encoding="utf-8") as f:
+            with open(tmp, encoding="utf-8") as f:
                 if json.load(f) != store:
                     raise ValueError("it does not read back as written")
             if path.exists():
@@ -4053,11 +4053,11 @@ class Addon:
                 self._save_pending = True
         broken = data.get("psychosis_chars")
         for row in broken if isinstance(broken, list) else ():
-            if isinstance(row, dict) and row.get("res_id") is not None:
-                if self._patch_combatant(row["res_id"], {
+            if (isinstance(row, dict) and row.get("res_id") is not None
+                    and self._patch_combatant(row["res_id"], {
                         field: row[field] for field in PSYCHOSIS_FIELDS
-                        if field in row}):
-                    self._save_pending = True
+                        if field in row})):
+                self._save_pending = True
         res_id = self.pending_counselings.pop(qid, None) \
             if qid is not None else None
         if res_id is not None:
@@ -4633,7 +4633,7 @@ class Addon:
         elif asked in EVENT_SAYS:
             result = data.get("result")
             found = result.get("info") if isinstance(result, dict) else None
-        elif asked == EVENT_LEAVES or asked == CHAOS_CLOSES \\
+        elif asked in (EVENT_LEAVES, CHAOS_CLOSES) \\
                 or asked in CHAOS_OPENS:
             found = None
         else:
