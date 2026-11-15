@@ -16,23 +16,13 @@ Found by the 2026-11-14 audit. Evidence, the change and the proof for each are i
 
 *N/A*
 
-### 1b) Needs maintainer assistance figuring out
-
-*N/A*
-
 ---
 
 ## 2) Improvements
 
 ### 2a) Can improve without maintainer input
 
-- **I44 — Pin the settings sync's unguarded rules with checks.** Three rules in `docs/settings_architecture.md` fail silently and no check exercises them:
-  - the tombstone gate: a default the player deleted, present at the last sync and still shipped, is not re-added (`defaults_sync`, the `.defaults_sync.json` sidecar; with no sidecar, every current default counts as known);
-  - `SettingsManager.apply_layout` absorbing a legacy `config.json`'s values for keys `settings.json` lacks, and never over one it has;
-  - Restore Defaults' per-entry buckets, which override the gate and leave the sidecar alone.
-
-  `check_defaults_follow` covers values following a release and a deleted Gear Score preset's assignment, not these.
-
+*N/A*
 
 ### 2b) Needs maintainer assistance figuring out
 
