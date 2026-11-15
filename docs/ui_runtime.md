@@ -159,7 +159,7 @@ The admin prompt uses `MessageBoxW` via `_win_message`. It runs before `Optimize
 
 ## A rebuild on the load path is gated on what it would draw
 
-A panel that destroys its children and builds them again blinks: between the destroy and the next paint there is a hole where the widgets were. A login burst saves the snapshot several times in a few seconds, so a refresh wired to the data load runs two or three times while the user watches.
+A panel that destroys its children and builds them again blinks: between the destroy and the next paint there is a hole where the widgets were. A capture saves the snapshot after every action in game, so a refresh wired to the data load runs on many saves that change nothing it draws.
 
 These panels rebuild real widgets after startup, and each is gated on a SIGNATURE computed before anything is destroyed, holding everything the rebuild would read:
 
@@ -176,6 +176,8 @@ These panels rebuild real widgets after startup, and each is gated on a SIGNATUR
 `checks/check_tabs_build.py` holds each of these to widget IDENTITY: same inputs in, the same objects still on screen. Comparing the labels would pass while every widget behind them was replaced.
 
 Treeview and Listbox rebuilds are not this: their rows are not widgets, and clearing one repaints inside a single widget with no hole to see.
+
+The gates cover a save that changes nothing a panel draws. A save that is not whole yet is another matter: a login's saves each hold more of the account than the last, so every gate opens on each, and the tabs go backwards and then forwards. `_poll_capture` holds the reload through a login instead, until its saves stop (`docs/capture_pipeline.md`, *Saving the snapshot*).
 
 ## A hidden tab draws when shown, but records now
 

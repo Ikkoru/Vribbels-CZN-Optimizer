@@ -10,7 +10,6 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
 Found by the 2026-11-14 audit. Evidence, the change and the proof for each are in `plan_audit_fixes.md`, under the same id; they land before 2.7.0.
 
-- **A1 — The Checklist redraws in stages while the game logs in.** A login saves 13 partial snapshots in 3.4 s and the window reloads on each. The reload is held until the login goes quiet.
 - **A2 — With a Shielding/Healing weight between 1 and 99, the Results list is not the best 100**, and at 70 its top row was wrong. The trim keeps no headroom, its references are far off, and the display divides by the survivors' maxima.
 - **A6 — A capture that ends badly**: mitmdump outlives a killed program; the hosts file is rewritten in place, in text mode; a stale zstd dictionary beside the snapshots wins over a newer shipped one.
 - **A7 — `_background_say` calls `root.after` from the archiver's and the stats history's threads.**

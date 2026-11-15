@@ -69,6 +69,10 @@ GACHA_MARKER = "[SYNC] gacha"
 # equal to the addon's by the same check.
 EVENT_MARKER = "[SYNC] event"
 
+# The same for a login, which holds the app's reload until the login's
+# saves stop. Held equal to the addon's by the same check.
+LOGIN_MARKER = "[SYNC] login"
+
 # What opens the timing the addon puts after a line under Debug WS:
 # when the request went out, when its reply came in, when the line was
 # printed. The reader takes it off before anything else reads the line;
@@ -151,6 +155,13 @@ GACHA_MARKER = "[SYNC] gacha"
 # stands is no part of a snapshot: it is true only while it is said, and
 # an Event moves nothing a save would be made for.
 EVENT_MARKER = "[SYNC] event"
+
+# Printed when the server says this account has logged in: the capture's
+# first login, and each relaunch after it, never a reconnect (see
+# `_check_for_relaunch`). Consumed the same way. A login saves many times
+# in a few seconds, each save holding more of the account than the last,
+# and the app holds its reload until they stop.
+LOGIN_MARKER = "[SYNC] login"
 
 # Put after every line printed while a reply is handled, in debug mode
 # only: when its request went out, when the reply came in and when the
@@ -562,7 +573,8 @@ class Addon:
             # purpose.** They go out between saves, so remembering one
             # would put it between two identical reports and stop
             # either from reading as a repeat.
-            if msg != SAVE_MARKER and not msg.startswith(EVENT_MARKER):
+            if (msg not in (SAVE_MARKER, LOGIN_MARKER)
+                    and not msg.startswith(EVENT_MARKER)):
                 self._last_line = msg
             if self.debug_mode and self._reply_times is not None:
                 sent, got = self._reply_times
@@ -5207,6 +5219,10 @@ class Addon:
         if stamp is None or stamp == self.login_stamp:
             return
         was, self.login_stamp = self.login_stamp, stamp
+        # **Before the first-login return**: the capture's first login is
+        # as partial as any relaunch's, and the app holds its reload
+        # through both.
+        self.log_callback(LOGIN_MARKER)
         if was is None or self.saved_path is None:
             return                       # the capture's first login
         self.log_callback("Game relaunched -- starting a new snapshot")
@@ -5490,6 +5506,8 @@ class CaptureManager:
         # what is called when that moves: likewise.
         self.chaos_event = None
         self.event_update_callback = None
+        # Called when the addon says the game logged in: likewise.
+        self.login_callback = None
 
         self.capturing = False
         self.proxy_process = None
@@ -6060,6 +6078,10 @@ addons =[Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode},
                 if GACHA_MARKER in line:
                     if self.gacha_update_callback:
                         self.gacha_update_callback()
+                    continue
+                if LOGIN_MARKER in line:
+                    if self.login_callback:
+                        self.login_callback()
                     continue
                 if EVENT_MARKER in line:
                     self._set_chaos_event(

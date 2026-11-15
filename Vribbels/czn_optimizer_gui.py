@@ -57,6 +57,7 @@ import shutil
 import ctypes
 import re
 import threading
+import time
 import webbrowser
 from dataclasses import dataclass, field
 from typing import Optional, Callable
@@ -107,6 +108,7 @@ from defaults_sync import resolve_defaults_dir, sync_defaults
 # Mends or sets aside a settings file that will not read. Must run
 # before the sync does.
 import game_client
+import login_hold
 import settings_repair
 import shared_facts
 # The Upgrade Log Settings, as a decision rather than as widgets:
@@ -371,6 +373,12 @@ class OptimizerGUI:
         # Set from the capture's reader thread, acted on by
         # `_poll_capture` on the UI thread. See `_want_live_update`.
         self._live_update_wanted = False
+        # When the newest save and the newest login were announced, in
+        # `time.monotonic()`; `_login_began` is None with no login
+        # pending. Set on the reader thread, read by `_poll_capture`,
+        # which holds a reload through a login -- see `login_hold`.
+        self._last_save_at = None
+        self._login_began = None
         self._gacha_written = False
         self._event_moved = False
         # Set from the thread reading old captures for stats, acted on
@@ -1111,6 +1119,7 @@ class OptimizerGUI:
         # `_on_gacha_written`.
         self.capture_manager.gacha_update_callback = self._on_gacha_written
         self.capture_manager.event_update_callback = self._on_event_moved
+        self.capture_manager.login_callback = self._on_login
 
         def make(cls):
             return lambda: cls(self.notebook, self.app_context)
@@ -1820,6 +1829,14 @@ class OptimizerGUI:
         """
         self._event_moved = True
 
+    def _on_login(self):
+        """The game logged in: hold reloads until its saves stop.
+
+        Runs on the proxy-reader thread, so it only sets an attribute
+        for `_poll_capture` -- see `_want_live_update`.
+        """
+        self._login_began = time.monotonic()
+
     def _want_live_update(self):
         """The capture saved: reload once the UI thread gets to it.
 
@@ -1833,6 +1850,7 @@ class OptimizerGUI:
         A flag also COALESCES: however many saves land while a reload
         runs, one more reload follows, reading the newest file.
         """
+        self._last_save_at = time.monotonic()
         self._live_update_wanted = True
 
     def _poll_capture(self):
@@ -1864,8 +1882,15 @@ class OptimizerGUI:
                 disaster = self.disaster_tab_instance
                 if disaster is not None:
                     disaster.refresh_disaster()
-            if self._live_update_wanted:
+            # **Held through a login**: its saves come under a second
+            # apart, each holding more of the account than the last, and
+            # a reload on each shows the tabs going backwards and then
+            # forwards. Once they stop, one reload reads the whole.
+            if self._live_update_wanted and login_hold.decide(
+                    time.monotonic(), self._login_began,
+                    self._last_save_at) == login_hold.RELOAD:
                 self._live_update_wanted = False
+                self._login_began = None
                 self._handle_live_update()
                 tab.drain_inbox()
         finally:
