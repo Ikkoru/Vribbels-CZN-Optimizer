@@ -1908,6 +1908,45 @@
        "read_at": 1790721472
       }
      }
+    },
+    "disaster_s05": {
+     "disaster_s05_rank_01": {
+      "disaster_s05_rank_best_1_10": {
+       "best_score": 611332,
+       "rank": 5598,
+       "read_at": 1794701279
+      },
+      "disaster_s05_rank_best_1_15": {
+       "best_score": 929473,
+       "rank": 2911,
+       "read_at": 1794701242
+      },
+      "disaster_s05_rank_best_1_20": {
+       "best_score": 1217558,
+       "rank": 1120,
+       "read_at": 1794701282
+      },
+      "disaster_s05_rank_best_1_25": {
+       "best_score": 1413015,
+       "rank": 224,
+       "read_at": 1794701284
+      },
+      "disaster_s05_rank_best_1_29": {
+       "best_score": 1567280,
+       "rank": 12,
+       "read_at": 1794701285
+      },
+      "disaster_s05_rank_best_1_30": {
+       "best_score": 1651078,
+       "rank": 1,
+       "read_at": 1794701285
+      },
+      "disaster_s05_rank_best_1_5": {
+       "best_score": 388926,
+       "rank": 8396,
+       "read_at": 1794701278
+      }
+     }
     }
    }
   },
