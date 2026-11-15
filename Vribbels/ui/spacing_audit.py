@@ -165,12 +165,12 @@ class Capture:
 
     @classmethod
     def of_window(cls, root, colors):
-        # update() drains Tk's paint queue, but the rendering is the
-        # COMPOSITOR's copy of the window, which lags it. Without the
-        # pause the image can hold the previous tab's pixels while the
-        # widget coordinates are the new tab's -- which reads as
-        # plausible-looking numbers rather than as an error, so it is
-        # worth over-waiting.
+        # update() drains Tk's paint queue, and the pause gives
+        # anything still settling (a re-flow `after` a resize) time to
+        # land. A stale image reads as plausible-looking numbers rather
+        # than as an error, so it is worth over-waiting. The rendering
+        # is the window's own paint, not the compositor's lagging copy
+        # (`window_render`).
         root.update()
         time.sleep(cls.SETTLE_MS / 1000)
         root.update()

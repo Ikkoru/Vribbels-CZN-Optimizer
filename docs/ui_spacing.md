@@ -527,7 +527,7 @@ If a reading looks wrong in one of these shapes, suspect the tool:
 
 | Symptom                                                | Cause                                                                                                                                       |
 | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Unrelated panels all reporting the same number         | The rendering is the compositor's copy of the window, which lags `update()`. Needs a pause before the capture.                              |
+| Unrelated panels all reporting the same number         | A stale rendering. It was the compositor's copy of the window, which lags `update()`; `window_render` now has the window paint itself, and `Capture.of_window` still pauses before the capture. |
 | Gaps inflated wherever the first element was a control | `bg_light`/`bg_lighter` treated as background, but they are the FILL of buttons, spinboxes and Treeviews — the scan looked through to text. |
 | Every left inset exactly +1                            | Measured from the frame's box edge, where the border STARTS. The reference is the border's inner edge.                                      |
 | Text panels reporting 0, then a huge negative          | Their fill reaches the border by design, so a scan looking for background to stop at never stops.                                           |

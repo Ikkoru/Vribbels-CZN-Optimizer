@@ -2,9 +2,8 @@
 
     image = render(widget)        # PIL RGB, widget.winfo_width() wide
 
-Asks the window to draw itself (`PrintWindow`, with the flag that takes
-the compositor's copy of its content), so what comes back does not
-depend on the screen at all:
+Asks the window to paint itself into a bitmap (`PrintWindow`), so what
+comes back does not depend on the screen at all:
 
   * the window can be at alpha 0 -- the spacing audit's app is never
     made visible;
@@ -16,6 +15,16 @@ depend on the screen at all:
 Measured against reading the screen: the 100% audit read every gap the
 same, and its baseline did not move.
 
+**The window's own paint, never the compositor's copy**
+(`PW_RENDERFULLCONTENT`). The copy is only as new as the compositor's
+last frame, and with the display asleep the compositor composes less:
+`check_tab_bars` then read the tabs of the selection before last, one
+run in four. Even with the display on, a window's first render after
+it maps came back black from the copy three times in five. Its own
+paint is current at the moment of the call, and the spacing audit read
+all of its rows identically at 100% and 200% either way.
+`checks/check_window_render.py` holds it.
+
 Windows only, through ctypes. This is a Windows application.
 """
 
@@ -24,10 +33,9 @@ from ctypes import wintypes
 
 from PIL import Image
 
-# PrintWindow's flags: the client area only, and the content the
-# compositor holds -- what the screen would show -- rather than a
-# repaint into the bitmap. A Tk window renders the same either way;
-# the compositor's copy is the one the audit was proven against.
+# PrintWindow's flags: the client area only. The second is the
+# compositor's copy, which this does not ask for; see the module
+# docstring.
 PW_CLIENTONLY = 0x1
 PW_RENDERFULLCONTENT = 0x2
 
@@ -60,7 +68,7 @@ def render(widget):
     try:
         gdi32.SelectObject(dc, bitmap)
         if not user32.PrintWindow(frame, dc,
-                                  PW_CLIENTONLY | PW_RENDERFULLCONTENT):
+                                  PW_CLIENTONLY):
             raise RuntimeError("PrintWindow declined to render the window")
         # A negative height asks for the rows top-down, as PIL wants.
         info = _BitmapInfoHeader(ctypes.sizeof(_BitmapInfoHeader), width,

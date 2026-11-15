@@ -96,11 +96,53 @@ def _new_windows_start_hidden(sa):
     return out
 
 
+def _renders_what_was_just_drawn(render, tries=8):
+    """A render is the window as it stands, not an older frame.
+
+    The compositor's copy of a window is only as new as its last frame:
+    with the display asleep `check_tab_bars` read the selection before
+    last one run in four, and even awake a window's first render after
+    mapping came back black three times in five. So a freshly mapped
+    window is rendered at once, several times over, and every render has
+    to hold its colour.
+    """
+    out = []
+    stale = 0
+    for _ in range(tries):
+        root = tk.Tk()
+        try:
+            root.attributes("-alpha", 0.0)
+            root.geometry("300x150+0+0")
+            tk.Frame(root, bg=FAR, width=300, height=150).pack()
+            for _ in range(3):
+                root.update()
+            stale += render(root).getpixel((200, 100)) != (255, 0, 0)
+        finally:
+            root.destroy()
+    if stale:
+        out.append(
+            f"{stale} of {tries} renders straight after a window first "
+            f"drew did not hold what it drew. The rendering is an older "
+            f"frame -- the compositor's copy -- and every check and audit "
+            f"reading pixels off it reads the window as it was. See "
+            f"`window_render`'s docstring.")
+    return out
+
+
 def run():
     add_source_to_path()
     from ui import spacing_audit as sa
     from ui.utils.window_render import render
     failures = []
     failures.extend(_renders_past_the_screen(render))
+    failures.extend(_renders_what_was_just_drawn(render))
     failures.extend(_new_windows_start_hidden(sa))
     return failures
+
+
+FAULTS = [
+    ("the compositor's copy rendered", "ui.utils.window_render:render",
+     "                                  PW_CLIENTONLY):",
+     "                                  PW_CLIENTONLY | PW_RENDERFULLCONTENT):",
+     "did not hold what it drew"),
+]

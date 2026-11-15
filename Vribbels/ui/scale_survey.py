@@ -86,7 +86,7 @@ def survey(app):
         name = notebook.tab(tab_id, "text")
         notebook.select(tab_id)
         root.update()
-        # The compositor's copy lags the paint; see `Capture.of_window`.
+        # Time for anything still settling; see `Capture.of_window`.
         time.sleep(0.3)
         root.update()
         page = root.nametowidget(tab_id)

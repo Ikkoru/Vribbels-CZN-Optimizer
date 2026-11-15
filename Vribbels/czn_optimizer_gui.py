@@ -632,11 +632,9 @@ class OptimizerGUI:
         via CZN_SPACING_AUDIT=1. No-op otherwise.
 
         Scheduled with `after` rather than called directly: __init__ runs
-        BEFORE mainloop, and while `_reveal_window` has drained Tk's
-        layout and draw work, the compositor has not necessarily got the
-        finished window yet -- and the audit renders the compositor's
-        copy. A short delay after mainloop starts is the cheap, reliable
-        answer.
+        BEFORE mainloop, and work the tabs schedule for after it starts
+        (a re-flow on `<Configure>`, a deferred fit) has not run yet. A
+        short delay after mainloop starts is the cheap, reliable answer.
 
         The window is never shown (`_reveal_window`), and the app closes
         once the table is printed: there is nothing on the screen to
