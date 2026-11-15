@@ -26,8 +26,8 @@ The per-run context (`ctx`) consumed by evaluate_combo is a plain dict:
       "max_flex_slots":    int 0..6,
       "hal":               dict of Have-at-least minimums (may be empty),
       "score_pre":         dict, see build_score_precompute(),
-      "gref":              dict, see build_greedy_refs() -- the greedy
-                           trim references {"D": float, "S": float}.
+      "gref":              dict, see build_trim_refs() -- the trim
+                           references {"D": float, "S": float}.
                            Per-run constants used ONLY to gate in-flight
                            trimming (trim_blend); the displayed score is
                            re-blended parent-side against the run's true
@@ -40,13 +40,14 @@ compute_score_components returns (D, S): D is the normalized damage
 term, S is the shield/heal term. Two blends exist:
 
   * trim_blend(D, S, sp, gref): (1-h)*D/gD_ref + h*S/gS_ref, using the
-    per-run GREEDY refs. A per-run constant divisor pair, so it's safe
-    for the parallel/sequential in-flight trim and the deterministic
-    tie-break -- every worker sees the same divisors.
+    per-run TRIM refs (build_trim_refs). A per-run constant divisor
+    pair, so it's safe for the parallel/sequential in-flight trim and
+    the deterministic tie-break -- every worker sees the same divisors.
   * the DISPLAY blend (parent-side, after the merge): same formula but
-    with D_ref/S_ref = the run's true max-D / max-S across all surviving
-    results, then all scores are rescaled so the top row reads 100. See
-    optimizer.optimize's post-merge re-blend.
+    with D_ref/S_ref = the largest D and S of every build the run
+    scored, then all scores are rescaled so the top row reads 100. See
+    optimizer.optimize's post-merge re-blend, and trimmed_bound for
+    why the list it shows is the exact top `max_results`.
 
 Both blends then add SUBSTAT_TIEBREAK * substat_term(...), which prices
 the substats the damage and shield/heal terms cannot see -- Ego, HP on
@@ -56,7 +57,7 @@ and a build ahead on the blend by more than that stays ahead. See
 build_substat_totals and docs/game_formulas.md §8.
 
 evaluate_combo returns (status, score, stats): on COMBO_OK, score is
-the trim_blend scalar (greedy refs) that gates trimming and the
+the trim_blend scalar (trim refs) that gates trimming and the
 tie-break, and the raw (D, S) components ride inside stats under the
 "_D" / "_S" keys -- with the substat term under "_T" -- for the
 parent-side display re-blend. The result-tuple shape (gear, score,
@@ -802,7 +803,7 @@ def build_substat_totals(slot_candidates: dict, weights: dict) -> dict:
     The divisor is six times the largest of them, which is the most any
     build of six can total -- so the term it feeds lands in [0, 1] and
     `SUBSTAT_TIEBREAK` bounds it outright. A per-run constant, like the
-    greedy refs, which is what keeps it parallel-safe.
+    trim refs, which is what keeps it parallel-safe.
     """
     totals = {}
     for candidates in slot_candidates.values():
@@ -830,7 +831,7 @@ def substat_term(piece_ids, sp: dict) -> float:
 def trim_blend(components: tuple, sp: dict, gref: dict,
                term: float = 0.0) -> float:
     """In-flight trim score: percent-normalized blend of (D, S) against
-    the per-run GREEDY references. A per-run constant divisor pair, so
+    the per-run TRIM references. A per-run constant divisor pair, so
     it's safe for the parallel/sequential trim and the deterministic
     tie-break. NOT the displayed score -- see optimizer.optimize's
     post-merge re-blend against the run's true max-D / max-S.
@@ -852,45 +853,141 @@ def trim_blend(components: tuple, sp: dict, gref: dict,
             + SUBSTAT_TIEBREAK * term)
 
 
-def build_greedy_refs(slot_candidates: dict, char_static: dict,
-                      set_effect_shares: dict, score_pre: dict,
-                      attribute: str) -> dict:
-    """Build the per-run GREEDY trim references {"D": float, "S": float}.
+# How many builds the in-flight trim keeps, per result asked for. The
+# trim ranks by the trim refs and the list by the run-wide maxima, so
+# the pool has to reach past the list for the two to agree; the
+# certificate in optimize() says whether it reached far enough.
+HEADROOM = 10
 
-    Takes the top candidate in each slot (the lists arrive pre-sorted by
-    the character's preset weights / gear score in optimize()), forms
-    that single greedy combo, and reads its (D, S) components. These
-    become the divisors in trim_blend -- a per-run constant pair, which
-    is what keeps the in-flight trim and the deterministic tie-break
+# Passes over the six slots that a trim reference's coordinate ascent
+# may take before it stops where it is.
+TRIM_ASCENT_PASSES = 6
+
+
+def pool_size(max_results: int) -> int:
+    """The number of builds the trim keeps for a list of `max_results`.
+    It cuts back to this whenever its list passes twice it."""
+    return max_results * HEADROOM
+
+
+def _ascend(slot_candidates: dict, ctx: dict, axis: str):
+    """The largest `axis` ("_D" or "_S") a coordinate ascent reaches.
+
+    Starts from the greedy build (each slot's first candidate); for
+    each slot in `SLOT_ORDER`, takes the candidate that maximises the
+    axis with the other five fixed, ties to the lower fragment id;
+    stops when a pass changes nothing or after `TRIM_ASCENT_PASSES`.
+    Only builds `evaluate_combo` scores COMBO_OK count. Returns the
+    largest value any of them reached, or None if none was scored.
+    """
+    def value(combo):
+        status, _score, stats = evaluate_combo(combo, ctx)
+        return stats[axis] if status == COMBO_OK else None
+
+    lists = [slot_candidates[slot] for slot in SLOT_ORDER]
+    current = [cands[0] for cands in lists]
+    held = value(current)
+    best = held
+    for _pass in range(TRIM_ASCENT_PASSES):
+        moved = False
+        for place, cands in enumerate(lists):
+            pick = current[place]
+            for cand in cands:
+                if cand is pick:
+                    continue
+                trial = current[:place] + [cand] + current[place + 1:]
+                got = value(trial)
+                if got is None:
+                    continue
+                if best is None or got > best:
+                    best = got
+                if (held is None or got > held
+                        or (got == held and cand.id < pick.id)):
+                    pick, held = cand, got
+            if pick is not current[place]:
+                current[place] = pick
+                moved = True
+        if not moved:
+            break
+    return best
+
+
+def build_trim_refs(slot_candidates: dict, ctx: dict) -> dict:
+    """The per-run TRIM references {"D": float, "S": float}.
+
+    The largest D and S two coordinate ascents reach (`_ascend`), so
+    the trim blend weighs D against S near the way the display blend
+    does: a single greedy build ignores sets, so its D and S can stand
+    at very different shares of the run's maxima. These become the
+    divisors in trim_blend -- a per-run constant pair, which is what
+    keeps the in-flight trim and the deterministic tie-break
     parallel-safe (every worker divides by the same two numbers).
 
-    The greedy refs only gate TRIMMING, never the displayed score (the
-    parent re-blends survivors against the run's true max-D / max-S).
-    So a ref that undershoots the true max just means the trim blend is
-    slightly miscalibrated on that axis -- harmless given the trim keeps
-    max_results * 10 headroom. Both refs are floored at a small epsilon
-    so a degenerate all-zero slot list (or a pure-support build with no
-    damage) can't divide by zero; if a ref floors, that term is
-    effectively un-normalized for trimming only.
+    They only gate TRIMMING, never the displayed score; how close they
+    come decides only how often optimize() must enumerate twice (see
+    trimmed_bound). A ref no ascent could score falls back to the
+    greedy build's component, read whether or not it passes the set
+    rule; both are floored at a small epsilon so a pure-support build
+    with no damage cannot divide by zero.
 
-    Returns {"D": d_ref, "S": s_ref}. Called once per run, parent-side.
+    Called once per run, parent-side, after `ctx["score_pre"]` holds
+    everything evaluate_combo reads.
     """
     EPS = 1e-9
-    greedy_combo = []
     for slot_num in SLOT_ORDER:
-        cands = slot_candidates.get(slot_num) or []
-        if not cands:
+        if not slot_candidates.get(slot_num):
             # No candidate in a slot means the run returns empty before
             # trimming ever happens; refs are irrelevant, return safe
             # non-zero divisors.
             return {"D": 1.0, "S": 1.0}
-        greedy_combo.append(cands[0])
-
-    stats = compute_build_stats(
-        greedy_combo, char_static, set_effect_shares=set_effect_shares
-    )
-    d, s = compute_score_components(greedy_combo, stats, score_pre, attribute)
+    # The ascents score builds with refs of 1: they read the raw
+    # components, never the blend.
+    probe = dict(ctx, gref={"D": 1.0, "S": 1.0})
+    d = _ascend(slot_candidates, probe, "_D")
+    s = _ascend(slot_candidates, probe, "_S")
+    if d is None or s is None:
+        greedy = [slot_candidates[slot][0] for slot in SLOT_ORDER]
+        stats = compute_build_stats(
+            greedy, ctx["char_static"],
+            set_effect_shares=ctx["set_effect_shares"])
+        gd, gs = compute_score_components(
+            greedy, stats, ctx["score_pre"], ctx["attribute"])
+        d = gd if d is None else d
+        s = gs if s is None else s
     return {"D": max(d, EPS), "S": max(s, EPS)}
+
+
+def trimmed_bound(lowest_kept: float, gref: dict, d_max: float,
+                  s_max: float, heal_share: float) -> float:
+    """The most display score a trimmed build can have.
+
+    Write a build's trim blend, without its substat term, as `u + v`
+    with `u = (1-h) D / gD` and `v = h S / gS`. Its display blend is
+    then `aD u + aS v`, where `aD = gD / D_max` and `aS = gS / S_max`.
+    A trimmed build has `u + v <= lowest_kept` (its substat term is not
+    negative), and no build passes the run's maxima, so
+    `u <= (1-h) / aD` and `v <= h / aS`. The most `aD u + aS v` can be
+    under those limits is found by spending `lowest_kept` on the axis
+    with the larger factor up to its limit, and the rest on the other.
+    The substat term is the same in both blends and adds at most
+    `SUBSTAT_TIEBREAK`.
+
+    A list whose last row scores above the result is the run's exact
+    top. The small margin keeps float rounding in the blends from
+    certifying a tie.
+    """
+    h = heal_share
+    axes = sorted((
+        (gref["D"] / d_max, (1.0 - h) * d_max / gref["D"]),
+        (gref["S"] / s_max, h * s_max / gref["S"]),
+    ), reverse=True)
+    budget = max(lowest_kept, 0.0)
+    bound = 0.0
+    for factor, limit in axes:
+        spent = min(budget, limit)
+        bound += factor * spent
+        budget -= spent
+    return bound + SUBSTAT_TIEBREAK + 1e-9
 
 
 def display_blend(d: float, s: float, sp: dict, d_ref: float,
@@ -936,7 +1033,7 @@ def evaluate_combo(combo, ctx: dict):
       - (COMBO_HAL_FAIL,  0.0, None) failed a Have-at-least minimum
       - (COMBO_OK,   trim_score, stats) scored build
 
-    On COMBO_OK, `score` is trim_blend(D, S) against the per-run GREEDY
+    On COMBO_OK, `score` is trim_blend(D, S) against the per-run TRIM
     refs -- the scalar that gates in-flight trimming and the
     deterministic tie-break, so the result-tuple shape (gear, score,
     stats) and every sort/merge/remap path are unchanged. The raw (D,

@@ -92,6 +92,7 @@ from checks import (                                    # noqa: E402
     check_materials_targets,
     check_no_flash,
     check_optimizer_parity,
+    check_optimizer_exact,
     check_optimizer_starts_unselected,
     check_period_items,
     check_potential_nodes,
@@ -234,6 +235,7 @@ CHECKS = [
     check_affinity,
     check_breakdown_reconciles,
     check_optimizer_parity,
+    check_optimizer_exact,
 ]
 
 GREEN, RED, YELLOW, DIM, RESET = (

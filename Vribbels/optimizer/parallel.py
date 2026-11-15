@@ -3,10 +3,12 @@ Parallel enumeration path for the optimizer.
 
 Splits an optimize() run across worker PROCESSES: worker i of N takes a
 strided share of slot 1's candidate list ([i::N]) and enumerates the
-full product against slots 2-6, keeping a local top-K. The parent merges
-the workers' top-Ks (a union of per-partition top-Ks provably contains
-the global top-K), re-sorts with the same deterministic key the
-single-thread path uses, and sums the counters -- so results and
+full product against slots 2-6, keeping a local top-K (K =
+`core.pool_size(max_results)`) and the largest D and S it scored. The
+parent merges the workers' top-Ks (a union of per-partition top-Ks
+provably contains the global top-K), re-sorts with the same
+deterministic key the single-thread path uses, takes the max of the
+maxima, and sums the counters -- so results, maxima and
 `last_optimize_stats` are identical to the sequential path on the same
 inputs.
 
@@ -125,10 +127,11 @@ def evaluate_partition(slot_candidates_share: dict, ctx: dict,
     Mirrors the single-thread loop in GearOptimizer.optimize() exactly:
     same evaluate_combo call, same counter mapping (duplicates / set
     failures increment only total_combinations; HAL failures additionally
-    count as passed_set_reqs; OK counts in both), same in-flight trim at
-    max_results * 10 using the same deterministic sort key.
+    count as passed_set_reqs; OK counts in both), same in-flight trim to
+    `core.pool_size(max_results)` using the same deterministic sort key.
 
-    Returns (topK_results, counters, checked, cancelled).
+    Returns (topK_results, counters, checked, cancelled, d_max, s_max):
+    the maxima over every build this share scored, trimmed or not.
     """
     counters = {
         "total_combinations": 0,
@@ -136,6 +139,8 @@ def evaluate_partition(slot_candidates_share: dict, ctx: dict,
         "passed_have_at_least": 0,
     }
     results = []
+    keep = core.pool_size(max_results)
+    d_max = s_max = float("-inf")
     checked = 0
     unreported = 0
     cancelled = False
@@ -161,10 +166,14 @@ def evaluate_partition(slot_candidates_share: dict, ctx: dict,
             counters["passed_set_reqs"] += 1
             if status == core.COMBO_OK:
                 counters["passed_have_at_least"] += 1
+                if stats["_D"] > d_max:
+                    d_max = stats["_D"]
+                if stats["_S"] > s_max:
+                    s_max = stats["_S"]
                 results.append((list(combo), score, stats))
-                if len(results) > max_results * 10:
+                if len(results) > 2 * keep:
                     results.sort(key=core.result_sort_key)
-                    results = results[:max_results]
+                    results = results[:keep]
 
         if unreported >= PROGRESS_EVERY and progress_queue is not None:
             try:
@@ -180,7 +189,7 @@ def evaluate_partition(slot_candidates_share: dict, ctx: dict,
             pass
 
     results.sort(key=core.result_sort_key)
-    return results[:max_results], counters, checked, cancelled
+    return results[:keep], counters, checked, cancelled, d_max, s_max
 
 
 # ---------------------------------------------------------------------------
@@ -196,7 +205,9 @@ def optimize_parallel(slot_candidates: dict, ctx: dict, max_results: int,
                       progress_callback=None, cancel_flag=None):
     """Run the enumeration across `workers` processes.
 
-    Returns (results, counters, checked_total). NOTE: the returned gear
+    Returns (results, counters, checked_total, d_max, s_max): the
+    top `core.pool_size(max_results)` by trim score, and the largest D
+    and S of every build scored. NOTE: the returned gear
     lists reference PICKLED COPIES of the parent's MemoryFragment
     objects (they crossed a process boundary twice) -- the caller must
     remap them onto its own fragment objects by id to restore identity.
@@ -265,12 +276,17 @@ def optimize_parallel(slot_candidates: dict, ctx: dict, max_results: int,
         "passed_have_at_least": 0,
     }
     checked_sum = 0
+    d_max = s_max = float("-inf")
     for f in futures:
-        part_results, part_counters, part_checked, _cancelled = f.result()
+        (part_results, part_counters, part_checked, _cancelled,
+         part_d, part_s) = f.result()
         merged.extend(part_results)
+        d_max = max(d_max, part_d)
+        s_max = max(s_max, part_s)
         for k in counters:
             counters[k] += part_counters[k]
         checked_sum += part_checked
 
     merged.sort(key=core.result_sort_key)
-    return merged[:max_results], counters, checked_sum
+    return (merged[:core.pool_size(max_results)], counters, checked_sum,
+            d_max, s_max)

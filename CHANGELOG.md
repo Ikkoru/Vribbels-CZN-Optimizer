@@ -55,6 +55,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Checklist: the Zeronium Shop and Blackhorn Trade read their stock again, under their new Integrated Supply Exchange menu.
 - Checklist: an Event inside another Event's screen has its own name and rewards: Rules of Good Order reads its 17, and Nightmare Dream Park no longer counts them among its own.
 - Checklist: no longer redraws in stages while the game logs in.
+- Optimizer: with a Shielding/Healing weight between 1 and 99, the results are the true best 100.
 - The Chaos estimate counts season 5's Environment Variables by part again: 13 in part 1, 19 in part 2.
 
 ## [2.6.3] - Senectus Tracking, Distortion Adaptation

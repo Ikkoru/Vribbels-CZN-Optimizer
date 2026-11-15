@@ -39,8 +39,8 @@ PROPERTIES = (
     ("parallel", "the parallel path has to run, not fall back to the "
                  "sequential one -- which would compare a path with "
                  "itself"),
-    ("trim", "more builds have to survive than max_results x 10, so both "
-             "paths cut their survivor lists in flight"),
+    ("trim", "more builds have to survive than twice the trim's pool, "
+             "so both paths cut their survivor lists in flight"),
     ("ties", "the results have to hold builds of exactly equal score, "
              "ordered by the tie-break alone"),
     ("potential_7", "the results have to straddle a Potential 7 step, so "
@@ -51,6 +51,8 @@ PROPERTIES = (
              "conditional set and a 2-piece unconditional one"),
     ("elements", "Slot V has to offer the combatant's element, another "
                  "element and ATK%"),
+    ("shield", "the shield/heal term has to vary across the results, so "
+               "the Shielding/Healing run's two blends rank apart"),
 )
 
 
@@ -115,7 +117,7 @@ def _compare(name, par, seq, stats_par, stats_seq):
             f"core.build_substat_totals."
         )
     for counter in ("total_combinations", "passed_set_reqs",
-                    "passed_have_at_least"):
+                    "passed_have_at_least", "reranked"):
         if stats_par.get(counter) != stats_seq.get(counter):
             failures.append(
                 f"{name}: counter {counter} differs -- "
@@ -128,7 +130,7 @@ def _compare(name, par, seq, stats_par, stats_seq):
 def _reached(items, results, stats, ran):
     """{property: whether the fixture run reached it}."""
     from game_data import CHARACTERS, SETS
-    from optimizer import parallel
+    from optimizer import core, parallel
     scores = [round(score, 10) for _g, score, _st in results]
     steps = {(st.get("_p7") or {}).get("Extra DMG%", 0)
              for _g, _s, st in results}
@@ -146,13 +148,16 @@ def _reached(items, results, stats, ran):
     return {
         "parallel": ran and stats.get("total_combinations", 0)
         >= parallel.PARALLEL_MIN_COMBOS,
-        "trim": survived > fixture.SETTINGS["max_results"] * 10,
+        "trim": survived > 2 * core.pool_size(
+            fixture.SETTINGS["max_results"]),
         "ties": any(a == b for a, b in zip(scores, scores[1:])),
         "potential_7": len(steps) > 1,
         "have_at_least": stats.get("passed_set_reqs", 0) > survived > 0,
         "sets": types >= {("conditional", 4), ("conditional", 2),
                           ("unconditional", 2)},
         "elements": {element, "Justice", "ATK%"} <= slot_5,
+        "shield": len({round(st.get("_S", 0.0), 9)
+                       for _g, _s, st in results}) > 1,
     }
 
 
@@ -163,10 +168,16 @@ def _fixture_run():
     fixture.write(snap)
     items = fixture.build()["inventory"]["piece_items"]
     name = fixture.COMBATANT_NAME
-    par, stats_par, ran = _optimize(snap, name, fixture.SETTINGS, WORKERS)
-    seq, stats_seq, _ran = _optimize(snap, name, fixture.SETTINGS, 1)
-    failures = _compare(f"{name} (fixture)", par, seq, stats_par, stats_seq)
-    reached = _reached(items, par, stats_par, ran)
+    failures = []
+    reached = {}
+    for label, settings in (("fixture", fixture.SETTINGS),
+                            ("fixture, shielding", fixture.SHIELD_SETTINGS)):
+        par, stats_par, ran = _optimize(snap, name, settings, WORKERS)
+        seq, stats_seq, _ran = _optimize(snap, name, settings, 1)
+        failures += _compare(f"{name} ({label})", par, seq, stats_par,
+                             stats_seq)
+        for what, got in _reached(items, par, stats_par, ran).items():
+            reached[what] = reached.get(what, False) or got
     for what, why in PROPERTIES:
         if not reached[what]:
             counters = {k: stats_par.get(k) for k in (
@@ -221,3 +232,20 @@ def _full_run():
 def run(full=False):
     add_source_to_path()
     return _full_run() if full else _fixture_run()
+
+
+def _no_def_on_any_fragment():
+    """A fixture whose fragments carry no DEF: the shield/heal term is
+    the same for every build, and the Shielding/Healing run ranks by
+    damage alone."""
+    fixture.MAINS[2] = (("S_HP_INC_ADD_OUT", 36.65),)
+    fixture.MAINS[6] = (("S_ATK_INC_RATE_OUT", 25.0),
+                        ("S_HP_INC_RATE_OUT", 25.0))
+    for stat in ("S_DEF_INC_ADD_OUT", "S_DEF_INC_RATE_OUT"):
+        fixture.SUBSTATS.pop(stat)
+
+
+FAULTS = [
+    ("a fixture with no shield/heal term", _no_def_on_any_fragment,
+     None, None, "no longer reaches 'shield'"),
+]

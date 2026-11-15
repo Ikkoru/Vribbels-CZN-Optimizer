@@ -11,7 +11,8 @@ Loads when an optimizer file is read. Canonical math: `docs/game_formulas.md`.
 
 ## Invariants
 
-- **Parallel results must be byte-identical to sequential**, tie-break included (`core.result_sort_key`: -score, then fragment-id tuple). Re-verify parity after touching enumeration, scoring or result handling. Enumeration/trim ranks by the greedy-ref `trim_blend` scalar (a per-run constant, so every worker agrees); the display re-blend and top-row rescale run ONCE parent-side after the merge.
+- **Parallel results must be byte-identical to sequential**, tie-break included (`core.result_sort_key`: -score, then fragment-id tuple). Re-verify parity after touching enumeration, scoring or result handling. Enumeration/trim ranks by the `trim_blend` scalar against `core.build_trim_refs` (a per-run constant, so every worker agrees); each worker also returns the largest D and S it scored. The certificate, a possible second enumeration, the display re-blend against the run-wide maxima and the top-row rescale run ONCE parent-side after the merge.
+- **The Results list is the exact top `max_results` by the display blend**, at any Shielding/Healing weight: `checks/check_optimizer_exact.py` holds it by brute force. Canonical: `docs/game_formulas.md` §8.
 - **"Have at least" / Potential 7 comparison values mirror the in-game Potential 7 checks:** Partner flat class stats INCLUDED (inside the inner multiplier); Partner passives, Equipment and conditional set bonuses EXCLUDED. The optimizer SCORE still models every excluded source. Canonical: `docs/game_formulas.md` §8.
 - **The Results Score column is a 0-100 display scale** (top row = 100) produced inside `optimize()`. Code re-deriving it elsewhere must go through `optimizer.reblend_results_for_display`, NOT `core.compute_score`, which is a raw scalar on a different scale. Canonical: `docs/game_formulas.md` §8.
 

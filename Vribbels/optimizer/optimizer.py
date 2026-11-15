@@ -699,9 +699,9 @@ class GearOptimizer:
             "max_flex_slots": int(max_flex_slots),
             "hal": settings.get("have_at_least") or {},
             "score_pre": score_pre,
-            # Greedy trim references. Placeholder here (slot candidates
+            # Trim references. Placeholder here (slot candidates
             # aren't built until optimize()); optimize() overwrites this
-            # with core.build_greedy_refs(...) once the per-slot
+            # with core.build_trim_refs(...) once the per-slot
             # candidate lists exist, BEFORE any enumeration.
             # {"D": 1.0, "S": 1.0} keeps trim_blend well-defined for any
             # caller that evaluates combos without setting refs.
@@ -1172,7 +1172,9 @@ class GearOptimizer:
         """Single-process enumeration: the small-run path and the
         fallback whenever the parallel path is disabled, under the size
         threshold, or errored. Increments self.last_optimize_stats
-        counters in place. Returns (results, checked).
+        counters in place. Returns (results, checked, d_max, s_max):
+        the top `core.pool_size(max_results)` by trim score, and the
+        largest D and S of every build scored, trimmed or not.
 
         The per-combo work lives in core.evaluate_combo, shared with
         parallel.evaluate_partition -- the status codes map onto the
@@ -1181,6 +1183,8 @@ class GearOptimizer:
         failures count as passed_set_reqs only.
         """
         results = []
+        keep = core.pool_size(max_results)
+        d_max = s_max = float("-inf")
         checked = 0
         for combo in itertools.product(*[slot_candidates[s] for s in SLOT_ORDER]):
             if cancel_flag and cancel_flag[0]:
@@ -1196,18 +1200,22 @@ class GearOptimizer:
             if status == core.COMBO_HAL_FAIL:
                 continue
             self.last_optimize_stats["passed_have_at_least"] += 1
+            if stats["_D"] > d_max:
+                d_max = stats["_D"]
+            if stats["_S"] > s_max:
+                s_max = stats["_S"]
 
             results.append((list(combo), total_score, stats))
 
             if progress_callback and checked % 5000 == 0:
                 progress_callback(checked, total_perms, len(results))
 
-            if len(results) > max_results * 10:
+            if len(results) > 2 * keep:
                 results.sort(key=core.result_sort_key)
-                results = results[:max_results]
+                results = results[:keep]
 
         results.sort(key=core.result_sort_key)
-        return results[:max_results], checked
+        return results[:keep], checked, d_max, s_max
 
     def reblend_results_for_display(self, results: list, char_name: str,
                                    settings: dict) -> list:
@@ -1224,8 +1232,10 @@ class GearOptimizer:
         For each (gear, _oldscore, stats) this recomputes stats +
         components for the remapped gear, then re-blends against the
         max-D / max-S of THIS list and rescales so the top row = 100 --
-        identical math to optimize()'s post-merge step, just over the
-        already-trimmed list (no re-enumeration, no re-sort: equip/
+        optimize()'s post-merge math, just over the already-trimmed
+        list. Its references are the list's own maxima where optimize()
+        uses the whole run's: there is no run to read those from, and
+        the list's are what it can show (no re-enumeration, no re-sort: equip/
         upgrade events don't change which builds exist, only their
         numbers, and the tab preserves row identity by index).
 
@@ -1291,6 +1301,74 @@ class GearOptimizer:
             scored = [(g, (sc * scale if sc is not None else sc), st)
                       for g, sc, st in scored]
         return scored
+
+    def _enumerate(self, slot_candidates: dict, ctx: dict,
+                   max_results: int, total_perms: int,
+                   progress_callback=None, cancel_flag=None):
+        """One pass over every combo against `ctx`, in worker processes
+        where the run is big enough to pay for them.
+
+        Sets the three run counters in `last_optimize_stats` afresh, so
+        a second pass counts the same builds once, not twice. Returns
+        (pool, checked, d_max, s_max) as `_optimize_sequential` does,
+        on either path.
+        """
+        for k in ("total_combinations", "passed_set_reqs",
+                  "passed_have_at_least"):
+            self.last_optimize_stats[k] = 0
+        # Above the size threshold and with more than one configured
+        # worker, the enumeration is farmed out to worker processes
+        # (strided partitioning of slot 1 -- see optimizer/parallel.py).
+        # The sequential method is both the small-run path and the
+        # fallback if the parallel path fails for any reason.
+        workers = self._resolve_worker_count()
+        if workers > 1 and total_perms >= parallel.PARALLEL_MIN_COMBOS:
+            try:
+                (par_results, counters, checked, d_max,
+                 s_max) = parallel.optimize_parallel(
+                    slot_candidates, ctx, max_results, workers, total_perms,
+                    progress_callback, cancel_flag,
+                )
+            except Exception:
+                # Spawn trouble (frozen-build quirks, AV interference),
+                # pickling errors, a broken pool -- fall back to the
+                # sequential path below. Correctness over speed.
+                pass
+            else:
+                for k in ("total_combinations", "passed_set_reqs",
+                          "passed_have_at_least"):
+                    self.last_optimize_stats[k] = counters[k]
+                # Gear returned from workers consists of pickled COPIES
+                # of the fragments (they crossed a process boundary);
+                # remap onto THIS process's fragment objects by id so
+                # identity-adjacent behavior downstream (live-update
+                # remapping, owner display) matches the single-thread
+                # path exactly.
+                by_id = {getattr(f, "id", None): f for f in self.fragments}
+                by_id.pop(None, None)
+                results = [
+                    ([by_id.get(getattr(p, "id", None), p) for p in gear],
+                     score, stats)
+                    for gear, score, stats in par_results
+                ]
+                return results, checked, d_max, s_max
+        return self._optimize_sequential(
+            slot_candidates, ctx, max_results, total_perms,
+            progress_callback, cancel_flag,
+        )
+
+    @staticmethod
+    def _display_rescore(results: list, ctx: dict, d_ref: float,
+                         s_ref: float) -> list:
+        """(gear, display score, stats) for each of `results`, blended
+        against `d_ref` / `s_ref`; neither sorted nor rescaled."""
+        return [
+            (gear, core.display_blend(
+                stats.get("_D", 0.0), stats.get("_S", 0.0),
+                ctx["score_pre"], d_ref, s_ref, stats.get("_T", 0.0)),
+             stats)
+            for gear, _trim, stats in results
+        ]
 
     def optimize(self, char_name: str, settings: dict, progress_callback: Callable = None,
                  cancel_flag: list = None) -> list[tuple[list[MemoryFragment], float, dict]]:
@@ -1462,16 +1540,6 @@ class GearOptimizer:
             char_name, settings, sets_selected, max_flex_slots
         )
 
-        # Build the per-run GREEDY trim references from the top
-        # candidate in each slot, now that slot_candidates exists. These
-        # gate the in-flight trim (a per-run constant divisor pair, so
-        # parallel/sequential parity and the deterministic tie-break are
-        # preserved). The DISPLAYED score is re-blended after the merge
-        # against the run's true max-D / max-S (see below).
-        ctx["gref"] = core.build_greedy_refs(
-            slot_candidates, ctx["char_static"], ctx["set_effect_shares"],
-            ctx["score_pre"], ctx["attribute"],
-        )
         # The substat tiebreaker's per-run constants, on `score_pre` so
         # that they reach the workers with everything else the score
         # needs. Built here rather than in `build_score_precompute`
@@ -1481,50 +1549,50 @@ class GearOptimizer:
         ctx["score_pre"]["substats"] = core.build_substat_totals(
             slot_candidates, slot_filter_weights or {})
 
-        # ---- Parallel dispatch ----
-        # Above the size threshold and with more than one configured
-        # worker, the enumeration is farmed out to worker processes
-        # (strided partitioning of slot 1 -- see optimizer/parallel.py).
-        # The sequential method is both the small-run path and the
-        # fallback if the parallel path fails for any reason.
-        results = None
-        checked = 0
-        workers = self._resolve_worker_count()
-        if workers > 1 and total_perms >= parallel.PARALLEL_MIN_COMBOS:
-            try:
-                par_results, counters, checked = parallel.optimize_parallel(
-                    slot_candidates, ctx, max_results, workers, total_perms,
-                    progress_callback, cancel_flag,
-                )
-            except Exception:
-                # Spawn trouble (frozen-build quirks, AV interference),
-                # pickling errors, a broken pool -- fall back to the
-                # sequential path below. Correctness over speed.
-                par_results = None
-                checked = 0
-            else:
-                for k in ("total_combinations", "passed_set_reqs",
-                          "passed_have_at_least"):
-                    self.last_optimize_stats[k] = counters[k]
-                # Gear returned from workers consists of pickled COPIES
-                # of the fragments (they crossed a process boundary);
-                # remap onto THIS process's fragment objects by id so
-                # identity-adjacent behavior downstream (live-update
-                # remapping, owner display) matches the single-thread
-                # path exactly.
-                by_id = {getattr(f, "id", None): f for f in self.fragments}
-                by_id.pop(None, None)
-                results = [
-                    ([by_id.get(getattr(p, "id", None), p) for p in gear],
-                     score, stats)
-                    for gear, score, stats in par_results
-                ]
+        # The per-run trim references, now that slot_candidates exists
+        # and `score_pre` is whole. These gate the in-flight trim (a
+        # per-run constant divisor pair, so parallel/sequential parity
+        # and the deterministic tie-break are preserved). The DISPLAYED
+        # score is re-blended after the merge against the run's true
+        # max-D / max-S (see below).
+        ctx["gref"] = core.build_trim_refs(slot_candidates, ctx)
 
-        if results is None:
-            results, checked = self._optimize_sequential(
-                slot_candidates, ctx, max_results, total_perms,
-                progress_callback, cancel_flag,
-            )
+        results, checked, d_max, s_max = self._enumerate(
+            slot_candidates, ctx, max_results, total_perms,
+            progress_callback, cancel_flag)
+
+        # ---- The certificate ----
+        # The pool is the top `pool_size` by the TRIM blend; the list is
+        # the top `max_results` by the DISPLAY blend, whose refs are the
+        # run's true maxima. A trimmed build scores at most
+        # `core.trimmed_bound` on the display blend. When the list's last
+        # row beats that, nothing trimmed belongs in it. When it does
+        # not, enumerate again with the true maxima as the trim refs:
+        # the two blends are then one, and the pool's top is exact.
+        # A cancelled run has no list to certify.
+        EPS = 1e-9
+        d_ref = max(d_max, EPS)
+        s_ref = max(s_max, EPS)
+        reranked = False
+        cancelled = bool(cancel_flag and cancel_flag[0])
+        trimmed = (self.last_optimize_stats["passed_have_at_least"]
+                   > len(results))
+        if results and trimmed and not cancelled:
+            shown = sorted(
+                (self._display_rescore(results, ctx, d_ref, s_ref)),
+                key=core.result_sort_key)
+            last_row = shown[min(max_results, len(shown)) - 1][1]
+            lowest_kept = results[-1][1]
+            if not core.trimmed_bound(
+                    lowest_kept, ctx["gref"], d_ref, s_ref,
+                    ctx["score_pre"]["heal_share"]) < last_row:
+                reranked = True
+                ctx["gref"] = {"D": d_ref, "S": s_ref}
+                results, again, d_max, s_max = self._enumerate(
+                    slot_candidates, ctx, max_results, total_perms,
+                    progress_callback, cancel_flag)
+                checked += again
+        self.last_optimize_stats["reranked"] = reranked
 
         # Wall time + throughput, recorded whether the run finished or
         # was cancelled.
@@ -1535,35 +1603,18 @@ class GearOptimizer:
         )
 
         # ---- Display re-blend ----
-        # Enumeration/trim ranked by the greedy-ref trim blend. Now
-        # re-score the survivors against the run's TRUE max-D / max-S
-        # (the exact percent-normalized semantics), re-sort, and rescale
-        # so the top row reads 100 at any slider position. The (D, S)
-        # components rode along in each stats dict under "_D" / "_S".
-        #
-        # Re-sorting can reorder survivors slightly vs the trim order
-        # (greedy refs != run-max refs): the display uses the true
-        # references, while the trim only had to keep the right builds
-        # IN the survivor pool (it keeps max_results * 10), not rank
-        # them for display.
+        # Re-score the pool against the run's TRUE max-D / max-S (the
+        # exact percent-normalized semantics), re-sort, cut to
+        # max_results, and rescale so the top row reads 100 at any
+        # slider position. The (D, S) components rode along in each
+        # stats dict under "_D" / "_S".
         if results:
-            EPS = 1e-9
-            d_ref = max((st.get("_D", 0.0) for _g, _s, st in results),
-                        default=0.0)
-            s_ref = max((st.get("_S", 0.0) for _g, _s, st in results),
-                        default=0.0)
-            d_ref = max(d_ref, EPS)
-            s_ref = max(s_ref, EPS)
-            rescored = []
-            for gear, _trim, stats in results:
-                disp = core.display_blend(
-                    stats.get("_D", 0.0), stats.get("_S", 0.0),
-                    ctx["score_pre"], d_ref, s_ref, stats.get("_T", 0.0),
-                )
-                rescored.append((gear, disp, stats))
+            rescored = self._display_rescore(
+                results, ctx, max(d_max, EPS), max(s_max, EPS))
             # Sort by the display score (same deterministic tie-break),
             # then rescale the whole column so the top row = 100.
             rescored.sort(key=core.result_sort_key)
+            rescored = rescored[:max_results]
             top = rescored[0][1] if rescored else 0.0
             if top > 0:
                 scale = 100.0 / top

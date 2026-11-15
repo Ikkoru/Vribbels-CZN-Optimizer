@@ -6,8 +6,8 @@ It is shaped to reach what parity can break on. Each property is
 asserted by the check rather than hoped for -- see `PROPERTIES` there:
 
 * **the parallel path** -- more combos than `PARALLEL_MIN_COMBOS`;
-* **the in-flight trim** -- more surviving builds than `max_results` x
-  10, so both paths cut their survivor lists many times over;
+* **the in-flight trim** -- more surviving builds than twice the
+  trim's pool, so both paths cut their survivor lists many times over;
 * **exact ties** -- every slot's strongest fragment has a twin with
   another id, so the top builds tie in groups and their order is the
   tie-break's alone;
@@ -18,7 +18,10 @@ asserted by the check rather than hoped for -- see `PROPERTIES` there:
 * **Potential 7** -- the combatant has node 7, whose grant rises at
   every 5 CRate past 10, and the fragments' CRate spreads the builds
   across those steps;
-* **Have at Least** -- a CRate minimum some builds fail.
+* **Have at Least** -- a CRate minimum some builds fail;
+* **a shield/heal term** -- DEF on Slot II's main, Slot VI's and the
+  substats, so `SHIELD_SETTINGS`' Shielding/Healing weight ranks builds
+  by a blend whose two halves vary apart.
 
 Values follow the inventory's own shape -- a Legendary at level 5 has
 its main stat at its usual value and four substats from three first
@@ -82,6 +85,10 @@ SETTINGS = {
     "top_percent": 100,
     "optimize_for_level": 60,
 }
+
+# The same run with a Shielding/Healing weight, where the trim blend and
+# the display blend differ: what parity and exactness break on first.
+SHIELD_SETTINGS = dict(SETTINGS, shielding_healing_weight=50)
 
 
 def _roll(rng, stat):
