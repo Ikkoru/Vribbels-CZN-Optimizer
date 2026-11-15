@@ -35,7 +35,6 @@ Found by the 2026-11-14 audit. Evidence, the change and the proof for each are i
 
   `check_defaults_follow` covers values following a release and a deleted Gear Score preset's assignment, not these.
 
-- **A4 — The exe carries 35 MB it never loads**: NumPy, Pillow's AVIF and WebP codecs, `game_data`'s compiled files (`plan_audit_fixes.md`).
 - **A5 — Nothing records an error.** No exception hook is set and the build has no stderr; an always-on `settings/error_log.txt` (`plan_audit_fixes.md`).
 
 ### 2b) Needs maintainer assistance figuring out

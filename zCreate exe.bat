@@ -46,12 +46,21 @@ REM the directory it leaves behind is the switch below.
 set "TCLDATA="
 if exist "build_tcl\_tcl_data" set TCLDATA=--add-data "build_tcl\_tcl_data;_tcl_data" --add-data "build_tcl\_tk_data;_tk_data"
 
+REM Left out: what the program never imports, which a onefile exe would
+REM otherwise unpack at every launch. NumPy and Pillow's AVIF and WebP
+REM codecs come in only because Pillow imports them where they are
+REM installed (every image shipped is a PNG); the rest is the standard
+REM library's test, help and REPL machinery. game_data is not added as
+REM data: its modules are in the bundle, and nothing reads its files in
+REM a frozen build (the validator and the client sync run from source).
+set EXCLUDES=--exclude-module numpy --exclude-module PIL._avif --exclude-module PIL._webp --exclude-module unittest --exclude-module pydoc_data --exclude-module xmlrpc --exclude-module _pyrepl
+
 echo.
 echo on
 
 %COLOUR% pyinstaller --onefile --windowed ^
   --name "Vribbels_CZN_Optimizer_Ikkoru" ^
-  --add-data "game_data;game_data" ^
+  %EXCLUDES% ^
   --add-data "images;images" ^
   --add-data "zstd_dictionary.bin;." ^
   --add-data "default_settings\presets.json;default_settings" ^
