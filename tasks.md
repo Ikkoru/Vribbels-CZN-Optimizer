@@ -8,8 +8,6 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 
 ### 1a) Can fix without maintainer input
 
-Found by the 2026-11-14 audit. Evidence, the change and the proof for each are in `plan_audit_fixes.md`, under the same id; they land before 2.7.0.
-
 *N/A*
 
 ### 1b) Needs maintainer assistance figuring out
