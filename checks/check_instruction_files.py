@@ -76,6 +76,7 @@ EXPECTED_ABSENT = {
     "hang_traceback.txt",      # logging is on, and its hang watchdog
     "game_client.json",        # what the game client was read to say,
                                # written into `settings/` at launch
+    "error_log.txt",           # written into `settings/` on an error
 }
 
 # Folders the PROGRAM writes, not the repo: a clone has neither, so a

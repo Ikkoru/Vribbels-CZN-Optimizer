@@ -29,6 +29,7 @@ from game_data import STATS
 # "CRate" -> "Crit%", "CDmg" -> "CDMG%"). Applied to the Stat Weight
 # Configuration labels so they match the rest of the app.
 from game_data.constants import DISPLAY_NAMES
+import error_log
 from preset_manager import SUPPORTED_STATS, UNREAD
 from models.memory_fragment import compute_gs_bounds
 from ui.scaling import px, px_after
@@ -775,7 +776,7 @@ STAT MIN - MAX ROLLS:
             try:
                 self.context.heroes_tab.refresh_heroes()
             except Exception:
-                pass
+                error_log.note("refreshing the Combatants tab after a save")
 
     def on_delete_selected_presets(self):
         """Delete one or more selected presets, with confirmation."""
@@ -814,7 +815,8 @@ STAT MIN - MAX ROLLS:
                 try:
                     self.character_preset_manager.remove_assignments_to(n)
                 except Exception:
-                    pass
+                    # Combatants then point at a preset that is gone.
+                    error_log.note(f"unassigning deleted preset {n!r}")
 
         # If the currently-applied preset was deleted, downgrade status to
         # "Applied custom weights" but keep the spinbox values as-is.
@@ -828,7 +830,8 @@ STAT MIN - MAX ROLLS:
                 try:
                     self.context.inventory_tab.refresh_active_preset_label()
                 except Exception:
-                    pass
+                    error_log.note("refreshing the Memory Fragments preset "
+                                   "label after a delete")
 
         self.refresh_preset_list()
         # Refresh Combatants tab so its Preset column and per-character GS update.
@@ -836,7 +839,8 @@ STAT MIN - MAX ROLLS:
             try:
                 self.context.heroes_tab.refresh_heroes()
             except Exception:
-                pass
+                error_log.note("refreshing the Combatants tab after a "
+                               "delete")
 
     # ============================================================
     # Helpers

@@ -40,6 +40,9 @@ class SettingsManager:
         self.settings: dict = {}
         self.corrupted = False
         self.corruption_error: Optional[str] = None
+        # Whether a failed write has been recorded this session: once
+        # is enough to say the folder cannot be written.
+        self._write_failure_noted = False
 
     def load(self):
         """Load from disk. Clean state if the file doesn't exist yet.
@@ -245,7 +248,9 @@ class SettingsManager:
         a list without worrying about disk thrashing. Disk write failures
         are swallowed so a single bad save can't break the running app;
         the in-memory state still reflects the change for the current
-        session.
+        session. The first in a session goes to `error_log`: a folder
+        that cannot be written loses every change, and nothing on
+        screen says so.
         """
         if self.settings.get(key) == value:
             return
@@ -253,4 +258,7 @@ class SettingsManager:
         try:
             self._write()
         except Exception:
-            pass
+            if not self._write_failure_noted:
+                self._write_failure_noted = True
+                import error_log
+                error_log.note(f"writing {self.settings_file}")

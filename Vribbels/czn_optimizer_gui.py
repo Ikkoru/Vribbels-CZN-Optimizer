@@ -107,6 +107,7 @@ import defaults_sync
 from defaults_sync import resolve_defaults_dir, sync_defaults
 # Mends or sets aside a settings file that will not read. Must run
 # before the sync does.
+import error_log
 import game_client
 import login_hold
 import settings_repair
@@ -336,6 +337,12 @@ class OptimizerGUI:
         self.config = None
 
         self.root = tk.Tk()
+        # **Before any tab is built**: the build is windowed, so an
+        # error with no hook goes to a stderr that does not exist.
+        # `error_log` keeps it beside the settings for a bug report.
+        error_log.configure(_user_data_dir())
+        error_log.install_hooks(self.root)
+        error_log.first_write_callback = self._say_error_log_written
         # Before any widget: a font resolves its size once, and every
         # distance this app computes from a font metric follows from
         # that. See `ui/scaling.py`.
@@ -1544,7 +1551,8 @@ class OptimizerGUI:
                 if target is not None:
                     getattr(target, method)()
             except Exception:                            # noqa: BLE001
-                pass
+                # The other tabs still refresh; this one is stale.
+                error_log.note(f"refreshing {tab} after a defaults undo")
         if not restored:
             return
         text = ("Your settings are as they were before this launch, and "
@@ -1671,6 +1679,15 @@ class OptimizerGUI:
         except Exception:
             pass
 
+    def _say_error_log_written(self, path):
+        """The first error of a session went to the log: say where,
+        once, in the Capture Log (thread-safe)."""
+        tab = getattr(self, "capture_tab_instance", None)
+        if tab is not None:
+            tab.capture_log_msg(
+                f"[!] An error was recorded in {path}. Attach that file "
+                f"to a bug report.", "warning")
+
     def on_close(self):
         """Handle window close event."""
         if self.capture_manager.is_capturing():
@@ -1779,9 +1796,8 @@ class OptimizerGUI:
             if hasattr(self, "capture_tab_instance"):
                 self.capture_tab_instance.refresh_log_presets()
         except Exception as e:
+            error_log.note(f"loading {filepath}", e)
             messagebox.showerror("Error", f"Failed to load: {e}")
-            import traceback
-            traceback.print_exc()
 
     def _learn_from_readings(self, snapshots):
         """What the server has said about bases and partner flats --
@@ -1943,7 +1959,10 @@ class OptimizerGUI:
                     )
                     self.capture_tab_instance.refresh_log_presets()
                 except Exception:
-                    pass  # Silently ignore reload errors during live monitoring
+                    # Kept quiet on screen: a capture saves after every
+                    # action. But the tabs after the one that raised are
+                    # stale until the next save, so it is recorded.
+                    error_log.note("reloading a capture's save")
 
             # Drain any deferred upgrade log lines that arrived while the
             # addon's stdout was being read. Must happen AFTER the reload so
@@ -2245,14 +2264,14 @@ class OptimizerGUI:
             )
             self.character_preset_manager.ensure_characters(names)
         except Exception:
-            pass
+            error_log.note("adding new combatants to character_preset.json")
         try:
             ids = [str(ci.res_id)
                    for ci in self.optimizer.character_info.values()
                    if getattr(ci, "res_id", 0)]
             self.log_presets_manager.ensure_ids(ids)
         except Exception:
-            pass
+            error_log.note("adding new combatants to log_presets.json")
 
     def run(self):
         self.root.mainloop()

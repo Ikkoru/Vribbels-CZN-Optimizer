@@ -36,6 +36,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Checklist tab: each Galactic Disaster story chapter's stars are an Event, from the day the chapter opens to the season's end: the stars earned out of 30, red until every star reward is claimed. The star battles leave with the season, rewards unclaimed with them.
   - A Node List event's story chapters with star rewards get the same row, until the event ends. These are apart from the event's own mission rewards.
 - `zRUN Chaos Runs Spreadsheet.cmd` makes your Chaos runs table and spreadsheet with a double-click: it checks for Python and openpyxl, says how to get either, and asks for your program's folder. See [Tracking Chaos runs](README.md#tracking-chaos-runs).
+- Errors are kept in settings/error_log.txt, for attaching to a bug report.
 - **Tab colours**: a bar across the top of each tab in its group's colour, to find a tab at a glance. Blue for Optimizer, Memory Fragments, Gear Score and Combatants; green for Materials, Checklist and Galactic Disaster; purple for Capture and Setup & Settings; yellow for Stats & Gacha History and Epione.
 
 ### Changed
