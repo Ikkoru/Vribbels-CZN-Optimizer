@@ -61,6 +61,8 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Optimizer: with a Shielding/Healing weight between 1 and 99, the results are the true best 100.
 - Capture: the proxy no longer keeps running if the program is closed abruptly.
 - Capture: signing out or shutting down Windows during a capture no longer leaves the game unable to connect.
+- Capture: the hosts file's redirect is removed even where its marker lines were edited by hand, and is never reported removed while any of it is left.
+- Capture: the hosts file is changed by adding and removing the capture's own lines only, never rewritten where that can be avoided. If a rewrite is ever interrupted, the next launch says so and offers to put back the copy taken just before.
 - The Chaos estimate counts season 5's Environment Variables by part again: 13 in part 1, 19 in part 2.
 
 ## [2.6.3] - Senectus Tracking, Distortion Adaptation

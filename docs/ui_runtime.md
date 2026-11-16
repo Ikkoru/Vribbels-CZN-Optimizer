@@ -151,7 +151,7 @@ A `ttk.Scrollbar` asks for less width than a `tk` one, so the texts are that muc
 
 ## Pre-startup dialogs use native Win32, not tkinter
 
-The admin prompt uses `MessageBoxW` via `_win_message`. It runs before `OptimizerGUI` builds the Tk root, and a throwaway root there — built, destroyed, then the real one built after — leaves the real window unable to pump events. tkinter's messagebox wraps this same dialog on Windows, so there is no visual difference. The "Already Running" branch does build a Tk root, safe only because the process exits immediately after.
+The admin prompt, and the question about a hosts-file rewrite that never finished (`_offer_hosts_restore`), use `MessageBoxW` via `_win_message`. It runs before `OptimizerGUI` builds the Tk root, and a throwaway root there — built, destroyed, then the real one built after — leaves the real window unable to pump events. tkinter's messagebox wraps this same dialog on Windows, so there is no visual difference. The "Already Running" branch does build a Tk root, safe only because the process exits immediately after.
 
 ## The Optimizer tab builds into an unmapped `content` frame
 

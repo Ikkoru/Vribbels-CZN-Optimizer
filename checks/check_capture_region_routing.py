@@ -154,7 +154,9 @@ def run():
             "and no log line.")
 
     # The hosts block covers every region.
-    if "SERVERS.values()" not in inspect.getsource(mgr.modify_hosts_file):
+    from capture.constants import SERVERS
+    every = {h for config in SERVERS.values() for h in config.hosts}
+    if set(mgr._game_hosts(SERVERS)) != every:
         failures.append(
             "modify_hosts_file no longer redirects every region. Redirecting "
             "only the selected one is what let a game on the other region "

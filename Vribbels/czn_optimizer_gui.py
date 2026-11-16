@@ -2438,6 +2438,70 @@ def _saved_ui_scale():
         return (salvaged or {}).get("ui_scale", scaling.DEFAULT_SCALE)
 
 
+HOSTS_DAMAGED_TITLE = "Hosts File May Be Damaged"
+
+
+def _offer_hosts_restore(say, admin, backups=None):
+    """Ask, before the window opens, about a hosts-file rewrite that never
+    finished.
+
+    The program rewrites the hosts file in place only where Windows
+    refuses to swap a new one in whole, and marks that write while it
+    runs (`capture/hosts.py`). A marker still there means the program
+    stopped in the middle: the file may have lost lines, and a player
+    who does not read hosts files would never know. So it is said
+    loudly, with the copy taken just before, and put back on a Yes.
+
+    `say(title, text, flags)` shows a native box and returns its button;
+    `admin()` says whether the file can be written. Without Administrator
+    rights the box says how to restore it and the marker stays, so the
+    elevated launch asks again.
+    """
+    from capture import hosts as hosts_file
+    from capture.constants import SERVERS
+    from capture.manager import hosts_backups_dir
+
+    backups = backups or hosts_backups_dir(_user_data_dir())
+    found = hosts_file.interrupted(backups)
+    if found is None:
+        return
+    hosts_path, copy = found
+
+    def lines(path):
+        try:
+            return len(hosts_file.read(path).splitlines())
+        except OSError:
+            return "?"
+
+    told = (f"Vribbels CZN Optimizer was rewriting the Windows hosts file "
+            f"when it last stopped, so the file may have lost lines.\n\n"
+            f"The hosts file now holds {lines(hosts_path)} lines; the copy "
+            f"taken just before holds {lines(copy)}.\n\n"
+            f"Hosts file: {hosts_path}\nCopy: {copy}\n\n")
+    if not admin():
+        say(HOSTS_DAMAGED_TITLE,
+            told + "Start the program as Administrator to be asked to put "
+            "the copy back, or copy it over the hosts file yourself.",
+            MB_OK | MB_ICONWARNING)
+        return
+    answer = say(HOSTS_DAMAGED_TITLE,
+                 told + "Put the copy back now?\n\nYes: restore it.\nNo: "
+                 "keep the file as it is. The copy stays where it is.",
+                 MB_YESNO | MB_ICONWARNING)
+    try:
+        hosts_file.settle(backups, restore=(answer == IDYES))
+        if answer == IDYES:
+            # The copy may hold the redirect the rewrite was taking out.
+            hosts_file.remove(
+                hosts_path, [h for c in SERVERS.values() for h in c.hosts],
+                backups, lambda line: None)
+    except (OSError, hosts_file.HostsError) as e:
+        say(HOSTS_DAMAGED_TITLE,
+            f"The copy could not be put back ({e}). Copy {copy} over "
+            f"{hosts_path} yourself, as Administrator.",
+            MB_OK | MB_ICONWARNING)
+
+
 def main():
     # The elevated copy is the one that captures, and it does not
     # inherit the launcher's environment. See `DEV_FLAG`.
@@ -2524,6 +2588,10 @@ def main():
                     "Could not get administrator privileges.",
                     MB_OK | MB_ICONWARNING,
                 )
+
+    if (sys.platform == "win32" and not audit_state
+            and not OptimizerGUI._spacing_audit_wanted()):
+        _offer_hosts_restore(_win_message, is_admin)
 
     app = OptimizerGUI()
     app.run()

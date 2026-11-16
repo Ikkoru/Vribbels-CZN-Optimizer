@@ -1,22 +1,18 @@
 """A capture that ends badly leaves nothing broken behind.
 
 The program runs as Administrator and edits the system's hosts file, so
-what it leaves when it ends matters past its own window. Four ways it
-can leave a mess, each silent until the next capture or the next game:
+what it leaves when it ends matters past its own window. Three ways it
+can leave a mess, each silent until the next capture or the next game
+(the hosts file's own are `check_hosts_file`'s):
 
 1. **The proxy outlives the program.** A killed or crashed program
    leaves mitmdump bound to its port with nobody reading its pipe; the
    next capture cannot start. The proxy is put in a Job Object that ends
    it when this process's handle closes, however the process ends.
-2. **The hosts file is rewritten in place.** Text mode turned every bare
-   LF into CRLF on the way back out, changing lines the program never
-   touched. Read and written with no newline translation, the redirect
-   goes in and comes out leaving the file as it was, byte for byte; a
-   copy is kept before the first write.
-3. **A stale zstd dictionary wins.** A frozen build's copy beside the
+2. **A stale zstd dictionary wins.** A frozen build's copy beside the
    snapshots, made by an older release, would outlive every newer
    dictionary shipped after it.
-4. **A Windows sign-out or shutdown during a capture** never reaches
+3. **A Windows sign-out or shutdown during a capture** never reaches
    `on_close`, so the redirect stayed and the game could not connect.
    Tk hands `WM_QUERYENDSESSION` to the `WM_SAVE_YOURSELF` protocol,
    and the main window stops the capture there.
@@ -34,10 +30,6 @@ from types import SimpleNamespace
 from ._harness import SOURCE_ROOT, add_source_to_path
 
 NAME = "a capture that ends badly leaves nothing behind"
-
-HOSTS = (b"# a hosts file\r\n127.0.0.1 localhost\n"
-         b"10.0.0.1 caf\xe9.lan\r\n# last line\r\n")
-
 
 def _alive(pid, wait_s):
     """Whether process `pid` is still running after up to `wait_s`."""
@@ -116,49 +108,6 @@ def _the_proxy_dies_with_the_program():
     return out
 
 
-def _the_hosts_file_round_trips():
-    from capture.manager import CaptureManager, HOSTS_BLOCK_START
-    out = []
-    root = Path(tempfile.mkdtemp(prefix="hosts_"))
-    hosts = root / "hosts"
-    hosts.write_bytes(HOSTS)
-    said = []
-    mgr = CaptureManager(root / "snapshots",
-                         log_callback=lambda m, *a, **k: said.append(m))
-    mgr.hosts_path = hosts
-    mgr.hosts_backup_path = root / "backups" / "hosts_before_capture"
-    mgr._flush_dns = lambda: None
-    mgr.modify_hosts_file()
-    added = hosts.read_bytes()
-    if not added.startswith(HOSTS):
-        out.append(
-            "adding the redirect changed the lines before it. The hosts "
-            "file is the system's, and its other entries are not ours to "
-            "rewrite -- text mode turns every bare LF into CRLF.")
-    block = added[len(HOSTS):]
-    if HOSTS_BLOCK_START.encode() not in block:
-        return out + ["the redirect block was not added."]
-    if block.count(b"\r\n") != block.count(b"\n"):
-        out.append(
-            "the redirect block's lines do not end the way the file's last "
-            "line does (CRLF).")
-    mgr.remove_hosts_redirect()
-    if hosts.read_bytes() != HOSTS:
-        out.append(
-            f"adding and removing the redirect did not give the hosts file "
-            f"back byte for byte: {hosts.read_bytes()!r}, not {HOSTS!r}.")
-    backup = mgr.hosts_backup_path
-    if not backup.exists() or backup.read_bytes() != HOSTS:
-        out.append(
-            "no copy of the hosts file as it was was kept before the first "
-            "write. The file is rewritten in place, and a crash mid-write "
-            "leaves the machine's copy empty.")
-    elif not any(str(backup) in str(line) for line in said):
-        out.append("the Capture Log was not told where the hosts file's "
-                   "copy is.")
-    return out
-
-
 def _a_stale_dictionary_is_replaced():
     from capture.manager import CaptureManager
     out = []
@@ -227,10 +176,8 @@ def run():
     add_source_to_path()
     if sys.platform != "win32":
         from ._harness import Skip
-        raise Skip("Job Objects, the hosts file and session end are "
-                   "Windows'")
+        raise Skip("Job Objects and session end are Windows'")
     failures = _the_proxy_dies_with_the_program()
-    failures.extend(_the_hosts_file_round_trips())
     failures.extend(_a_stale_dictionary_is_replaced())
     failures.extend(_a_session_end_stops_the_capture())
     return failures
@@ -242,15 +189,6 @@ FAULTS = [
      "JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE",
      "info.BasicLimitInformation.LimitFlags = 0",
      "outlived the job's last handle"),
-    ("the hosts file read with newline translation",
-     "capture.manager:CaptureManager._read_hosts",
-     'errors="surrogateescape", newline="") as f:',
-     'errors="surrogateescape") as f:',
-     "changed the lines before it"),
-    ("no copy before the first write",
-     "capture.manager:CaptureManager._write_hosts",
-     "if not self._hosts_backed_up:", "if False:",
-     "no copy of the hosts file"),
     ("the old dictionary kept",
      "capture.manager:CaptureManager._find_dictionary_path",
      "            if (not dest.exists()\n"

@@ -15,7 +15,7 @@ import time
 from pathlib import Path
 from collections.abc import Callable
 
-from . import job
+from . import hosts, job
 from .constants import PROXY_PORT, GAME_PORT, HOSTS_PATH
 from .setup import find_mitmdump
 
@@ -24,43 +24,16 @@ class CaptureError(Exception):
     """Raised when capture operations fail."""
 
 
-# Markers delimiting the redirect block this program appends to the
-# Windows hosts file. Everything between them belongs to us and is safe
-# to rewrite; nothing outside them is ever touched.
-HOSTS_BLOCK_START = "# CZN-CAPTURE-START"
-HOSTS_BLOCK_END = "# CZN-CAPTURE-END"
-# The block's own lines and nothing else, so that adding it and taking
-# it out again gives back the file byte for byte. A line ending before
-# the block is the file's own: the block starts on a fresh line.
-_HOSTS_BLOCK_RE = re.compile(
-    re.escape(HOSTS_BLOCK_START)
-    + r".*?" + re.escape(HOSTS_BLOCK_END) + r"(?:\r?\n)?",
-    re.DOTALL,
-)
+# The markers around the redirect block in the hosts file; the block and
+# everything done to it are `capture/hosts.py`'s.
+HOSTS_BLOCK_START = hosts.BLOCK_START
+HOSTS_BLOCK_END = hosts.BLOCK_END
 
 
-def _strip_capture_block(content: str) -> str:
-    """Return hosts-file text with the redirect block removed."""
-    return _HOSTS_BLOCK_RE.sub("", content)
-
-
-def _line_ending(content: str) -> str:
-    """The line ending the file's last line uses; CRLF, Windows' own,
-    for a file with none."""
-    found = re.search(r"\r?\n(?!.*\n)", content, re.DOTALL)
-    return found.group(0) if found else "\r\n"
-
-
-def _add_capture_block(content: str, hosts: list) -> str:
-    """`content` with a redirect block for `hosts` appended, in the
-    file's own line ending. A file whose last line has no ending gains
-    one, so the block starts on a line of its own."""
-    eol = _line_ending(content)
-    if content and not content.endswith("\n"):
-        content += eol
-    lines = [HOSTS_BLOCK_START] + ["127.0.0.1 %s" % h for h in hosts] \
-        + [HOSTS_BLOCK_END]
-    return content + eol.join(lines) + eol
+def hosts_backups_dir(base) -> Path:
+    """Where a rewrite of the hosts file in place keeps its copy and its
+    marker: `settings/backups/` under the user-data folder `base`."""
+    return Path(base) / "settings" / "backups"
 
 
 def is_loopback_address(ip: str) -> bool:
@@ -5537,13 +5510,11 @@ class CaptureManager:
         # this process holds the handle the proxy lives, and when this
         # process ends, however it ends, the proxy ends with it.
         self._proxy_job = None
-        # The hosts file, and where it is copied before this program
-        # first writes it in a run. Attributes so a check can point them
-        # at a scratch file.
+        # The hosts file, and the folder a rewrite in place copies it to
+        # first (`capture/hosts.py`). Attributes so a check can point
+        # them at scratch.
         self.hosts_path = HOSTS_PATH
-        self.hosts_backup_path = (Path(output_folder).parent / "settings"
-                                  / "backups" / "hosts_before_capture")
-        self._hosts_backed_up = False
+        self.hosts_backups = hosts_backups_dir(Path(output_folder).parent)
         # Wall clock at the moment the proxy was launched. A snapshot
         # older than this belongs to an EARLIER session, which is the
         # difference between "this run captured nothing" and "this run
@@ -5704,82 +5675,34 @@ class CaptureManager:
             CaptureError: If hosts file modification fails
         """
         try:
-            # The hosts file belongs to the system and carries other
-            # people's entries. It is read whole, edited and written back,
-            # so an encoding guess that differs between the read and the
-            # write corrupts lines this program never touched. UTF-8 with
-            # surrogateescape round-trips any byte it cannot decode
-            # unchanged, which is the only safe option on a file whose
-            # encoding is not ours to know.
-            content = self._read_hosts()
-
-            # Strip any block an earlier run left behind before appending
-            # this one. Accepting a file that already carries the redirect
-            # leaves its contents unverified, and leaves the redirect
-            # itself free to answer the game-server lookup that decides
-            # the proxy's upstream (see remove_hosts_redirect).
-            content = _strip_capture_block(content)
+            # Take out any redirect an earlier run left behind before
+            # adding this one. Accepting a file that already carries one
+            # leaves its contents unverified, and leaves it free to
+            # answer the game-server lookup that decides the proxy's
+            # upstream (see remove_hosts_redirect).
+            self.remove_hosts_redirect()
+            content = hosts.read(self.hosts_path)
 
             # Redirect EVERY region, not just a selected one: which
             # server the game talks to is the game's choice, and
             # redirecting only one meant a game on the other never
             # passed through the proxy at all -- a silent no-capture.
             # The addon sends each connection on to its own region.
+            # **Appended**, so nothing already in the file is written.
             from .constants import SERVERS
-            hosts = [host for server_config in SERVERS.values()
-                     for host in server_config.hosts]
-            self._write_hosts(_add_capture_block(content, hosts))
+            hosts.add(self.hosts_path, self._game_hosts(SERVERS))
 
             self._flush_dns()
 
             return content
 
-        except Exception as e:
+        except (CaptureError, OSError) as e:
             raise CaptureError(f"Failed to modify hosts file: {e}") from e
 
-    def _read_hosts(self) -> str:
-        """The hosts file's text, every byte of it kept.
-
-        The file belongs to the system and carries other people's
-        entries, so it is read the way it is written: UTF-8 with
-        surrogateescape, which round-trips any byte it cannot decode,
-        and no newline translation, which would turn every bare LF into
-        CRLF on the way back out.
-        """
-        with open(self.hosts_path, encoding="utf-8",
-                  errors="surrogateescape", newline="") as f:
-            return f.read()
-
-    def _write_hosts(self, text: str) -> None:
-        """Write the hosts file, `text` exactly, onto the disk before
-        returning.
-
-        It is rewritten in place -- the file's permissions and
-        attributes are the system's, and a replace would swap them for
-        a new file's -- so a crash between the truncate and the write
-        could leave it empty. Before this program first writes it in a
-        run it is copied to `hosts_backup_path`, and the Capture Log
-        says where, once.
-        """
-        if not self._hosts_backed_up:
-            try:
-                import shutil
-                self.hosts_backup_path.parent.mkdir(parents=True,
-                                                    exist_ok=True)
-                shutil.copyfile(self.hosts_path, self.hosts_backup_path)
-                self._hosts_backed_up = True
-                self.log_callback(
-                    f"The hosts file as it was is copied to "
-                    f"{self.hosts_backup_path}", None)
-            except OSError as e:
-                self.log_callback(
-                    f"Could not copy the hosts file before changing it: {e}",
-                    "warning")
-        with open(self.hosts_path, "w", encoding="utf-8",
-                  errors="surrogateescape", newline="") as f:
-            f.write(text)
-            f.flush()
-            os.fsync(f.fileno())
+    @staticmethod
+    def _game_hosts(servers):
+        return [host for server_config in servers.values()
+                for host in server_config.hosts]
 
     def _flush_dns(self):
         """Drop the OS resolver cache so a hosts-file edit takes effect.
@@ -5839,22 +5762,21 @@ class CaptureManager:
                 instance). Callers that only want best-effort cleanup
                 should use restore_hosts_file instead.
         """
+        from .constants import SERVERS
         try:
-            content = self._read_hosts()
-        except OSError as e:
-            raise CaptureError(f"Could not read the hosts file: {e}") from e
-
-        if HOSTS_BLOCK_START not in content:
-            return False
-
-        try:
-            self._write_hosts(_strip_capture_block(content))
+            removed = hosts.remove(
+                self.hosts_path, self._game_hosts(SERVERS),
+                self.hosts_backups,
+                lambda line: self.log_callback(line, "warning"))
+        except hosts.HostsError as e:
+            raise CaptureError(str(e)) from e
         except OSError as e:
             raise CaptureError(
                 "A capture redirect left in the hosts file could not be "
                 f"removed: {e}\n\nEditing it needs Administrator rights."
             ) from e
-
+        if not removed:
+            return False
         self._flush_dns()
         return True
 

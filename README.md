@@ -64,7 +64,7 @@ Nothing leaves your machine except:
 
 - Pressing the `Export Facts` button opens the GitHub Issues webpage, and asks you to upload the file it makes to it. None of your personal data is included.
 
-While capturing, the game's server names are pointed at your PC in the Windows hosts file, between `# CZN-CAPTURE-START/END`. Stop removes them, and so does signing out or shutting down Windows, and the next launch after a crash. In case of a crash, relaunch the program so they are removed. The hosts file as it was before the program first changed it is kept in `settings/backups/hosts_before_capture`.
+While capturing, the game's server names are pointed at your PC in the Windows hosts file, between `# CZN-CAPTURE-START/END`. Stop removes them, and so does signing out or shutting down Windows, and the next launch after a crash. In case of a crash, relaunch the program so they are removed. Only those lines are ever added or removed; the rest of the file is left as it is. If the program ever had to rewrite the file and was stopped in the middle, the next launch says so and offers to put back the copy it took just before.
 
 Pressing `Generate & Install Cert` adds a mitmproxy certificate to your trusted roots. If someone gets their hands on its private key and manages to get between you and the internet, they can impersonate any website. Be wary of accidentally sharing `%USERPROFILE%\.mitmproxy` with others. Delete the certificate and generate a new one if you accidentally upload/share that folder. Consider deleting the certificate when you are done with CZN.
 
