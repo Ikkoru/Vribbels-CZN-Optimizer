@@ -90,12 +90,12 @@ After Restore, `_refresh_dependent_tabs(kind)` fires the cross-tab refresh: `pre
 
 ## Shared game facts
 
-`default_settings/shared_facts/shared_facts.json` holds facts about the GAME rather than any account's:
+`default_settings/shared_facts/shared_facts.json` holds facts about the GAME rather than any account's, and only those the game client does not hold:
 
-- banner rates;
-- Combatant Trial slot pairings;
 - per server, the Great Rift's division tops and the Sortie's and the Full-Scale Offensive's fields;
-- read out of battles, combatants' base stats at levels 60 to 62 and partners' flat stats per level.
+- read out of battles in the player's own party, combatants' base stats at levels 60 to 62 and partners' flat stats per level. The client gives these too; the readings are the server's word against it (`checks/check_client_vs_server.py`).
+
+Banner rates and Combatant Trial slots come from the client (`game_client.banner_rates`, `game_client.trial_slots`), so they are neither collected nor shipped, and a file still carrying them has them dropped.
 
 It is never copied into `settings/` and never merged: `defaults_sync` does not know it, the app reads it once at startup into `AppContext.shared_facts`, and each reader combines it with the account's own data in memory, the account's own value winning. The exception is the two read out of battles, where the later reading of the account's and the shipped one wins: they go to `game_data.learned` on every snapshot load (`game_data_files.md`, *Base stats in `characters.py`, against the server*). `shared_facts.py` holds the whitelist, the rules, and the list of readers.
 

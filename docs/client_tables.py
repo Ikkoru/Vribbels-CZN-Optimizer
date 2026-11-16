@@ -235,6 +235,39 @@ def shipped_source(client, partners=None):
         lines += [f"        {wire}: {words!a},"
                   for wire, words in sorted(nodes.items())]
         lines.append("    },")
+    curves = game_client.partner_curves(client)
+    lines += ["}", "",
+              "# Each partner's flat stats at every level from 1: "
+              "'curves' by key, and",
+              "# each partner's key. See game_client.partner_curves; "
+              "laid over",
+              "# game_data.partners.PARTNER_CURVES.",
+              "PARTNER_CURVES = {", "    'curves': {"]
+    for key, curve in sorted(curves["curves"].items()):
+        lines.append(f"        {key!a}: [")
+        lines += _rows([f"({a}, {d}, {h})" for a, d, h in curve])
+        lines.append("        ],")
+    lines += ["    },", "    'partners': {"]
+    lines += _rows([f"{rid}: {key!a}" for rid, key
+                    in sorted(curves["partners"].items())])
+    lines += ["    },", "}", "",
+              "# {banner id: a rates reply: 'rates', 'total_rate_info', "
+              "'pools'}.",
+              "# See game_client.banner_rates.",
+              "BANNER_RATES = {"]
+    for banner, reply in sorted(game_client.banner_rates(client).items()):
+        lines.append(f"    {banner!a}: {{")
+        lines.append(f"        'rates': {reply['rates']!a},")
+        lines.append(f"        'total_rate_info': "
+                     f"{reply['total_rate_info']!a},")
+        lines.append("        'pools': {")
+        for key, ids in sorted(reply["pools"].items()):
+            lines.append(f"            {key!a}: [")
+            lines += ["    " + line for line in _rows([repr(i) for i in ids],
+                                                       per=4)]
+            lines.append("            ],")
+        lines.append("        },")
+        lines.append("    },")
     lines += ["}", "",
               "# {stage id: (English name, season)}. See "
               "game_client.chaos_names.",

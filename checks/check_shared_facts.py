@@ -36,11 +36,15 @@ PLANTED = (str(USER_ID), "Ikkoru", "Stranger", str(OWN_RANK),
            "2026-09-23", "score_record", "condition_type", "evil",
            "rank_percent", "0.83", "reward_count")
 
+# A banner's rates reply and a trial's slots: kinds the game client
+# holds, which a file -- an old export among them -- must not carry.
 RATES = {"rates": {"total_ratio": 100000, "ssr_ratio": 500},
          "total_rate_info": {"total_ssr_pool_pct": 714.48},
          "pools": {"ssr_rate_up_success_pool_ids":
                    ["pickup_c_16_rateup_ssr_c_30117"],
                    "sr_pool_ids": []}}
+CLIENT_KINDS = {"banner_rates": {"gacha_a": RATES},
+                "trial_slots": {"event_t": ["slot_1"]}}
 SEASON, HALF = "disaster_s04", "disaster_s04_rank_02"
 NEXT_SEASON, NEXT_HALF = "disaster_s05", "disaster_s05_rank_01"
 MASTER_I, DIAMOND_I = "disaster_s04_rank_best_2_30", "disaster_s04_rank_best_2_25"
@@ -48,8 +52,8 @@ OFFENSIVE = "remnants_boss_penalty_005"
 
 
 def _planted_inputs():
-    """(raw, history, captured), each carrying account fields beside
-    the facts, the way the real files do."""
+    """(raw, history), each carrying account fields beside the facts,
+    the way the real files do."""
     raw = {
         "detected_region": "global",
         "user": {"user_id": USER_ID, "name": "Ikkoru"},
@@ -80,10 +84,7 @@ def _planted_inputs():
     # snapshot's.
     history = {"disaster_boss_rank_tops": {SEASON: {HALF: {DIAMOND_I: [
         {"rank": 948, "best_score": 1219348, "read_at": 1790291693}]}}}}
-    captured = {"rates": {"gacha_pickup_combatant_30117": dict(
-        RATES, seen="2026-09-23T14:48:33", user_id=USER_ID)},
-        "records": [{"id": "1", "user_id": USER_ID}]}
-    return raw, history, captured
+    return raw, history
 
 
 def _whitelist(sf):
@@ -97,12 +98,13 @@ def _whitelist(sf):
             f"published in a GitHub issue, and an account's id, name, "
             f"own standing or a field the whitelist does not name must "
             f"never reach it.")
+    if set(facts) != set(sf.KINDS) or "combatant_trial_1052" in text:
+        out.append(
+            f"`collect` gathered kinds {sorted(facts)}, not "
+            f"{sorted(sf.KINDS)}, or a trial slot: the game client holds "
+            f"the slots and the banners' rates, so neither is sent.")
     tops = facts[sf.TOPS].get("global", {}).get(SEASON, {}).get(HALF, {})
     want = {
-        "the banner's rates": "gacha_pickup_combatant_30117"
-        in facts[sf.RATES],
-        "the trial slot": facts[sf.SLOTS].get("event_combatant_trial_4")
-        == ["combatant_trial_1052"],
         "the stamped top": tops.get(MASTER_I, {}).get("rank") == 1,
         "the old log's top, on the snapshot's server": DIAMOND_I in tops,
         "the Sortie's field": facts[sf.SORTIE] == {"global": {
@@ -123,10 +125,7 @@ def _whitelist(sf):
 
 def _clean_refuses(sf):
     hostile = {
-        sf.RATES: {"gacha_a": {"rates": {"r": 1}, "total_rate_info": {}},
-                   "gacha b": RATES},
-        sf.SLOTS: {"event_t": ["slot_1", 7, "a b"], "event u": ["slot_2"],
-                   "event_v": "slot_3"},
+        **CLIENT_KINDS,
         sf.TOPS: {"moon": {SEASON: {HALF: {MASTER_I: {
             "rank": 1, "read_at": 5}}}},
                   "global": {SEASON: {HALF: {
@@ -143,19 +142,18 @@ def _clean_refuses(sf):
                                                  "read_at": 5}}},
     }
     got = sf.clean(hostile)
-    want = {sf.RATES: {}, sf.SLOTS: {"event_t": ["slot_1"]},
-            sf.TOPS: {"global": {SEASON: {HALF: {DIAMOND_I: {
+    want = {sf.TOPS: {"global": {SEASON: {HALF: {DIAMOND_I: {
                 "rank": 9, "read_at": 5, "best_score": 7}}}}},
             sf.SORTIE: {"global": {"assault_1_s7": {
                 "players": 19716, "read_at": 5, "top_score": None}}},
             sf.OFFENSIVE: {}, sf.BASES: {}, sf.PARTNER_FLATS: {}}
     if got != want:
         return [f"`clean` kept {got!r} of a hostile file, not {want!r}. "
-                f"A rates entry missing a part, an id that is not one, a "
-                f"count that is not a whole number in range, an unknown "
-                f"server, a reading with no time, and every field the "
-                f"whitelist does not name must all go -- a contributed "
-                f"file is anyone's."]
+                f"A kind the game client holds (banner rates, trial "
+                f"slots), an id that is not one, a count that is not a "
+                f"whole number in range, an unknown server, a reading "
+                f"with no time, and every field the whitelist does not "
+                f"name must all go -- a contributed file is anyone's."]
     return []
 
 
@@ -163,9 +161,7 @@ def _fold_rules(sf):
     out = []
     top = {"rank": 1, "best_score": 10, "read_at": 100}
     field = {"players": 19000, "top_score": 60000, "read_at": 100}
-    first = {sf.RATES: {"gacha_a": RATES},
-             sf.SLOTS: {"event_t": ["slot_1"]},
-             sf.TOPS: {"global": {SEASON: {HALF: {MASTER_I: top}}}},
+    first = {sf.TOPS: {"global": {SEASON: {HALF: {MASTER_I: top}}}},
              sf.SORTIE: {"global": {"assault_1_s7": field}}}
     held, added, _refused, _down = sf.fold(sf.empty(), first)
     again, added_again, refused_again, down_again = sf.fold(held, first)
@@ -175,10 +171,7 @@ def _fold_rules(sf):
                    f"folds the maintainer's own facts on every run, so a "
                    f"fold that is not idempotent rewrites the shipped "
                    f"file each time.")
-    other = dict(RATES, rates={"total_ratio": 1})
-    held, _added, refused, _down = sf.fold(held, {
-        sf.RATES: {"gacha_a": other},
-        sf.SLOTS: {"event_t": ["slot_2"]},
+    held, _added, _refused, _down = sf.fold(held, {
         sf.TOPS: {"global": {SEASON: {HALF: {MASTER_I: dict(
             top, read_at=200, best_score=12)}}}},
         sf.SORTIE: {"global": {"assault_1_s7": dict(
@@ -186,48 +179,17 @@ def _fold_rules(sf):
     held, _added, _refused, _down = sf.fold(held, {
         sf.TOPS: {"global": {SEASON: {HALF: {MASTER_I: dict(
             top, read_at=50, best_score=9)}}}}})
-    want = {"rates kept": held[sf.RATES]["gacha_a"] == sf.clean(
-                {sf.RATES: {"gacha_a": RATES}})[sf.RATES]["gacha_a"],
-            "rates refused": len(refused) == 1,
-            "slots unioned": held[sf.SLOTS]["event_t"] == ["slot_1",
-                                                           "slot_2"],
-            "the later top": held[sf.TOPS]["global"][SEASON][HALF][
+    want = {"the later top": held[sf.TOPS]["global"][SEASON][HALF][
                 MASTER_I]["read_at"] == 200,
             "a later field saying the same left alone": held[sf.SORTIE][
                 "global"]["assault_1_s7"]["read_at"] == 100}
     wrong = [what for what, ok in want.items() if not ok]
     if wrong:
         out.append(
-            f"folding broke {wrong}. A banner read two ways is refused "
-            f"rather than replaced, slots are unioned, a later reading "
-            f"that says something new wins in either order, and one that "
-            f"says the same changes nothing -- or every build rewrites "
-            f"the shipped file for a new timestamp.")
-    # A permanent banner's pools taking in a patch's units: replaced,
-    # and what joined said. Pools that lost a unit, or rates that moved
-    # beside grown pools, are still refused.
-    pools = RATES["pools"]
-    grown = dict(RATES, pools=dict(pools, sr_pool_ids=["general_sr_c_1012"]))
-    start, _a, _r, _d = sf.fold(sf.empty(), {sf.RATES: {"gacha_g": RATES}})
-    held_g, added_g, refused_g, _d = sf.fold(start, {
-        sf.RATES: {"gacha_g": grown}})
-    if held_g[sf.RATES]["gacha_g"]["pools"]["sr_pool_ids"] != [
-            "general_sr_c_1012"] or refused_g \
-            or not any("general_sr_c_1012" in line for line in added_g):
-        out.append(f"a banner whose pools only grew folds to "
-                   f"{held_g[sf.RATES]['gacha_g']['pools']}, added "
-                   f"{added_g}, refused {refused_g}: it is replaced and "
-                   f"what joined is said (`_pools_grew`).")
-    for what, reading in (
-            ("a pool that lost a unit, beside one that gained",
-             dict(grown, pools=dict(grown["pools"],
-                                    ssr_rate_up_success_pool_ids=[]))),
-            ("rates moved beside grown pools", dict(
-                grown, rates={"total_ratio": 1}))):
-        _h, _a, refused_x, _d = sf.fold(start, {sf.RATES: {"gacha_g": reading}})
-        if len(refused_x) != 1:
-            out.append(f"{what} was folded in: only pools that grew and "
-                       f"nothing else replace held rates.")
+            f"folding broke {wrong}. A later reading that says something "
+            f"new wins in either order, and one that says the same "
+            f"changes nothing -- or every build rewrites the shipped file "
+            f"for a new timestamp.")
     # Fewer players later: folded -- a ban is real -- but listed apart,
     # since a wrong server or a doctored file reads the same.
     fewer = dict(field, players=18000, read_at=400)
@@ -266,21 +228,19 @@ def _missing_rules(sf):
     out = []
     top = {"rank": 1, "best_score": 10, "read_at": 100}
     shipped = sf.clean({
-        sf.RATES: {"gacha_a": RATES},
         sf.TOPS: {"global": {SEASON: {HALF: {MASTER_I: top}}}}})
     mine = sf.clean({
-        sf.RATES: {"gacha_a": RATES, "gacha_b": RATES},
         sf.TOPS: {"global": {SEASON: {HALF: {
             MASTER_I: dict(top, read_at=900, best_score=12),
             DIAMOND_I: dict(top, rank=948)}}},
                   "asia": {SEASON: {HALF: {MASTER_I: top}}}}})
     counts = sf.tally(sf.missing(mine, shipped))
     want = dict.fromkeys(sf.KINDS, 0)
-    want.update({sf.RATES: 1, sf.TOPS: 2})
+    want.update({sf.TOPS: 2})
     if counts != want:
         out.append(
-            f"`missing` counts {counts}, not {want}. A banner or a "
-            f"subdivision the shipped facts lack is new; a later reading "
+            f"`missing` counts {counts}, not {want}. A subdivision the "
+            f"shipped facts lack is new; a later reading "
             f"of the season RUNNING is not, or every active account reads "
             f"yellow every week. The other server's top is new: they rank "
             f"different players.")
@@ -316,16 +276,21 @@ def _missing_rules(sf):
         out.append(f"of a Sortie season over and one running, `missing` "
                    f"finds {sorted(news)} worth sending, not the one "
                    f"that is over.")
-    if sf.describe({sf.RATES: 1, sf.TOPS: 2, sf.OFFENSIVE: 1}) != (
-            "1 banner's rates, 2 Great Rift division tops, "
+    if sf.describe({sf.SORTIE: 1, sf.TOPS: 2, sf.OFFENSIVE: 1}) != (
+            "2 Great Rift division tops, 1 Sortie season, "
             "1 Full-Scale Offensive"):
         out.append(f"the export would say "
-                   f"{sf.describe({sf.RATES: 1, sf.TOPS: 2})!r}.")
+                   f"{sf.describe({sf.SORTIE: 1, sf.TOPS: 2})!r}.")
     return out
 
 
+# One Great Rift top: the smallest whole file.
+TOP = {"rift_tops": {"global": {SEASON: {HALF: {MASTER_I: {
+    "rank": 1, "read_at": 100}}}}}}
+
+
 def _documents(sf):
-    facts = sf.clean({sf.SLOTS: {"event_t": ["slot_1"]}})
+    facts = sf.clean(TOP)
     data = sf.document(facts, app_version="9.9.9", region="global",
                        exported="2026-09-25")
     out = []
@@ -378,16 +343,16 @@ def _fold_script(sf):
     work = Path(tempfile.mkdtemp(prefix="shared_facts_fold_"))
     saved = module.TARGET
     module.TARGET = work / sf.FILE_NAME
-    whole = sf.document({sf.SLOTS: {"event_t": ["slot_1"]}})
-    older = dict(whole, facts={sf.SLOTS: whole["facts"][sf.SLOTS]})
+    whole = sf.document(TOP)
+    older = dict(whole, facts={sf.TOPS: whole["facts"][sf.TOPS]})
     try:
         for text, refuse in (
                 ("{ not json", True),
                 (json.dumps(dict(whole, facts=dict(
                     whole["facts"], future_kind={"x": 1}))), True),
                 (json.dumps(dict(whole, facts=dict(
-                    whole["facts"], **{sf.SLOTS: {
-                        "event_t": "slot_1"}}))), True),
+                    whole["facts"], **{sf.TOPS: {
+                        "global": "a top"}}))), True),
                 (json.dumps(older), False)):
             module.TARGET.write_text(text, encoding="utf-8")
             try:
@@ -405,16 +370,17 @@ def _fold_script(sf):
                     f"fine.")
     finally:
         module.TARGET = saved
-    before = sf.clean({sf.RATES: {"gacha_a": RATES},
+    before = sf.clean({sf.SORTIE: {"global": {"assault_1_s7": {
+                           "players": 19000, "read_at": 100}}},
                        sf.TOPS: {"global": {SEASON: {HALF: {MASTER_I: {
                            "rank": 1, "read_at": 200}}}}}})
     after = sf.clean({sf.TOPS: {"global": {SEASON: {HALF: {MASTER_I: {
         "rank": 1, "read_at": 100}}}}}})
     if len(sf.lost(before, after)) != 2 or sf.lost(before, before):
         out.append(f"`lost` finds {sf.lost(before, after)} between a file "
-                   f"and one missing its banner and holding an older "
-                   f"top. It is the fold's last guard against dropping "
-                   f"what players sent.")
+                   f"and one missing its Sortie season and holding an "
+                   f"older top. It is the fold's last guard against "
+                   f"dropping what players sent.")
     return out
 
 
@@ -520,21 +486,27 @@ def _readers(sf):
             or cells.get("4", {}).get("Out of") != "~41,000":
         out.append(f"the Offensive list reads {cells}.")
 
-    # The Gacha History: a banner never read here takes shipped rates,
-    # and one read here keeps its own.
+    # The Gacha History: a banner never read here takes the game
+    # client's rates, and one read here keeps its own.
+    import game_client
+    client = sorted(game_client.known_banner_rates())
+    if len(client) < 2:
+        note("the shipped client extract holds fewer than two banners' "
+             "rates, so the Gacha History's took nothing from it")
+        return out
     work = Path(tempfile.mkdtemp(prefix="shared_facts_"))
     folder = gh.folder_in(work)
     folder.mkdir(parents=True)
     own = dict(RATES, rates={"total_ratio": 7})
     (folder / gh.CAPTURED).write_text(json.dumps({
         "kind": gh.STORE_KIND, "records": [],
-        "rates": {"gacha_a": own}}), encoding="utf-8")
-    shipped = sf.clean({sf.RATES: {"gacha_a": RATES, "gacha_b": RATES}})
-    rates = gh.load(folder, shipped=shipped).rates
-    if rates.get("gacha_a") != own or "gacha_b" not in rates:
-        out.append(f"the Gacha History's rates read {sorted(rates)}: a "
-                   f"banner read here keeps its own rates, and one never "
-                   f"read takes the shipped ones.")
+        "rates": {client[0]: own}}), encoding="utf-8")
+    rates = gh.load(folder).rates
+    if rates.get(client[0]) != own or client[1] not in rates:
+        out.append(f"the Gacha History's rates read {sorted(rates)[:4]}...: "
+                   f"a banner read here keeps its own rates, and one never "
+                   f"read takes the game client's "
+                   f"(`game_client.known_banner_rates`).")
     return out
 
 
@@ -561,11 +533,20 @@ def _readings(sf):
                    "layers": {"S_ATK_INC_ADD_OUT": OWN_RANK},
                    "partner_id": pid, "partner_level": 60, "partner_lb": 4,
                    "partner_flat": flat, "name": "Ikkoru"}]}
-    facts = sf.collect(None, None, None, [battle])
+    # A guest the game put in the party, with an id of its own: seen in
+    # no party of the player's, so its reading is nobody's to send.
+    guest = dict(battle["chars"][0], res_id=90009, partner_id=99999,
+                 guest=True)
+    battle["chars"].append(guest)
+    facts = sf.collect(None, None, [battle])
     text = json.dumps(facts)
     leaked = [p for p in PLANTED if p in text]
     if leaked:
         out.append(f"`collect` let {leaked} out of the base stat readings.")
+    if "90009" in facts[sf.BASES] or "99999" in facts[sf.PARTNER_FLATS]:
+        out.append("`collect` sent the readings of a guest the game put "
+                   "in the party: an id no table holds, which nothing "
+                   "could use (`base_stats_store.own_units`).")
     want = {sf.BASES: {str(rid): {"60": {"base": off, "read_at": 100}}},
             sf.PARTNER_FLATS: {str(pid): {"60": {"flat": flat,
                                                  "read_at": 100}}}}
@@ -660,12 +641,16 @@ def run():
 
 # What this check must catch, for `checks/faults.py`.
 FAULTS = [
-    ("grown pools refused", "shared_facts:fold",
-     "elif grew:", "elif False:", "only grew folds to"),
-    ("a shrunk pool taken for grown", "shared_facts:_pools_grew",
-     "if not set(before) <= set(ids):", "if False:",
-     "a pool that lost a unit"),
-    ("moved rates taken for grown", "shared_facts:_pools_grew",
-     "if any(held.get(table) != reading.get(table) for table in RATE_TABLES):",
-     "if False:", "rates moved beside grown pools"),
+    ("a guest's readings sent", "shared_facts:readings_of",
+     "            if key not in own[kind]:\n                continue\n",
+     "", "readings of a guest"),
+    ("an old file's banner rates kept", "shared_facts:clean",
+     "    out = {}\n", "    out = {k: facts[k] for k in "
+     "('banner_rates', 'trial_slots') if k in facts}\n",
+     "A kind the game client holds"),
+    ("the account's own rates replaced by the client's",
+     "gacha_history:load",
+     '    history.rates.update(own if isinstance(own, dict) else {})',
+     '    pass',
+     "keeps its own rates"),
 ]

@@ -582,16 +582,23 @@ def _overlay_with_a_pair_unknown():
                        f"read off two readings or agreed by the class, a "
                        f"known gain walked down to 60 -- and the table "
                        f"untouched. See `get_character_stats_at_level`.")
+        # A sibling on the client's curve reads its own curve; one the
+        # client does not hold borrows the reading of its grade and class.
+        from game_data.partners import PARTNER_CURVES
         flats = [get_partner_stats(p, level) for p, level in
                  ((pid, 50), (sib, 50), (pid, 49))]
-        if [list(f.values()) for f in flats[:2]] != [[1, 2, 3]] * 2 or \
+        sibling = table_partner_stats(sib, 50) if sib in PARTNER_CURVES \
+            else {"atk": 1, "def": 2, "hp": 3}
+        if list(flats[0].values()) != [1, 2, 3] or flats[1] != sibling or \
                 flats[2] != table_partner_stats(pid, 49) or \
                 table_partner_stats(pid, 50) == {"atk": 1, "def": 2,
                                                  "hp": 3}:
             out.append(f"with a partner's reading installed, it, a partner "
                        f"of the same grade and class at that level, and "
-                       f"another level read {flats}: the reading twice, "
-                       f"then the table -- which stays the table.")
+                       f"another level read {flats}: the reading, the "
+                       f"sibling's own curve (or the reading, where the "
+                       f"client holds no curve for it), then the table -- "
+                       f"which stays the table.")
         # The audit must still read the tables: installed, the server's
         # figure would come back as the program's and B's gap vanish.
         (a_id, _a, a60), (b_id, b, b60) = _cast()[:2]

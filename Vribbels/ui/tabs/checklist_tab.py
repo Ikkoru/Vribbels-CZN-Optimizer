@@ -102,7 +102,6 @@ import game_client
 import item_amounts
 import period_items
 import schedules
-import shared_facts
 import shop_stock
 import weekly_reset
 from capture.constants import OUTPUT_DIR
@@ -1904,7 +1903,7 @@ def _event_trials(raw, name, window, now):
     slots = game_client.known_trial_slots().get(name)
     most = len(slots) if slots else _trial_count(raw, window)
     if not slots:
-        pairs = raw.get(TRIAL_SLOTS_KNOWN, raw.get(TRIAL_SLOTS_FIELD))
+        pairs = raw.get(TRIAL_SLOTS_FIELD)
         slots = pairs.get(name) if isinstance(pairs, dict) else None
         most = max(most, len(slots or ()))
     if slots:
@@ -3101,20 +3100,9 @@ OVERCLOCK_SHAPE_SIGHTINGS = 2
 # run at once and their windows overlap, so a claim cannot be assigned
 # to one by its date. Where the client does not answer, the pairing is
 # learned from the claim itself -- `reward_combatant_trial` names both
-# ids -- and the capture keeps it under `combatant_trial_slots`, beside
-# the pairings the program ships (`shared_facts.py`).
+# ids -- and the capture keeps it under `combatant_trial_slots`.
 TRIAL_SLOTS_FIELD = "combatant_trial_slots"
 TRIAL_FIELD = "combat_trial_entities"
-# Where `refresh_checklist` leaves the capture's pairings with the
-# shipped ones added. The program's own key, on `raw` and saved by
-# nothing, like `EVENT_TOTALS_FIELD`; a reader handed a snapshot
-# without it reads the capture's own.
-TRIAL_SLOTS_KNOWN = "_checklist_trial_slots"
-
-
-def _shipped(context):
-    """The program's own game facts, or None -- see shared_facts.py."""
-    return getattr(context, "shared_facts", None)
 
 # Where the client lists no slots: three trials PER COMBATANT BANNER
 # running, the event offering the banner combatants, so a second banner
@@ -4869,8 +4857,6 @@ class ChecklistTab(BaseTab):
         Called automatically after data loads.
         """
         raw = getattr(self.optimizer, "raw_data", None) or {}
-        raw[TRIAL_SLOTS_KNOWN] = shared_facts.with_slots(
-            raw.get(TRIAL_SLOTS_FIELD), _shipped(self.context))
         self._recall_streaks(raw)
         event_totals_onto(raw, time.time())
         readings = self._settle_floors(

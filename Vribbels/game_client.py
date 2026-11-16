@@ -1809,6 +1809,131 @@ def partners(client):
     return out
 
 
+# A banner's rates, in the client: its pool groups and percentages, the
+# pools' members, and the share of a rarity's rate the rate-up takes.
+BANNER_TABLE = "gacha_list@gacha_list"
+POOL_TABLE = "gacha_pool@gacha_pool"
+PITY_TABLE = "gacha_pity@gacha_pity"
+# A rates reply's pool lists, by the column naming each one's group.
+BANNER_POOLS = {"ssr_pool_ids": "ssr_pool_link_gacha_pool_group",
+                "sr_pool_ids": "sr_pool_link_gacha_pool_group",
+                "sr_combatant_pool_ids":
+                    "sr_combatant_pool_link_gacha_pool_group",
+                "sr_supporter_pool_ids":
+                    "sr_supporter_pool_link_gacha_pool_group",
+                "r_pool_ids": "r_pool_link_gacha_pool_group"}
+# The ratio each of those pools is drawn at, in the reply.
+POOL_RATIOS = {"ssr_pool_ids": "ssr_ratio", "sr_pool_ids": "sr_ratio",
+               "sr_combatant_pool_ids": "sr_combatant_ratio",
+               "sr_supporter_pool_ids": "sr_supporter_ratio",
+               "r_pool_ids": "r_ratio"}
+# The whole, which a rate-up share is a part of.
+RATE_WHOLE = 100000
+
+
+def banner_rates(client):
+    """{banner id: a `gacha/get_rate` reply's rates, as the Gacha
+    History keeps one}: `rates`, the draw's ratios; `total_rate_info`,
+    each pool's share as the game's rates screen states it; `pools`,
+    each pool's members.
+
+    A rarity's ratio is its pool's percentage less the rate-up's share
+    of it (the pity row's `ssr_rate_up_pct`, `sr_rate_up_pct`, out of
+    `RATE_WHOLE`), which goes to the rate-up instead; a pool drawn at
+    no ratio is listed empty, as the server lists it. Every reply the
+    program has shipped agrees, its pools short only of units the game
+    added to them after the capture
+    (`checks/check_client_vs_server.py`)."""
+    groups = {}
+    for row in client.rows(POOL_TABLE):
+        groups.setdefault(row.get("group"), []).append(row.get("id"))
+    pity = {row.get("id"): row for row in client.rows(PITY_TABLE)}
+    out = {}
+    for row in client.rows(BANNER_TABLE):
+        banner = row.get("id")
+        if not banner:
+            continue
+        held = pity.get(row.get("link_gacha_pity_id")) or {}
+        ssr_up = max(_figure(held.get("ssr_rate_up_pct")) or 0, 0)
+        sr_up = max(_figure(held.get("sr_rate_up_pct")) or 0, 0)
+        ssr_pick = row.get("ssr_rate_up_link_gacha_pool_id")
+        sr_picks = [row.get(f"sr_rate_up_{i}_link_gacha_pool_id")
+                    for i in (1, 2, 3)]
+        sr_picks = [pick for pick in sr_picks if pick and pick != "none"]
+        figures = {column: _figure(row.get(column)) or 0 for column in (
+            "ssr_pool_pct", "sr_pool_pct", "sr_combatant_pool_pct",
+            "sr_supporter_pool_pct", "r_pool_pct")}
+        has_ssr_pick = bool(ssr_pick) and ssr_pick != "none"
+        ssr_share = (figures["ssr_pool_pct"] * ssr_up // RATE_WHOLE
+                     if has_ssr_pick else 0)
+        rates = {"ssr_ratio": figures["ssr_pool_pct"] - ssr_share,
+                 "ssr_rate_up_success_ratio": ssr_share}
+        sr_share = 0
+        for kind in ("sr", "sr_combatant", "sr_supporter"):
+            pct = figures[f"{kind}_pool_pct"]
+            share = pct * sr_up // RATE_WHOLE \
+                if sr_picks and kind != "sr" else 0
+            sr_share += share
+            rates[f"{kind}_ratio"] = pct - share
+        rates["sr_rate_up_success_ratio"] = sr_share
+        rates["r_ratio"] = figures["r_pool_pct"]
+        rates["total_ratio"] = sum(rates.values())
+        info = {column: _figure(value) for column, value in row.items()
+                if column.startswith("total_")
+                and column.endswith("_pool_pct")
+                and _figure(value) is not None}
+        pools = {}
+        for key, column in BANNER_POOLS.items():
+            group = row.get(column)
+            pools[key] = (list(groups.get(group, ()))
+                          if group and group != "none"
+                          and rates[POOL_RATIOS[key]] else [])
+        pools["ssr_rate_up_success_pool_ids"] = \
+            [ssr_pick] if has_ssr_pick else []
+        pools["sr_rate_up_success_pool_ids"] = sr_picks
+        out[banner] = {"rates": rates, "total_rate_info": info,
+                       "pools": pools}
+    return out
+
+
+def partner_curves(client):
+    """{"curves": {key: [[atk, def, hp] at each level from 1 to the
+    top]}, "partners": {partner res_id: key}}: each partner's own flat
+    stats at every level, partners on the same curve sharing one.
+
+    A level's stats are the partner's `default_*_add`, its level
+    group's steps up to that level, and one promotion step for each
+    ten-level cap passed BELOW it: a partner at level 20 has promoted
+    once, at 21 twice. Every partner reading a battle has given agrees
+    with that (`checks/check_partner_curves.py`)."""
+    levels = client.rows("partner_base@partner_level")
+    ascends = client.rows("partner_base@partner_ascend")
+    curves, owners = {}, {}
+    for row in client.rows("partner_base@char_partner"):
+        rid = _figure(row.get("id"))
+        group = row.get("link_partner_level_group")
+        promote = row.get("link_partner_ascend_group")
+        if not isinstance(rid, int) or not group:
+            continue
+        base = [_figure(row.get(f"default_{stat}_add")) or 0
+                for stat in ("atk", "def", "hp")]
+        key = f"{group}/{promote}/{','.join(map(str, base))}"
+        if key not in curves:
+            curve = []
+            for level in range(1, TOP_LEVEL + 1):
+                flat = _steps(levels, group, 1, level, "level",
+                              PARTNER_FLAT_STATS)
+                caps = min(-(-level // 10) - 1, PROMOTIONS)
+                promoted = _steps(ascends, promote, 1, caps, "ascend",
+                                  PARTNER_FLAT_STATS)
+                curve.append([b + flat[stat] + promoted[stat] for b, stat
+                              in zip(base, ("atk", "def", "hp"),
+                                     strict=True)])
+            curves[key] = curve
+        owners[rid] = key
+    return {"curves": curves, "partners": owners}
+
+
 def chaos_names(client):
     """{stage id: (English name, season)}: every Chaos the client names,
     by the stage id a run's clear carries, with the Galactic Disaster
@@ -2725,6 +2850,8 @@ def read_facts(install):
                        in combatants(client).items()},
         "partners": {str(res_id): entry for res_id, entry
                      in partners(client).items()},
+        "partner_curves": partner_curves(client),
+        "banner_rates": banner_rates(client),
         "chaos_names": {str(stage): list(named) for stage, named
                         in chaos_names(client).items()},
         "zero_specials": zero_specials(client),
@@ -2966,6 +3093,18 @@ def known_trial_slots():
         if (isinstance(value, (list, tuple)) and value
                 and all(isinstance(s, str) for s in value)):
             out[key] = tuple(value)
+    return out
+
+
+def known_banner_rates():
+    """{banner id: rates reply}: the shipped table, with what this
+    machine's client says over it. See `banner_rates`."""
+    from game_data import from_client
+    out = dict(getattr(from_client, "BANNER_RATES", {}))
+    out.update({key: value for key, value
+                in ((_facts or {}).get("banner_rates") or {}).items()
+                if isinstance(value, dict)
+                and isinstance(value.get("rates"), dict)})
     return out
 
 

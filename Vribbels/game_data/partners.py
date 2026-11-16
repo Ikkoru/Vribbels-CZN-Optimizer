@@ -1198,21 +1198,29 @@ def get_partner_base_stats(res_id: int) -> dict:
     return base
 
 
+# {partner res_id: [(atk, def, hp) at each level from 1]}: the game
+# client's own curve (`game_client.partner_curves`), laid here by
+# `game_data.client_overlay`. Empty with no client and no shipped
+# extract, when the linear estimate below stands in.
+PARTNER_CURVES = {}
+
+
 def table_partner_stats(res_id: int, level: int) -> dict:
-    """ATK / DEF / HP for a partner at the given level, from the table.
+    """ATK / DEF / HP for a partner at the given level, from the tables.
 
-    Scales LINEARLY from 0 at level 0 to base at level 60:
-        scaled = floor(base * (level / 60))
-
-    Exact at 60; below it the game's curve differs by a point or two at
-    50 and above and by more lower down. What the audit and the checks
+    The client's curve where it holds this partner and level: exact at
+    every level. Else LINEAR from 0 at level 0 to the class's level-60
+    figures, `floor(base * level / 60)`: exact at 60, a point or two out
+    at 50 and above and more lower down. What the audit and the checks
     hold the server against; the program asks `get_partner_stats`.
 
-    Note: a level > 60 partner will return MORE than base stats here
-    (scale > 1.0). PARTNER_EXP_TABLE caps at level 60, so in practice
-    this shouldn't happen, but callers that pass arbitrary levels
-    should clamp upstream if they need to be safe.
+    A level past the curve's top, or past 60 on the linear estimate,
+    reads more than the top: callers clamp.
     """
+    curve = PARTNER_CURVES.get(res_id)
+    if curve and 1 <= level <= len(curve):
+        atk, def_, hp = curve[level - 1]
+        return {"atk": atk, "def": def_, "hp": hp}
     base = get_partner_base_stats(res_id)
     scale = level / 60.0
     return {
@@ -1224,11 +1232,15 @@ def table_partner_stats(res_id: int, level: int) -> dict:
 
 def get_partner_stats(res_id: int, level: int) -> dict:
     """ATK / DEF / HP for a partner at the given level: the server's
-    reading where `game_data.learned` holds one -- this partner's, else
-    another's of the same grade and class, which share the curve --
-    else `table_partner_stats`."""
+    reading where `game_data.learned` holds one of this partner, which
+    stands over the client should the two disagree; else the client's
+    curve; else another reading of the same grade and class, which
+    share the curve; else `table_partner_stats`."""
     from game_data import learned
     known = (learned.PARTNER_FLATS.get(res_id) or {}).get(level)
+    curve = PARTNER_CURVES.get(res_id)
+    if known is None and curve and 1 <= level <= len(curve):
+        return table_partner_stats(res_id, level)
     if known is None and learned.PARTNER_FLATS:
         mine = get_partner(res_id)
         pair = (mine.get("grade"), mine.get("class"))

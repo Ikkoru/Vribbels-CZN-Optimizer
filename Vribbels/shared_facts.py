@@ -2,13 +2,10 @@
 about the player's account: which ship with the program, which a
 player could add, and the file they send in.
 
-Seven kinds. Five are something the game stops listing after a while,
+Five kinds. Three are rankings the game stops listing after a while,
 so a player who installs late or never opened the right screen can
-never read it for themselves:
+never read them for themselves, and the game client does not hold:
 
-* `banner_rates` -- a banner's rates reply: its odds and its pools.
-* `trial_slots` -- which Combatant Trial slots each trial event offers,
-  which only a claim made while capturing names.
 * `rift_tops` -- each Great Rift subdivision's top row, per server: its
   rank and score, never who.
 * `sortie_fields` -- each Sortie season's field, per server: how many
@@ -25,9 +22,16 @@ read out of battles (`base_stats_store`):
 
 **Only what the program lacks is news for those two**: a reading the
 tables already give (`characters.table_stats_at_level`,
-`partners.table_partner_stats`) is not sent. Where the tables are
-silent or wrong, the program uses them all the same -- the account's
-and the shipped ones, newest first (`game_data.learned`).
+`partners.table_partner_stats`, the game client's figures laid over
+the hand tables) is not sent. Where the tables are silent or wrong,
+the program uses them all the same -- the account's and the shipped
+ones, newest first (`game_data.learned`) -- and
+`checks/check_client_vs_server.py` holds the client to every shipped
+reading, which is what catches a client table the server disagrees
+with.
+
+Banner rates and Combatant Trial slots are not kinds: the game client
+holds both (`game_client.banner_rates`, `game_client.trial_slots`).
 
 **A whitelist.** `collect` names every field it copies and `clean`
 checks every value's shape, so a field the wire adds later cannot reach
@@ -42,7 +46,8 @@ back.
 **Read beside the user's own, never merged into it.** The shipped copy
 is `default_settings/shared_facts/shared_facts.json`, read-only, and
 each reader combines it with what the account holds, in memory --
-`with_rates`, `with_slots`, `tops_with`, `fields_for`. The account's files are never rewritten with it, so a
+`tops_with`, `fields_for`, `levelled_with`. The account's files are
+never rewritten with it, so a
 wrong shipped fact goes away with the release that fixes it and leaves
 nothing behind.
 
@@ -79,22 +84,18 @@ SHIPPED_FOLDER = "shared_facts"
 KIND = "vribbels shared facts"
 VERSION = 1
 
-RATES = "banner_rates"
-SLOTS = "trial_slots"
 TOPS = "rift_tops"
 SORTIE = "sortie_fields"
 OFFENSIVE = "offensive_fields"
 BASES = "base_stats"
 PARTNER_FLATS = "partner_stats"
-KINDS = (RATES, SLOTS, TOPS, SORTIE, OFFENSIVE, BASES, PARTNER_FLATS)
+KINDS = (TOPS, SORTIE, OFFENSIVE, BASES, PARTNER_FLATS)
 # The kinds kept per server, as {server: {season, ...: reading}}.
 RANKINGS = (TOPS, SORTIE, OFFENSIVE)
 
 # What each kind is called, one and many, in the order the Share Game
 # Data panel names them.
-WORDS = {RATES: ("banner's rates", "banners' rates"),
-         SLOTS: ("Combatant Trial slot", "Combatant Trial slots"),
-         TOPS: ("Great Rift division top", "Great Rift division tops"),
+WORDS = {TOPS:("Great Rift division top", "Great Rift division tops"),
          SORTIE: ("Sortie season", "Sortie seasons"),
          OFFENSIVE: ("Full-Scale Offensive", "Full-Scale Offensives"),
          BASES: ("combatant base stat reading",
@@ -115,10 +116,6 @@ REGIONS = ("global", "asia")
 # words, digits and underscores; a URL, a sentence or a name is not
 # one, and is dropped wherever it stands.
 ID = re.compile(r"^[A-Za-z0-9_]{1,80}$")
-
-# A banner's rates reply, less `seen` -- when THIS account read it.
-RATE_TABLES = ("rates", "total_rate_info")
-RATE_POOLS = "pools"
 
 # What a ranking reading SAYS, per kind, as against when it was read:
 # a later reading that says the same is not a new fact. A top is where
@@ -175,8 +172,7 @@ def clean(facts):
     reaches a reader unchecked.
     """
     facts = facts if isinstance(facts, dict) else {}
-    out = {RATES: _clean_rates(facts.get(RATES)),
-           SLOTS: _clean_lists(facts.get(SLOTS))}
+    out = {}
     for kind in RANKINGS:
         out[kind] = _clean_rankings(kind, facts.get(kind))
     for kind, field in LEVELLED.items():
@@ -208,38 +204,6 @@ def _clean_levelled(field, raw):
                 continue
             out.setdefault(str(key), {})[level] = {field: list(values),
                                                     "read_at": read_at}
-    return out
-
-
-def _clean_rates(raw):
-    """{banner: {rates, total_rate_info, pools}}, each part whole."""
-    out = {}
-    for banner, entry in _items(raw):
-        if not _is_id(banner) or not isinstance(entry, dict):
-            continue
-        kept = {}
-        for table in RATE_TABLES:
-            values = entry.get(table)
-            if not isinstance(values, dict):
-                break
-            kept[table] = {k: v for k, v in values.items()
-                           if _is_id(k) and _is_number(v)}
-        pools = entry.get(RATE_POOLS)
-        if len(kept) < len(RATE_TABLES) or not isinstance(pools, dict):
-            continue
-        kept[RATE_POOLS] = {k: _ids(v) for k, v in pools.items()
-                            if _is_id(k) and _ids(v) is not None}
-        out[banner] = kept
-    return out
-
-
-def _clean_lists(raw):
-    """{id: [id, ...]}, for the trial slots."""
-    out = {}
-    for key, value in _items(raw):
-        ids = _ids(value)
-        if _is_id(key) and ids:
-            out[key] = ids
     return out
 
 
@@ -304,18 +268,15 @@ def _get(tree, path):
 
 # ----------------------------------------------------------- gathering
 
-def collect(raw, history, captured, battles=None):
+def collect(raw, history, battles=None):
     """The account's facts, through the whitelist.
 
-    `raw` is the newest snapshot, `history` `stats_history.json`,
-    `captured` the Gacha History's `captured.json` and `battles` the
-    base stat readings' battles -- each as loaded, and any of them None.
+    `raw` is the newest snapshot, `history` `stats_history.json` and
+    `battles` the base stat readings' battles -- each as loaded, and
+    any of them None.
     """
     raw = raw if isinstance(raw, dict) else {}
-    captured = captured if isinstance(captured, dict) else {}
-    facts = {RATES: captured.get("rates"),
-             SLOTS: raw.get("combatant_trial_slots")}
-    facts.update(_rankings_by_region(raw, history))
+    facts = _rankings_by_region(raw, history)
     facts.update(readings_of(battles))
     return clean(facts)
 
@@ -323,15 +284,24 @@ def collect(raw, history, captured, battles=None):
 def readings_of(battles):
     """{BASES: ..., PARTNER_FLATS: ...} out of the base stat readings'
     battles: every combatant base and partner flat they settle, in the
-    shape the file keeps."""
+    shape the file keeps.
+
+    **Only units seen in the player's own party** (`base_stats_store.
+    own_units`): a guest the game puts in a party can carry an id no
+    table holds, whose reading nothing could use.
+    """
     import base_stats_store
     battles = [b for b in battles or () if isinstance(b, dict)]
+    own = dict(zip((BASES, PARTNER_FLATS),
+                   base_stats_store.own_units(battles), strict=True))
     out = {BASES: {}, PARTNER_FLATS: {}}
     for kind, found, field in (
             (BASES, base_stats_store.learned_bases(battles), "base"),
             (PARTNER_FLATS, base_stats_store.partner_flats(battles),
              "flat")):
         for key, levels in found.items():
+            if key not in own[kind]:
+                continue
             for level, reading in levels.items():
                 out[kind].setdefault(str(key), {})[str(level)] = {
                     field: reading[field], "read_at": reading["read_at"]}
@@ -413,17 +383,14 @@ def collect_from(program_dir, raw=None):
     holds `settings/` and `snapshots/`. `raw` is the snapshot already
     loaded; without one the newest in `snapshots/` is read."""
     import base_stats_store
-    import gacha_history
     import stats_history
     program_dir = Path(program_dir)
     settings, snapshots = program_dir / "settings", program_dir / "snapshots"
     if raw is None:
         newest = sorted(snapshots.glob("memory_fragments_*.json"))
         raw = _read_json(newest[-1]) if newest else None
-    captured, _note = gacha_history.read_store(
-        gacha_history.folder_in(snapshots) / gacha_history.CAPTURED)
     battles, _note = base_stats_store.read(snapshots)
-    return collect(raw, stats_history.load(settings), captured, battles)
+    return collect(raw, stats_history.load(settings), battles)
 
 
 def _read_json(path):
@@ -488,13 +455,6 @@ def missing(mine, shipped):
     """
     mine, shipped = clean(mine), clean(shipped)
     out = empty()
-    out[RATES] = {banner: entry for banner, entry in mine[RATES].items()
-                  if banner not in shipped[RATES]}
-    for key, ids in mine[SLOTS].items():
-        have = set(shipped[SLOTS].get(key, ()))
-        new = [i for i in ids if i not in have]
-        if new:
-            out[SLOTS][key] = new
     for kind in RANKINGS:
         for region, tree in mine[kind].items():
             held = shipped[kind].get(region, {})
@@ -535,11 +495,10 @@ def _table(kind, key, level):
 
 
 def tally(facts):
-    """{kind: how many entries of it}: a banner, a trial slot, a
-    subdivision's top, a season's field or a reading at a level each."""
+    """{kind: how many entries of it}: a subdivision's top, a season's
+    field or a reading at a level each."""
     facts = clean(facts)
-    counts = {RATES: len(facts[RATES]),
-              SLOTS: sum(map(len, facts[SLOTS].values()))}
+    counts = {}
     for kind in RANKINGS:
         counts[kind] = sum(len(list(_walk(tree, DEPTH[kind])))
                            for tree in facts[kind].values())
@@ -549,7 +508,7 @@ def tally(facts):
 
 
 def describe(counts):
-    """`2 banners' rates, 1 Great Rift division top`, or '' for none."""
+    """`2 Sortie seasons, 1 Great Rift division top`, or '' for none."""
     return ", ".join("%d %s" % (counts[kind], WORDS[kind][counts[kind] != 1])
                      for kind in KINDS if counts.get(kind))
 
@@ -580,41 +539,16 @@ def _change(kind, before, reading):
     return ", ".join(parts), down
 
 
-def _pools_grew(held, reading):
-    """The ids `reading`'s pools add to `held`'s, where that is all it
-    changes: the same rates and totals, every pool held still there with
-    every id it held. None otherwise, and where nothing was added."""
-    if any(held.get(table) != reading.get(table) for table in RATE_TABLES):
-        return None
-    old, new = held.get(RATE_POOLS) or {}, reading.get(RATE_POOLS) or {}
-    joined = []
-    for pool, ids in new.items():
-        before = old.get(pool, [])
-        if not set(before) <= set(ids):
-            return None
-        joined += [i for i in ids if i not in before]
-    if any(pool not in new for pool in old):
-        return None
-    return joined or None
-
-
 def fold(into, facts):
     """`facts` folded into `into`: (the result, [what it added],
     [what it refused], [what went down]).
 
-    Trial slots are unioned, and a later reading that says something
-    different replaces
-    an earlier one -- of a running season too, whose latest figure is
-    the one to ship, and of a combatant's base or a partner's flat
-    stats, which a patch moves. **A banner already held with DIFFERENT
-    rates is refused rather than replaced**: the same banner read two
-    ways is a question for the maintainer, not an update. The one
-    exception is a banner whose pools only GREW (`_pools_grew`): a
-    permanent banner takes in each patch's new units, the Normal
-    Rescues' list of 5-stars among them, which tells a Seasonal rerun
-    from a Normal one. It is replaced, and what joined is said. Folding the
-    same facts twice changes nothing the second time, and nothing held
-    is ever dropped -- `lost` holds a fold to that.
+    A later reading that says something different replaces an earlier
+    one -- of a running season too, whose latest figure is the one to
+    ship, and of a combatant's base or a partner's flat stats, which a
+    patch moves. Folding the same facts twice changes nothing the
+    second time, and nothing held is ever dropped -- `lost` holds a
+    fold to that.
 
     **A later reading whose figures went DOWN is folded and listed
     apart.** A field's size, its top score and a subdivision's starting
@@ -627,24 +561,6 @@ def fold(into, facts):
     """
     out, facts = clean(into), clean(facts)
     added, refused, down = [], [], []
-    for banner, entry in facts[RATES].items():
-        held = out[RATES].get(banner)
-        grew = _pools_grew(held, entry) if held is not None else None
-        if held is None:
-            out[RATES][banner] = entry
-            added.append("rates of %s" % banner)
-        elif grew:
-            out[RATES][banner] = entry
-            added.append("rates of %s, its pools gaining %s"
-                         % (banner, ", ".join(grew)))
-        elif held != entry:
-            refused.append("rates of %s differ from the ones held" % banner)
-    for key, ids in facts[SLOTS].items():
-        held = out[SLOTS].setdefault(key, [])
-        for i in ids:
-            if i not in held:
-                held.append(i)
-                added.append("%s %s of %s" % (WORDS[SLOTS][0], i, key))
     for kind in RANKINGS:
         for region, tree in facts[kind].items():
             held = out[kind].setdefault(region, {})
@@ -681,14 +597,10 @@ def fold(into, facts):
 
 def lost(before, after):
     """What `before` held that `after` does not, or holds less of: a
-    banner, a trial slot, a reading now older. Empty for any fold --
-    the guard is against the code, not the data."""
+    reading gone or now older. Empty for any fold -- the guard is
+    against the code, not the data."""
     before, after = clean(before), clean(after)
-    gone = ["rates of %s" % banner for banner in before[RATES]
-            if banner not in after[RATES]]
-    for key, ids in before[SLOTS].items():
-        gone += ["%s %s of %s" % (WORDS[SLOTS][0], i, key) for i in ids
-                 if i not in after[SLOTS].get(key, ())]
+    gone = []
     for kind in RANKINGS:
         for region, tree in before[kind].items():
             for path, reading in _walk(tree, DEPTH[kind]):
@@ -753,24 +665,6 @@ def shipped_path(defaults_dir):
 
 
 # ------------------------------------------------------------- reading
-
-def with_rates(own, shipped):
-    """The account's banner rates, and the shipped ones for banners it
-    has none of."""
-    out = dict((shipped or {}).get(RATES) or {})
-    out.update(own if isinstance(own, dict) else {})
-    return out
-
-
-def with_slots(own, shipped):
-    """The account's trial slots, with the shipped ones added."""
-    out = {key: list(ids) for key, ids in _items(own)
-           if isinstance(ids, list)}
-    for key, ids in _items((shipped or {}).get(SLOTS)):
-        held = out.setdefault(key, [])
-        held.extend(i for i in ids if i not in held)
-    return out
-
 
 def tops_with(tops, shipped, region):
     """`tops` -- {season: {half: {subdivision: [samples]}}}, as

@@ -887,7 +887,7 @@ class GachaHistoryTab(BaseTab):
         """Read the history folder again and redraw both lists."""
         self._loaded = True
         try:
-            self.history = gh.load(self._folder(), shipped=self._shipped())
+            self.history = gh.load(self._folder())
         except Exception as e:                       # noqa: BLE001
             self.history = None
             self._show_status("The history could not be read: %s" % e,

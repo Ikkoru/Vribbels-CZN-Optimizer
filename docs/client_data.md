@@ -32,6 +32,8 @@ What changes every patch and the server never sends. A row marked *below* has mo
 | each Memory Fragment set's name and effect in the game's words | `set_effects` | *below* |
 | the words of each combatant's node 7 and node 5.1 | `potential_texts` | those two lines' tooltips on the Character card |
 | every combatant and partner | `combatants`, `partners` | *below* |
+| each partner's flat stats at every level: its starting stats, its level group's steps, a promotion step per ten-level cap passed below the level | `partner_curves` | `partners.table_partner_stats`, under a battle's reading of the partner |
+| each banner's rates as a `gacha/get_rate` reply: the draw's ratios, the rates screen's shares, each pool's members | `banner_rates`, `known_banner_rates` | the Gacha History, under the account's own captured replies |
 | each partner's Exploration Passives | `exploration_passives`, `known_exploration_passives`, `exploration_effects` | *below* |
 | each Card Skin's name and rarity, each Card Skin Pack's name and the chance a pull is each rarity | `card_skins`, `known_card_skins` | the Gacha History (`docs/gacha_history.md`, *Card Skin Packs*) |
 | each Chaos's name and season by its stage id, each Zero System special option's name | `chaos_names`, `zero_specials` | the Chaos runs, over the program's own (`chaos_estimate.CHAOS_NAMES`, `ZERO_SPECIALS`, `chaos_names`, `zero_special_name`) |

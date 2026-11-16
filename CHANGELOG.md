@@ -49,12 +49,14 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 - Stats & Gacha History tab: the Prism Module's and the Card Skin Packs' records are a second column beside the Combatant & Partner banners', the Prism Module's from the top line and the Card Skin Packs' ending on the last, which leaves the standings more room. Every record has room for three ties, each with one of the longest Combatant names; ties past those the first column has no room for are left off, and the second column's run on under the Pulls list.
 - Stats & Gacha History tab: the Pulls list's columns sit closer, and the Banners list, the gacha figures and the standings take the width saved. The Overall Gacha Stats title, and the Great Rift Stats title under it, stand 4px further from what is above them.
 - Lists: the header row reaches the list's sides, with no strip of the rows' colour beside it, and the columns start 3px nearer its left edge.
+- Setup & Settings: Share Game Data no longer collects banner rates or Combatant Trial slots. The program reads both from the game.
 - Stats & Gacha History tab: the Full-Scale Offensive and Sortie lists sit at the window's foot and show as many seasons as each other. Once they need more room than the Banners list's width, they stretch across the window and the Pulls list ends above them.
 
 ### Fixed
 
 - Checklist: a Trauma Code's Synchronization and its sticker count when claimed while capturing, not at the next login.
-- Checklist: Seasonal Accumulated Score counts up to 600000.
+- Checklist: Seasonal Accumulated Score counts up to 600000, reads season 5's score, and is orange at 600000 until the week's rewards are claimed.
+- Combatants tab and Optimizer: a partner's stats are exact at every level, not only at 60.
 - Checklist: the Zeronium Shop and Blackhorn Trade read their stock again, under their new Integrated Supply Exchange menu.
 - Checklist: an Event inside another Event's screen has its own name and rewards: Rules of Good Order reads its 17, and Nightmare Dream Park no longer counts them among its own.
 - Checklist: no longer redraws in stages while the game logs in.

@@ -10,9 +10,7 @@ too: the `Export Facts` files players attach to a GitHub issue.
 Every file goes through `shared_facts`' whitelist on the way in, so
 nothing but the kinds of game fact it names can land in the shipped
 copy whatever a file holds. What each fold added is printed (`+`), and
-so is anything it refused (`!`) -- a banner whose rates differ from the
-ones held is a question to settle by hand, not an update -- and any
-later reading whose figures went down (`?`), which is folded: a ban
+so is any later reading whose figures went down (`?`), which is folded: a ban
 shrinks a field for real, and only the maintainer can tell that from a
 wrong server or a doctored file.
 

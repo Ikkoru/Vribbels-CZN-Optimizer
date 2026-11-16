@@ -106,7 +106,14 @@ A plain reading wins over a worked-out one. A Sortie settles nothing: the week's
 2. Else the nearest reading, walked there by the level gains: the combatant's own, read off two readings; else the gain every reading on their curve agrees on; else `LEVEL_BONUS_BY_CLASS`. A curve is a class and grade's, and a combatant on another class's curve names it in `level_curve`.
 3. Else the tables alone, as `table_stats_at_level` gives them.
 
-`get_partner_stats` takes the partner's reading at that level, else one of a partner of the same grade and class, else the linear table. The tables are still worth correcting: they are what a player without readings gets, and what the check holds the server against.
+`get_partner_stats` answers in this order:
+
+1. The partner's reading at that level.
+2. Else the client's curve (`game_client.partner_curves`): the partner's starting stats, its level group's steps, and a promotion step per ten-level cap passed below the level.
+3. Else one reading of a partner of the same grade and class.
+4. Else the linear estimate.
+
+The tables are still worth correcting: they are what a player without readings gets, and what the check holds the server against. `checks/check_client_vs_server.py` holds the client's figures to every shipped reading, combatants' and partners', and fails where the client and the server part.
 
 - **To verify a combatant**, take them into any battle but a Sortie during a capture. One outside the Chaos modes settles all three stats directly; a Chaos settles them only beside someone already settled.
 - **To read what the logs hold**, `python docs/base_stats_backfill.py` reports who is wrong or missing, a level gain the tables lack, and a base that changed between plain readings. It also lists the Chaos battles set aside, the partners and the formula against the server, and who nothing has settled yet. `--write` files the debug logs' battles, the archived ones included; `--battles` lists every battle with its mode.

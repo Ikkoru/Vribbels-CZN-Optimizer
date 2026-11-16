@@ -55,12 +55,14 @@ from .characters import CHARACTERS, CHARACTERS_BY_NAME, DEFAULT_CHARACTER
 from .constants import (AFFINITY_TO_NEXT, CHARACTER_EXP_TABLE,
                         FRIENDSHIP_BONUSES, PARTNER_EXP_TABLE,
                         SLOT_MAIN_STATS, SLOT_ORDER, STATS, SUBSTAT_DRAW)
-from .partners import DEFAULT_PARTNER, PARTNERS, PARTNER_CLASS_STATS
+from .partners import (DEFAULT_PARTNER, PARTNERS, PARTNER_CLASS_STATS,
+                       PARTNER_CURVES)
 from .sets import SETS
 import itertools
 
 _TABLES = {"CHARACTERS": CHARACTERS, "PARTNERS": PARTNERS,
            "PARTNER_CLASS_STATS": PARTNER_CLASS_STATS,
+           "PARTNER_CURVES": PARTNER_CURVES,
            "CHARACTER_EXP_TABLE": CHARACTER_EXP_TABLE,
            "PARTNER_EXP_TABLE": PARTNER_EXP_TABLE,
            "AFFINITY_TO_NEXT": AFFINITY_TO_NEXT,
@@ -261,6 +263,21 @@ def _partners(facts):
             _set("PARTNER_CLASS_STATS", pair, None, seen[0])
 
 
+def _curves(held):
+    """Each partner's level curve (`game_client.partner_curves`), where
+    it runs unbroken from level 1 in whole-number triples."""
+    held = held or {}
+    curves = held.get("curves") or {}
+    for key, name in (held.get("partners") or {}).items():
+        curve = curves.get(name)
+        if (str(key).isdigit() and isinstance(curve, (list, tuple))
+                and curve and all(isinstance(row, (list, tuple))
+                                  and len(row) == 3 and _ints(row)
+                                  for row in curve)):
+            _set("PARTNER_CURVES", int(key), None,
+                 [tuple(row) for row in curve])
+
+
 def _ints(values):
     return all(isinstance(v, int) and not isinstance(v, bool) for v in values)
 
@@ -357,6 +374,8 @@ def apply(facts=None):
     _undo()
     for source in ({"combatants": getattr(from_client, "COMBATANTS", {}),
                     "partners": getattr(from_client, "PARTNERS", {}),
+                    "partner_curves": getattr(from_client,
+                                              "PARTNER_CURVES", {}),
                     "exp_tables": getattr(from_client, "EXP_TABLES", {}),
                     "affinity": getattr(from_client, "AFFINITY", {}),
                     "fragment_stats": getattr(from_client, "FRAGMENT_STATS",
@@ -364,6 +383,7 @@ def apply(facts=None):
                    facts or {}):
         _combatants(source.get("combatants") or {})
         _partners(source.get("partners") or {})
+        _curves(source.get("partner_curves"))
         _exp(source.get("exp_tables"))
         _affinity(source.get("affinity"))
         _fragments(source.get("fragment_stats"))

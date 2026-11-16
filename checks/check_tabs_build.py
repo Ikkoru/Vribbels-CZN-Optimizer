@@ -3969,13 +3969,18 @@ def _share_status_colours(tab):
     try:
         (work / "settings").mkdir()
         (work / "snapshots").mkdir()
-        slots = {"event_combatant_trial_99": ["combatant_trial_99001"]}
+        # One Sortie season's field, read on the Global server.
+        field = {"players": 19552, "top_score": 65084, "read_at": 1790262663}
         (work / "snapshots" / "memory_fragments_20260101_000000.json"
-         ).write_text(_json.dumps({"combatant_trial_slots": slots}),
+         ).write_text(_json.dumps({
+             "detected_region": "global", "chaos_assault_rankings": {
+                 "assault_1_s7": {"readings": [dict(
+                     field, total_count=field["players"], rank=739,
+                     score=45512, region="global")]}}}),
                       encoding="utf-8")
         context.program_dir = work
         optimizer.raw_data = None
-        held = sf.clean({sf.SLOTS: slots})
+        held = sf.clean({sf.SORTIE: {"global": {"assault_1_s7": field}}})
         for shipped, colour, words in (
                 (sf.empty(), "yellow", "1 fact"),
                 (held, "green", "")):
@@ -3986,7 +3991,7 @@ def _share_status_colours(tab):
             if got != tab.colors[colour].lower() or words not in text:
                 out.append(
                     f"with {'nothing' if colour == 'yellow' else 'it'} "
-                    f"shipped, an account holding one trial slot "
+                    f"shipped, an account holding one Sortie season "
                     f"reads {text!r} in {got}, not {colour}"
                     f"{' naming ' + repr(words) if words else ''}.")
             # The row takes the taller panel, and Update Status

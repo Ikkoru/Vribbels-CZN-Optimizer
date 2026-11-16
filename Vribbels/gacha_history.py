@@ -38,7 +38,6 @@ import time
 from datetime import datetime, UTC
 from pathlib import Path
 
-import shared_facts
 
 FOLDER = "gacha_history"
 CAPTURED = "captured.json"
@@ -108,10 +107,10 @@ PICKUP_ID = re.compile(
 # **So the rates tell them apart**: every banner's rates list the Normal
 # Rescues' 5-stars (`general_ssr_*` under `ssr_pool_ids`), and a rerun
 # whose unit is not among them is Seasonal. `load` notes the list off
-# every rates reply it has, the account's and the shipped ones
-# (`note_general_pool`); before any, the game client's own pools say
-# the same (`game_client.known_general_units`), and with neither, a
-# rerun is a rerun.
+# every rates reply it has, the account's and the game client's
+# (`note_general_pool`); before any, the client's own pools say the
+# same (`game_client.known_general_units`), and with neither, a rerun
+# is a rerun.
 GENERAL_POOL_ID = re.compile(r"^general_ssr_[cs]_(\d+)$")
 _general_units = None
 
@@ -1278,13 +1277,13 @@ def export(history, path):
 
 # ------------------------------------------------------------- reading
 
-def load(folder, now=None, shipped=None):
+def load(folder, now=None):
     """Everything in the history folder, merged and worked out.
 
-    `folder` is the snapshots folder or the history folder itself.
-    `shipped` is the program's own game facts (`shared_facts.py`): a
-    banner whose rates were never read here takes the shipped ones,
-    which is what gives an imported banner its 50/50s.
+    `folder` is the snapshots folder or the history folder itself. A
+    banner whose rates were never read here takes the game client's
+    (`game_client.known_banner_rates`), which is what gives an imported
+    banner its 50/50s.
     """
     folder = Path(folder)
     if folder.name != FOLDER:
@@ -1297,7 +1296,10 @@ def load(folder, now=None, shipped=None):
     if note:
         history.notes.append(note)
 
-    history.rates = shared_facts.with_rates(captured.get("rates"), shipped)
+    import game_client
+    history.rates = dict(game_client.known_banner_rates())
+    own = captured.get("rates")
+    history.rates.update(own if isinstance(own, dict) else {})
     # Before any record is given its pool: the rates say which reruns
     # count with the releases. See `GENERAL_POOL_ID`.
     note_general_pool(history.rates)

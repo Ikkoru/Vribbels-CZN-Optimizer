@@ -3074,6 +3074,2191 @@ POTENTIAL_TEXTS = {
     },
 }
 
+# Each partner's flat stats at every level from 1: 'curves' by key, and
+# each partner's key. See game_client.partner_curves; laid over
+# game_data.partners.PARTNER_CURVES.
+PARTNER_CURVES = {
+    'curves': {
+        'dev_level_r/dev_ascend/13,0,0': [
+        (13, 0, 0), (14, 0, 1), (15, 0, 2), (16, 0, 3), (18, 0, 4), (19, 0, 5), (20, 0, 6), (21, 0, 7), (22, 0, 8), (24, 0, 9),
+        (26, 1, 15), (27, 1, 16), (28, 1, 17), (29, 1, 18), (31, 1, 19), (32, 1, 20), (33, 1, 21), (34, 1, 22), (35, 1, 23), (37, 1, 24),
+        (39, 2, 30), (40, 2, 31), (41, 2, 32), (42, 2, 33), (44, 2, 34), (45, 2, 35), (46, 2, 36), (47, 2, 37), (48, 2, 38), (50, 2, 39),
+        (52, 3, 45), (53, 3, 46), (54, 3, 47), (55, 3, 48), (57, 3, 49), (58, 3, 50), (59, 3, 51), (60, 3, 52), (61, 3, 53), (63, 3, 54),
+        (65, 4, 60), (66, 4, 61), (67, 4, 62), (68, 4, 63), (70, 4, 64), (71, 4, 65), (72, 4, 66), (73, 4, 67), (74, 4, 68), (76, 4, 69),
+        (78, 5, 75), (79, 5, 76), (80, 5, 77), (81, 5, 78), (83, 5, 79), (84, 5, 80), (85, 5, 81), (86, 5, 82), (87, 5, 83), (89, 5, 85),
+        ],
+        'dev_level_r_def/dev_ascend/0,5,0': [
+        (0, 5, 0), (0, 6, 1), (0, 6, 2), (0, 6, 3), (0, 7, 4), (0, 7, 5), (0, 7, 6), (0, 8, 7), (0, 8, 8), (0, 8, 9),
+        (1, 10, 15), (1, 11, 16), (1, 11, 17), (1, 12, 18), (1, 12, 19), (1, 12, 20), (1, 13, 21), (1, 13, 22), (1, 13, 23), (1, 14, 24),
+        (2, 16, 30), (2, 16, 31), (2, 17, 32), (2, 17, 33), (2, 17, 34), (2, 18, 35), (2, 18, 36), (2, 18, 37), (2, 19, 38), (2, 19, 39),
+        (3, 20, 45), (3, 21, 46), (3, 22, 47), (3, 22, 48), (3, 23, 49), (3, 23, 50), (3, 23, 51), (3, 24, 52), (3, 24, 53), (3, 24, 54),
+        (4, 26, 60), (4, 26, 61), (4, 26, 62), (4, 27, 63), (4, 28, 64), (4, 28, 65), (4, 29, 66), (4, 29, 67), (4, 29, 68), (4, 30, 69),
+        (5, 31, 75), (5, 31, 76), (5, 32, 77), (5, 32, 78), (5, 32, 79), (5, 33, 80), (5, 33, 81), (5, 34, 82), (5, 35, 83), (5, 36, 85),
+        ],
+        'dev_level_sr/dev_ascend/16,0,0': [
+        (16, 0, 0), (17, 0, 1), (18, 0, 2), (20, 0, 3), (21, 0, 4), (22, 0, 5), (23, 0, 6), (25, 0, 7), (26, 0, 8), (28, 0, 10),
+        (30, 1, 16), (32, 1, 17), (33, 1, 18), (34, 1, 19), (35, 1, 21), (37, 1, 22), (38, 1, 23), (40, 1, 24), (41, 1, 25), (43, 1, 27),
+        (45, 2, 33), (46, 2, 34), (47, 2, 35), (49, 2, 36), (50, 2, 38), (52, 2, 39), (53, 2, 40), (55, 2, 41), (56, 2, 42), (57, 2, 44),
+        (59, 3, 50), (61, 3, 51), (62, 3, 52), (64, 3, 53), (65, 3, 55), (67, 3, 56), (68, 3, 57), (69, 3, 58), (70, 3, 59), (72, 3, 61),
+        (74, 4, 67), (76, 4, 68), (77, 4, 69), (79, 4, 70), (80, 4, 72), (81, 4, 73), (82, 4, 74), (84, 4, 75), (85, 4, 76), (87, 4, 78),
+        (89, 5, 84), (91, 5, 85), (92, 5, 86), (93, 5, 87), (94, 5, 89), (96, 5, 90), (97, 5, 91), (98, 5, 92), (99, 5, 93), (101, 5, 95),
+        ],
+        'dev_level_sr_def/dev_ascend/0,6,0': [
+        (0, 6, 0), (0, 7, 1), (0, 7, 2), (0, 7, 3), (0, 8, 4), (0, 8, 5), (0, 8, 6), (0, 9, 7), (0, 9, 8), (0, 10, 10),
+        (1, 12, 16), (1, 12, 17), (1, 12, 18), (1, 13, 19), (1, 14, 21), (1, 14, 22), (1, 15, 23), (1, 15, 24), (1, 15, 25), (1, 16, 27),
+        (2, 18, 33), (2, 18, 34), (2, 19, 35), (2, 19, 36), (2, 19, 38), (2, 20, 39), (2, 20, 40), (2, 20, 41), (2, 21, 42), (2, 22, 44),
+        (3, 23, 50), (3, 24, 51), (3, 24, 52), (3, 24, 53), (3, 25, 55), (3, 25, 56), (3, 25, 57), (3, 26, 58), (3, 26, 59), (3, 27, 61),
+        (4, 29, 67), (4, 29, 68), (4, 30, 69), (4, 31, 70), (4, 31, 72), (4, 31, 73), (4, 32, 74), (4, 32, 75), (4, 32, 76), (4, 33, 78),
+        (5, 35, 84), (5, 35, 85), (5, 36, 86), (5, 36, 87), (5, 36, 89), (5, 37, 90), (5, 37, 91), (5, 38, 92), (5, 39, 93), (5, 40, 95),
+        ],
+        'dev_level_ssr/dev_ascend/19,0,0': [
+        (19, 0, 0), (21, 0, 1), (22, 0, 3), (24, 0, 4), (25, 0, 6), (27, 0, 7), (28, 0, 8), (30, 0, 9), (31, 0, 10), (33, 0, 12),
+        (35, 1, 18), (37, 1, 19), (38, 1, 21), (40, 1, 22), (41, 1, 24), (43, 1, 25), (44, 1, 26), (46, 1, 27), (47, 1, 28), (49, 1, 30),
+        (51, 2, 36), (53, 2, 37), (54, 2, 39), (56, 2, 40), (57, 2, 42), (59, 2, 43), (60, 2, 44), (62, 2, 45), (63, 2, 46), (65, 2, 48),
+        (67, 3, 54), (69, 3, 55), (70, 3, 57), (72, 3, 58), (73, 3, 60), (75, 3, 61), (76, 3, 63), (78, 3, 64), (79, 3, 65), (81, 3, 67),
+        (83, 4, 73), (85, 4, 74), (86, 4, 76), (88, 4, 77), (89, 4, 79), (91, 4, 80), (92, 4, 82), (94, 4, 83), (95, 4, 84), (97, 4, 86),
+        (99, 5, 92), (101, 5, 93), (102, 5, 95), (104, 5, 96), (105, 5, 98), (107, 5, 99), (108, 5, 100), (110, 5, 102), (111, 5, 103), (113, 5, 105),
+        ],
+        'dev_level_ssr_def/dev_ascend/0,7,0': [
+        (0, 7, 0), (0, 8, 1), (0, 8, 3), (0, 9, 4), (0, 10, 6), (0, 10, 7), (0, 10, 8), (0, 11, 9), (0, 11, 10), (0, 12, 12),
+        (1, 14, 18), (1, 14, 19), (1, 14, 21), (1, 15, 22), (1, 16, 24), (1, 16, 25), (1, 17, 26), (1, 17, 27), (1, 17, 28), (1, 18, 30),
+        (2, 20, 36), (2, 20, 37), (2, 21, 39), (2, 21, 40), (2, 22, 42), (2, 23, 43), (2, 23, 44), (2, 23, 45), (2, 24, 46), (2, 25, 48),
+        (3, 26, 54), (3, 27, 55), (3, 27, 57), (3, 27, 58), (3, 28, 60), (3, 29, 61), (3, 29, 63), (3, 30, 64), (3, 30, 65), (3, 31, 67),
+        (4, 33, 73), (4, 33, 74), (4, 33, 76), (4, 34, 77), (4, 35, 79), (4, 35, 80), (4, 36, 82), (4, 36, 83), (4, 36, 84), (4, 37, 86),
+        (5, 39, 92), (5, 39, 93), (5, 40, 95), (5, 40, 96), (5, 40, 98), (5, 41, 99), (5, 41, 100), (5, 42, 102), (5, 43, 103), (5, 44, 105),
+        ],
+        'dev_level_sssr/dev_ascend_sssr/27,0,1': [
+        (27, 0, 1), (29, 0, 3), (31, 0, 5), (33, 0, 7), (35, 0, 9), (37, 0, 11), (39, 0, 13), (41, 0, 15), (43, 0, 17), (45, 0, 19),
+        (49, 1, 26), (51, 1, 28), (53, 1, 30), (55, 1, 32), (57, 1, 34), (59, 1, 36), (61, 1, 38), (63, 1, 40), (65, 1, 42), (67, 1, 44),
+        (71, 2, 51), (73, 2, 53), (75, 2, 55), (77, 2, 57), (79, 2, 59), (81, 2, 61), (83, 2, 63), (85, 2, 65), (87, 2, 67), (89, 2, 69),
+        (93, 3, 76), (95, 3, 78), (97, 3, 80), (99, 3, 82), (101, 3, 84), (103, 3, 86), (105, 3, 88), (107, 3, 90), (109, 3, 92), (111, 3, 94),
+        (115, 4, 101), (117, 4, 103), (119, 4, 105), (121, 4, 107), (123, 4, 109), (125, 4, 111), (127, 4, 113), (129, 4, 115), (131, 4, 117), (133, 4, 119),
+        (137, 5, 126), (139, 5, 128), (141, 5, 130), (143, 5, 132), (145, 5, 134), (147, 5, 136), (149, 5, 138), (151, 5, 140), (153, 5, 142), (155, 5, 144),
+        ],
+        'dev_level_sssr_def/dev_ascend_sssr_def/0,9,1': [
+        (0, 9, 1), (0, 10, 3), (0, 11, 5), (0, 12, 7), (0, 13, 9), (0, 13, 11), (0, 14, 13), (0, 15, 15), (0, 15, 17), (0, 16, 19),
+        (1, 19, 26), (1, 20, 28), (1, 20, 30), (1, 21, 32), (1, 22, 34), (1, 23, 36), (1, 24, 38), (1, 24, 40), (1, 25, 42), (1, 26, 44),
+        (2, 29, 51), (2, 29, 53), (2, 30, 55), (2, 30, 57), (2, 31, 59), (2, 32, 61), (2, 32, 63), (2, 33, 65), (2, 34, 67), (2, 35, 69),
+        (3, 37, 76), (3, 38, 78), (3, 38, 80), (3, 39, 82), (3, 40, 84), (3, 41, 86), (3, 41, 88), (3, 42, 90), (3, 42, 92), (3, 43, 94),
+        (4, 46, 101), (4, 46, 103), (4, 47, 105), (4, 48, 107), (4, 49, 109), (4, 49, 111), (4, 50, 113), (4, 50, 115), (4, 51, 117), (4, 52, 119),
+        (5, 55, 126), (5, 55, 128), (5, 56, 130), (5, 57, 132), (5, 57, 134), (5, 58, 136), (5, 58, 138), (5, 59, 140), (5, 60, 142), (5, 61, 144),
+        ],
+    },
+    'partners': {
+        1025: 'dev_level_sssr/dev_ascend_sssr/27,0,1', 1058: 'dev_level_ssr/dev_ascend/19,0,0', 1070: 'dev_level_sssr/dev_ascend_sssr/27,0,1', 20001: 'dev_level_sr_def/dev_ascend/0,6,0', 20002: 'dev_level_sssr_def/dev_ascend_sssr_def/0,9,1', 20003: 'dev_level_sr_def/dev_ascend/0,6,0', 20004: 'dev_level_sssr/dev_ascend_sssr/27,0,1', 20005: 'dev_level_ssr_def/dev_ascend/0,7,0', 20006: 'dev_level_ssr_def/dev_ascend/0,7,0', 20007: 'dev_level_sr/dev_ascend/16,0,0',
+        20008: 'dev_level_ssr/dev_ascend/19,0,0', 20009: 'dev_level_sssr_def/dev_ascend_sssr_def/0,9,1', 20010: 'dev_level_r/dev_ascend/13,0,0', 20011: 'dev_level_sr/dev_ascend/16,0,0', 20012: 'dev_level_r/dev_ascend/13,0,0', 20013: 'dev_level_r_def/dev_ascend/0,5,0', 20014: 'dev_level_ssr/dev_ascend/19,0,0', 20015: 'dev_level_r/dev_ascend/13,0,0', 20016: 'dev_level_r/dev_ascend/13,0,0', 20019: 'dev_level_ssr/dev_ascend/19,0,0',
+        20021: 'dev_level_sssr/dev_ascend_sssr/27,0,1', 20023: 'dev_level_ssr_def/dev_ascend/0,7,0', 20024: 'dev_level_sr_def/dev_ascend/0,6,0', 20025: 'dev_level_sr/dev_ascend/16,0,0', 20026: 'dev_level_r_def/dev_ascend/0,5,0', 20027: 'dev_level_sr/dev_ascend/16,0,0', 20028: 'dev_level_ssr/dev_ascend/19,0,0', 20030: 'dev_level_sssr/dev_ascend_sssr/27,0,1', 20032: 'dev_level_sr_def/dev_ascend/0,6,0', 20033: 'dev_level_sr/dev_ascend/16,0,0',
+        20034: 'dev_level_sssr/dev_ascend_sssr/27,0,1', 20035: 'dev_level_sr/dev_ascend/16,0,0', 20036: 'dev_level_sr/dev_ascend/16,0,0', 20037: 'dev_level_sssr/dev_ascend_sssr/27,0,1', 20038: 'dev_level_sssr/dev_ascend_sssr/27,0,1', 30044: 'dev_level_sssr/dev_ascend_sssr/27,0,1', 30045: 'dev_level_sssr/dev_ascend_sssr/27,0,1', 30046: 'dev_level_sssr/dev_ascend_sssr/27,0,1', 30051: 'dev_level_sssr/dev_ascend_sssr/27,0,1', 30052: 'dev_level_sssr_def/dev_ascend_sssr_def/0,9,1',
+        30053: 'dev_level_sssr/dev_ascend_sssr/27,0,1', 30054: 'dev_level_sssr_def/dev_ascend_sssr_def/0,9,1', 30076: 'dev_level_sssr/dev_ascend_sssr/27,0,1', 30085: 'dev_level_sssr_def/dev_ascend_sssr_def/0,9,1', 30091: 'dev_level_sssr_def/dev_ascend_sssr_def/0,9,1', 30092: 'dev_level_sssr/dev_ascend_sssr/27,0,1', 30094: 'dev_level_sssr/dev_ascend_sssr/27,0,1', 30095: 'dev_level_sssr_def/dev_ascend_sssr_def/0,9,1', 30114: 'dev_level_sssr/dev_ascend_sssr/27,0,1', 30116: 'dev_level_sssr/dev_ascend_sssr/27,0,1',
+        30118: 'dev_level_sssr/dev_ascend_sssr/27,0,1', 30135: 'dev_level_sssr/dev_ascend_sssr/27,0,1', 30137: 'dev_level_sssr_def/dev_ascend_sssr_def/0,9,1',
+    },
+}
+
+# {banner id: a rates reply: 'rates', 'total_rate_info', 'pools'}.
+# See game_client.banner_rates.
+BANNER_RATES = {
+    'gacha_card_factor': {
+        'rates': {'ssr_ratio': 3000, 'ssr_rate_up_success_ratio': 0, 'sr_ratio': 6000, 'sr_combatant_ratio': 0, 'sr_supporter_ratio': 0, 'sr_rate_up_success_ratio': 0, 'r_ratio': 91000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 0, 'total_ssr_rate_up_pool_pct': 3527.34, 'total_sr_pool_pct': 12968.97, 'total_sr_rate_up_pool_pct': 0, 'total_sr_combatant_pool_pct': 0, 'total_sr_supporter_pool_pct': 0, 'total_r_pool_pct': 83503.69},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            ],
+            'sr_pool_ids': [
+            'card_factor_sr_5201040', 'card_factor_sr_5201050', 'card_factor_sr_5201056', 'card_factor_sr_5201005',
+            'card_factor_sr_5201021', 'card_factor_sr_5201028', 'card_factor_sr_5201009', 'card_factor_sr_5201017',
+            'card_factor_sr_5201039', 'card_factor_sr_5201003', 'card_factor_sr_5201049', 'card_factor_sr_5201012',
+            ],
+            'sr_rate_up_success_pool_ids': [
+            ],
+            'sr_supporter_pool_ids': [
+            ],
+            'ssr_pool_ids': [
+            'card_factor_ssr_5201004', 'card_factor_ssr_5201008', 'card_factor_ssr_5201010', 'card_factor_ssr_5201018',
+            'card_factor_ssr_5201024', 'card_factor_ssr_5201027', 'card_factor_ssr_5201033', 'card_factor_ssr_5201041',
+            'card_factor_ssr_5201043', 'card_factor_ssr_5201062', 'card_factor_ssr_5201064', 'card_factor_ssr_5201057',
+            'card_factor_ssr_5201060', 'card_factor_ssr_5201072', 'card_factor_ssr_5201052', 'card_factor_ssr_5201073',
+            'card_factor_ssr_5201074', 'card_factor_ssr_5201075', 'card_factor_ssr_5201061', 'card_factor_ssr_5201078',
+            'card_factor_ssr_5201079', 'card_factor_ssr_5201080', 'card_factor_ssr_5201077', 'card_factor_ssr_5201081',
+            'card_factor_ssr_5201082', 'card_factor_ssr_5201083', 'card_factor_ssr_5201084', 'card_factor_ssr_5201085',
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            ],
+        },
+    },
+    'gacha_general': {
+        'rates': {'ssr_ratio': 1000, 'ssr_rate_up_success_ratio': 0, 'sr_ratio': 0, 'sr_combatant_ratio': 3000, 'sr_supporter_ratio': 3000, 'sr_rate_up_success_ratio': 0, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 2143.43, 'total_ssr_rate_up_pool_pct': 0, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 0, 'total_sr_combatant_pool_pct': 6491.57, 'total_sr_supporter_pool_pct': 6491.57, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'general_sr_c_1040', 'general_sr_c_1050', 'general_sr_c_1056', 'general_sr_c_1005',
+            'general_sr_c_1021', 'general_sr_c_1028', 'general_sr_c_1009', 'general_sr_c_1017',
+            'general_sr_c_1039', 'general_sr_c_1003', 'general_sr_c_1049', 'general_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            ],
+            'sr_supporter_pool_ids': [
+            'general_sr_s_20001', 'general_sr_s_20003', 'general_sr_s_20007', 'general_sr_s_20024',
+            'general_sr_s_20025', 'general_sr_s_20027', 'general_sr_s_20035', 'general_sr_s_20036',
+            'general_sr_s_20032', 'general_sr_s_20033', 'general_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            'general_ssr_c_1004', 'general_ssr_c_1008', 'general_ssr_c_1010', 'general_ssr_c_1018',
+            'general_ssr_c_1024', 'general_ssr_c_1027', 'general_ssr_c_1033', 'general_ssr_c_1041',
+            'general_ssr_c_1043', 'general_ssr_c_1064', 'general_ssr_c_1062', 'general_ssr_c_1057',
+            'general_ssr_c_1060', 'general_ssr_c_1052', 'general_ssr_c_30047', 'general_ssr_c_30084',
+            'general_ssr_c_30097', 'general_ssr_c_1061', 'general_ssr_c_1055', 'general_ssr_c_1069',
+            'general_ssr_c_30048', 'general_ssr_c_30113', 'general_ssr_c_30117',
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            ],
+        },
+    },
+    'gacha_general_first_select_1': {
+        'rates': {'ssr_ratio': 0, 'ssr_rate_up_success_ratio': 0, 'sr_ratio': 0, 'sr_combatant_ratio': 3000, 'sr_supporter_ratio': 3000, 'sr_rate_up_success_ratio': 0, 'r_ratio': 94000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 2531.68, 'total_ssr_rate_up_pool_pct': 0, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 0, 'total_sr_combatant_pool_pct': 6489.49, 'total_sr_supporter_pool_pct': 6489.49, 'total_r_pool_pct': 84489.34},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'general_sr_c_1040', 'general_sr_c_1050', 'general_sr_c_1056', 'general_sr_c_1005',
+            'general_sr_c_1021', 'general_sr_c_1028', 'general_sr_c_1009', 'general_sr_c_1017',
+            'general_sr_c_1039', 'general_sr_c_1003', 'general_sr_c_1049', 'general_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            ],
+            'sr_supporter_pool_ids': [
+            'general_sr_s_20001', 'general_sr_s_20003', 'general_sr_s_20007', 'general_sr_s_20024',
+            'general_sr_s_20025', 'general_sr_s_20027', 'general_sr_s_20035', 'general_sr_s_20036',
+            'general_sr_s_20032', 'general_sr_s_20033', 'general_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            ],
+        },
+    },
+    'gacha_general_new_register_1': {
+        'rates': {'ssr_ratio': 1000, 'ssr_rate_up_success_ratio': 0, 'sr_ratio': 0, 'sr_combatant_ratio': 3000, 'sr_supporter_ratio': 3000, 'sr_rate_up_success_ratio': 0, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 2531.68, 'total_ssr_rate_up_pool_pct': 0, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 0, 'total_sr_combatant_pool_pct': 6489.49, 'total_sr_supporter_pool_pct': 6489.49, 'total_r_pool_pct': 84489.34},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'general_sr_c_1040', 'general_sr_c_1050', 'general_sr_c_1056', 'general_sr_c_1005',
+            'general_sr_c_1021', 'general_sr_c_1028', 'general_sr_c_1009', 'general_sr_c_1017',
+            'general_sr_c_1039', 'general_sr_c_1003', 'general_sr_c_1049', 'general_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            ],
+            'sr_supporter_pool_ids': [
+            'general_sr_s_20001', 'general_sr_s_20003', 'general_sr_s_20007', 'general_sr_s_20024',
+            'general_sr_s_20025', 'general_sr_s_20027', 'general_sr_s_20035', 'general_sr_s_20036',
+            'general_sr_s_20032', 'general_sr_s_20033', 'general_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            'general_ssr_c_new_1004', 'general_ssr_c_new_1008', 'general_ssr_c_new_1010', 'general_ssr_c_new_1018',
+            'general_ssr_c_new_1024', 'general_ssr_c_new_1027', 'general_ssr_c_new_1033', 'general_ssr_c_new_1041',
+            'general_ssr_c_new_1043', 'general_ssr_c_new_1064',
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            ],
+        },
+    },
+    'gacha_general_supporter': {
+        'rates': {'ssr_ratio': 1000, 'ssr_rate_up_success_ratio': 0, 'sr_ratio': 0, 'sr_combatant_ratio': 3000, 'sr_supporter_ratio': 3000, 'sr_rate_up_success_ratio': 0, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 2143.43, 'total_ssr_rate_up_pool_pct': 0, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 0, 'total_sr_combatant_pool_pct': 6491.57, 'total_sr_supporter_pool_pct': 6491.57, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'general_sr_c_1040', 'general_sr_c_1050', 'general_sr_c_1056', 'general_sr_c_1005',
+            'general_sr_c_1021', 'general_sr_c_1028', 'general_sr_c_1009', 'general_sr_c_1017',
+            'general_sr_c_1039', 'general_sr_c_1003', 'general_sr_c_1049', 'general_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            ],
+            'sr_supporter_pool_ids': [
+            'general_sr_s_20001', 'general_sr_s_20003', 'general_sr_s_20007', 'general_sr_s_20024',
+            'general_sr_s_20025', 'general_sr_s_20027', 'general_sr_s_20035', 'general_sr_s_20036',
+            'general_sr_s_20032', 'general_sr_s_20033', 'general_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            'general_ssr_s_20004', 'general_ssr_s_20009', 'general_ssr_s_20021', 'general_ssr_s_20030',
+            'general_ssr_s_20034', 'general_ssr_s_20037', 'general_ssr_s_20038', 'general_ssr_s_30051',
+            'general_ssr_s_30052', 'general_ssr_s_30054', 'general_ssr_s_30045', 'general_ssr_s_30044',
+            'general_ssr_s_30046', 'general_ssr_s_20002', 'general_ssr_s_30091', 'general_ssr_s_30085',
+            'general_ssr_s_1025', 'general_ssr_s_30053', 'general_ssr_s_30095', 'general_ssr_s_1070',
+            'general_ssr_s_30092', 'general_ssr_s_30114', 'general_ssr_s_30118',
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            ],
+        },
+    },
+    'gacha_partner_reform_1': {
+        'rates': {'ssr_ratio': 1000, 'ssr_rate_up_success_ratio': 0, 'sr_ratio': 0, 'sr_combatant_ratio': 3000, 'sr_supporter_ratio': 3000, 'sr_rate_up_success_ratio': 0, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 2531.68, 'total_ssr_rate_up_pool_pct': 0, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 0, 'total_sr_combatant_pool_pct': 6489.49, 'total_sr_supporter_pool_pct': 6489.49, 'total_r_pool_pct': 84489.34},
+        'pools': {
+            'r_pool_ids': [
+            'partner_reform_r_s_20010', 'partner_reform_r_s_20012', 'partner_reform_r_s_20013', 'partner_reform_r_s_20015',
+            'partner_reform_r_s_20016', 'partner_reform_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'general_sr_c_1040', 'general_sr_c_1050', 'general_sr_c_1056', 'general_sr_c_1005',
+            'general_sr_c_1021', 'general_sr_c_1028', 'general_sr_c_1009', 'general_sr_c_1017',
+            'general_sr_c_1039', 'general_sr_c_1003', 'general_sr_c_1049', 'general_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            ],
+            'sr_supporter_pool_ids': [
+            'partner_reform_sr_s_20001', 'partner_reform_sr_s_20003', 'partner_reform_sr_s_20007', 'partner_reform_sr_s_20024',
+            'partner_reform_sr_s_20025', 'partner_reform_sr_s_20027', 'partner_reform_sr_s_20035', 'partner_reform_sr_s_20036',
+            'partner_reform_sr_s_20032', 'partner_reform_sr_s_20033', 'partner_reform_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            'partner_reform_ssr_s_20004', 'partner_reform_ssr_s_20009', 'partner_reform_ssr_s_20021', 'partner_reform_ssr_s_20030',
+            'partner_reform_ssr_s_20034', 'partner_reform_ssr_s_20037', 'partner_reform_ssr_s_20038', 'partner_reform_ssr_s_30051',
+            'partner_reform_ssr_s_30052', 'partner_reform_ssr_s_30054', 'partner_reform_ssr_s_30045', 'partner_reform_ssr_s_30044',
+            'partner_reform_ssr_s_30046', 'partner_reform_ssr_s_20002', 'partner_reform_ssr_s_30091', 'partner_reform_ssr_s_30085',
+            'partner_reform_ssr_s_1025',
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            ],
+        },
+    },
+    'gacha_pickup_combatant_1052': {
+        'rates': {'ssr_ratio': 500, 'ssr_rate_up_success_ratio': 500, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 714.48, 'total_ssr_rate_up_pool_pct': 1428.95, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'pickup_c_5_sr_c_1040', 'pickup_c_5_sr_c_1050', 'pickup_c_5_sr_c_1056', 'pickup_c_5_sr_c_1005',
+            'pickup_c_5_sr_c_1009', 'pickup_c_5_sr_c_1017', 'pickup_c_5_sr_c_1039', 'pickup_c_5_sr_c_1003',
+            'pickup_c_5_sr_c_1049',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_c_5_rateup_sr_c_1021', 'pickup_c_5_rateup_sr_c_1028',
+            ],
+            'sr_supporter_pool_ids': [
+            'general_sr_s_20001', 'general_sr_s_20003', 'general_sr_s_20007', 'general_sr_s_20024',
+            'general_sr_s_20025', 'general_sr_s_20027', 'general_sr_s_20035', 'general_sr_s_20036',
+            'general_sr_s_20032', 'general_sr_s_20033', 'general_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            'general_ssr_c_1004', 'general_ssr_c_1008', 'general_ssr_c_1010', 'general_ssr_c_1018',
+            'general_ssr_c_1024', 'general_ssr_c_1027', 'general_ssr_c_1033', 'general_ssr_c_1041',
+            'general_ssr_c_1043', 'general_ssr_c_1064', 'general_ssr_c_1062', 'general_ssr_c_1057',
+            'general_ssr_c_1060', 'general_ssr_c_1052', 'general_ssr_c_30047', 'general_ssr_c_30084',
+            'general_ssr_c_30097', 'general_ssr_c_1061', 'general_ssr_c_1055', 'general_ssr_c_1069',
+            'general_ssr_c_30048', 'general_ssr_c_30113', 'general_ssr_c_30117',
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_c_5_rateup_ssr_c_1052',
+            ],
+        },
+    },
+    'gacha_pickup_combatant_1052_1': {
+        'rates': {'ssr_ratio': 500, 'ssr_rate_up_success_ratio': 500, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 714.48, 'total_ssr_rate_up_pool_pct': 1428.95, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'pickup_c_5_sr_c_1040', 'pickup_c_5_sr_c_1050', 'pickup_c_5_sr_c_1056', 'pickup_c_5_sr_c_1005',
+            'pickup_c_5_sr_c_1009', 'pickup_c_5_sr_c_1017', 'pickup_c_5_sr_c_1039', 'pickup_c_5_sr_c_1003',
+            'pickup_c_5_sr_c_1049',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_c_5_rateup_sr_c_1021', 'pickup_c_5_rateup_sr_c_1028',
+            ],
+            'sr_supporter_pool_ids': [
+            'general_sr_s_20001', 'general_sr_s_20003', 'general_sr_s_20007', 'general_sr_s_20024',
+            'general_sr_s_20025', 'general_sr_s_20027', 'general_sr_s_20035', 'general_sr_s_20036',
+            'general_sr_s_20032', 'general_sr_s_20033', 'general_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            'general_ssr_c_1052_1_1004', 'general_ssr_c_1052_1_1008', 'general_ssr_c_1052_1_1010', 'general_ssr_c_1052_1_1018',
+            'general_ssr_c_1052_1_1024', 'general_ssr_c_1052_1_1027', 'general_ssr_c_1052_1_1033', 'general_ssr_c_1052_1_1041',
+            'general_ssr_c_1052_1_1043', 'general_ssr_c_1052_1_1064', 'general_ssr_c_1052_1_1062', 'general_ssr_c_1052_1_1057',
+            'general_ssr_c_1052_1_1060', 'general_ssr_c_1052_1_30047', 'general_ssr_c_1052_1_30084', 'general_ssr_c_1052_1_30097',
+            'general_ssr_c_1052_1_1061', 'general_ssr_c_1052_1_1055', 'general_ssr_c_1052_1_1069', 'general_ssr_c_1052_1_30048',
+            'general_ssr_c_1052_1_30113',
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_c_5_rateup_ssr_c_1052',
+            ],
+        },
+    },
+    'gacha_pickup_combatant_1055': {
+        'rates': {'ssr_ratio': 500, 'ssr_rate_up_success_ratio': 500, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 714.48, 'total_ssr_rate_up_pool_pct': 1428.95, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'pickup_c_12_sr_c_1040', 'pickup_c_12_sr_c_1050', 'pickup_c_12_sr_c_1056', 'pickup_c_12_sr_c_1005',
+            'pickup_c_12_sr_c_1021', 'pickup_c_12_sr_c_1028', 'pickup_c_12_sr_c_1009', 'pickup_c_12_sr_c_1039',
+            'pickup_c_12_sr_c_1003',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_c_12_rateup_sr_c_1017', 'pickup_c_12_rateup_sr_c_1049',
+            ],
+            'sr_supporter_pool_ids': [
+            'general_sr_s_20001', 'general_sr_s_20003', 'general_sr_s_20007', 'general_sr_s_20024',
+            'general_sr_s_20025', 'general_sr_s_20027', 'general_sr_s_20035', 'general_sr_s_20036',
+            'general_sr_s_20032', 'general_sr_s_20033', 'general_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            'general_ssr_c_1004', 'general_ssr_c_1008', 'general_ssr_c_1010', 'general_ssr_c_1018',
+            'general_ssr_c_1024', 'general_ssr_c_1027', 'general_ssr_c_1033', 'general_ssr_c_1041',
+            'general_ssr_c_1043', 'general_ssr_c_1064', 'general_ssr_c_1062', 'general_ssr_c_1057',
+            'general_ssr_c_1060', 'general_ssr_c_1052', 'general_ssr_c_30047', 'general_ssr_c_30084',
+            'general_ssr_c_30097', 'general_ssr_c_1061', 'general_ssr_c_1055', 'general_ssr_c_1069',
+            'general_ssr_c_30048', 'general_ssr_c_30113', 'general_ssr_c_30117',
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_c_12_rateup_ssr_c_1055',
+            ],
+        },
+    },
+    'gacha_pickup_combatant_1055_1': {
+        'rates': {'ssr_ratio': 500, 'ssr_rate_up_success_ratio': 500, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 714.48, 'total_ssr_rate_up_pool_pct': 1428.95, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'pickup_ch_c_2_sr_1040', 'pickup_ch_c_2_sr_1050', 'pickup_ch_c_2_sr_1056', 'pickup_ch_c_2_sr_1005',
+            'pickup_ch_c_2_sr_1021', 'pickup_ch_c_2_sr_1028', 'pickup_ch_c_2_sr_1009', 'pickup_ch_c_2_sr_1039',
+            'pickup_ch_c_2_sr_1003',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_ch_c_2_rateup_sr_1017', 'pickup_ch_c_2_rateup_sr_1049',
+            ],
+            'sr_supporter_pool_ids': [
+            'general_sr_s_20001', 'general_sr_s_20003', 'general_sr_s_20007', 'general_sr_s_20024',
+            'general_sr_s_20025', 'general_sr_s_20027', 'general_sr_s_20035', 'general_sr_s_20036',
+            'general_sr_s_20032', 'general_sr_s_20033', 'general_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            'pickup_ch_c_2_ssr_1004', 'pickup_ch_c_2_ssr_1008', 'pickup_ch_c_2_ssr_1010', 'pickup_ch_c_2_ssr_1018',
+            'pickup_ch_c_2_ssr_1024', 'pickup_ch_c_2_ssr_1027', 'pickup_ch_c_2_ssr_1033', 'pickup_ch_c_2_ssr_1041',
+            'pickup_ch_c_2_ssr_1043', 'pickup_ch_c_2_ssr_1064', 'pickup_ch_c_2_ssr_1062', 'pickup_ch_c_2_ssr_1057',
+            'pickup_ch_c_2_ssr_1060', 'pickup_ch_c_2_ssr_1052', 'pickup_ch_c_2_ssr_30047', 'pickup_ch_c_2_ssr_30084',
+            'pickup_ch_c_2_ssr_30097', 'pickup_ch_c_2_ssr_1061', 'pickup_ch_c_2_ssr_30048',
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_ch_c_2_rateup_ssr_1055',
+            ],
+        },
+    },
+    'gacha_pickup_combatant_1057': {
+        'rates': {'ssr_ratio': 500, 'ssr_rate_up_success_ratio': 500, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 714.48, 'total_ssr_rate_up_pool_pct': 1428.95, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'pickup_c_2_sr_c_1040', 'pickup_c_2_sr_c_1050', 'pickup_c_2_sr_c_1056', 'pickup_c_2_sr_c_1005',
+            'pickup_c_2_sr_c_1028', 'pickup_c_2_sr_c_1009', 'pickup_c_2_sr_c_1017', 'pickup_c_2_sr_c_1039',
+            'pickup_c_2_sr_c_1049',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_c_2_rateup_sr_c_1003', 'pickup_c_2_rateup_sr_c_1021',
+            ],
+            'sr_supporter_pool_ids': [
+            'general_sr_s_20001', 'general_sr_s_20003', 'general_sr_s_20007', 'general_sr_s_20024',
+            'general_sr_s_20025', 'general_sr_s_20027', 'general_sr_s_20035', 'general_sr_s_20036',
+            'general_sr_s_20032', 'general_sr_s_20033', 'general_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            'general_ssr_c_1004', 'general_ssr_c_1008', 'general_ssr_c_1010', 'general_ssr_c_1018',
+            'general_ssr_c_1024', 'general_ssr_c_1027', 'general_ssr_c_1033', 'general_ssr_c_1041',
+            'general_ssr_c_1043', 'general_ssr_c_1064', 'general_ssr_c_1062', 'general_ssr_c_1057',
+            'general_ssr_c_1060', 'general_ssr_c_1052', 'general_ssr_c_30047', 'general_ssr_c_30084',
+            'general_ssr_c_30097', 'general_ssr_c_1061', 'general_ssr_c_1055', 'general_ssr_c_1069',
+            'general_ssr_c_30048', 'general_ssr_c_30113', 'general_ssr_c_30117',
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_c_2_rateup_ssr_c_1057',
+            ],
+        },
+    },
+    'gacha_pickup_combatant_1057_1': {
+        'rates': {'ssr_ratio': 500, 'ssr_rate_up_success_ratio': 500, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 714.48, 'total_ssr_rate_up_pool_pct': 1428.95, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'pickup_ch_c_3_sr_1040', 'pickup_ch_c_3_sr_1050', 'pickup_ch_c_3_sr_1056', 'pickup_ch_c_3_sr_1005',
+            'pickup_ch_c_3_sr_1028', 'pickup_ch_c_3_sr_1009', 'pickup_ch_c_3_sr_1017', 'pickup_ch_c_3_sr_1039',
+            'pickup_ch_c_3_sr_1049',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_ch_c_3_rateup_sr_1021', 'pickup_ch_c_3_rateup_sr_1003',
+            ],
+            'sr_supporter_pool_ids': [
+            'general_sr_s_20001', 'general_sr_s_20003', 'general_sr_s_20007', 'general_sr_s_20024',
+            'general_sr_s_20025', 'general_sr_s_20027', 'general_sr_s_20035', 'general_sr_s_20036',
+            'general_sr_s_20032', 'general_sr_s_20033', 'general_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            'pickup_ch_c_3_ssr_1004', 'pickup_ch_c_3_ssr_1008', 'pickup_ch_c_3_ssr_1010', 'pickup_ch_c_3_ssr_1018',
+            'pickup_ch_c_3_ssr_1024', 'pickup_ch_c_3_ssr_1027', 'pickup_ch_c_3_ssr_1033', 'pickup_ch_c_3_ssr_1041',
+            'pickup_ch_c_3_ssr_1043', 'pickup_ch_c_3_ssr_1064', 'pickup_ch_c_3_ssr_1062', 'pickup_ch_c_3_ssr_1060',
+            'pickup_ch_c_3_ssr_1052', 'pickup_ch_c_3_ssr_30047', 'pickup_ch_c_3_ssr_30084', 'pickup_ch_c_3_ssr_30097',
+            'pickup_ch_c_3_ssr_1061', 'pickup_ch_c_3_ssr_30048', 'pickup_ch_c_3_ssr_1055',
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_ch_c_3_rateup_ssr_1057',
+            ],
+        },
+    },
+    'gacha_pickup_combatant_1057_2': {
+        'rates': {'ssr_ratio': 500, 'ssr_rate_up_success_ratio': 500, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 714.48, 'total_ssr_rate_up_pool_pct': 1428.95, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'pickup_c_2_sr_c_1040', 'pickup_c_2_sr_c_1050', 'pickup_c_2_sr_c_1056', 'pickup_c_2_sr_c_1005',
+            'pickup_c_2_sr_c_1028', 'pickup_c_2_sr_c_1009', 'pickup_c_2_sr_c_1017', 'pickup_c_2_sr_c_1039',
+            'pickup_c_2_sr_c_1049',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_c_2_rateup_sr_c_1021', 'pickup_c_2_rateup_sr_c_1003',
+            ],
+            'sr_supporter_pool_ids': [
+            'general_sr_s_20001', 'general_sr_s_20003', 'general_sr_s_20007', 'general_sr_s_20024',
+            'general_sr_s_20025', 'general_sr_s_20027', 'general_sr_s_20035', 'general_sr_s_20036',
+            'general_sr_s_20032', 'general_sr_s_20033', 'general_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            'general_ssr_c_1057_2_1004', 'general_ssr_c_1057_2_1008', 'general_ssr_c_1057_2_1010', 'general_ssr_c_1057_2_1018',
+            'general_ssr_c_1057_2_1024', 'general_ssr_c_1057_2_1027', 'general_ssr_c_1057_2_1033', 'general_ssr_c_1057_2_1041',
+            'general_ssr_c_1057_2_1043', 'general_ssr_c_1057_2_1064', 'general_ssr_c_1057_2_1062', 'general_ssr_c_1057_2_1060',
+            'general_ssr_c_1057_2_1052', 'general_ssr_c_1057_2_30047', 'general_ssr_c_1057_2_30084', 'general_ssr_c_1057_2_30097',
+            'general_ssr_c_1057_2_1061', 'general_ssr_c_1057_2_1055', 'general_ssr_c_1057_2_1069',
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_c_2_rateup_ssr_c_1057',
+            ],
+        },
+    },
+    'gacha_pickup_combatant_1060': {
+        'rates': {'ssr_ratio': 500, 'ssr_rate_up_success_ratio': 500, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 714.48, 'total_ssr_rate_up_pool_pct': 1428.95, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'pickup_c_3_sr_c_1003', 'pickup_c_3_sr_c_1040', 'pickup_c_3_sr_c_1050', 'pickup_c_3_sr_c_1005',
+            'pickup_c_3_sr_c_1028', 'pickup_c_3_sr_c_1017', 'pickup_c_3_sr_c_1021', 'pickup_c_3_sr_c_1039',
+            'pickup_c_3_sr_c_1049',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_c_3_rateup_sr_c_1056', 'pickup_c_3_rateup_sr_c_1009',
+            ],
+            'sr_supporter_pool_ids': [
+            'general_sr_s_20001', 'general_sr_s_20003', 'general_sr_s_20007', 'general_sr_s_20024',
+            'general_sr_s_20025', 'general_sr_s_20027', 'general_sr_s_20035', 'general_sr_s_20036',
+            'general_sr_s_20032', 'general_sr_s_20033', 'general_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            'general_ssr_c_1004', 'general_ssr_c_1008', 'general_ssr_c_1010', 'general_ssr_c_1018',
+            'general_ssr_c_1024', 'general_ssr_c_1027', 'general_ssr_c_1033', 'general_ssr_c_1041',
+            'general_ssr_c_1043', 'general_ssr_c_1064', 'general_ssr_c_1062', 'general_ssr_c_1057',
+            'general_ssr_c_1060', 'general_ssr_c_1052', 'general_ssr_c_30047', 'general_ssr_c_30084',
+            'general_ssr_c_30097', 'general_ssr_c_1061', 'general_ssr_c_1055', 'general_ssr_c_1069',
+            'general_ssr_c_30048', 'general_ssr_c_30113', 'general_ssr_c_30117',
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_c_3_rateup_ssr_c_1060',
+            ],
+        },
+    },
+    'gacha_pickup_combatant_1060_1': {
+        'rates': {'ssr_ratio': 500, 'ssr_rate_up_success_ratio': 500, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 714.48, 'total_ssr_rate_up_pool_pct': 1428.95, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'pickup_c_3_1_sr_c_1040', 'pickup_c_3_1_sr_c_1050', 'pickup_c_3_1_sr_c_1005', 'pickup_c_3_1_sr_c_1028',
+            'pickup_c_3_1_sr_c_1009', 'pickup_c_3_1_sr_c_1017', 'pickup_c_3_1_sr_c_1039', 'pickup_c_3_1_sr_c_1003',
+            'pickup_c_3_1_sr_c_1049',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_c_3_rateup_sr_c_1056', 'pickup_c_3_rateup_sr_c_1021',
+            ],
+            'sr_supporter_pool_ids': [
+            'general_sr_s_20001', 'general_sr_s_20003', 'general_sr_s_20007', 'general_sr_s_20024',
+            'general_sr_s_20025', 'general_sr_s_20027', 'general_sr_s_20035', 'general_sr_s_20036',
+            'general_sr_s_20032', 'general_sr_s_20033', 'general_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            'general_ssr_c_1060_1_1004', 'general_ssr_c_1060_1_1008', 'general_ssr_c_1060_1_1010', 'general_ssr_c_1060_1_1018',
+            'general_ssr_c_1060_1_1024', 'general_ssr_c_1060_1_1027', 'general_ssr_c_1060_1_1033', 'general_ssr_c_1060_1_1041',
+            'general_ssr_c_1060_1_1043', 'general_ssr_c_1060_1_1064', 'general_ssr_c_1060_1_1062', 'general_ssr_c_1060_1_1057',
+            'general_ssr_c_1060_1_1052', 'general_ssr_c_1060_1_30047', 'general_ssr_c_1060_1_30084', 'general_ssr_c_1060_1_30097',
+            'general_ssr_c_1060_1_1061', 'general_ssr_c_1060_1_1055', 'general_ssr_c_1060_1_1069', 'general_ssr_c_1060_1_30048',
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_c_3_rateup_ssr_c_1060',
+            ],
+        },
+    },
+    'gacha_pickup_combatant_1061': {
+        'rates': {'ssr_ratio': 500, 'ssr_rate_up_success_ratio': 500, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 714.48, 'total_ssr_rate_up_pool_pct': 1428.95, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'pickup_c_9_sr_c_1040', 'pickup_c_9_sr_c_1050', 'pickup_c_9_sr_c_1056', 'pickup_c_9_sr_c_1005',
+            'pickup_c_9_sr_c_1028', 'pickup_c_9_sr_c_1009', 'pickup_c_9_sr_c_1017', 'pickup_c_9_sr_c_1003',
+            'pickup_c_9_sr_c_1049',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_c_9_rateup_sr_c_1021', 'pickup_c_9_rateup_sr_c_1039',
+            ],
+            'sr_supporter_pool_ids': [
+            'general_sr_s_20001', 'general_sr_s_20003', 'general_sr_s_20007', 'general_sr_s_20024',
+            'general_sr_s_20025', 'general_sr_s_20027', 'general_sr_s_20035', 'general_sr_s_20036',
+            'general_sr_s_20032', 'general_sr_s_20033', 'general_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            'general_ssr_c_1061_1004', 'general_ssr_c_1061_1008', 'general_ssr_c_1061_1010', 'general_ssr_c_1061_1018',
+            'general_ssr_c_1061_1024', 'general_ssr_c_1061_1027', 'general_ssr_c_1061_1033', 'general_ssr_c_1061_1041',
+            'general_ssr_c_1061_1043', 'general_ssr_c_1061_1064', 'general_ssr_c_1061_1062', 'general_ssr_c_1061_1057',
+            'general_ssr_c_1061_1060', 'general_ssr_c_1061_1052', 'general_ssr_c_1061_30047', 'general_ssr_c_1061_30084',
+            'general_ssr_c_1061_30097',
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_c_9_rateup_ssr_c_1061',
+            ],
+        },
+    },
+    'gacha_pickup_combatant_1061_1': {
+        'rates': {'ssr_ratio': 500, 'ssr_rate_up_success_ratio': 500, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 714.48, 'total_ssr_rate_up_pool_pct': 1428.95, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'pickup_ch_c_1_sr_1040', 'pickup_ch_c_1_sr_1050', 'pickup_ch_c_1_sr_1056', 'pickup_ch_c_1_sr_1005',
+            'pickup_ch_c_1_sr_1028', 'pickup_ch_c_1_sr_1009', 'pickup_ch_c_1_sr_1017', 'pickup_ch_c_1_sr_1003',
+            'pickup_ch_c_1_sr_1049',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_ch_c_1_rateup_sr_1021', 'pickup_ch_c_1_rateup_sr_1039',
+            ],
+            'sr_supporter_pool_ids': [
+            'general_sr_s_20001', 'general_sr_s_20003', 'general_sr_s_20007', 'general_sr_s_20024',
+            'general_sr_s_20025', 'general_sr_s_20027', 'general_sr_s_20035', 'general_sr_s_20036',
+            'general_sr_s_20032', 'general_sr_s_20033', 'general_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            'pickup_ch_c_1_ssr_1004', 'pickup_ch_c_1_ssr_1008', 'pickup_ch_c_1_ssr_1010', 'pickup_ch_c_1_ssr_1018',
+            'pickup_ch_c_1_ssr_1024', 'pickup_ch_c_1_ssr_1027', 'pickup_ch_c_1_ssr_1033', 'pickup_ch_c_1_ssr_1041',
+            'pickup_ch_c_1_ssr_1043', 'pickup_ch_c_1_ssr_1064', 'pickup_ch_c_1_ssr_1062', 'pickup_ch_c_1_ssr_1057',
+            'pickup_ch_c_1_ssr_1060', 'pickup_ch_c_1_ssr_1052', 'pickup_ch_c_1_ssr_30047', 'pickup_ch_c_1_ssr_30084',
+            'pickup_ch_c_1_ssr_30097',
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_ch_c_1_rateup_ssr_1061',
+            ],
+        },
+    },
+    'gacha_pickup_combatant_1062': {
+        'rates': {'ssr_ratio': 500, 'ssr_rate_up_success_ratio': 500, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 714.4, 'total_ssr_rate_up_pool_pct': 1429, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.4, 'total_sr_combatant_pool_pct': 2163.85, 'total_sr_supporter_pool_pct': 2163.85, 'total_r_pool_pct': 84873.5},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'pickup_c_1_sr_c_1050', 'pickup_c_1_sr_c_1056', 'pickup_c_1_sr_c_1005', 'pickup_c_1_sr_c_1021',
+            'pickup_c_1_sr_c_1028', 'pickup_c_1_sr_c_1009', 'pickup_c_1_sr_c_1017', 'pickup_c_1_sr_c_1003',
+            'pickup_c_1_sr_c_1049',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_c_1_rateup_sr_c_1039', 'pickup_c_1_rateup_sr_c_1040',
+            ],
+            'sr_supporter_pool_ids': [
+            'general_sr_s_20001', 'general_sr_s_20003', 'general_sr_s_20007', 'general_sr_s_20024',
+            'general_sr_s_20025', 'general_sr_s_20027', 'general_sr_s_20035', 'general_sr_s_20036',
+            'general_sr_s_20032', 'general_sr_s_20033', 'general_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            'general_ssr_c_1004', 'general_ssr_c_1008', 'general_ssr_c_1010', 'general_ssr_c_1018',
+            'general_ssr_c_1024', 'general_ssr_c_1027', 'general_ssr_c_1033', 'general_ssr_c_1041',
+            'general_ssr_c_1043', 'general_ssr_c_1064', 'general_ssr_c_1062', 'general_ssr_c_1057',
+            'general_ssr_c_1060', 'general_ssr_c_1052', 'general_ssr_c_30047', 'general_ssr_c_30084',
+            'general_ssr_c_30097', 'general_ssr_c_1061', 'general_ssr_c_1055', 'general_ssr_c_1069',
+            'general_ssr_c_30048', 'general_ssr_c_30113', 'general_ssr_c_30117',
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_c_1_rateup_ssr_c_1062',
+            ],
+        },
+    },
+    'gacha_pickup_combatant_1062_1': {
+        'rates': {'ssr_ratio': 500, 'ssr_rate_up_success_ratio': 500, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 714.48, 'total_ssr_rate_up_pool_pct': 1428.95, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'pickup_c_1_sr_c_1050', 'pickup_c_1_sr_c_1056', 'pickup_c_1_sr_c_1005', 'pickup_c_1_sr_c_1021',
+            'pickup_c_1_sr_c_1028', 'pickup_c_1_sr_c_1009', 'pickup_c_1_sr_c_1017', 'pickup_c_1_sr_c_1003',
+            'pickup_c_1_sr_c_1049',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_c_1_rateup_sr_c_1040', 'pickup_c_1_rateup_sr_c_1039',
+            ],
+            'sr_supporter_pool_ids': [
+            'general_sr_s_20001', 'general_sr_s_20003', 'general_sr_s_20007', 'general_sr_s_20024',
+            'general_sr_s_20025', 'general_sr_s_20027', 'general_sr_s_20035', 'general_sr_s_20036',
+            'general_sr_s_20032', 'general_sr_s_20033', 'general_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            'general_ssr_c_1062_1004', 'general_ssr_c_1062_1008', 'general_ssr_c_1062_1010', 'general_ssr_c_1062_1018',
+            'general_ssr_c_1062_1024', 'general_ssr_c_1062_1027', 'general_ssr_c_1062_1033', 'general_ssr_c_1062_1041',
+            'general_ssr_c_1062_1043', 'general_ssr_c_1062_1064', 'general_ssr_c_1062_1057', 'general_ssr_c_1062_1060',
+            'general_ssr_c_1062_1052', 'general_ssr_c_1062_30047', 'general_ssr_c_1062_30084', 'general_ssr_c_1062_30097',
+            'general_ssr_c_1062_1061', 'general_ssr_c_1062_1055', 'general_ssr_c_1062_1069', 'general_ssr_c_1062_30048',
+            'general_ssr_c_1062_30113',
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_c_1_rateup_ssr_c_1062',
+            ],
+        },
+    },
+    'gacha_pickup_combatant_1069': {
+        'rates': {'ssr_ratio': 500, 'ssr_rate_up_success_ratio': 500, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 714.48, 'total_ssr_rate_up_pool_pct': 1428.95, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'pickup_c_13_sr_c_1040', 'pickup_c_13_sr_c_1050', 'pickup_c_13_sr_c_1005', 'pickup_c_13_sr_c_1021',
+            'pickup_c_13_sr_c_1028', 'pickup_c_13_sr_c_1009', 'pickup_c_13_sr_c_1017', 'pickup_c_13_sr_c_1003',
+            'pickup_c_13_sr_c_1049',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_c_13_rateup_sr_c_1056', 'pickup_c_13_rateup_sr_c_1039',
+            ],
+            'sr_supporter_pool_ids': [
+            'general_sr_s_20001', 'general_sr_s_20003', 'general_sr_s_20007', 'general_sr_s_20024',
+            'general_sr_s_20025', 'general_sr_s_20027', 'general_sr_s_20035', 'general_sr_s_20036',
+            'general_sr_s_20032', 'general_sr_s_20033', 'general_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            'general_ssr_c_1004', 'general_ssr_c_1008', 'general_ssr_c_1010', 'general_ssr_c_1018',
+            'general_ssr_c_1024', 'general_ssr_c_1027', 'general_ssr_c_1033', 'general_ssr_c_1041',
+            'general_ssr_c_1043', 'general_ssr_c_1064', 'general_ssr_c_1062', 'general_ssr_c_1057',
+            'general_ssr_c_1060', 'general_ssr_c_1052', 'general_ssr_c_30047', 'general_ssr_c_30084',
+            'general_ssr_c_30097', 'general_ssr_c_1061', 'general_ssr_c_1055', 'general_ssr_c_1069',
+            'general_ssr_c_30048', 'general_ssr_c_30113', 'general_ssr_c_30117',
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_c_13_rateup_ssr_c_1069',
+            ],
+        },
+    },
+    'gacha_pickup_combatant_30047': {
+        'rates': {'ssr_ratio': 500, 'ssr_rate_up_success_ratio': 500, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 714.48, 'total_ssr_rate_up_pool_pct': 1428.95, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'pickup_c_6_sr_c_1040', 'pickup_c_6_sr_c_1050', 'pickup_c_6_sr_c_1005', 'pickup_c_6_sr_c_1021',
+            'pickup_c_6_sr_c_1028', 'pickup_c_6_sr_c_1009', 'pickup_c_6_sr_c_1039', 'pickup_c_6_sr_c_1003',
+            'pickup_c_6_sr_c_1049', 'pickup_c_6_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_c_6_rateup_sr_c_1017', 'pickup_c_6_rateup_sr_c_1056',
+            ],
+            'sr_supporter_pool_ids': [
+            'general_sr_s_20001', 'general_sr_s_20003', 'general_sr_s_20007', 'general_sr_s_20024',
+            'general_sr_s_20025', 'general_sr_s_20027', 'general_sr_s_20035', 'general_sr_s_20036',
+            'general_sr_s_20032', 'general_sr_s_20033', 'general_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            'general_ssr_c_1004', 'general_ssr_c_1008', 'general_ssr_c_1010', 'general_ssr_c_1018',
+            'general_ssr_c_1024', 'general_ssr_c_1027', 'general_ssr_c_1033', 'general_ssr_c_1041',
+            'general_ssr_c_1043', 'general_ssr_c_1064', 'general_ssr_c_1062', 'general_ssr_c_1057',
+            'general_ssr_c_1060', 'general_ssr_c_1052', 'general_ssr_c_30047', 'general_ssr_c_30084',
+            'general_ssr_c_30097', 'general_ssr_c_1061', 'general_ssr_c_1055', 'general_ssr_c_1069',
+            'general_ssr_c_30048', 'general_ssr_c_30113', 'general_ssr_c_30117',
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_c_6_rateup_ssr_c_30047',
+            ],
+        },
+    },
+    'gacha_pickup_combatant_30047_1': {
+        'rates': {'ssr_ratio': 500, 'ssr_rate_up_success_ratio': 500, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 714.48, 'total_ssr_rate_up_pool_pct': 1428.95, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'pickup_c_6_sr_c_1040', 'pickup_c_6_sr_c_1050', 'pickup_c_6_sr_c_1005', 'pickup_c_6_sr_c_1021',
+            'pickup_c_6_sr_c_1028', 'pickup_c_6_sr_c_1009', 'pickup_c_6_sr_c_1039', 'pickup_c_6_sr_c_1003',
+            'pickup_c_6_sr_c_1049', 'pickup_c_6_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_c_6_rateup_sr_c_1056', 'pickup_c_6_rateup_sr_c_1017',
+            ],
+            'sr_supporter_pool_ids': [
+            'general_sr_s_20001', 'general_sr_s_20003', 'general_sr_s_20007', 'general_sr_s_20024',
+            'general_sr_s_20025', 'general_sr_s_20027', 'general_sr_s_20035', 'general_sr_s_20036',
+            'general_sr_s_20032', 'general_sr_s_20033', 'general_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            'general_ssr_c_30047_1_1004', 'general_ssr_c_30047_1_1008', 'general_ssr_c_30047_1_1010', 'general_ssr_c_30047_1_1018',
+            'general_ssr_c_30047_1_1024', 'general_ssr_c_30047_1_1027', 'general_ssr_c_30047_1_1033', 'general_ssr_c_30047_1_1041',
+            'general_ssr_c_30047_1_1043', 'general_ssr_c_30047_1_1064', 'general_ssr_c_30047_1_1062', 'general_ssr_c_30047_1_1057',
+            'general_ssr_c_30047_1_1060', 'general_ssr_c_30047_1_1052', 'general_ssr_c_30047_1_30084', 'general_ssr_c_30047_1_30097',
+            'general_ssr_c_30047_1_1061', 'general_ssr_c_30047_1_1055', 'general_ssr_c_30047_1_1069', 'general_ssr_c_30047_1_30048',
+            'general_ssr_c_30047_1_30113', 'general_ssr_c_30047_1_30117',
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_c_6_rateup_ssr_c_30047',
+            ],
+        },
+    },
+    'gacha_pickup_combatant_30048': {
+        'rates': {'ssr_ratio': 500, 'ssr_rate_up_success_ratio': 500, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 714.48, 'total_ssr_rate_up_pool_pct': 1428.95, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'pickup_c_10_sr_c_1040', 'pickup_c_10_sr_c_1049', 'pickup_c_10_sr_c_1050', 'pickup_c_10_sr_c_1056',
+            'pickup_c_10_sr_c_1005', 'pickup_c_10_sr_c_1021', 'pickup_c_10_sr_c_1028', 'pickup_c_10_sr_c_1009',
+            'pickup_c_10_sr_c_1017', 'pickup_c_10_sr_c_1039', 'pickup_c_10_sr_c_1003',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_c_10_rateup_sr_c_1040', 'pickup_c_10_rateup_sr_c_1049',
+            ],
+            'sr_supporter_pool_ids': [
+            'general_sr_s_20001', 'general_sr_s_20003', 'general_sr_s_20007', 'general_sr_s_20024',
+            'general_sr_s_20025', 'general_sr_s_20027', 'general_sr_s_20035', 'general_sr_s_20036',
+            'general_sr_s_20032', 'general_sr_s_20033', 'general_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            'general_ssr_c_1004', 'general_ssr_c_1008', 'general_ssr_c_1010', 'general_ssr_c_1018',
+            'general_ssr_c_1024', 'general_ssr_c_1027', 'general_ssr_c_1033', 'general_ssr_c_1041',
+            'general_ssr_c_1043', 'general_ssr_c_1064', 'general_ssr_c_1062', 'general_ssr_c_1057',
+            'general_ssr_c_1060', 'general_ssr_c_1052', 'general_ssr_c_30047', 'general_ssr_c_30084',
+            'general_ssr_c_30097', 'general_ssr_c_1061', 'general_ssr_c_1055', 'general_ssr_c_1069',
+            'general_ssr_c_30048', 'general_ssr_c_30113', 'general_ssr_c_30117',
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_c_10_rateup_ssr_c_30048',
+            ],
+        },
+    },
+    'gacha_pickup_combatant_30075': {
+        'rates': {'ssr_ratio': 500, 'ssr_rate_up_success_ratio': 500, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 714.48, 'total_ssr_rate_up_pool_pct': 1428.95, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'pickup_c_4_sr_c_1040', 'pickup_c_4_sr_c_1050', 'pickup_c_4_sr_c_1056', 'pickup_c_4_sr_c_1021',
+            'pickup_c_4_sr_c_1028', 'pickup_c_4_sr_c_1009', 'pickup_c_4_sr_c_1017', 'pickup_c_4_sr_c_1039',
+            'pickup_c_4_sr_c_1049',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_c_4_rateup_sr_c_1005', 'pickup_c_4_rateup_sr_c_1003',
+            ],
+            'sr_supporter_pool_ids': [
+            'general_sr_s_20001', 'general_sr_s_20003', 'general_sr_s_20007', 'general_sr_s_20024',
+            'general_sr_s_20025', 'general_sr_s_20027', 'general_sr_s_20035', 'general_sr_s_20036',
+            'general_sr_s_20032', 'general_sr_s_20033', 'general_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            'general_ssr_c_1004', 'general_ssr_c_1008', 'general_ssr_c_1010', 'general_ssr_c_1018',
+            'general_ssr_c_1024', 'general_ssr_c_1027', 'general_ssr_c_1033', 'general_ssr_c_1041',
+            'general_ssr_c_1043', 'general_ssr_c_1064', 'general_ssr_c_1062', 'general_ssr_c_1057',
+            'general_ssr_c_1060', 'general_ssr_c_1052', 'general_ssr_c_30047', 'general_ssr_c_30084',
+            'general_ssr_c_30097', 'general_ssr_c_1061', 'general_ssr_c_1055', 'general_ssr_c_1069',
+            'general_ssr_c_30048', 'general_ssr_c_30113', 'general_ssr_c_30117',
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_c_4_rateup_ssr_c_30075',
+            ],
+        },
+    },
+    'gacha_pickup_combatant_30075_1': {
+        'rates': {'ssr_ratio': 500, 'ssr_rate_up_success_ratio': 500, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 714.48, 'total_ssr_rate_up_pool_pct': 1428.95, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'pickup_c_17_sr_c_1040', 'pickup_c_17_sr_c_1050', 'pickup_c_17_sr_c_1056', 'pickup_c_17_sr_c_1021',
+            'pickup_c_17_sr_c_1028', 'pickup_c_17_sr_c_1009', 'pickup_c_17_sr_c_1017', 'pickup_c_17_sr_c_1039',
+            'pickup_c_17_sr_c_1003', 'pickup_c_17_sr_c_1049',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_c_17_rateup_sr_c_1012', 'pickup_c_17_rateup_sr_c_1005',
+            ],
+            'sr_supporter_pool_ids': [
+            'general_sr_s_20001', 'general_sr_s_20003', 'general_sr_s_20007', 'general_sr_s_20024',
+            'general_sr_s_20025', 'general_sr_s_20027', 'general_sr_s_20035', 'general_sr_s_20036',
+            'general_sr_s_20032', 'general_sr_s_20033', 'general_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            'general_ssr_c_1004', 'general_ssr_c_1008', 'general_ssr_c_1010', 'general_ssr_c_1018',
+            'general_ssr_c_1024', 'general_ssr_c_1027', 'general_ssr_c_1033', 'general_ssr_c_1041',
+            'general_ssr_c_1043', 'general_ssr_c_1064', 'general_ssr_c_1062', 'general_ssr_c_1057',
+            'general_ssr_c_1060', 'general_ssr_c_1052', 'general_ssr_c_30047', 'general_ssr_c_30084',
+            'general_ssr_c_30097', 'general_ssr_c_1061', 'general_ssr_c_1055', 'general_ssr_c_1069',
+            'general_ssr_c_30048', 'general_ssr_c_30113', 'general_ssr_c_30117',
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_c_17_rateup_ssr_c_30075',
+            ],
+        },
+    },
+    'gacha_pickup_combatant_30084': {
+        'rates': {'ssr_ratio': 500, 'ssr_rate_up_success_ratio': 500, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 714.48, 'total_ssr_rate_up_pool_pct': 1428.95, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'pickup_c_7_sr_c_1040', 'pickup_c_7_sr_c_1050', 'pickup_c_7_sr_c_1056', 'pickup_c_7_sr_c_1005',
+            'pickup_c_7_sr_c_1021', 'pickup_c_7_sr_c_1009', 'pickup_c_7_sr_c_1017', 'pickup_c_7_sr_c_1039',
+            'pickup_c_7_sr_c_1003', 'pickup_c_7_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_c_7_rateup_sr_c_1049', 'pickup_c_7_rateup_sr_c_1028',
+            ],
+            'sr_supporter_pool_ids': [
+            'general_sr_s_20001', 'general_sr_s_20003', 'general_sr_s_20007', 'general_sr_s_20024',
+            'general_sr_s_20025', 'general_sr_s_20027', 'general_sr_s_20035', 'general_sr_s_20036',
+            'general_sr_s_20032', 'general_sr_s_20033', 'general_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            'general_ssr_c_1004', 'general_ssr_c_1008', 'general_ssr_c_1010', 'general_ssr_c_1018',
+            'general_ssr_c_1024', 'general_ssr_c_1027', 'general_ssr_c_1033', 'general_ssr_c_1041',
+            'general_ssr_c_1043', 'general_ssr_c_1064', 'general_ssr_c_1062', 'general_ssr_c_1057',
+            'general_ssr_c_1060', 'general_ssr_c_1052', 'general_ssr_c_30047', 'general_ssr_c_30084',
+            'general_ssr_c_30097', 'general_ssr_c_1061', 'general_ssr_c_1055', 'general_ssr_c_1069',
+            'general_ssr_c_30048', 'general_ssr_c_30113', 'general_ssr_c_30117',
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_c_7_rateup_ssr_c_30084',
+            ],
+        },
+    },
+    'gacha_pickup_combatant_30084_1': {
+        'rates': {'ssr_ratio': 500, 'ssr_rate_up_success_ratio': 500, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 714.48, 'total_ssr_rate_up_pool_pct': 1428.95, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'pickup_c_7_sr_c_1040', 'pickup_c_7_sr_c_1050', 'pickup_c_7_sr_c_1056', 'pickup_c_7_sr_c_1005',
+            'pickup_c_7_sr_c_1021', 'pickup_c_7_sr_c_1009', 'pickup_c_7_sr_c_1017', 'pickup_c_7_sr_c_1039',
+            'pickup_c_7_sr_c_1003', 'pickup_c_7_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_c_7_rateup_sr_c_1049', 'pickup_c_7_rateup_sr_c_1028',
+            ],
+            'sr_supporter_pool_ids': [
+            'general_sr_s_20001', 'general_sr_s_20003', 'general_sr_s_20007', 'general_sr_s_20024',
+            'general_sr_s_20025', 'general_sr_s_20027', 'general_sr_s_20035', 'general_sr_s_20036',
+            'general_sr_s_20032', 'general_sr_s_20033', 'general_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            'general_ssr_c_30084_1_1004', 'general_ssr_c_30084_1_1008', 'general_ssr_c_30084_1_1010', 'general_ssr_c_30084_1_1018',
+            'general_ssr_c_30084_1_1024', 'general_ssr_c_30084_1_1027', 'general_ssr_c_30084_1_1033', 'general_ssr_c_30084_1_1041',
+            'general_ssr_c_30084_1_1043', 'general_ssr_c_30084_1_1064', 'general_ssr_c_30084_1_1062', 'general_ssr_c_30084_1_1057',
+            'general_ssr_c_30084_1_1060', 'general_ssr_c_30084_1_1052', 'general_ssr_c_30084_1_30047', 'general_ssr_c_30084_1_30097',
+            'general_ssr_c_30084_1_1061', 'general_ssr_c_30084_1_1055', 'general_ssr_c_30084_1_1069', 'general_ssr_c_30084_1_30048',
+            'general_ssr_c_30084_1_30113', 'general_ssr_c_30084_1_30117',
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_c_7_rateup_ssr_c_30084',
+            ],
+        },
+    },
+    'gacha_pickup_combatant_30093': {
+        'rates': {'ssr_ratio': 500, 'ssr_rate_up_success_ratio': 500, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 714.48, 'total_ssr_rate_up_pool_pct': 1428.95, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'pickup_c_11_sr_c_1040', 'pickup_c_11_sr_c_1050', 'pickup_c_11_sr_c_1056', 'pickup_c_11_sr_c_1021',
+            'pickup_c_11_sr_c_1028', 'pickup_c_11_sr_c_1009', 'pickup_c_11_sr_c_1017', 'pickup_c_11_sr_c_1039',
+            'pickup_c_11_sr_c_1049',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_c_11_rateup_sr_c_1005', 'pickup_c_11_rateup_sr_c_1003',
+            ],
+            'sr_supporter_pool_ids': [
+            'general_sr_s_20001', 'general_sr_s_20003', 'general_sr_s_20007', 'general_sr_s_20024',
+            'general_sr_s_20025', 'general_sr_s_20027', 'general_sr_s_20035', 'general_sr_s_20036',
+            'general_sr_s_20032', 'general_sr_s_20033', 'general_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            'general_ssr_c_1004', 'general_ssr_c_1008', 'general_ssr_c_1010', 'general_ssr_c_1018',
+            'general_ssr_c_1024', 'general_ssr_c_1027', 'general_ssr_c_1033', 'general_ssr_c_1041',
+            'general_ssr_c_1043', 'general_ssr_c_1064', 'general_ssr_c_1062', 'general_ssr_c_1057',
+            'general_ssr_c_1060', 'general_ssr_c_1052', 'general_ssr_c_30047', 'general_ssr_c_30084',
+            'general_ssr_c_30097', 'general_ssr_c_1061', 'general_ssr_c_1055', 'general_ssr_c_1069',
+            'general_ssr_c_30048', 'general_ssr_c_30113', 'general_ssr_c_30117',
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_c_11_rateup_ssr_c_30093',
+            ],
+        },
+    },
+    'gacha_pickup_combatant_30097': {
+        'rates': {'ssr_ratio': 500, 'ssr_rate_up_success_ratio': 500, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 714.48, 'total_ssr_rate_up_pool_pct': 1428.95, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'pickup_c_8_sr_c_1050', 'pickup_c_8_sr_c_1056', 'pickup_c_8_sr_c_1005', 'pickup_c_8_sr_c_1021',
+            'pickup_c_8_sr_c_1028', 'pickup_c_8_sr_c_1009', 'pickup_c_8_sr_c_1017', 'pickup_c_8_sr_c_1039',
+            'pickup_c_8_sr_c_1049', 'pickup_c_8_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_c_8_rateup_sr_c_1040', 'pickup_c_8_rateup_sr_c_1003',
+            ],
+            'sr_supporter_pool_ids': [
+            'general_sr_s_20001', 'general_sr_s_20003', 'general_sr_s_20007', 'general_sr_s_20024',
+            'general_sr_s_20025', 'general_sr_s_20027', 'general_sr_s_20035', 'general_sr_s_20036',
+            'general_sr_s_20032', 'general_sr_s_20033', 'general_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            'general_ssr_c_1004', 'general_ssr_c_1008', 'general_ssr_c_1010', 'general_ssr_c_1018',
+            'general_ssr_c_1024', 'general_ssr_c_1027', 'general_ssr_c_1033', 'general_ssr_c_1041',
+            'general_ssr_c_1043', 'general_ssr_c_1064', 'general_ssr_c_1062', 'general_ssr_c_1057',
+            'general_ssr_c_1060', 'general_ssr_c_1052', 'general_ssr_c_30047', 'general_ssr_c_30084',
+            'general_ssr_c_30097', 'general_ssr_c_1061', 'general_ssr_c_1055', 'general_ssr_c_1069',
+            'general_ssr_c_30048', 'general_ssr_c_30113', 'general_ssr_c_30117',
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_c_8_rateup_ssr_c_30097',
+            ],
+        },
+    },
+    'gacha_pickup_combatant_30097_1': {
+        'rates': {'ssr_ratio': 500, 'ssr_rate_up_success_ratio': 500, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 714.48, 'total_ssr_rate_up_pool_pct': 1428.95, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'pickup_c_8_sr_c_1050', 'pickup_c_8_sr_c_1056', 'pickup_c_8_sr_c_1005', 'pickup_c_8_sr_c_1021',
+            'pickup_c_8_sr_c_1028', 'pickup_c_8_sr_c_1009', 'pickup_c_8_sr_c_1017', 'pickup_c_8_sr_c_1039',
+            'pickup_c_8_sr_c_1049', 'pickup_c_8_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_c_8_rateup_sr_c_1040', 'pickup_c_8_rateup_sr_c_1003',
+            ],
+            'sr_supporter_pool_ids': [
+            'general_sr_s_20001', 'general_sr_s_20003', 'general_sr_s_20007', 'general_sr_s_20024',
+            'general_sr_s_20025', 'general_sr_s_20027', 'general_sr_s_20035', 'general_sr_s_20036',
+            'general_sr_s_20032', 'general_sr_s_20033', 'general_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            'general_ssr_c_30097_1_1004', 'general_ssr_c_30097_1_1008', 'general_ssr_c_30097_1_1010', 'general_ssr_c_30097_1_1018',
+            'general_ssr_c_30097_1_1024', 'general_ssr_c_30097_1_1027', 'general_ssr_c_30097_1_1033', 'general_ssr_c_30097_1_1041',
+            'general_ssr_c_30097_1_1043', 'general_ssr_c_30097_1_1064', 'general_ssr_c_30097_1_1062', 'general_ssr_c_30097_1_1057',
+            'general_ssr_c_30097_1_1060', 'general_ssr_c_30097_1_1052', 'general_ssr_c_30097_1_30047', 'general_ssr_c_30097_1_30084',
+            'general_ssr_c_30097_1_1061', 'general_ssr_c_30097_1_1055', 'general_ssr_c_30097_1_1069', 'general_ssr_c_30097_1_30048',
+            'general_ssr_c_30097_1_30113', 'general_ssr_c_30097_1_30117',
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_c_8_rateup_ssr_c_30097',
+            ],
+        },
+    },
+    'gacha_pickup_combatant_30113': {
+        'rates': {'ssr_ratio': 500, 'ssr_rate_up_success_ratio': 500, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 714.48, 'total_ssr_rate_up_pool_pct': 1428.95, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'pickup_c_14_sr_c_1040', 'pickup_c_14_sr_c_1050', 'pickup_c_14_sr_c_1056', 'pickup_c_14_sr_c_1005',
+            'pickup_c_14_sr_c_1009', 'pickup_c_14_sr_c_1017', 'pickup_c_14_sr_c_1039', 'pickup_c_14_sr_c_1003',
+            'pickup_c_14_sr_c_1049',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_c_14_rateup_sr_c_1021', 'pickup_c_14_rateup_sr_c_1028',
+            ],
+            'sr_supporter_pool_ids': [
+            'general_sr_s_20001', 'general_sr_s_20003', 'general_sr_s_20007', 'general_sr_s_20024',
+            'general_sr_s_20025', 'general_sr_s_20027', 'general_sr_s_20035', 'general_sr_s_20036',
+            'general_sr_s_20032', 'general_sr_s_20033', 'general_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            'general_ssr_c_1004', 'general_ssr_c_1008', 'general_ssr_c_1010', 'general_ssr_c_1018',
+            'general_ssr_c_1024', 'general_ssr_c_1027', 'general_ssr_c_1033', 'general_ssr_c_1041',
+            'general_ssr_c_1043', 'general_ssr_c_1064', 'general_ssr_c_1062', 'general_ssr_c_1057',
+            'general_ssr_c_1060', 'general_ssr_c_1052', 'general_ssr_c_30047', 'general_ssr_c_30084',
+            'general_ssr_c_30097', 'general_ssr_c_1061', 'general_ssr_c_1055', 'general_ssr_c_1069',
+            'general_ssr_c_30048', 'general_ssr_c_30113', 'general_ssr_c_30117',
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_c_14_rateup_ssr_c_30113',
+            ],
+        },
+    },
+    'gacha_pickup_combatant_30115': {
+        'rates': {'ssr_ratio': 500, 'ssr_rate_up_success_ratio': 500, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 714.48, 'total_ssr_rate_up_pool_pct': 1428.95, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'pickup_c_15_sr_c_1040', 'pickup_c_15_sr_c_1056', 'pickup_c_15_sr_c_1005', 'pickup_c_15_sr_c_1021',
+            'pickup_c_15_sr_c_1028', 'pickup_c_15_sr_c_1009', 'pickup_c_15_sr_c_1017', 'pickup_c_15_sr_c_1039',
+            'pickup_c_15_sr_c_1049',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_c_15_rateup_sr_c_1050', 'pickup_c_15_rateup_sr_c_1003',
+            ],
+            'sr_supporter_pool_ids': [
+            'general_sr_s_20001', 'general_sr_s_20003', 'general_sr_s_20007', 'general_sr_s_20024',
+            'general_sr_s_20025', 'general_sr_s_20027', 'general_sr_s_20035', 'general_sr_s_20036',
+            'general_sr_s_20032', 'general_sr_s_20033', 'general_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            'general_ssr_c_1004', 'general_ssr_c_1008', 'general_ssr_c_1010', 'general_ssr_c_1018',
+            'general_ssr_c_1024', 'general_ssr_c_1027', 'general_ssr_c_1033', 'general_ssr_c_1041',
+            'general_ssr_c_1043', 'general_ssr_c_1064', 'general_ssr_c_1062', 'general_ssr_c_1057',
+            'general_ssr_c_1060', 'general_ssr_c_1052', 'general_ssr_c_30047', 'general_ssr_c_30084',
+            'general_ssr_c_30097', 'general_ssr_c_1061', 'general_ssr_c_1055', 'general_ssr_c_1069',
+            'general_ssr_c_30048', 'general_ssr_c_30113', 'general_ssr_c_30117',
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_c_15_rateup_ssr_c_30115',
+            ],
+        },
+    },
+    'gacha_pickup_combatant_30117': {
+        'rates': {'ssr_ratio': 500, 'ssr_rate_up_success_ratio': 500, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 714.48, 'total_ssr_rate_up_pool_pct': 1428.95, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'pickup_c_16_sr_c_1040', 'pickup_c_16_sr_c_1050', 'pickup_c_16_sr_c_1056', 'pickup_c_16_sr_c_1005',
+            'pickup_c_16_sr_c_1021', 'pickup_c_16_sr_c_1028', 'pickup_c_16_sr_c_1017', 'pickup_c_16_sr_c_1003',
+            'pickup_c_16_sr_c_1049',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_c_16_rateup_sr_c_1009', 'pickup_c_16_rateup_sr_c_1039',
+            ],
+            'sr_supporter_pool_ids': [
+            'general_sr_s_20001', 'general_sr_s_20003', 'general_sr_s_20007', 'general_sr_s_20024',
+            'general_sr_s_20025', 'general_sr_s_20027', 'general_sr_s_20035', 'general_sr_s_20036',
+            'general_sr_s_20032', 'general_sr_s_20033', 'general_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            'general_ssr_c_1004', 'general_ssr_c_1008', 'general_ssr_c_1010', 'general_ssr_c_1018',
+            'general_ssr_c_1024', 'general_ssr_c_1027', 'general_ssr_c_1033', 'general_ssr_c_1041',
+            'general_ssr_c_1043', 'general_ssr_c_1064', 'general_ssr_c_1062', 'general_ssr_c_1057',
+            'general_ssr_c_1060', 'general_ssr_c_1052', 'general_ssr_c_30047', 'general_ssr_c_30084',
+            'general_ssr_c_30097', 'general_ssr_c_1061', 'general_ssr_c_1055', 'general_ssr_c_1069',
+            'general_ssr_c_30048', 'general_ssr_c_30113', 'general_ssr_c_30117',
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_c_16_rateup_ssr_c_30117',
+            ],
+        },
+    },
+    'gacha_pickup_combatant_30134': {
+        'rates': {'ssr_ratio': 500, 'ssr_rate_up_success_ratio': 500, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 714.48, 'total_ssr_rate_up_pool_pct': 1428.95, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'pickup_c_18_sr_c_1050', 'pickup_c_18_sr_c_1005', 'pickup_c_18_sr_c_1021', 'pickup_c_18_sr_c_1028',
+            'pickup_c_18_sr_c_1009', 'pickup_c_18_sr_c_1017', 'pickup_c_18_sr_c_1039', 'pickup_c_18_sr_c_1003',
+            'pickup_c_18_sr_c_1049', 'pickup_c_18_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_c_18_rateup_sr_c_1040', 'pickup_c_18_rateup_sr_c_1056',
+            ],
+            'sr_supporter_pool_ids': [
+            'general_sr_s_20001', 'general_sr_s_20003', 'general_sr_s_20007', 'general_sr_s_20024',
+            'general_sr_s_20025', 'general_sr_s_20027', 'general_sr_s_20035', 'general_sr_s_20036',
+            'general_sr_s_20032', 'general_sr_s_20033', 'general_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            'general_ssr_c_1004', 'general_ssr_c_1008', 'general_ssr_c_1010', 'general_ssr_c_1018',
+            'general_ssr_c_1024', 'general_ssr_c_1027', 'general_ssr_c_1033', 'general_ssr_c_1041',
+            'general_ssr_c_1043', 'general_ssr_c_1064', 'general_ssr_c_1062', 'general_ssr_c_1057',
+            'general_ssr_c_1060', 'general_ssr_c_1052', 'general_ssr_c_30047', 'general_ssr_c_30084',
+            'general_ssr_c_30097', 'general_ssr_c_1061', 'general_ssr_c_1055', 'general_ssr_c_1069',
+            'general_ssr_c_30048', 'general_ssr_c_30113', 'general_ssr_c_30117',
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_c_18_rateup_ssr_c_30134',
+            ],
+        },
+    },
+    'gacha_pickup_combatant_30136': {
+        'rates': {'ssr_ratio': 500, 'ssr_rate_up_success_ratio': 500, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 714.48, 'total_ssr_rate_up_pool_pct': 1428.95, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'pickup_c_19_sr_c_1040', 'pickup_c_19_sr_c_1050', 'pickup_c_19_sr_c_1056', 'pickup_c_19_sr_c_1005',
+            'pickup_c_19_sr_c_1009', 'pickup_c_19_sr_c_1017', 'pickup_c_19_sr_c_1039', 'pickup_c_19_sr_c_1003',
+            'pickup_c_19_sr_c_1049', 'pickup_c_19_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_c_19_rateup_sr_c_1021', 'pickup_c_19_rateup_sr_c_1028',
+            ],
+            'sr_supporter_pool_ids': [
+            'general_sr_s_20001', 'general_sr_s_20003', 'general_sr_s_20007', 'general_sr_s_20024',
+            'general_sr_s_20025', 'general_sr_s_20027', 'general_sr_s_20035', 'general_sr_s_20036',
+            'general_sr_s_20032', 'general_sr_s_20033', 'general_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            'general_ssr_c_1004', 'general_ssr_c_1008', 'general_ssr_c_1010', 'general_ssr_c_1018',
+            'general_ssr_c_1024', 'general_ssr_c_1027', 'general_ssr_c_1033', 'general_ssr_c_1041',
+            'general_ssr_c_1043', 'general_ssr_c_1064', 'general_ssr_c_1062', 'general_ssr_c_1057',
+            'general_ssr_c_1060', 'general_ssr_c_1052', 'general_ssr_c_30047', 'general_ssr_c_30084',
+            'general_ssr_c_30097', 'general_ssr_c_1061', 'general_ssr_c_1055', 'general_ssr_c_1069',
+            'general_ssr_c_30048', 'general_ssr_c_30113', 'general_ssr_c_30117',
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_c_19_rateup_ssr_c_30136',
+            ],
+        },
+    },
+    'gacha_pickup_supporter_1025': {
+        'rates': {'ssr_ratio': 0, 'ssr_rate_up_success_ratio': 1000, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 0, 'total_ssr_rate_up_pool_pct': 2143.43, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'general_sr_c_1040', 'general_sr_c_1050', 'general_sr_c_1056', 'general_sr_c_1005',
+            'general_sr_c_1021', 'general_sr_c_1028', 'general_sr_c_1009', 'general_sr_c_1017',
+            'general_sr_c_1039', 'general_sr_c_1003', 'general_sr_c_1049', 'general_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_s_8_rateup_sr_s_20001', 'pickup_s_8_rateup_sr_s_20025',
+            ],
+            'sr_supporter_pool_ids': [
+            'pickup_s_8_sr_s_20003', 'pickup_s_8_sr_s_20007', 'pickup_s_8_sr_s_20024', 'pickup_s_8_sr_s_20027',
+            'pickup_s_8_sr_s_20035', 'pickup_s_8_sr_s_20036', 'pickup_s_8_sr_s_20032', 'pickup_s_8_sr_s_20033',
+            'pickup_s_8_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_s_8_rateup_ssr_s_1025',
+            ],
+        },
+    },
+    'gacha_pickup_supporter_1025_1': {
+        'rates': {'ssr_ratio': 0, 'ssr_rate_up_success_ratio': 1000, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 0, 'total_ssr_rate_up_pool_pct': 2143.43, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'general_sr_c_1040', 'general_sr_c_1050', 'general_sr_c_1056', 'general_sr_c_1005',
+            'general_sr_c_1021', 'general_sr_c_1028', 'general_sr_c_1009', 'general_sr_c_1017',
+            'general_sr_c_1039', 'general_sr_c_1003', 'general_sr_c_1049', 'general_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_s_8_rateup_sr_s_20001', 'pickup_s_8_rateup_sr_s_20025',
+            ],
+            'sr_supporter_pool_ids': [
+            'pickup_s_8_sr_s_20003', 'pickup_s_8_sr_s_20007', 'pickup_s_8_sr_s_20024', 'pickup_s_8_sr_s_20027',
+            'pickup_s_8_sr_s_20035', 'pickup_s_8_sr_s_20036', 'pickup_s_8_sr_s_20032', 'pickup_s_8_sr_s_20033',
+            'pickup_s_8_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_s_8_rateup_ssr_s_1025',
+            ],
+        },
+    },
+    'gacha_pickup_supporter_1070': {
+        'rates': {'ssr_ratio': 0, 'ssr_rate_up_success_ratio': 1000, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 0, 'total_ssr_rate_up_pool_pct': 2143.43, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'general_sr_c_1040', 'general_sr_c_1050', 'general_sr_c_1056', 'general_sr_c_1005',
+            'general_sr_c_1021', 'general_sr_c_1028', 'general_sr_c_1009', 'general_sr_c_1017',
+            'general_sr_c_1039', 'general_sr_c_1003', 'general_sr_c_1049', 'general_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_s_13_rateup_sr_s_20001', 'pickup_s_13_rateup_sr_s_20003',
+            ],
+            'sr_supporter_pool_ids': [
+            'pickup_s_13_sr_s_20007', 'pickup_s_13_sr_s_20024', 'pickup_s_13_sr_s_20025', 'pickup_s_13_sr_s_20027',
+            'pickup_s_13_sr_s_20035', 'pickup_s_13_sr_s_20036', 'pickup_s_13_sr_s_20032', 'pickup_s_13_sr_s_20033',
+            'pickup_s_13_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_s_13_rateup_ssr_s_1070',
+            ],
+        },
+    },
+    'gacha_pickup_supporter_20002': {
+        'rates': {'ssr_ratio': 0, 'ssr_rate_up_success_ratio': 1000, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 0, 'total_ssr_rate_up_pool_pct': 2143.43, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'general_sr_c_1040', 'general_sr_c_1050', 'general_sr_c_1056', 'general_sr_c_1005',
+            'general_sr_c_1021', 'general_sr_c_1028', 'general_sr_c_1009', 'general_sr_c_1017',
+            'general_sr_c_1039', 'general_sr_c_1003', 'general_sr_c_1049', 'general_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_s_5_rateup_sr_s_20007', 'pickup_s_5_rateup_sr_s_20032',
+            ],
+            'sr_supporter_pool_ids': [
+            'pickup_s_5_sr_s_20001', 'pickup_s_5_sr_s_20003', 'pickup_s_5_sr_s_20024', 'pickup_s_5_sr_s_20025',
+            'pickup_s_5_sr_s_20027', 'pickup_s_5_sr_s_20035', 'pickup_s_5_sr_s_20036', 'pickup_s_5_sr_s_20033',
+            'pickup_s_5_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_s_5_rateup_ssr_s_20002',
+            ],
+        },
+    },
+    'gacha_pickup_supporter_20002_1': {
+        'rates': {'ssr_ratio': 0, 'ssr_rate_up_success_ratio': 1000, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 0, 'total_ssr_rate_up_pool_pct': 2143.43, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'general_1_sr_c_1040', 'general_1_sr_c_1050', 'general_1_sr_c_1056', 'general_1_sr_c_1005',
+            'general_1_sr_c_1021', 'general_1_sr_c_1028', 'general_1_sr_c_1009', 'general_1_sr_c_1017',
+            'general_1_sr_c_1039', 'general_1_sr_c_1003', 'general_1_sr_c_1049',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_s_5_rateup_sr_s_20007', 'pickup_s_5_rateup_sr_s_20032',
+            ],
+            'sr_supporter_pool_ids': [
+            'pickup_s_5_sr_s_20001', 'pickup_s_5_sr_s_20003', 'pickup_s_5_sr_s_20024', 'pickup_s_5_sr_s_20025',
+            'pickup_s_5_sr_s_20027', 'pickup_s_5_sr_s_20035', 'pickup_s_5_sr_s_20036', 'pickup_s_5_sr_s_20033',
+            'pickup_s_5_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_s_5_rateup_ssr_s_20002',
+            ],
+        },
+    },
+    'gacha_pickup_supporter_30044': {
+        'rates': {'ssr_ratio': 0, 'ssr_rate_up_success_ratio': 1000, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 0, 'total_ssr_rate_up_pool_pct': 2143.43, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'general_sr_c_1040', 'general_sr_c_1050', 'general_sr_c_1056', 'general_sr_c_1005',
+            'general_sr_c_1021', 'general_sr_c_1028', 'general_sr_c_1009', 'general_sr_c_1017',
+            'general_sr_c_1039', 'general_sr_c_1003', 'general_sr_c_1049', 'general_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_s_2_rateup_sr_s_20001', 'pickup_s_2_rateup_sr_s_20036',
+            ],
+            'sr_supporter_pool_ids': [
+            'pickup_s_2_sr_s_20003', 'pickup_s_2_sr_s_20007', 'pickup_s_2_sr_s_20024', 'pickup_s_2_sr_s_20025',
+            'pickup_s_2_sr_s_20027', 'pickup_s_2_sr_s_20035', 'pickup_s_2_sr_s_20032', 'pickup_s_2_sr_s_20033',
+            'pickup_s_2_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_s_2_rateup_ssr_s_30044',
+            ],
+        },
+    },
+    'gacha_pickup_supporter_30044_1': {
+        'rates': {'ssr_ratio': 0, 'ssr_rate_up_success_ratio': 1000, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 0, 'total_ssr_rate_up_pool_pct': 2143.43, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'general_sr_c_1040', 'general_sr_c_1050', 'general_sr_c_1056', 'general_sr_c_1005',
+            'general_sr_c_1021', 'general_sr_c_1028', 'general_sr_c_1009', 'general_sr_c_1017',
+            'general_sr_c_1039', 'general_sr_c_1003', 'general_sr_c_1049', 'general_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_ch_s_3_rateup_sr_20001', 'pickup_ch_s_3_rateup_sr_20036',
+            ],
+            'sr_supporter_pool_ids': [
+            'pickup_ch_s_3_sr_20003', 'pickup_ch_s_3_sr_20007', 'pickup_ch_s_3_sr_20024', 'pickup_ch_s_3_sr_20025',
+            'pickup_ch_s_3_sr_20027', 'pickup_ch_s_3_sr_20035', 'pickup_ch_s_3_sr_20032', 'pickup_ch_s_3_sr_20033',
+            'pickup_ch_s_3_sr_20011',
+            ],
+            'ssr_pool_ids': [
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_ch_s_3_rateup_ssr_30044',
+            ],
+        },
+    },
+    'gacha_pickup_supporter_30044_2': {
+        'rates': {'ssr_ratio': 0, 'ssr_rate_up_success_ratio': 1000, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 0, 'total_ssr_rate_up_pool_pct': 2143.43, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'general_sr_c_1040', 'general_sr_c_1050', 'general_sr_c_1056', 'general_sr_c_1005',
+            'general_sr_c_1021', 'general_sr_c_1028', 'general_sr_c_1009', 'general_sr_c_1017',
+            'general_sr_c_1039', 'general_sr_c_1003', 'general_sr_c_1049', 'general_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_s_2_rateup_sr_s_20001', 'pickup_s_2_rateup_sr_s_20036',
+            ],
+            'sr_supporter_pool_ids': [
+            'pickup_s_2_sr_s_20003', 'pickup_s_2_sr_s_20007', 'pickup_s_2_sr_s_20024', 'pickup_s_2_sr_s_20025',
+            'pickup_s_2_sr_s_20027', 'pickup_s_2_sr_s_20035', 'pickup_s_2_sr_s_20032', 'pickup_s_2_sr_s_20033',
+            'pickup_s_2_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_s_2_rateup_ssr_s_30044',
+            ],
+        },
+    },
+    'gacha_pickup_supporter_30045': {
+        'rates': {'ssr_ratio': 0, 'ssr_rate_up_success_ratio': 1000, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 0, 'total_ssr_rate_up_pool_pct': 2143.4, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.4, 'total_sr_combatant_pool_pct': 2163.85, 'total_sr_supporter_pool_pct': 2163.85, 'total_r_pool_pct': 84873.5},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'general_sr_c_1040', 'general_sr_c_1050', 'general_sr_c_1056', 'general_sr_c_1005',
+            'general_sr_c_1021', 'general_sr_c_1028', 'general_sr_c_1009', 'general_sr_c_1017',
+            'general_sr_c_1039', 'general_sr_c_1003', 'general_sr_c_1049', 'general_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_s_1_rateup_sr_s_20003', 'pickup_s_1_rateup_sr_s_20025',
+            ],
+            'sr_supporter_pool_ids': [
+            'pickup_s_1_sr_s_20001', 'pickup_s_1_sr_s_20007', 'pickup_s_1_sr_s_20024', 'pickup_s_1_sr_s_20027',
+            'pickup_s_1_sr_s_20035', 'pickup_s_1_sr_s_20036', 'pickup_s_1_sr_s_20032', 'pickup_s_1_sr_s_20033',
+            'pickup_s_1_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_s_1_rateup_ssr_s_30045',
+            ],
+        },
+    },
+    'gacha_pickup_supporter_30045_1': {
+        'rates': {'ssr_ratio': 0, 'ssr_rate_up_success_ratio': 1000, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 0, 'total_ssr_rate_up_pool_pct': 2143.43, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'general_sr_c_1040', 'general_sr_c_1050', 'general_sr_c_1056', 'general_sr_c_1005',
+            'general_sr_c_1021', 'general_sr_c_1028', 'general_sr_c_1009', 'general_sr_c_1017',
+            'general_sr_c_1039', 'general_sr_c_1003', 'general_sr_c_1049', 'general_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_s_1_rateup_sr_s_20003', 'pickup_s_1_rateup_sr_s_20025',
+            ],
+            'sr_supporter_pool_ids': [
+            'pickup_s_1_sr_s_20001', 'pickup_s_1_sr_s_20007', 'pickup_s_1_sr_s_20024', 'pickup_s_1_sr_s_20027',
+            'pickup_s_1_sr_s_20035', 'pickup_s_1_sr_s_20036', 'pickup_s_1_sr_s_20032', 'pickup_s_1_sr_s_20033',
+            'pickup_s_1_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_s_1_rateup_ssr_s_30045',
+            ],
+        },
+    },
+    'gacha_pickup_supporter_30046': {
+        'rates': {'ssr_ratio': 0, 'ssr_rate_up_success_ratio': 1000, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 0, 'total_ssr_rate_up_pool_pct': 2143.43, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'general_sr_c_1040', 'general_sr_c_1050', 'general_sr_c_1056', 'general_sr_c_1005',
+            'general_sr_c_1021', 'general_sr_c_1028', 'general_sr_c_1009', 'general_sr_c_1017',
+            'general_sr_c_1039', 'general_sr_c_1003', 'general_sr_c_1049', 'general_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_s_3_rateup_sr_s_20003', 'pickup_s_3_rateup_sr_s_20027',
+            ],
+            'sr_supporter_pool_ids': [
+            'pickup_s_3_sr_s_20001', 'pickup_s_3_sr_s_20007', 'pickup_s_3_sr_s_20024', 'pickup_s_3_sr_s_20025',
+            'pickup_s_3_sr_s_20035', 'pickup_s_3_sr_s_20036', 'pickup_s_3_sr_s_20032', 'pickup_s_3_sr_s_20033',
+            'pickup_s_3_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_s_3_rateup_ssr_s_30046',
+            ],
+        },
+    },
+    'gacha_pickup_supporter_30046_1': {
+        'rates': {'ssr_ratio': 0, 'ssr_rate_up_success_ratio': 1000, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 0, 'total_ssr_rate_up_pool_pct': 2143.43, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'general_sr_c_1040', 'general_sr_c_1050', 'general_sr_c_1056', 'general_sr_c_1005',
+            'general_sr_c_1021', 'general_sr_c_1028', 'general_sr_c_1009', 'general_sr_c_1017',
+            'general_sr_c_1039', 'general_sr_c_1003', 'general_sr_c_1049', 'general_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_s_3_rateup_sr_s_20003', 'pickup_s_3_rateup_sr_s_20036',
+            ],
+            'sr_supporter_pool_ids': [
+            'pickup_s_3_1_sr_s_20001', 'pickup_s_3_1_sr_s_20007', 'pickup_s_3_1_sr_s_20024', 'pickup_s_3_1_sr_s_20025',
+            'pickup_s_3_1_sr_s_20027', 'pickup_s_3_1_sr_s_20035', 'pickup_s_3_1_sr_s_20032', 'pickup_s_3_1_sr_s_20033',
+            'pickup_s_3_1_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_s_3_rateup_ssr_s_30046',
+            ],
+        },
+    },
+    'gacha_pickup_supporter_30053': {
+        'rates': {'ssr_ratio': 0, 'ssr_rate_up_success_ratio': 1000, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 0, 'total_ssr_rate_up_pool_pct': 2143.43, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'general_sr_c_1040', 'general_sr_c_1050', 'general_sr_c_1056', 'general_sr_c_1005',
+            'general_sr_c_1021', 'general_sr_c_1028', 'general_sr_c_1009', 'general_sr_c_1017',
+            'general_sr_c_1039', 'general_sr_c_1003', 'general_sr_c_1049', 'general_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_s_9_rateup_sr_s_20003', 'pickup_s_9_rateup_sr_s_20036',
+            ],
+            'sr_supporter_pool_ids': [
+            'pickup_s_9_sr_s_20001', 'pickup_s_9_sr_s_20007', 'pickup_s_9_sr_s_20024', 'pickup_s_9_sr_s_20025',
+            'pickup_s_9_sr_s_20027', 'pickup_s_9_sr_s_20035', 'pickup_s_9_sr_s_20032', 'pickup_s_9_sr_s_20033',
+            'pickup_s_9_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_s_9_rateup_ssr_s_30053',
+            ],
+        },
+    },
+    'gacha_pickup_supporter_30053_1': {
+        'rates': {'ssr_ratio': 0, 'ssr_rate_up_success_ratio': 1000, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 0, 'total_ssr_rate_up_pool_pct': 2143.43, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'general_sr_c_1040', 'general_sr_c_1050', 'general_sr_c_1056', 'general_sr_c_1005',
+            'general_sr_c_1021', 'general_sr_c_1028', 'general_sr_c_1009', 'general_sr_c_1017',
+            'general_sr_c_1039', 'general_sr_c_1003', 'general_sr_c_1049', 'general_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_ch_s_1_rateup_sr_20003', 'pickup_ch_s_1_rateup_sr_20036',
+            ],
+            'sr_supporter_pool_ids': [
+            'pickup_ch_s_1_sr_20001', 'pickup_ch_s_1_sr_20007', 'pickup_ch_s_1_sr_20024', 'pickup_ch_s_1_sr_20025',
+            'pickup_ch_s_1_sr_20027', 'pickup_ch_s_1_sr_20035', 'pickup_ch_s_1_sr_20032', 'pickup_ch_s_1_sr_20033',
+            'pickup_ch_s_1_sr_20011',
+            ],
+            'ssr_pool_ids': [
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_ch_s_1_rateup_ssr_30053',
+            ],
+        },
+    },
+    'gacha_pickup_supporter_30076': {
+        'rates': {'ssr_ratio': 0, 'ssr_rate_up_success_ratio': 1000, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 0, 'total_ssr_rate_up_pool_pct': 2143.43, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'general_sr_c_1040', 'general_sr_c_1050', 'general_sr_c_1056', 'general_sr_c_1005',
+            'general_sr_c_1021', 'general_sr_c_1028', 'general_sr_c_1009', 'general_sr_c_1017',
+            'general_sr_c_1039', 'general_sr_c_1003', 'general_sr_c_1049', 'general_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_s_4_rateup_sr_s_20001', 'pickup_s_4_rateup_sr_s_20011',
+            ],
+            'sr_supporter_pool_ids': [
+            'pickup_s_4_sr_s_20003', 'pickup_s_4_sr_s_20007', 'pickup_s_4_sr_s_20024', 'pickup_s_4_sr_s_20025',
+            'pickup_s_4_sr_s_20027', 'pickup_s_4_sr_s_20035', 'pickup_s_4_sr_s_20036', 'pickup_s_4_sr_s_20032',
+            'pickup_s_4_sr_s_20033',
+            ],
+            'ssr_pool_ids': [
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_s_4_rateup_ssr_s_30076',
+            ],
+        },
+    },
+    'gacha_pickup_supporter_30076_1': {
+        'rates': {'ssr_ratio': 0, 'ssr_rate_up_success_ratio': 1000, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 0, 'total_ssr_rate_up_pool_pct': 2143.43, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'general_sr_c_1040', 'general_sr_c_1050', 'general_sr_c_1056', 'general_sr_c_1005',
+            'general_sr_c_1021', 'general_sr_c_1028', 'general_sr_c_1009', 'general_sr_c_1017',
+            'general_sr_c_1039', 'general_sr_c_1003', 'general_sr_c_1049', 'general_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_s_17_rateup_sr_s_20035', 'pickup_s_17_rateup_sr_s_20011',
+            ],
+            'sr_supporter_pool_ids': [
+            'pickup_s_17_sr_s_20001', 'pickup_s_17_sr_s_20003', 'pickup_s_17_sr_s_20007', 'pickup_s_17_sr_s_20024',
+            'pickup_s_17_sr_s_20025', 'pickup_s_17_sr_s_20027', 'pickup_s_17_sr_s_20036', 'pickup_s_17_sr_s_20032',
+            'pickup_s_17_sr_s_20033',
+            ],
+            'ssr_pool_ids': [
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_s_17_rateup_ssr_s_30076',
+            ],
+        },
+    },
+    'gacha_pickup_supporter_30085': {
+        'rates': {'ssr_ratio': 0, 'ssr_rate_up_success_ratio': 1000, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 0, 'total_ssr_rate_up_pool_pct': 2143.43, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'general_sr_c_1040', 'general_sr_c_1050', 'general_sr_c_1056', 'general_sr_c_1005',
+            'general_sr_c_1021', 'general_sr_c_1028', 'general_sr_c_1009', 'general_sr_c_1017',
+            'general_sr_c_1039', 'general_sr_c_1003', 'general_sr_c_1049', 'general_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_s_7_rateup_sr_s_20003', 'pickup_s_7_rateup_sr_s_20032',
+            ],
+            'sr_supporter_pool_ids': [
+            'pickup_s_7_sr_s_20001', 'pickup_s_7_sr_s_20007', 'pickup_s_7_sr_s_20024', 'pickup_s_7_sr_s_20025',
+            'pickup_s_7_sr_s_20027', 'pickup_s_7_sr_s_20035', 'pickup_s_7_sr_s_20036', 'pickup_s_7_sr_s_20033',
+            'pickup_s_7_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_s_7_rateup_ssr_s_30085',
+            ],
+        },
+    },
+    'gacha_pickup_supporter_30085_1': {
+        'rates': {'ssr_ratio': 0, 'ssr_rate_up_success_ratio': 1000, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 0, 'total_ssr_rate_up_pool_pct': 2143.43, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'general_sr_c_1040', 'general_sr_c_1050', 'general_sr_c_1056', 'general_sr_c_1005',
+            'general_sr_c_1021', 'general_sr_c_1028', 'general_sr_c_1009', 'general_sr_c_1017',
+            'general_sr_c_1039', 'general_sr_c_1003', 'general_sr_c_1049', 'general_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_s_7_rateup_sr_s_20003', 'pickup_s_7_rateup_sr_s_20032',
+            ],
+            'sr_supporter_pool_ids': [
+            'pickup_s_7_sr_s_20001', 'pickup_s_7_sr_s_20007', 'pickup_s_7_sr_s_20024', 'pickup_s_7_sr_s_20025',
+            'pickup_s_7_sr_s_20027', 'pickup_s_7_sr_s_20035', 'pickup_s_7_sr_s_20036', 'pickup_s_7_sr_s_20033',
+            'pickup_s_7_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_s_7_rateup_ssr_s_30085',
+            ],
+        },
+    },
+    'gacha_pickup_supporter_30091': {
+        'rates': {'ssr_ratio': 0, 'ssr_rate_up_success_ratio': 1000, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 0, 'total_ssr_rate_up_pool_pct': 2143.43, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'general_sr_c_1040', 'general_sr_c_1050', 'general_sr_c_1056', 'general_sr_c_1005',
+            'general_sr_c_1021', 'general_sr_c_1028', 'general_sr_c_1009', 'general_sr_c_1017',
+            'general_sr_c_1039', 'general_sr_c_1003', 'general_sr_c_1049', 'general_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_s_6_rateup_sr_s_20024', 'pickup_s_6_rateup_sr_s_20003',
+            ],
+            'sr_supporter_pool_ids': [
+            'pickup_s_6_sr_s_20001', 'pickup_s_6_sr_s_20007', 'pickup_s_6_sr_s_20025', 'pickup_s_6_sr_s_20027',
+            'pickup_s_6_sr_s_20035', 'pickup_s_6_sr_s_20036', 'pickup_s_6_sr_s_20032', 'pickup_s_6_sr_s_20033',
+            'pickup_s_6_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_s_6_rateup_ssr_s_30091',
+            ],
+        },
+    },
+    'gacha_pickup_supporter_30091_1': {
+        'rates': {'ssr_ratio': 0, 'ssr_rate_up_success_ratio': 1000, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 0, 'total_ssr_rate_up_pool_pct': 2143.43, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'general_sr_c_1040', 'general_sr_c_1050', 'general_sr_c_1056', 'general_sr_c_1005',
+            'general_sr_c_1021', 'general_sr_c_1028', 'general_sr_c_1009', 'general_sr_c_1017',
+            'general_sr_c_1039', 'general_sr_c_1003', 'general_sr_c_1049', 'general_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_s_6_rateup_sr_s_20003', 'pickup_s_6_rateup_sr_s_20024',
+            ],
+            'sr_supporter_pool_ids': [
+            'pickup_s_6_sr_s_20001', 'pickup_s_6_sr_s_20007', 'pickup_s_6_sr_s_20025', 'pickup_s_6_sr_s_20027',
+            'pickup_s_6_sr_s_20035', 'pickup_s_6_sr_s_20036', 'pickup_s_6_sr_s_20032', 'pickup_s_6_sr_s_20033',
+            'pickup_s_6_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_s_6_rateup_ssr_s_30091',
+            ],
+        },
+    },
+    'gacha_pickup_supporter_30092': {
+        'rates': {'ssr_ratio': 0, 'ssr_rate_up_success_ratio': 1000, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 0, 'total_ssr_rate_up_pool_pct': 2143.43, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'general_sr_c_1040', 'general_sr_c_1050', 'general_sr_c_1056', 'general_sr_c_1005',
+            'general_sr_c_1021', 'general_sr_c_1028', 'general_sr_c_1009', 'general_sr_c_1017',
+            'general_sr_c_1039', 'general_sr_c_1003', 'general_sr_c_1049', 'general_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_s_10_rateup_sr_s_20025', 'pickup_s_10_rateup_sr_s_20011',
+            ],
+            'sr_supporter_pool_ids': [
+            'pickup_s_10_sr_s_20025', 'pickup_s_10_sr_s_20001', 'pickup_s_10_sr_s_20003', 'pickup_s_10_sr_s_20007',
+            'pickup_s_10_sr_s_20024', 'pickup_s_10_sr_s_20027', 'pickup_s_10_sr_s_20035', 'pickup_s_10_sr_s_20036',
+            'pickup_s_10_sr_s_20032', 'pickup_s_10_sr_s_20033',
+            ],
+            'ssr_pool_ids': [
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_s_10_rateup_ssr_s_30092',
+            ],
+        },
+    },
+    'gacha_pickup_supporter_30094': {
+        'rates': {'ssr_ratio': 0, 'ssr_rate_up_success_ratio': 1000, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 0, 'total_ssr_rate_up_pool_pct': 2143.43, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'general_sr_c_1040', 'general_sr_c_1050', 'general_sr_c_1056', 'general_sr_c_1005',
+            'general_sr_c_1021', 'general_sr_c_1028', 'general_sr_c_1009', 'general_sr_c_1017',
+            'general_sr_c_1039', 'general_sr_c_1003', 'general_sr_c_1049', 'general_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_s_11_rateup_sr_s_20025', 'pickup_s_11_rateup_sr_s_20001',
+            ],
+            'sr_supporter_pool_ids': [
+            'pickup_s_11_sr_s_20003', 'pickup_s_11_sr_s_20007', 'pickup_s_11_sr_s_20024', 'pickup_s_11_sr_s_20027',
+            'pickup_s_11_sr_s_20035', 'pickup_s_11_sr_s_20036', 'pickup_s_11_sr_s_20032', 'pickup_s_11_sr_s_20033',
+            'pickup_s_11_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_s_11_rateup_ssr_s_30094',
+            ],
+        },
+    },
+    'gacha_pickup_supporter_30095': {
+        'rates': {'ssr_ratio': 0, 'ssr_rate_up_success_ratio': 1000, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 0, 'total_ssr_rate_up_pool_pct': 2143.43, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'general_sr_c_1040', 'general_sr_c_1050', 'general_sr_c_1056', 'general_sr_c_1005',
+            'general_sr_c_1021', 'general_sr_c_1028', 'general_sr_c_1009', 'general_sr_c_1017',
+            'general_sr_c_1039', 'general_sr_c_1003', 'general_sr_c_1049', 'general_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_s_12_rateup_sr_s_20024', 'pickup_s_12_rateup_sr_s_20003',
+            ],
+            'sr_supporter_pool_ids': [
+            'pickup_s_12_sr_s_20001', 'pickup_s_12_sr_s_20007', 'pickup_s_12_sr_s_20025', 'pickup_s_12_sr_s_20027',
+            'pickup_s_12_sr_s_20035', 'pickup_s_12_sr_s_20036', 'pickup_s_12_sr_s_20032', 'pickup_s_12_sr_s_20033',
+            'pickup_s_12_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_s_12_rateup_ssr_s_30095',
+            ],
+        },
+    },
+    'gacha_pickup_supporter_30095_1': {
+        'rates': {'ssr_ratio': 0, 'ssr_rate_up_success_ratio': 1000, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 0, 'total_ssr_rate_up_pool_pct': 2143.43, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'general_sr_c_1040', 'general_sr_c_1050', 'general_sr_c_1056', 'general_sr_c_1005',
+            'general_sr_c_1021', 'general_sr_c_1028', 'general_sr_c_1009', 'general_sr_c_1017',
+            'general_sr_c_1039', 'general_sr_c_1003', 'general_sr_c_1049', 'general_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_ch_s_2_rateup_sr_20024', 'pickup_ch_s_2_rateup_sr_20003',
+            ],
+            'sr_supporter_pool_ids': [
+            'pickup_ch_s_2_sr_20001', 'pickup_ch_s_2_sr_20007', 'pickup_ch_s_2_sr_20025', 'pickup_ch_s_2_sr_20027',
+            'pickup_ch_s_2_sr_20035', 'pickup_ch_s_2_sr_20036', 'pickup_ch_s_2_sr_20032', 'pickup_ch_s_2_sr_20033',
+            'pickup_ch_s_2_sr_20011',
+            ],
+            'ssr_pool_ids': [
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_ch_s_2_rateup_ssr_30095',
+            ],
+        },
+    },
+    'gacha_pickup_supporter_30114': {
+        'rates': {'ssr_ratio': 0, 'ssr_rate_up_success_ratio': 1000, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 0, 'total_ssr_rate_up_pool_pct': 2143.43, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'general_sr_c_1040', 'general_sr_c_1050', 'general_sr_c_1056', 'general_sr_c_1005',
+            'general_sr_c_1021', 'general_sr_c_1028', 'general_sr_c_1009', 'general_sr_c_1017',
+            'general_sr_c_1039', 'general_sr_c_1003', 'general_sr_c_1049', 'general_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_s_14_rateup_sr_s_20036', 'pickup_s_14_rateup_sr_s_20032',
+            ],
+            'sr_supporter_pool_ids': [
+            'pickup_s_14_sr_s_20001', 'pickup_s_14_sr_s_20003', 'pickup_s_14_sr_s_20007', 'pickup_s_14_sr_s_20024',
+            'pickup_s_14_sr_s_20025', 'pickup_s_14_sr_s_20027', 'pickup_s_14_sr_s_20035', 'pickup_s_14_sr_s_20033',
+            'pickup_s_14_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_s_14_rateup_ssr_s_30114',
+            ],
+        },
+    },
+    'gacha_pickup_supporter_30116': {
+        'rates': {'ssr_ratio': 0, 'ssr_rate_up_success_ratio': 1000, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 0, 'total_ssr_rate_up_pool_pct': 2143.43, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'general_sr_c_1040', 'general_sr_c_1050', 'general_sr_c_1056', 'general_sr_c_1005',
+            'general_sr_c_1021', 'general_sr_c_1028', 'general_sr_c_1009', 'general_sr_c_1017',
+            'general_sr_c_1039', 'general_sr_c_1003', 'general_sr_c_1049', 'general_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_s_15_rateup_sr_s_20001', 'pickup_s_15_rateup_sr_s_20035',
+            ],
+            'sr_supporter_pool_ids': [
+            'pickup_s_15_sr_s_20003', 'pickup_s_15_sr_s_20007', 'pickup_s_15_sr_s_20024', 'pickup_s_15_sr_s_20025',
+            'pickup_s_15_sr_s_20027', 'pickup_s_15_sr_s_20036', 'pickup_s_15_sr_s_20032', 'pickup_s_15_sr_s_20033',
+            'pickup_s_15_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_s_15_rateup_ssr_s_30116',
+            ],
+        },
+    },
+    'gacha_pickup_supporter_30118': {
+        'rates': {'ssr_ratio': 0, 'ssr_rate_up_success_ratio': 1000, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 0, 'total_ssr_rate_up_pool_pct': 2143.43, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'general_sr_c_1040', 'general_sr_c_1050', 'general_sr_c_1056', 'general_sr_c_1005',
+            'general_sr_c_1021', 'general_sr_c_1028', 'general_sr_c_1009', 'general_sr_c_1017',
+            'general_sr_c_1039', 'general_sr_c_1003', 'general_sr_c_1049', 'general_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_s_16_rateup_sr_s_20003', 'pickup_s_16_rateup_sr_s_20027',
+            ],
+            'sr_supporter_pool_ids': [
+            'pickup_s_16_sr_s_20001', 'pickup_s_16_sr_s_20007', 'pickup_s_16_sr_s_20024', 'pickup_s_16_sr_s_20025',
+            'pickup_s_16_sr_s_20035', 'pickup_s_16_sr_s_20036', 'pickup_s_16_sr_s_20032', 'pickup_s_16_sr_s_20033',
+            'pickup_s_16_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_s_16_rateup_ssr_s_30118',
+            ],
+        },
+    },
+    'gacha_pickup_supporter_30135': {
+        'rates': {'ssr_ratio': 0, 'ssr_rate_up_success_ratio': 1000, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 0, 'total_ssr_rate_up_pool_pct': 2143.43, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'general_sr_c_1040', 'general_sr_c_1050', 'general_sr_c_1056', 'general_sr_c_1005',
+            'general_sr_c_1021', 'general_sr_c_1028', 'general_sr_c_1009', 'general_sr_c_1017',
+            'general_sr_c_1039', 'general_sr_c_1003', 'general_sr_c_1049', 'general_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_s_18_rateup_sr_s_20001', 'pickup_s_18_rateup_sr_s_20025',
+            ],
+            'sr_supporter_pool_ids': [
+            'pickup_s_18_sr_s_20003', 'pickup_s_18_sr_s_20007', 'pickup_s_18_sr_s_20024', 'pickup_s_18_sr_s_20027',
+            'pickup_s_18_sr_s_20035', 'pickup_s_18_sr_s_20036', 'pickup_s_18_sr_s_20032', 'pickup_s_18_sr_s_20033',
+            'pickup_s_18_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_s_18_rateup_ssr_s_30135',
+            ],
+        },
+    },
+    'gacha_pickup_supporter_30137': {
+        'rates': {'ssr_ratio': 0, 'ssr_rate_up_success_ratio': 1000, 'sr_ratio': 0, 'sr_combatant_ratio': 1500, 'sr_supporter_ratio': 1500, 'sr_rate_up_success_ratio': 3000, 'r_ratio': 93000, 'total_ratio': 100000},
+        'total_rate_info': {'total_ssr_pool_pct': 0, 'total_ssr_rate_up_pool_pct': 2143.43, 'total_sr_pool_pct': 0, 'total_sr_rate_up_pool_pct': 8655.42, 'total_sr_combatant_pool_pct': 2163.86, 'total_sr_supporter_pool_pct': 2163.86, 'total_r_pool_pct': 84873.45},
+        'pools': {
+            'r_pool_ids': [
+            'general_r_s_20010', 'general_r_s_20012', 'general_r_s_20013', 'general_r_s_20015',
+            'general_r_s_20016', 'general_r_s_20026',
+            ],
+            'sr_combatant_pool_ids': [
+            'general_sr_c_1040', 'general_sr_c_1050', 'general_sr_c_1056', 'general_sr_c_1005',
+            'general_sr_c_1021', 'general_sr_c_1028', 'general_sr_c_1009', 'general_sr_c_1017',
+            'general_sr_c_1039', 'general_sr_c_1003', 'general_sr_c_1049', 'general_sr_c_1012',
+            ],
+            'sr_pool_ids': [
+            ],
+            'sr_rate_up_success_pool_ids': [
+            'pickup_s_19_rateup_sr_s_20036', 'pickup_s_19_rateup_sr_s_20032',
+            ],
+            'sr_supporter_pool_ids': [
+            'pickup_s_19_sr_s_20001', 'pickup_s_19_sr_s_20003', 'pickup_s_19_sr_s_20007', 'pickup_s_19_sr_s_20024',
+            'pickup_s_19_sr_s_20025', 'pickup_s_19_sr_s_20027', 'pickup_s_19_sr_s_20035', 'pickup_s_19_sr_s_20033',
+            'pickup_s_19_sr_s_20011',
+            ],
+            'ssr_pool_ids': [
+            ],
+            'ssr_rate_up_success_pool_ids': [
+            'pickup_s_19_rateup_ssr_s_30137',
+            ],
+        },
+    },
+}
+
 # {stage id: (English name, season)}. See game_client.chaos_names.
 CHAOS_NAMES = {
     50000: ('Laboratory 0', 'disaster_s01'),
