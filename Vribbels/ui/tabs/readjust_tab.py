@@ -414,7 +414,7 @@ class ReadjustTab(BaseTab):
                                 pady=(px_after(2, 7), px(2)))
         self._build_weights(self.weights_frame)
 
-        lists = ttk.LabelFrame(body, text="Fragments", padding=px(0),
+        lists = ttk.LabelFrame(body, text="Memory Fragments", padding=px(0),
                                style="Borderless.TLabelframe")
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: panel ↕ unrelated label -- panel, title ↕
