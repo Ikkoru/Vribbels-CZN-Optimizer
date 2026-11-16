@@ -82,6 +82,8 @@ from models.memory_fragment import (
     compute_fragment_gs, compute_fragment_potential, bounds_for_fragment,
 )
 from optimizer.core import parse_set_effect_shares
+from optimizer.run_settings import (exclude_order, resolve_res_id,
+                                    run_settings, weights_for)
 from ui.scaling import px, px_after, px_spans
 
 
@@ -363,30 +365,7 @@ ORDER_MODE_GAP = 14      # spacing: control group ↔ control group -- button, c
 ORDER_MODE_NOTE_GAP = 9  # spacing: heading ↔ element -- checkbox, label ↔
 
 
-def exclude_order(saved, roster, res_id_of):
-    """Order Mode's order over `roster`: the combatants `saved` places,
-    in its order, then every one it does not, by name -- so a new
-    combatant ranks last, its MFs free for everyone above it.
 
-    `saved` is res_id strings; `res_id_of` maps a name to its res_id."""
-    by_id = {}
-    for name in roster:
-        rid = res_id_of(name)
-        if rid is not None:
-            by_id.setdefault(str(rid), name)
-    placed = []
-    for rid in saved:
-        name = by_id.get(str(rid))
-        if name is not None and name not in placed:
-            placed.append(name)
-    return placed + sorted(name for name in roster if name not in placed)
-
-
-def excluded_by_order(order, current):
-    """Whose MFs Order Mode keeps from `current`: everyone before it. A
-    combatant the order does not hold ranks after all of them."""
-    return list(order[:order.index(current)]) if current in order \
-        else list(order)
 
 
 # Force-main checkbox definitions. Each entry: (settings key, label, slot).
@@ -2683,35 +2662,9 @@ class OptimizerTab(BaseTab):
     # =================================================================
 
     def _resolve_res_id(self, hero_name: str) -> int | None:
-        """Return the res_id for `hero_name`, or None if unknown.
-
-        Resolution order:
-          1. optimizer.character_info[name].res_id  -- live captured data
-          2. the CHARACTERS key whose entry has this name -- every
-             combatant the game has, owned or not
-
-        The second is the only one a combatant not obtained has: its
-        settings, shipped defaults included, and its Potential 7 are
-        all looked up by it. An entry carries no res_id field of its
-        own; the key is the res_id.
-
-        Returns None if neither knows the character.
-        """
-        if not hero_name:
-            return None
-        info = self.optimizer.character_info.get(hero_name)
-        if info is not None and getattr(info, "res_id", None):
-            try:
-                return int(info.res_id)
-            except (TypeError, ValueError):
-                pass
-        for rid, data in CHARACTERS.items():
-            if isinstance(data, dict) and data.get("name") == hero_name:
-                try:
-                    return int(rid)
-                except (TypeError, ValueError):
-                    return None
-        return None
+        """`hero_name`'s res_id, or None if unknown -- see
+        `run_settings.resolve_res_id`."""
+        return resolve_res_id(self.optimizer, hero_name)
 
     def _ensure_captured_chars_have_settings(self):
         """Make sure every captured character has a settings entry.
@@ -3351,129 +3304,17 @@ class OptimizerTab(BaseTab):
         self.progress_label.config(text="Cancelling...")
 
     def _build_optimizer_settings(self) -> dict:
-        """Build the full optimizer settings dict from the current character's
-        persisted state.
-
-        Combines:
-          * Legacy filter fields used by `get_gear_by_slot` (set requirements,
-            main-stat filters per slot, top_percent, excluded_heroes).
-          * Scoring fields used by `calculate_build_stats` and
-            `_compute_optimizer_score` (Extra%, DoT%, ATK/DEF split,
-            shield/heal weight, per-set effect shares, avg buff fields,
-            level stepper, element override, have-at-least minimums).
-
-        See docs/game_formulas.md §8 for the formula consumers of each field.
-        """
-        # Defaults for the "no current character" case (shouldn't happen
-        # in practice -- run_optimization gates on hero selection).
-        if self.opt_settings is None or self._current_res_id is None:
-            s = {
-                "force_main": dict.fromkeys(("slot4_hp", "slot5_hp", "slot6_hp", "slot6_ego"), False),
-                "sets_selected": [],
-                "max_flex_slots": 6,
-                "have_at_least": {},
-            }
-        else:
-            s = self.opt_settings.get_character_data(self._current_res_id)
-
-        # Force-main flags -> per-slot main stat filter lists (None = "no filter").
-        slot4_filter = ["HP%"] if s["force_main"].get("slot4_hp") else None
-        slot5_filter = ["HP%"] if s["force_main"].get("slot5_hp") else None
-        slot6_filter = []
-        if s["force_main"].get("slot6_hp"):
-            slot6_filter.append("HP%")
-        if s["force_main"].get("slot6_ego"):
-            slot6_filter.append("Ego")
-        slot6_filter = slot6_filter or None
-
-        # Selected sets -> split into 4-piece and 2-piece lists for the
-        # optimizer's legacy fields (kept for back-compat; the
-        # locked-count rule uses `sets_selected` directly).
-        selected_4pc = []
-        selected_2pc = []
-        for sid in s.get("sets_selected", []):
-            sinfo = SETS.get(sid)
-            if sinfo is None:
-                continue
-            if sinfo.get("pieces") == 4:
-                selected_4pc.append(sid)
-            elif sinfo.get("pieces") == 2:
-                selected_2pc.append(sid)
-
-        # Excluded characters' gear: res_ids -> hero names. In Order
-        # Mode, everyone before the selected combatant in the order.
-        excluded_heroes = []
-        excluded_res_ids = set(self.opt_settings.get_excluded_gear_chars()
-                                if self.opt_settings else [])
-        if self.exclude_order_var.get():
-            roster = sorted(set(self.optimizer.characters)
-                            | set(self.optimizer.character_info))
-            order = exclude_order(
-                self.opt_settings.get_exclude_order()
-                if self.opt_settings else [], roster, self._resolve_res_id)
-            kept = excluded_by_order(order, self.selected_character.get())
-            excluded_res_ids = {str(rid) for rid in
-                                map(self._resolve_res_id, kept)
-                                if rid is not None}
-        # Don't exclude the current character's gear -- their pieces should
-        # be available for re-equip.
-        current_rid_str = str(self._current_res_id) if self._current_res_id else None
-        for hero_name in self.optimizer.characters:
-            rid = self._resolve_res_id(hero_name)
-            if rid is None:
-                continue
-            rid_str = str(rid)
-            if rid_str == current_rid_str:
-                continue
-            if rid_str in excluded_res_ids:
-                excluded_heroes.append(hero_name)
-
-        return {
-            # ----- Legacy filter fields (consumed by get_gear_by_slot + optimize) -----
-            "four_piece_sets": selected_4pc,
-            "two_piece_sets": selected_2pc,
-            "main_stat_4": slot4_filter,
-            "main_stat_5": slot5_filter,
-            "main_stat_6": slot6_filter,
-            "top_percent": 20,           # internal; not user-facing
-            "include_equipped": True,    # always include; exclude list is the new gate
-            "excluded_heroes": excluded_heroes,
-            "max_results": 100,
-            # GLOBAL minimum-MF-level candidacy filter (settings.json,
-            # not per-character). 0 = off.
-            "min_gear_level": self._current_min_gear_level(),
-            # GLOBAL off-element Slot V candidacy filter (settings.json,
-            # not per-character). Drops Slot V candidates whose main
-            # stat is an element DMG% not matching the combatant's
-            # element; ATK%/HP% mains always pass.
-            "ignore_offelement_slot5": self._current_ignore_offelement(),
-            # ----- Set-combo fields (consumed by optimize's locked-count rule) -----
-            "sets_selected": list(s.get("sets_selected", [])),
-            "max_flex_slots": int(s.get("max_flex_slots", 6)),
-            # ----- Weights for the slot pre-filter sort -----
-            # The optimizer ranks fragments per slot by their score under
-            # these weights before applying the Top filter. Resolved from
-            # CharacterPresetManager (character's assignment) -> active
-            # preset -> empty (all-1.0) per _get_weights_for_character.
-            # When None or empty, the optimizer falls back to fragment.
-            # gear_score (the cached value from the active preset).
-            "slot_filter_weights": self._get_weights_for_character(
-                self.selected_character.get()
-            ) or None,
-            # ----- Scoring fields (consumed by calculate_build_stats + _compute_optimizer_score) -----
-            "optimize_for_level": s.get("optimize_for_level", 62),
-            "extra_pct": s.get("extra_pct", 0),
-            "dot_pct": s.get("dot_pct", 0),
-            "fracture_pct": s.get("fracture_pct", 0),
-            "atk_def_split": s.get("atk_def_split", 0),
-            "shielding_healing_weight": s.get("shielding_healing_weight", 0),
-            "set_effect_pcts": dict(s.get("set_effect_pcts", {}) or {}),
-            "avg_card_dmg_pct": s.get("avg_card_dmg_pct", 100),
-            "avg_mult_buff_pct": s.get("avg_mult_buff_pct", 0),
-            "avg_add_buff_pct": s.get("avg_add_buff_pct", 0),
-            "element_override": s.get("element_override"),
-            "have_at_least": s.get("have_at_least", {}),
-        }
+        """The settings dict `optimize()` takes for the current
+        character, from its persisted state and the tab's global
+        filters -- see `run_settings.run_settings`."""
+        return run_settings(
+            self.optimizer, self.opt_settings,
+            self.selected_character.get(), self._current_res_id,
+            order_mode=bool(self.exclude_order_var.get()),
+            min_gear_level=self._current_min_gear_level(),
+            ignore_offelement=self._current_ignore_offelement(),
+            weights=self._get_weights_for_character(
+                self.selected_character.get()))
 
     # =================================================================
     # Queue + result display
@@ -4482,43 +4323,10 @@ class OptimizerTab(BaseTab):
                                        foreground=self.colors["green"])
 
     def _get_weights_for_character(self, char_name: str) -> dict:
-        """Resolve the scoring weights for the current character's GS column.
-
-        Resolution order (matches Heroes / Combatants tab):
-          1. Character's assigned preset via CharacterPresetManager.get_preset_for.
-             If the assigned preset name is missing or no longer exists in
-             PresetManager, fall through (don't error).
-          2. Currently-active preset (PresetManager.selected_preset).
-          3. Empty dict — the GS helpers treat that as "all weights = 1.0".
-
-        Returns:
-            A dict[stat_name, weight] (padded by PresetManager.get_preset to
-            cover SUPPORTED_STATS), OR an empty dict for the default-weights
-            case. Callers pass straight into compute_fragment_gs /
-            compute_fragment_potential.
-        """
-        cpm = self.context.character_preset_manager
-        pm = self.context.preset_manager
-        if pm is None:
-            return {}
-
-        # 1) Character's assignment
-        if cpm is not None and char_name:
-            assigned = cpm.get_preset_for(char_name)
-            if assigned:
-                weights = pm.get_preset(assigned)
-                if weights is not None:
-                    return weights
-
-        # 2) Active preset
-        active = pm.selected_preset
-        if active:
-            weights = pm.get_preset(active)
-            if weights is not None:
-                return weights
-
-        # 3) Default
-        return {}
+        """The scoring weights for `char_name`'s GS column -- see
+        `run_settings.weights_for`."""
+        return weights_for(self.context.character_preset_manager,
+                           self.context.preset_manager, char_name)
 
     # =================================================================
     # Hero selection
