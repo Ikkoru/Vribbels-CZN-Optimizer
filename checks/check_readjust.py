@@ -21,6 +21,8 @@ nothing else, so a broken one reads as a plausible ranking:
    only by the sampling error.
 7. **The tab says which option to use**: Exclude where its gain per
    Quartz is higher, Reroll otherwise.
+9. **Avg is the average after, kept or not**: every outcome's score,
+   the ones below Now included, held against every outcome counted out.
 8. **The tab keeps an answer by what it was worked out from**: a
    readjusted fragment is worked out again, an unchanged one is not.
 """
@@ -53,7 +55,8 @@ def _fragment(ups, level=5, rarity=4, substats=4):
 
 
 def _counted(fragment, valuer, eligible):
-    """(mean gain, chance of a gain) over every outcome, counted out:
+    """(mean gain, chance of a gain, average after) over every outcome,
+    counted out:
     the exact distribution of what `UPGRADES` upgrades add, each a
     substat of `eligible` and a roll alike, unbinned."""
     import readjust as rj
@@ -75,13 +78,14 @@ def _counted(fragment, valuer, eligible):
                 at = round(total + add, 9)
                 out[at] = out.get(at, 0.0) + p * q
         dist = out
-    mean = chance = 0.0
+    mean = chance = avg = 0.0
     for add, p in dist.items():
         after = start + add
+        avg += p * after
         if after > ref + 1e-9:
             mean += p * (after - ref)
             chance += p
-    return mean, chance
+    return mean, chance, avg
 
 
 class _Linear:
@@ -112,7 +116,7 @@ class _Linear:
 def run():
     add_source_to_path()
     import readjust as rj
-    from ui.tabs.readjust_tab import row_values
+    from ui.tabs.readjust_tab import COLUMNS, row_values
 
     out = []
     tol = 0.01
@@ -122,7 +126,7 @@ def run():
     fragment = _fragment([(0, 1.6), (2, 5)])
     valuer = rj.GearValuer(WEIGHTS)
     reading = rj.read_gear(fragment, valuer)
-    mean, chance = _counted(fragment, valuer, [0, 1, 2, 3])
+    mean, chance, avg = _counted(fragment, valuer, [0, 1, 2, 3])
     span = rj.UPGRADES * max(valuer.bind(fragment).points(s, rj.max_roll(s))
                    for s in fragment.substats)
     if abs(reading.plain.mean - mean) > span / rj.BINS + tol \
@@ -133,10 +137,16 @@ def run():
                    f"counted out gives {mean:.3f} at {chance:.3f}: each "
                    f"upgrade lands on a substat alike and on any roll "
                    f"alike, onto the starting values.")
+    # 9
+    if abs(reading.plain.avg - avg) > span / rj.BINS + tol:
+        out.append(f"Avg reads {reading.plain.avg:.3f} GS where every "
+                   f"outcome counted out averages {avg:.3f}: it is the "
+                   f"average after a readjustment, the outcomes below Now "
+                   f"included.")
     best = None
     for i, sub in enumerate(fragment.substats):
         rest = [j for j in range(4) if j != i]
-        m, c = _counted(fragment, valuer, rest)
+        m, c, _a = _counted(fragment, valuer, rest)
         if best is None or m > best[1]:
             best = (sub.name, m, c)
     if reading.exclude.excluded != best[0] \
@@ -196,7 +206,7 @@ def run():
         r = rj.Reading(fragment, "X", 0.0,
                        rj.Option(None, 1, plain_mean, 0.5, 2.0),
                        rj.Option("CRate", 2, exclude_mean, 0.5, 2.0))
-        use = row_values(r, rj.GEAR)[13]
+        use = row_values(r, rj.GEAR)[[c[0] for c in COLUMNS].index("use")]
         if use != want:
             out.append(f"a plain gain of {plain_mean} against an "
                        f"exclusion's {exclude_mean} says {use!r}, not "
@@ -271,6 +281,10 @@ def _answers_kept_by_content():
 
 
 FAULTS = [
+    ("Avg counting only the outcomes kept", "readjust:_option",
+     "        avg += p * after\n",
+     "        avg += p * max(after, ref)\n",
+     "Avg reads"),
     ("an exclusion dealing over all four", "readjust:read",
      "rest = grids[:i] + grids[i + 1:]", "rest = grids",
      "the best exclusion reads"),

@@ -105,12 +105,14 @@ def max_roll(sub):
 class Option:
     """One way to readjust: `excluded` the substat left out (None for
     none), what it costs, and what it gains over before -- the mean,
-    the chance of any gain at all, the most it can."""
+    the chance of any gain at all, the most it can -- and `avg`, the
+    average after, in the units of before, whether or not it is kept."""
     excluded: str | None
     cost: int
     mean: float
     chance: float
     best: float
+    avg: float = 0.0
 
     @property
     def per_quartz(self):
@@ -182,14 +184,15 @@ def _option(grids, start, ref, excluded, cost):
     span = max(UPGRADES * (max(tops) - min(lows)), 1e-9)
     width = span / BINS
     first, chances = _times(_one_upgrade(grids, width), UPGRADES)
-    mean = chance = 0.0
+    mean = chance = avg = 0.0
     for i, p in enumerate(chances):
         after = start + (first + i) * width
+        avg += p * after
         if after > ref + width / 2:
             mean += p * (after - ref)
             chance += p
     best = max(0.0, start + UPGRADES * max(tops) - ref)
-    return Option(excluded, cost, mean, min(1.0, chance), best)
+    return Option(excluded, cost, mean, min(1.0, chance), best, avg)
 
 
 def read(fragment, valuer, combatant=""):
@@ -385,10 +388,11 @@ def _deal(fragment, eligible, rng):
 
 def _sampled(valuer, fragment, eligible, ref, excluded, cost, samples, rng):
     """An Option by sampling the build's real score."""
-    mean = chance = 0.0
+    mean = chance = avg = 0.0
     for _ in range(samples):
         after = valuer.rel(valuer.swapped(
             fragment, _deal(fragment, eligible, rng))) * 100
+        avg += after
         if after > ref + 1e-9:
             mean += after - ref
             chance += 1
@@ -399,7 +403,8 @@ def _sampled(valuer, fragment, eligible, ref, excluded, cost, samples, rng):
         values[i] += UPGRADES * max(roll_values(fragment.substats[i]))
         best = max(best, valuer.rel(valuer.swapped(fragment, values)) * 100
                    - ref)
-    return Option(excluded, cost, mean / samples, chance / samples, best)
+    return Option(excluded, cost, mean / samples, chance / samples, best,
+                  avg / samples)
 
 
 def refine(reading, valuer, samples=REFINE_SAMPLES):

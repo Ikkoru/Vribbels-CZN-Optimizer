@@ -70,6 +70,7 @@ COLUMNS = (
       "Flat DEF 14 (+3)",), tk.W),
     ("for", "For", ("Heidemarie",), tk.W),
     ("now", "Now", ("-10.00%", "100.0"), tk.E),
+    ("avg", "Avg", ("-10.00%", "100.0"), tk.E),
     ("gain", "Reroll", ("+10.00%",), tk.E),
     ("chance", "Chance", ("100%",), tk.E),
     ("excl", "Exclude", ("Extra DMG%",), tk.W),
@@ -93,7 +94,8 @@ SET_COLUMNS = 5
 _KEEPS = ("Readjustment keeps each substat type and starting value, "
           "re-shuffles the 4 upgrades and rerolls their values; you "
           "choose to keep Before or After.\n\n")
-_COLUMNS = ("\n\nChance: of a rise.\n"
+_COLUMNS = ("\n\nAvg: Now's average after a Reroll, kept or not.\n"
+            "Chance: of a rise.\n"
             "Best: the most it can rise.\n"
             "Use, Per Quartz: the better option per Quartz.")
 NOTES = {
@@ -179,6 +181,7 @@ def row_values(reading, measure):
         substat_words(f),
         reading.combatant,
         now % reading.now,
+        now % plain.avg,
         gain % plain.mean,
         "%d%%" % round(plain.chance * 100),
         exclude.excluded or "",
@@ -1006,7 +1009,8 @@ class ReadjustTab(BaseTab):
         numbers = {
             "weighted": lambda r: r.value,
             "per": lambda r: r.best.per_quartz,
-            "now": lambda r: r.now, "gain": lambda r: r.plain.mean,
+            "now": lambda r: r.now, "avg": lambda r: r.plain.avg,
+            "gain": lambda r: r.plain.mean,
             "chance": lambda r: r.plain.chance,
             "xgain": lambda r: r.exclude.mean,
             "xchance": lambda r: r.exclude.chance,

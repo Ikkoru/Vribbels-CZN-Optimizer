@@ -26,6 +26,7 @@ A build-score combatant's settings are their Optimizer settings, its level the o
 
 ## What a row says
 
+- **Avg**: the average of Now after a plain readjustment, the outcomes worse than Now included, as if After were always kept. Now below Avg is a fragment that rolled below its own average, which is where most of a large Reroll gain comes from.
 - **Reroll**: a plain readjustment's expected gain, and its chance of any gain.
 - **Exclude**: the substat whose exclusion gains most, and that gain and chance.
 - **Best**: the most either can gain, every upgrade a top roll on one substat.
