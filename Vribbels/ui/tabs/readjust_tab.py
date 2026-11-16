@@ -8,8 +8,9 @@ excluded (2 Quartz), and the list ranks every fragment by the better
 of the two per Quartz.
 
 **Score** picks the measure: Gear Score, under the combatant's assigned
-preset, or Build Score, the Optimizer's score of the combatant's
-equipped build with the fragment in its slot. **For** picks whose: one
+preset, or Build Score, the Optimizer's score against the combatant's
+Top build, each fragment in the best build the Optimizer finds around
+it, under the combatant's Optimizer tab settings. **For** picks whose: one
 combatant, or several, each weighted, every fragment read for the one
 whose weighted gain is highest. **Slots**, **Sets** and **MFs**
 narrow the list without working anything out again.
@@ -17,11 +18,12 @@ narrow the list without working anything out again.
 **The work runs in worker processes** (`readjust.submit`), a job a
 chunk of fragments for one combatant and measure, and every answer is
 kept by what it was worked out from -- the fragment's own rolls, and
-the preset's weights or the build it is set into: a measure or a
-combatant gone back to draws at once, a new capture costs only the
-fragments and builds it changed, and anything still being worked out
-shows `Loading...` meanwhile, the window free to use. A change of mind
-drops the jobs not started yet. `docs/readjust.md` has the model.
+the preset's weights or everything the combatant's builds are made of
+(`readjust.build_signature`): a measure or a combatant gone back to
+draws at once, a new capture costs only what it changed, and anything
+still being worked out shows how far it has got meanwhile, the window
+free to use. A change of mind drops the jobs not started yet.
+`docs/readjust.md` has the model.
 """
 
 import json
@@ -31,6 +33,7 @@ from tkinter import ttk
 import item_amounts
 import readjust as rj
 from game_data import EQUIPMENT_SLOTS, SETS
+from optimizer.run_settings import saved_run_settings
 from game_data.characters import ATTRIBUTE_COLORS
 from game_data.sets import named_sets, set_named, set_pieces
 from game_data.sets import set_name as set_name_of
@@ -103,11 +106,12 @@ NOTES = {
         "Gain: the average rise in Gear Score under the combatant's "
         "assigned preset.") + _COLUMNS,
     rj.BUILD: _KEEPS + (
-        "Gain: the average rise in the Optimizer's score of the "
-        "combatant's equipped build with the MF in its slot, over the "
-        "higher of Now and the build as worn.") + _COLUMNS,
+        "Gain: the average rise over the combatant's Top build (under "
+        "their Optimizer tab settings), the MF in the best build found "
+        "around it.") + _COLUMNS,
 }
-LOADING = "Loading..."
+LOADING = "Loading... %d of %d"
+NO_BUILD = "The Optimizer finds no build for %s under their settings."
 NO_DATA = "No capture loaded: log in with the capture running."
 NOBODY = "Give a combatant a weight above 0."
 NO_PRESET = "%s has no Gear Score preset: assign one on the Combatants tab."
@@ -119,10 +123,10 @@ COUNT = "%d MFs"
 HELD_COLOURS = ((0, "red"), (1, "orange"), (2, "yellow"))
 HELD_PLENTY = "green"
 
-# A job's fragments, and a refinement's: small enough that a change of
-# mind waits on little.
+# A job's fragments: small enough that a change of mind waits on
+# little. A build-score fragment is two Optimizer runs and its sampling.
 CHUNK = 40
-REFINE_CHUNK = 5
+BUILD_CHUNK = 4
 POLL_MS = 50
 # How long the weight spinbox has to hold still before a new reading.
 SETTLE_MS = 400
@@ -197,7 +201,7 @@ def row_values(reading, measure):
 def best_readings(fragments, readings, weights):
     """[Reading], best first: each fragment read for the combatant whose
     weighted gain per Quartz is highest. `readings` {combatant: {id:
-    (now, plain, exclude, sampled)}}, `weights` {combatant: weight}."""
+    (now, plain, exclude)}}, `weights` {combatant: weight}."""
     out = []
     for fragment in fragments:
         best = None
@@ -205,9 +209,9 @@ def best_readings(fragments, readings, weights):
             got = readings.get(name, {}).get(fragment.id)
             if got is None:
                 continue
-            now, plain, exclude, sampled = got
+            now, plain, exclude = got
             reading = rj.Reading(fragment, name, now, plain, exclude,
-                                 sampled=sampled, weight=weight)
+                                 weight=weight)
             if best is None or reading.value > best.value:
                 best = reading
         if best is not None:
@@ -222,9 +226,11 @@ class ReadjustTab(BaseTab):
 
     def __init__(self, parent, context):
         super().__init__(parent, context)
-        # {(signature, kind, content): (now, plain, exclude, sampled)}:
-        # every answer a worker has given, kept by what it was worked
-        # out from (`_signatures`, `rj.content`) and `read` or `refine`.
+        # {(signature, kind, content): answer}: every answer a worker
+        # has given, kept by what it was worked out from (`_signatures`,
+        # `rj.content`). Kind "read" is (now, plain, exclude), or None
+        # for a fragment no build can wear; kind "top", content None, a
+        # combatant's Top build, as fragment ids, or None for none.
         self._answers = {}
         # {job: Future} still being worked out, {job: ((id, content),
         # ...)} what each was handed, and {answer key: job} for every
@@ -232,9 +238,11 @@ class ReadjustTab(BaseTab):
         self._futures = {}
         self._jobs = {}
         self._inflight = {}
-        # {(capture token, combatant, settings): (build_inputs, their
-        # signature)}: resolved once per capture loaded.
+        # {(capture token, combatant, run settings): build signature}:
+        # worked out once per capture loaded; and the Optimizer as a
+        # worker is handed it (`rj.lean_optimizer`), once per capture.
         self._inputs = {}
+        self._lean = None
         self._token = None
         self._polling = False
         self._error = None
@@ -729,12 +737,12 @@ class ReadjustTab(BaseTab):
     def _signatures(self, combatants):
         """{combatant: (signature, job template)}: what one combatant's
         answers depend on beyond each fragment's own rolls -- the
-        measure, the game's roll grids, and the preset's weights or the
-        build the fragment is set into as it reads now (`build_inputs`:
-        the combatant's stats at the Optimizer's level, its settings,
-        what it wears). Equal inputs give an equal signature, whichever
-        capture they came from. A combatant with no preset is left out,
-        and named in the second value."""
+        measure, the game's roll grids, and the preset's weights or
+        everything the combatant's builds are made of
+        (`rj.build_signature`, under the settings the Optimizer tab would
+        run with). Equal inputs give an equal signature, whichever
+        capture they came from. Under the Gear Score a combatant with no
+        preset is left out, and named in the second value."""
         measure = self.measure()
         stats = rj.stats_snapshot()
         rolls = tuple(sorted((k, tuple(v)) for k, v in stats.items()))
@@ -753,72 +761,65 @@ class ReadjustTab(BaseTab):
                 out[name] = (key, {"measure": rj.GEAR, "weights": weights,
                                    "stats": stats})
             else:
-                info = self.optimizer.character_info.get(name)
-                manager = context.optimizer_settings_manager
-                settings = manager.get_character_data(
-                    info.res_id if info is not None else 0) \
-                    if manager is not None else {}
+                run = saved_run_settings(self.optimizer, context, name)
                 held = (self._token, name,
-                        json.dumps(settings, sort_keys=True, default=str))
+                        json.dumps(run, sort_keys=True, default=str))
                 if held not in self._inputs:
-                    inputs = rj.build_inputs(self.optimizer, name, settings)
-                    worn = sorted(inputs["worn"], key=lambda f: f.slot_num)
-                    self._inputs[held] = (inputs, json.dumps(
-                        {"cs": inputs["cs"], "sp": inputs["sp"],
-                         "attribute": inputs["attribute"],
-                         "worn": [rj.content(f) for f in worn]},
-                        sort_keys=True, default=repr))
-                inputs, built = self._inputs[held]
-                key = (rj.BUILD, held[2], built, rolls)
-                out[name] = (key, {"measure": rj.BUILD, "build": inputs,
-                                   "stats": stats})
+                    self._inputs[held] = rj.build_signature(
+                        self.optimizer, name, run)
+                if self._lean is None:
+                    self._lean = rj.lean_optimizer(self.optimizer)
+                key = (rj.BUILD, self._inputs[held], rolls)
+                out[name] = (key, {"measure": rj.BUILD,
+                                   "optimizer": self._lean, "name": name,
+                                   "settings": run, "stats": stats})
         return out, bare
 
     def _needed(self, fragments, signatures):
-        """({combatant: {id: answer}}, [(signature, template, combatant,
-        chunk, refine)] to hand the workers, {answer key} the list still
-        waits on). A combatant's fragments are read a chunk at a time;
-        under the build score, its top `REFINE_TOP` by those answers are
-        then sampled, a smaller chunk at a time, and those answers
-        replace theirs. Nothing kept or already being worked out is
-        asked for again."""
-        readings, wanted, waiting = {}, [], set()
+        """What the list has and lacks: ({combatant: {id: answer}},
+        [(signature, template, combatant, kind, chunk)] to hand the
+        workers, {answer key} the list still waits on, how many answers
+        that is in all, [combatant the Optimizer finds no build for]).
+
+        A combatant's fragments are read a chunk at a time. Under the
+        build score its Top build is found first (kind "top"), and its
+        fragments are asked for once that is known; a fragment no build
+        can wear is left out of its readings. Nothing kept or already
+        being worked out is asked for again."""
+        readings, wanted, waiting, nobuild = {}, [], set(), []
+        pending = 0
         keys = {f.id: rj.content(f) for f in fragments}
-        by_id = {f.id: f for f in fragments}
-
-        def ask(sig, template, name, todo, refine, size):
-            wanted.extend((sig, template, name, todo[i:i + size], refine)
-                          for i in range(0, len(todo), size))
-
         for name, (sig, template) in signatures.items():
-            got, todo = {}, []
+            readings[name] = got = {}
+            size = CHUNK
+            if template["measure"] == rj.BUILD:
+                top_key = (sig, "top", None)
+                if top_key not in self._answers:
+                    waiting.add(top_key)
+                    pending += 1 + len(fragments)
+                    if top_key not in self._inflight:
+                        wanted.append((sig, template, name, "top", []))
+                    continue
+                top = self._answers[top_key]
+                if top is None:
+                    nobuild.append(name)
+                    continue
+                template = dict(template, top=top)
+                size = BUILD_CHUNK
+            todo = []
             for f in fragments:
                 key = (sig, "read", keys[f.id])
                 if key in self._answers:
-                    got[f.id] = self._answers[key]
+                    if self._answers[key] is not None:
+                        got[f.id] = self._answers[key]
                 else:
                     waiting.add(key)
+                    pending += 1
                     if key not in self._inflight:
                         todo.append(f)
-            ask(sig, template, name, todo, False, CHUNK)
-            if len(got) == len(fragments) \
-                    and template["measure"] == rj.BUILD:
-                def value(fid):
-                    _now, plain, exclude, _s = got[fid]  # noqa: B023 -- called within this iteration
-                    return max(plain.per_quartz, exclude.per_quartz)
-                top = sorted(got, key=lambda fid: (-value(fid), fid))
-                todo = []
-                for fid in top[:rj.REFINE_TOP]:
-                    key = (sig, "refine", keys[fid])
-                    if key in self._answers:
-                        got[fid] = self._answers[key]
-                    else:
-                        waiting.add(key)
-                        if key not in self._inflight:
-                            todo.append(by_id[fid])
-                ask(sig, template, name, todo, True, REFINE_CHUNK)
-            readings[name] = got
-        return readings, wanted, waiting
+            wanted.extend((sig, template, name, "read", todo[i:i + size])
+                          for i in range(0, len(todo), size))
+        return readings, wanted, waiting, pending, nobuild
 
     def _ask(self, wanted, waiting):
         """Hand `wanted` to the workers, and drop the jobs not started
@@ -828,17 +829,13 @@ class ReadjustTab(BaseTab):
             if not any((sig, kind, c) in waiting for _fid, c in pairs) \
                     and future.cancel():
                 self._drop(job)
-        for sig, template, _name, chunk, refine in wanted:
-            kind = "refine" if refine else "read"
-            pairs = tuple((f.id, rj.content(f)) for f in chunk)
+        for sig, template, _name, kind, chunk in wanted:
+            # A Top build answers for no fragment: its one key's
+            # content is None, as `_needed` waits on it.
+            pairs = ((None, None),) if kind == "top" else tuple(
+                (f.id, rj.content(f)) for f in chunk)
             job = (sig, kind, pairs)
-            payload = {"measure": template["measure"],
-                       "stats": template["stats"], "fragments": chunk,
-                       "refine": refine}
-            if template["measure"] == rj.GEAR:
-                payload["weights"] = template["weights"]
-            else:
-                payload["build"] = template["build"]
+            payload = dict(template, kind=kind, fragments=chunk)
             self._futures[job] = rj.submit(payload)
             self._jobs[job] = pairs
             for _fid, c in pairs:
@@ -878,17 +875,21 @@ class ReadjustTab(BaseTab):
         self.refresh_readjust()
 
     def _forget(self, token, fragments):
-        """A capture loaded: the build inputs are resolved again, and the
-        answers of fragments no longer held -- deleted, or readjusted to
-        new rolls -- are dropped. Every other answer stays: one worked
-        out from the same inputs is the same answer, whichever capture
-        holds them."""
+        """A capture loaded: the build signatures are worked out again,
+        and the answers of fragments no longer held -- deleted, or
+        readjusted to new rolls -- are dropped. Every other answer
+        stays: one worked out from the same inputs is the same answer,
+        whichever capture holds them. A Top build is a combatant's, not
+        a fragment's, and its signature holds every fragment it could
+        be made of."""
         if token == self._token:
             return
         self._token = token
         self._inputs.clear()
+        self._lean = None
         live = {rj.content(f) for f in fragments}
-        for key in [k for k in self._answers if k[2] not in live]:
+        for key in [k for k in self._answers
+                    if k[2] is not None and k[2] not in live]:
             del self._answers[key]
 
     def _prune(self, signatures):
@@ -934,14 +935,20 @@ class ReadjustTab(BaseTab):
         if not signatures:
             self._draw([], NO_PRESET % ", ".join(sorted(bare)))
             return
-        readings, wanted, waiting = self._needed(fragments, signatures)
+        readings, wanted, waiting, pending, nobuild = self._needed(
+            fragments, signatures)
         if self._error is not None:
             error, self._error = self._error, None
             self._draw([], FAILED % error)
             return
         self._ask(wanted, waiting)
         if waiting:
-            self._draw(None, LOADING)
+            total = sum(len(fragments) + (template["measure"] == rj.BUILD)
+                        for _sig, template in signatures.values())
+            self._draw(None, LOADING % (total - pending, total))
+            return
+        if nobuild and len(nobuild) == len(signatures):
+            self._draw([], NO_BUILD % ", ".join(sorted(nobuild)))
             return
         shown = best_readings(self._passing(fragments), readings,
                               {name: combatants[name]

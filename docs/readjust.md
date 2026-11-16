@@ -20,9 +20,17 @@ The readjustment command's reply has not been captured yet, so the tab cannot ye
 ## The two measures
 
 - **Gear Score**: the fragment's GS under the combatant's assigned preset, unclamped, in GS points. It is linear in the rolls, so `read` works out the exact distribution of four upgrades by convolution, at `BINS` bins across its span.
-- **Build Score**: the Optimizer's score (`core.compute_score_components`, blended as the preset derivation blends it) of the combatant's equipped build with the fragment in its slot, as the per cent it rises over the build as worn. What after has to beat is the better of the build as worn and the build with the fragment as it stands. `read` uses the linear distribution, from what one max roll of each stat adds to the equipped build (`BuildValuer.worths`). `refine` then samples the real score, `REFINE_SAMPLES` readjustments each, for the top `REFINE_TOP` fragments, every exclusion included. The real score is not linear: crit is capped and multiplies, and set changes move it.
+- **Build Score**: the Optimizer's score (`core.compute_score_components`, blended as the preset derivation blends it), as the per cent it rises over the combatant's **Top build**: the Optimizer's best under the settings the Optimizer tab would run with (`optimizer/run_settings.saved_run_settings`: the combatant's own settings, the global filters, Exclude Combatant's MFs). It answers whether a readjustment could make the fragment part of a better build than the best there is, so a fragment that is fine but never good enough gains nothing.
 
-A build-score combatant's settings are their Optimizer settings, its level the one the Optimizer would use.
+How `read_build` reads one fragment:
+
+1. **Its build**: the Optimizer's best build with the fragment pinned in its slot (`optimize(pinned=...)`). The pin is held to the run's filters, so a fragment the run could never use (an off-element Slot V, a main stat the settings rule out, an excluded combatant's) has no build and is left out of the list.
+2. **A second build**, for a much better roll: the fragment pinned at the outcome a plain readjustment beats only `HIGH_SHARE` of the time. A big roll can make other fragments the better company, as when crit passes its cap.
+3. **Sampling**: `BUILD_SAMPLES` readjustments per option, every exclusion included, each scored on the real score in whichever of the two builds does more with it.
+
+Before (**Now**) is the fragment as it stands in its own build. What after has to beat is that or the Top build, whichever is higher. Now above 0 is a fragment that already beats the Top build unreadjusted: the Optimizer keeps only the top `TOP_PERCENT` of each slot by Gear Score before it searches (`run_settings.TOP_PERCENT`, with a 10-fragment floor), and the pin is exempt from that cut.
+
+The score is not linear: crit is capped and multiplies, and set changes move it. That is why the build score samples where the Gear Score counts out.
 
 ## What a row says
 
@@ -39,16 +47,16 @@ The **Slots**, **Sets** and **MFs** filters only narrow what is drawn, from answ
 
 ## Where the work runs
 
-In worker processes (`readjust.submit`), never on a thread: Python arithmetic on a thread takes the interpreter lock in turns with Tk's event loop, and the window answers only between turns. A job is one combatant, one measure and a chunk of fragments, and carries what a fresh process lacks: `STATS` with the game client's rolls laid over it, and the build score's inputs already resolved (`build_inputs`).
+In worker processes (`readjust.submit`), never on a thread: Python arithmetic on a thread takes the interpreter lock in turns with Tk's event loop, and the window answers only between turns. A job is one combatant, one measure and a chunk of fragments, and carries what a fresh process lacks: `STATS` with the game client's rolls laid over it, and for the build score the Optimizer itself (`lean_optimizer`: without the capture's raw data, enumerating in the worker's own process) and the combatant's run settings. The build score asks for each combatant's Top build first (a job of kind `top`), then its fragments `BUILD_CHUNK` at a time; each is two Optimizer runs, each about a tenth of a full run since one slot holds one fragment, and its sampling.
 
-The tab keeps every answer by what it was worked out from: the fragment's own rolls (`readjust.content`: its id, slot, set, level, main stat, and each substat's starting value and upgrades), and the signature of what it is read against: the roll grids, and the preset's weights or, for the build score, the combatant's build as `build_inputs` resolves it (its stats at the Optimizer's level, its settings, the fragments it wears). Equal inputs give an equal answer whichever capture they came from, so a new capture works out again only what it changed:
+The tab keeps every answer by what it was worked out from: the fragment's own rolls (`readjust.content`: its id, slot, set, level, main stat, and each substat's starting value and upgrades), and the signature of what it is read against: the roll grids, and the preset's weights or, for the build score, everything the combatant's builds are made of (`build_signature`: the run settings, the combatant's stats at the Optimizer's level, and every fragment a run could use, with its rolls and whose it is). Equal inputs give an equal answer whichever capture they came from, so a new capture works out again only what it changed:
 
-- a fragment readjusted, or newly at its top level: that fragment alone;
-- a combatant's gear, level or Optimizer settings changed: every fragment for that combatant, under the build score only;
-- a preset's weights changed, or another preset assigned: every fragment for the combatants it scores, under the Gear Score;
+- a fragment readjusted, or newly at its top level: that fragment alone, under the Gear Score;
+- any fragment a combatant's runs could use changed, gained, lost or moved to another combatant, or the combatant's level or settings changed: everything for that combatant, under the build score;
+- a preset's weights changed, or another preset assigned: every fragment for the combatants it scores, under the Gear Score, and under the build score where the preset orders the Optimizer's per-slot cut;
 - a client update that changes the roll grids: everything.
 
-A deleted fragment's answers, and a readjusted one's old ones, are dropped when the capture loads (`_forget`); past `KEEP_ANSWERS`, all but those of the signatures on show. The build score's top `REFINE_TOP` are worked out again as their membership changes. Switching back to a measure or a combatant already worked out draws at once, and a change of mind drops the jobs not started yet whose answers nothing on show waits on. While anything is still being worked out the list shows `Loading...`. A tab that is not showing starts no worker; showing it (`<Map>`) catches up.
+A deleted fragment's answers, and a readjusted one's old ones, are dropped when the capture loads (`_forget`); a Top build is kept by its signature alone. Past `KEEP_ANSWERS`, all but those of the signatures on show are dropped. Switching back to a measure or a combatant already worked out draws at once, and a change of mind drops the jobs not started yet whose answers nothing on show waits on. While anything is still being worked out the list shows how many answers of how many are in. A tab that is not showing starts no worker; showing it (`<Map>`) catches up.
 
 ## Settings
 

@@ -19,24 +19,25 @@ A fragment's starting values are told apart from its upgrades in its
 
 - `GearValuer`: the Gear Score under the combatant's preset, in GS
   points. Linear in the rolls, so the distribution is exact.
-- `BuildValuer`: the Optimizer's score of the combatant's equipped
-  build with the fragment in its slot, as the per cent it rises by.
-  Before is the better of the build as worn and the build with the
-  fragment as it stands. The distribution is the linear one, from
-  what one max roll of each stat adds to the build (`worths`), and
-  `refine` replaces it by sampling the real score for the fragments
-  ranked highest.
+- `BuildValuer`: the Optimizer's score against the combatant's Top
+  build, the one the Optimizer tab would find, in per cent. Each
+  fragment is read in the best build the Optimizer can make around it
+  (`read_build`), its readjustments sampled off the real score: a
+  fragment no readjustment lifts past the Top build gains nothing.
 
 **The work runs in worker processes** (`submit`), a job a chunk of
 fragments: Python arithmetic on a thread holds the interpreter lock
 in turns with Tk's event loop, which then answers the window only
 between them. A worker imports `game_data` fresh, without the game
 client's rolls laid over it, so each job carries `STATS` along
-(`stats_snapshot`) and every build-score input already resolved
-(`build_inputs`). No Tk on this module's import path.
+(`stats_snapshot`), and a build-score job the Optimizer itself
+(`lean_optimizer`) with the combatant's run settings. No Tk on this
+module's import path.
 """
 
 import atexit
+import copy
+import json
 import os
 import random
 from dataclasses import dataclass
@@ -54,11 +55,12 @@ UPGRADES = 4
 # A distribution's resolution: the bins its whole span is cut into. A
 # gain reads to about a 400th of the most four upgrades could add.
 BINS = 400
-# How many fragments `refine` samples, and how many readjustments
-# each: the error of a mean gain is about its spread over the square
-# root of the samples.
-REFINE_TOP = 20
-REFINE_SAMPLES = 800
+# How many readjustments the build score samples per option: the error
+# of a mean gain is about its spread over the square root of this.
+BUILD_SAMPLES = 1000
+# The outcome the second build around a fragment is found for: the one
+# a plain readjustment beats this share of the time (`read_build`).
+HIGH_SHARE = 0.10
 
 GEAR = "gear"
 BUILD = "build"
@@ -122,14 +124,13 @@ class Option:
 @dataclass
 class Reading:
     """A fragment readjusted for one combatant: its before (`now`, in
-    the measure's units), the plain readjustment, the best exclusion,
-    and whether `refine` sampled it."""
+    the measure's units), the plain readjustment and the best
+    exclusion."""
     fragment: object
     combatant: str
     now: float
     plain: Option
     exclude: Option
-    sampled: bool = False
     weight: float = 1.0
 
     @property
@@ -288,52 +289,82 @@ class _Piece:
         return self._totals
 
 
-class _Bare:
-    """Stats with no set and no main stat: one max roll."""
-    set_id = None
-    main_stat = None
-
-    def __init__(self, stats):
-        self._stats = stats
-
-    def get_total_stats(self):
-        return dict(self._stats)
+def at_values(fragment, values):
+    """A copy of `fragment` with its substats at `values`: what the
+    Optimizer is handed to build around a readjustment's outcome. Same
+    id, so `optimize(pinned=...)` holds it to the original's filters."""
+    out = copy.deepcopy(fragment)
+    for sub, value in zip(out.substats, values, strict=True):
+        sub.value = value
+    return out
 
 
-def build_inputs(optimizer, name, settings):
-    """What a `BuildValuer` reads, resolved here where the optimizer
-    and the game client's data are: the combatant's static stats at the
-    Optimizer's level, the score's precomputed settings, the Element
-    their damage is scored as, and the fragments they wear. Plain data,
-    for a worker process."""
-    from optimizer import core
+class _OneProcess:
+    """The settings a GearOptimizer reads inside a worker: enumerate in
+    this process, never a pool of its own (`_resolve_worker_count`)."""
+
+    @staticmethod
+    def get(key, default=None):
+        return 1 if key == "optimizer_workers" else default
+
+
+def lean_optimizer(optimizer):
+    """A copy of `optimizer` to hand a worker: without the capture's raw
+    data, which the Optimizer never reads once loaded and which is most
+    of what it would pickle, and set to enumerate in one process."""
+    lean = copy.copy(optimizer)
+    lean.raw_data = {}
+    lean.settings_manager = _OneProcess()
+    return lean
+
+
+def build_signature(optimizer, name, settings):
+    """What `name`'s build-score answers depend on beyond a fragment's
+    own rolls, as one string: the run settings, the combatant's stats
+    at the Optimizer's level, and every fragment a run could use
+    (`slot_filters`, before the Top % trim) with its rolls, its Gear
+    Score (the trim's order where no preset is given) and whose it is
+    (Exclude Combatant's MFs reads that). A capture that changes none of
+    these changes no answer, whichever capture it is."""
+    pool = []
+    for slot, filters in optimizer.slot_filters(name, settings).items():
+        for f in optimizer.get_gear_by_slot(slot, top_percent=100,
+                                            **filters):
+            pool.append((content(f), f.equipped_to or "",
+                         round(f.gear_score, 6)))
     level = optimizer._resolve_effective_level(
         name, settings.get("optimize_for_level"))
-    return {"cs": optimizer._build_char_static(name, level),
-            "sp": core.build_score_precompute(settings),
-            "attribute": optimizer._resolve_attribute(name, settings),
-            "worn": list(optimizer.characters.get(name, []))}
+    return json.dumps({"settings": settings,
+                       "cs": optimizer._build_char_static(name, level),
+                       "pool": sorted(pool, key=repr)},
+                      sort_keys=True, default=repr)
+
+
+def top_build(optimizer, name, settings, pinned=None):
+    """The Optimizer's best build for `name` under `settings`, wearing
+    `pinned` where given: its fragments, or None where the run finds no
+    build (the filters refuse `pinned`, or nothing meets the set rule or
+    Have at least)."""
+    results = optimizer.optimize(name, settings, pinned=pinned)
+    return list(results[0][0]) if results else None
 
 
 class BuildValuer:
-    """The combatant's Optimizer score with a fragment in its slot, as
-    the per cent it rises over the equipped build. `inputs` is
-    `build_inputs`'."""
+    """The combatant's Optimizer score of a build, as the per cent it
+    rises over a reference build, the Top build (`top_build`). Blended
+    as the preset derivation blends it: damage, and shielding/healing by
+    the combatant's weight."""
 
-    def __init__(self, inputs):
+    def __init__(self, optimizer, name, settings, reference):
         from optimizer import core
         self.core = core
-        self.cs, self.sp = inputs["cs"], inputs["sp"]
-        self.attribute = inputs["attribute"]
+        level = optimizer._resolve_effective_level(
+            name, settings.get("optimize_for_level"))
+        self.cs = optimizer._build_char_static(name, level)
+        self.sp = core.build_score_precompute(settings)
+        self.attribute = optimizer._resolve_attribute(name, settings)
         self.h = self.sp["heal_share"]
-        self.worn = {f.slot_num: f for f in inputs["worn"]}
-        self.d0, self.s0 = self._components(list(self.worn.values()))
-        base = [_Piece(f) for f in self.worn.values()]
-        self.worths = {}
-        for info in STATS.values():
-            if info[3] > 0 and info[0] not in self.worths:
-                self.worths[info[0]] = self.rel(
-                    base + [_Bare({info[0]: info[3]})])
+        self.d0, self.s0 = self._components(reference)
 
     def _components(self, gear):
         stats = self.core.compute_build_stats(
@@ -342,37 +373,19 @@ class BuildValuer:
                                                   self.attribute)
 
     def rel(self, gear):
-        """The score of `gear` over the equipped build's, less 1."""
+        """The score of `gear` over the reference build's, less 1."""
         d, s = self._components(gear)
         out = (1 - self.h) * (d / self.d0 - 1) if self.d0 else 0.0
         if self.h and self.s0:
             out += self.h * (s / self.s0 - 1)
         return out
 
-    def swapped(self, fragment, values=None):
-        """The equipped build with `fragment` in its slot, its substats
-        at `values` (as they stand without)."""
-        gear = [_Piece(f) for slot, f in self.worn.items()
-                if slot != fragment.slot_num]
+    @staticmethod
+    def around(build, fragment, values=None):
+        """`build` with `fragment` in its slot, its substats at `values`
+        (as they stand without)."""
+        gear = [_Piece(f) for f in build if f.slot_num != fragment.slot_num]
         return gear + [_Piece(fragment, values)]
-
-    def points(self, sub, value):
-        top = max_roll(sub)
-        if not top:
-            return 0.0
-        return self.worths.get(sub.name, 0.0) * value / top * 100
-
-    def reference(self, fragment):
-        """Before is the build with the fragment as it stands; after
-        has to beat that or the build as worn, whichever is better.
-        The substats' points sit on the build with every substat at
-        its starting value."""
-        now = self.rel(self.swapped(fragment)) * 100
-        bare = self.rel(self.swapped(
-            fragment, [sub.base_value for sub in fragment.substats])) * 100
-        start = sum(self.points(sub, sub.base_value)
-                    for sub in fragment.substats)
-        return now, max(0.0, now), bare - start
 
 
 def _deal(fragment, eligible, rng):
@@ -386,12 +399,13 @@ def _deal(fragment, eligible, rng):
     return values
 
 
-def _sampled(valuer, fragment, eligible, ref, excluded, cost, samples, rng):
-    """An Option by sampling the build's real score."""
+def sampled(score, fragment, eligible, ref, excluded, cost, samples, rng):
+    """An Option by sampling: `score(values)` what after is worth with
+    the substats at `values`, `samples` readjustments dealt over the
+    substats at `eligible`, against `ref`."""
     mean = chance = avg = 0.0
     for _ in range(samples):
-        after = valuer.rel(valuer.swapped(
-            fragment, _deal(fragment, eligible, rng))) * 100
+        after = score(_deal(fragment, eligible, rng))
         avg += after
         if after > ref + 1e-9:
             mean += after - ref
@@ -401,29 +415,60 @@ def _sampled(valuer, fragment, eligible, ref, excluded, cost, samples, rng):
     for i in eligible:
         values = [sub.base_value for sub in fragment.substats]
         values[i] += UPGRADES * max(roll_values(fragment.substats[i]))
-        best = max(best, valuer.rel(valuer.swapped(fragment, values)) * 100
-                   - ref)
+        best = max(best, score(values) - ref)
     return Option(excluded, cost, mean / samples, chance / samples, best,
                   avg / samples)
 
 
-def refine(reading, valuer, samples=REFINE_SAMPLES):
-    """`reading` with its options sampled off the real score: every
-    exclusion's, keeping the best."""
-    fragment = reading.fragment
-    rng = random.Random(fragment.id)
-    ref = max(0.0, reading.now)
+def options(score, fragment, ref, samples, rng):
+    """(plain, the best exclusion) by `sampled`, every exclusion tried."""
     every = list(range(len(fragment.substats)))
-    plain = _sampled(valuer, fragment, every, ref, None, PLAIN_COST,
-                     samples, rng)
+    plain = sampled(score, fragment, every, ref, None, PLAIN_COST,
+                    samples, rng)
     exclude = None
     for i, sub in enumerate(fragment.substats):
-        option = _sampled(valuer, fragment, every[:i] + every[i + 1:], ref,
-                          sub.name, EXCLUDE_COST, samples, rng)
+        option = sampled(score, fragment, every[:i] + every[i + 1:], ref,
+                         sub.name, EXCLUDE_COST, samples, rng)
         if exclude is None or option.mean > exclude.mean:
             exclude = option
-    return Reading(fragment, reading.combatant, reading.now, plain, exclude,
-                   sampled=True, weight=reading.weight)
+    return plain, exclude
+
+
+def read_build(optimizer, name, settings, valuer, fragment,
+               samples=BUILD_SAMPLES):
+    """(now, plain, exclude) for `fragment` under the build score, in
+    per cent of the Top build `valuer` reads against; None where no
+    build can wear it.
+
+    The build around it is the Optimizer's best with it pinned
+    (`top_build`), and again with it pinned at the outcome a plain
+    readjustment beats only `HIGH_SHARE` of the time: a much better roll
+    can make other fragments the better company, and an outcome is
+    scored in whichever of the two builds does more with it. Before is
+    the fragment as it stands in its own build, and what after has to
+    beat is that or the Top build, whichever is higher."""
+    base = top_build(optimizer, name, settings, pinned=fragment)
+    if base is None:
+        return None
+    builds = [base]
+    rng = random.Random(fragment.id)
+    every = list(range(len(fragment.substats)))
+    deals = sorted((_deal(fragment, every, rng) for _ in range(samples)),
+                   key=lambda v: valuer.rel(valuer.around(base, fragment, v)))
+    high = deals[min(len(deals) - 1, int(len(deals) * (1 - HIGH_SHARE)))]
+    anchored = top_build(optimizer, name, settings,
+                         pinned=at_values(fragment, high))
+    if anchored is not None and sorted(f.id for f in anchored) \
+            != sorted(f.id for f in base):
+        builds.append(anchored)
+
+    def score(values):
+        return max(valuer.rel(valuer.around(b, fragment, values))
+                   for b in builds) * 100
+
+    now = score(None)
+    plain, exclude = options(score, fragment, max(0.0, now), samples, rng)
+    return now, plain, exclude
 
 
 # ------------------------------------------------------------- the jobs
@@ -444,28 +489,36 @@ def _use_stats(snapshot):
 
 
 def work(job):
-    """One job: {fragment id: (now, plain, exclude, sampled)} for the
-    fragments in `job["fragments"]`, read for one combatant under
-    `job["measure"]` -- `job["weights"]` for the Gear Score,
-    `job["build"]` (`build_inputs`) for the build score, whose
-    `job["refine"]` samples the real score. Module-level, so a worker
-    process can be handed it."""
+    """One job, module-level so a worker process can be handed it.
+
+    - Gear Score: {fragment id: (now, plain, exclude)} for
+      `job["fragments"]`, under `job["weights"]`.
+    - Build score, `job["kind"]` "top": {None: the Top build's fragment
+      ids, or None where the Optimizer finds no build}.
+    - Build score, "read": {fragment id: (now, plain, exclude), or None
+      where no build can wear it}, against the Top build
+      `job["top"]` (ids). `job["optimizer"]` is `lean_optimizer`'s,
+      `job["settings"]` the combatant's run settings.
+    """
     _use_stats(job.get("stats"))
     if job["measure"] == GEAR:
         valuer = GearValuer(job["weights"])
-    else:
-        valuer = BuildValuer(job["build"])
-    out = {}
-    for fragment in job["fragments"]:
-        if job["measure"] == GEAR:
+        out = {}
+        for fragment in job["fragments"]:
             reading = read_gear(fragment, valuer)
-        else:
-            reading = read(fragment, valuer)
-            if job.get("refine"):
-                reading = refine(reading, valuer)
-        out[fragment.id] = (reading.now, reading.plain, reading.exclude,
-                            reading.sampled)
-    return out
+            out[fragment.id] = (reading.now, reading.plain, reading.exclude)
+        return out
+    optimizer, name = job["optimizer"], job["name"]
+    settings = job["settings"]
+    if job["kind"] == "top":
+        top = top_build(optimizer, name, settings)
+        return {None: [f.id for f in top] if top is not None else None}
+    by_id = {f.id: f for f in optimizer.fragments}
+    top = [by_id[i] for i in job["top"]]
+    valuer = BuildValuer(optimizer, name, settings, top)
+    return {f.id: read_build(optimizer, name, settings, valuer,
+                             by_id.get(f.id, f))
+            for f in job["fragments"]}
 
 
 _pool = None

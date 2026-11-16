@@ -67,7 +67,7 @@ class World(pd.Reference):
             name, real)
 
     def run_settings(self, name, s, forced=None):
-        """What `OptimizerTab._build_optimizer_settings` would build, at
+        """What `optimizer.run_settings.run_settings` would build, at
         LEVEL, with nothing excluded."""
         from game_data import SETS
         fm = s.get("force_main") or {}

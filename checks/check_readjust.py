@@ -17,15 +17,29 @@ nothing else, so a broken one reads as a plausible ranking:
 4. **Per Quartz divides by the cost**: 1 plain, 2 with an exclusion.
 5. **Only a fully upgraded Legendary with four substats** is listed.
 6. **Sampling agrees with the exact reading** where the score is
-   linear, so `refine` replacing the top of the build list moves it
-   only by the sampling error.
+   linear, so the build score, which samples, deals the upgrades as
+   the Gear Score counts them.
 7. **The tab says which option to use**: Exclude where its gain per
    Quartz is higher, Reroll otherwise.
 9. **Avg is the average after, kept or not**: every outcome's score,
    the ones below Now included, held against every outcome counted out.
+10. **A pinned fragment is in every build, or in none**: the Optimizer
+    builds around it, at the values it is handed, where the run's
+    filters let it in; where they refuse it, the run finds nothing.
+11. **The build score reads against the Top build**: a fragment of the
+    Top build stands at 0 before a readjustment.
+12. **A build-score answer is kept by everything its builds are made
+    of**: a fragment the run could use rerolled, or the settings
+    changed, is a new signature; the same capture loaded again is not.
+
+Rules 10 to 12 run on `_parity_fixture`'s synthetic inventory.
 8. **The tab keeps an answer by what it was worked out from**: a
-   readjusted fragment is worked out again, an unchanged one is not.
+   readjusted fragment is worked out again, an unchanged one is not,
+   and a combatant's Top build outlasts a capture that changes none of
+   what it is made of.
 """
+
+import random
 
 from ._harness import add_source_to_path
 
@@ -89,11 +103,12 @@ def _counted(fragment, valuer, eligible):
 
 
 class _Linear:
-    """A build score linear in the substats, for `refine`."""
+    """A score linear in the substats: `read`'s valuer, and `score` the
+    same reading for `options` to sample."""
 
     def __init__(self, fragment):
         import readjust as rj
-        self.rj = rj
+        self.fragment = fragment
         self.per = {s.name: WEIGHTS[s.name] / rj.max_roll(s)
                     for s in fragment.substats}
 
@@ -104,13 +119,11 @@ class _Linear:
         now = sum(self.points(s, s.value) for s in fragment.substats)
         return now, now, 0.0
 
-    def swapped(self, fragment, values=None):
-        subs = fragment.substats
-        return [(s, s.value if values is None else v)
-                for s, v in zip(subs, values or [None] * len(subs), strict=True)]
-
-    def rel(self, gear):
-        return sum(self.points(s, v) for s, v in gear) / 100
+    def score(self, values):
+        subs = self.fragment.substats
+        values = values or [s.value for s in subs]
+        return sum(self.points(s, v) for s, v in zip(subs, values,
+                                                     strict=True))
 
 
 def run():
@@ -190,14 +203,15 @@ def run():
     four = _fragment([(0, 1.3), (1, 2.5), (2, 5), (3, 3)])
     linear = _Linear(four)
     exact = rj.read(four, linear)
-    sampled = rj.refine(exact, linear, samples=6000)
-    if abs(sampled.plain.mean - exact.plain.mean) \
+    plain, exclude = rj.options(linear.score, four, exact.now, 6000,
+                                random.Random(four.id))
+    if abs(plain.mean - exact.plain.mean) \
             > 0.06 * max(exact.plain.mean, 0.01) \
-            or sampled.exclude.excluded != exact.exclude.excluded:
-        out.append(f"sampling a linear score reads {sampled.plain.mean:.4f} "
-                   f"(excluding {sampled.exclude.excluded}) where the "
+            or exclude.excluded != exact.exclude.excluded:
+        out.append(f"sampling a linear score reads {plain.mean:.4f} "
+                   f"(excluding {exclude.excluded}) where the "
                    f"exact reading is {exact.plain.mean:.4f} (excluding "
-                   f"{exact.exclude.excluded}): `refine` deals the "
+                   f"{exact.exclude.excluded}): `options` deals the "
                    f"upgrades as `read` counts them.")
 
     # 7
@@ -213,6 +227,7 @@ def run():
                        f"{want!r}: Use names the option with the higher "
                        f"gain per Quartz.")
     out.extend(_answers_kept_by_content())
+    out.extend(_build_score_reads_the_top_build())
     return out
 
 
@@ -240,9 +255,8 @@ def _answers_kept_by_content():
     signatures = {"X": (sig, {"measure": rj.GEAR})}
 
     def asked(fragments):
-        _readings, wanted, _waiting = tab._needed(fragments, signatures)
-        return sorted(f.id for *_rest, chunk, _refine in wanted
-                      for f in chunk)
+        _readings, wanted, *_rest = tab._needed(fragments, signatures)
+        return sorted(f.id for *_rest, chunk in wanted for f in chunk)
 
     def answer(fragments):
         for f in fragments:
@@ -250,18 +264,24 @@ def _answers_kept_by_content():
 
     tab._forget("capture 1", frags)
     answer(frags)
+    top_key = (("build", "a combatant's builds"), "top", None)
+    tab._answers[top_key] = [f.id for f in frags]
     same = [copy.deepcopy(f) for f in frags]
     tab._forget("capture 2", same)
     if asked(same):
         out.append(f"a new capture of the same fragments asks for "
                    f"{asked(same)} again: an answer is kept by what it was "
                    f"worked out from, not by the capture.")
+    if top_key not in tab._answers:
+        out.append("a new capture of the same fragments drops a "
+                   "combatant's Top build: it is kept by its signature, "
+                   "which holds every fragment it could be made of.")
     rerolled = [copy.deepcopy(f) for f in frags]
     sub = rerolled[1].substats[1]
     sub.upgrade_values = [2.0, 2.0, 2.0]
     sub.value = sub.base_value + sum(sub.upgrade_values)
     tab._forget("capture 3", rerolled)
-    readings, _wanted, _waiting = tab._needed(rerolled, signatures)
+    readings, *_rest = tab._needed(rerolled, signatures)
     if asked(rerolled) != [rerolled[1].id] or rerolled[1].id in readings["X"]:
         out.append(f"after a readjustment of fragment {rerolled[1].id} the "
                    f"tab asks for {asked(rerolled)} and shows "
@@ -271,7 +291,8 @@ def _answers_kept_by_content():
     answer(rerolled)
     left = rerolled[:2]
     tab._forget("capture 4", left)
-    gone = [k for k in tab._answers if k[2][0] == rerolled[2].id]
+    gone = [k for k in tab._answers
+            if k[2] is not None and k[2][0] == rerolled[2].id]
     if gone or asked(left):
         out.append(f"after fragment {rerolled[2].id} is deleted the tab "
                    f"keeps {len(gone)} answer(s) of it and asks for "
@@ -280,7 +301,120 @@ def _answers_kept_by_content():
     return out
 
 
+def _build_score_reads_the_top_build():
+    """10 to 12, on the synthetic inventory: the Optimizer's pin, the
+    build score's reference, and what a build-score answer is kept by.
+    The pin decides which fragments the build score can read at all,
+    and the signature whether a capture shows answers of an inventory
+    it no longer holds -- both wrong would read as a plausible list."""
+    import copy
+    import tempfile
+    from pathlib import Path
+
+    import readjust as rj
+    from optimizer.optimizer import GearOptimizer
+
+    from . import _parity_fixture as fixture
+
+    out = []
+    snap = Path(tempfile.mkdtemp(prefix="readjust_")) / "fixture.json"
+    fixture.write(snap)
+    loaded = GearOptimizer()
+    loaded.load_data(str(snap))
+    o = rj.lean_optimizer(loaded)
+    name = fixture.COMBATANT_NAME
+    settings = dict(fixture.SETTINGS, max_results=5)
+    top = rj.top_build(o, name, settings)
+    if not top:
+        return ["the synthetic inventory has no Top build: rules 10 to 12 "
+                "could not run."]
+    in_top = {f.id for f in top}
+
+    # 10: pinned, in every build; at other values, at those; refused by
+    # a main-stat filter, in none.
+    pick = next(f for f in o.fragments
+                if f.slot_num == 4 and f.id not in in_top)
+    pinned = o.optimize(name, settings, pinned=pick)
+    if not pinned or any(pick.id not in {p.id for p in gear}
+                         for gear, _s, _st in pinned):
+        out.append(f"a run with fragment {pick.id} pinned returns "
+                   f"{len(pinned)} build(s), not all wearing it: a pinned "
+                   f"fragment is in every build the run finds.")
+    raised = rj.at_values(pick, [s.value + 5 for s in pick.substats])
+    again = o.optimize(name, settings, pinned=raised)
+    if not again or not any(p is raised for p in again[0][0]):
+        out.append("a fragment pinned at other substat values is not the "
+                   "copy the run was handed: the build is made around the "
+                   "values it is pinned at.")
+    other = next(f.main_stat.name for f in o.fragments
+                 if f.slot_num == 4 and f.main_stat.name
+                 != pick.main_stat.name)
+    refused = o.optimize(name, dict(settings, main_stat_4=[other]),
+                         pinned=pick)
+    if refused:
+        out.append(f"fragment {pick.id} ({pick.main_stat.name}) pinned "
+                   f"under a Slot IV filter for {other} still returns "
+                   f"{len(refused)} build(s): the pin is held to the run's "
+                   f"filters, and a fragment they refuse can be in no "
+                   f"build.")
+
+    # 11
+    valuer = rj.BuildValuer(o, name, settings, top)
+    member = top[0]
+    reading = rj.read_build(o, name, settings, valuer, member, samples=100)
+    if reading is None or abs(reading[0]) > 1e-6:
+        out.append(f"fragment {member.id} of the Top build reads Now "
+                   f"{reading and reading[0]}: the build score stands "
+                   f"against the Top build, which reads 0.")
+
+    # 12
+    sig = rj.build_signature(o, name, settings)
+    reloaded = GearOptimizer()
+    reloaded.load_data(str(snap))
+    if rj.build_signature(rj.lean_optimizer(reloaded), name,
+                          settings) != sig:
+        out.append("the same capture loaded again gives another build "
+                   "signature: a reload would work everything out again.")
+    rerolled = copy.copy(o)
+    rerolled.fragments = [copy.deepcopy(f) for f in o.fragments]
+    sub = rerolled.fragments[0].substats[0]
+    sub.value += 1
+    if rj.build_signature(rerolled, name, settings) == sig:
+        out.append("a fragment the run could use, rerolled, leaves the "
+                   "build signature as it was: the Top build and every "
+                   "build around a fragment would be shown from the "
+                   "inventory before it.")
+    if rj.build_signature(o, name, dict(settings, extra_pct=0)) == sig:
+        out.append("other run settings leave the build signature as it "
+                   "was: the answers of the settings before would be "
+                   "shown.")
+    return out
+
+
 FAULTS = [
+    ("the pin ignoring the run's filters",
+     "optimizer.optimizer:GearOptimizer.optimize",
+     "candidates = [pinned] if any(\n"
+     "                    f.id == pinned.id for f in allowed) else []",
+     "candidates = [pinned]",
+     "still returns"),
+    ("the pin left out", "optimizer.optimizer:GearOptimizer.optimize",
+     "if pinned is not None and slot_num == pinned.slot_num:",
+     "if False:",
+     "not all wearing it"),
+    ("the build score read against nothing", "readjust:BuildValuer.rel",
+     "out = (1 - self.h) * (d / self.d0 - 1) if self.d0 else 0.0",
+     "out = (1 - self.h) * (d / self.d0) if self.d0 else 0.0",
+     "of the Top build reads Now"),
+    ("a build signature blind to rolls", "readjust:build_signature",
+     "pool.append((content(f), f.equipped_to or \"\",",
+     "pool.append((f.id, f.equipped_to or \"\",",
+     "rerolled, leaves the"),
+    ("a Top build dropped with each capture",
+     "ui.tabs.readjust_tab:ReadjustTab._forget",
+     "if k[2] is not None and k[2] not in live]:",
+     "if k[2] not in live]:",
+     "drops a combatant's Top build"),
     ("Avg counting only the outcomes kept", "readjust:_option",
      "        avg += p * after\n",
      "        avg += p * max(after, ref)\n",
@@ -301,7 +435,7 @@ FAULTS = [
     ("an Epic readjusted", "readjust:readjustable",
      "fragment.rarity_num == LEGENDARY and", "fragment.rarity_num >= 3 and",
      "an Epic is listed"),
-    ("sampling deals over all four when excluding", "readjust:refine",
+    ("sampling deals over all four when excluding", "readjust:options",
      "every[:i] + every[i + 1:]", "every", "sampling a linear score"),
     ("Use naming the cheaper option always",
      "readjust:Reading.best",
@@ -310,8 +444,8 @@ FAULTS = [
      "Use names the option"),
     ("every answer dropped with each capture",
      "ui.tabs.readjust_tab:ReadjustTab._forget",
-     "for key in [k for k in self._answers if k[2] not in live]:",
-     "for key in list(self._answers):",
+     "if k[2] is not None and k[2] not in live]:",
+     "if True]:",
      "not by the capture"),
     ("an answer kept by the fragment's id alone", "readjust:content",
      "tuple((s.raw_name, s.value, s.base_value,\n"

@@ -1390,8 +1390,78 @@ class GearOptimizer:
             for gear, _trim, stats in results
         ]
 
+    @staticmethod
+    def _set_rule(settings: dict) -> tuple[list, int]:
+        """(sets_selected, max_flex_slots) as a run reads them.
+
+        `sets_selected` is the full list of set IDs the user marked as
+        usable for this character; the optimizer works out which combo
+        shapes are possible. `max_flex_slots` caps how many slots in a
+        build may NOT belong to a satisfied chosen-set bonus ("wildcard
+        slots"). See _count_locked_slots for the unified rule. Without
+        sets_selected, the union of the legacy four/two_piece_sets
+        stands in, so older callers keep working -- the locked-count
+        rule then still behaves correctly under the equivalent
+        semantics."""
+        sets_selected = settings.get("sets_selected")
+        if sets_selected is None:
+            sets_selected = list({*settings.get("four_piece_sets", []),
+                                  *settings.get("two_piece_sets", [])})
+        sets_selected = [s for s in sets_selected if s in SETS]
+        return sets_selected, int(settings.get("max_flex_slots", 6))
+
+    def slot_filters(self, char_name: str, settings: dict) -> dict:
+        """{slot: get_gear_by_slot's filter arguments} for a run: every
+        filter a fragment must pass to be a candidate, before the Top %
+        trim. What `optimize` reads, and what anything asking which
+        fragments a run could use must read too."""
+        # Global minimum-MF-level candidacy filter (0 = off).
+        try:
+            min_gear_level = max(0, int(settings.get("min_gear_level", 0) or 0))
+        except (TypeError, ValueError):
+            min_gear_level = 0
+
+        # Global off-element Slot V candidacy filter: drop Slot V
+        # fragments whose main stat is an element DMG% that doesn't
+        # match the character's element (ATK%/HP% mains always pass).
+        # Skipped when the character's element can't be resolved
+        # (unknown character without an Element override) -- with no
+        # element, every element main is equally credit-less, so none is
+        # more "off-element" than another.
+        offelement_attr = None
+        if settings.get("ignore_offelement_slot5"):
+            offelement_attr = self._resolve_attribute(char_name, settings) or None
+
+        # Candidate pool sizing:
+        # - When max_flex_slots == 0 AND sets_selected is non-empty, we know
+        #   every slot must belong to a chosen set -- restrict candidates to
+        #   chosen sets for efficiency (smaller search space).
+        # - Otherwise (wildcards allowed, or no chosen sets) broaden the pool
+        #   to all sets; the locked-count rule filters invalid combos during
+        #   enumeration.
+        sets_selected, max_flex_slots = self._set_rule(settings)
+        if max_flex_slots == 0 and sets_selected:
+            candidate_set_filter = list(sets_selected)
+        else:
+            candidate_set_filter = None
+
+        mains = {4: settings.get("main_stat_4", []),
+                 5: settings.get("main_stat_5", []),
+                 6: settings.get("main_stat_6", [])}
+        return {slot_num: {
+            "include_equipped": settings.get("include_equipped", True),
+            "exclude_char": char_name,
+            "excluded_heroes": settings.get("excluded_heroes", []),
+            "required_sets": candidate_set_filter,
+            "required_main": mains.get(slot_num) or None,
+            "min_rarity": 3,  # Only Rare+ for optimizer
+            "min_level": min_gear_level,  # global "Ignore MFs below level"
+            "offelement_attribute": offelement_attr,  # global "Ignore off-Element MFs"
+        } for slot_num in SLOT_ORDER}
+
     def optimize(self, char_name: str, settings: dict, progress_callback: Callable | None = None,
-                 cancel_flag: list | None = None) -> list[tuple[list[MemoryFragment], float, dict]]:
+                 cancel_flag: list | None = None,
+                 pinned: MemoryFragment | None = None) -> list[tuple[list[MemoryFragment], float, dict]]:
         """
         Find optimal gear combinations for a character.
 
@@ -1419,36 +1489,20 @@ class GearOptimizer:
                 optimize_for_level)
             progress_callback: Optional function(checked, total, results_count)
             cancel_flag: Optional list with single boolean element for cancellation
+            pinned: A fragment every build must wear in its slot: that
+                slot's candidates are it alone, where the run's filters
+                would let it in BEFORE the Top % trim -- a fragment the
+                trim cuts can still be pinned, one the filters refuse
+                (an excluded combatant's, an off main stat) cannot, and
+                the run then finds nothing. Matched by id, so a copy
+                with other substat values is pinned at those values.
 
         Returns:
             List of tuples: (gear_list, score, final_stats).
             Sorted by score (highest first), limited to max_results.
         """
-        required_4pc_list = settings.get("four_piece_sets", [])  # legacy (still read for back-compat)
-        required_2pc = settings.get("two_piece_sets", [])         # legacy (still read for back-compat)
-        main_stat_4 = settings.get("main_stat_4", [])
-        main_stat_5 = settings.get("main_stat_5", [])
-        main_stat_6 = settings.get("main_stat_6", [])
         top_percent = settings.get("top_percent", 100)
-        include_equipped = settings.get("include_equipped", True)
-        excluded_heroes = settings.get("excluded_heroes", [])
         max_results = settings.get("max_results", 100)
-        # Global minimum-MF-level candidacy filter (0 = off).
-        try:
-            min_gear_level = max(0, int(settings.get("min_gear_level", 0) or 0))
-        except (TypeError, ValueError):
-            min_gear_level = 0
-
-        # Global off-element Slot V candidacy filter: drop Slot V
-        # fragments whose main stat is an element DMG% that doesn't
-        # match the character's element (ATK%/HP% mains always pass).
-        # Skipped when the character's element can't be resolved
-        # (unknown character without an Element override) -- with no
-        # element, every element main is equally credit-less, so none is
-        # more "off-element" than another.
-        offelement_attr = None
-        if settings.get("ignore_offelement_slot5"):
-            offelement_attr = self._resolve_attribute(char_name, settings) or None
 
         # Per-character preset weights for the slot pre-filter
         # heuristic. When the user has assigned a custom preset to this
@@ -1468,11 +1522,7 @@ class GearOptimizer:
         # If sets_selected isn't supplied, fall back to the union of legacy
         # four/two_piece_sets so older callers keep working -- the locked-count
         # rule then still behaves correctly under the equivalent semantics.
-        sets_selected = settings.get("sets_selected")
-        if sets_selected is None:
-            sets_selected = list({*required_4pc_list, *required_2pc})
-        sets_selected = [s for s in sets_selected if s in SETS]
-        max_flex_slots = int(settings.get("max_flex_slots", 6))
+        sets_selected, max_flex_slots = self._set_rule(settings)
 
         # Counters for caller messaging. Reset on every optimize() call.
         # See check_queue in optimizer_tab for the "0 builds matched"
@@ -1490,43 +1540,22 @@ class GearOptimizer:
             "combos_per_sec": 0.0,
         }
 
-        # Candidate pool sizing:
-        # - When max_flex_slots == 0 AND sets_selected is non-empty, we know
-        #   every slot must belong to a chosen set -- restrict candidates to
-        #   chosen sets for efficiency (smaller search space).
-        # - Otherwise (wildcards allowed, or no chosen sets) broaden the pool
-        #   to all sets; the locked-count rule filters invalid combos during
-        #   enumeration.
-        if max_flex_slots == 0 and sets_selected:
-            candidate_set_filter = list(sets_selected)
-        else:
-            candidate_set_filter = None
-
+        filters = self.slot_filters(char_name, settings)
         slot_candidates = {}
         for slot_num in SLOT_ORDER:
-            main_filter = None
-            if slot_num == 4 and main_stat_4:
-                main_filter = main_stat_4
-            elif slot_num == 5 and main_stat_5:
-                main_filter = main_stat_5
-            elif slot_num == 6 and main_stat_6:
-                main_filter = main_stat_6
-
             candidates = self.get_gear_by_slot(
                 slot_num,
-                include_equipped=include_equipped,
-                exclude_char=char_name,
-                excluded_heroes=excluded_heroes,
-                required_sets=candidate_set_filter,
-                required_main=main_filter,
                 top_percent=top_percent,
                 use_priority_score=False,  # always sort by gear_score
                                             # (no priority sliders in the UI)
-                min_rarity=3,  # Only Rare+ for optimizer
-                min_level=min_gear_level,  # global "Ignore MFs below level"
-                offelement_attribute=offelement_attr,  # global "Ignore off-Element MFs"
                 score_weights=slot_filter_weights,  # per-character preset
+                **filters[slot_num],
             )
+            if pinned is not None and slot_num == pinned.slot_num:
+                allowed = self.get_gear_by_slot(
+                    slot_num, top_percent=100, **filters[slot_num])
+                candidates = [pinned] if any(
+                    f.id == pinned.id for f in allowed) else []
             slot_candidates[slot_num] = candidates or []
 
         # Per-slot candidate counts. The search space is the PRODUCT of
