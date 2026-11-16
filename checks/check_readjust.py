@@ -302,9 +302,10 @@ def _the_work_order_cache_and_progress():
               "all": ["Ann", "Dee", "Eve"]}
     statuses = {"Ann": whole, "Dee": half, "Eve": whole}
     lines = progress_lines(groups, statuses, rj.BACKGROUND)
-    want = [lines[0], "For one:", COMPLETE % 10, "For weighted:",
-            OUT_OF % (14, 20), "For all:", OUT_OF % (24, 30)]
-    if lines != want or lines[0] == "Done":
+    want = ["Loading...", "(background)", "For one:", COMPLETE % 10,
+            "For weighted:", OUT_OF % (14, 20), "For all:",
+            OUT_OF % (24, 30)]
+    if lines != want:
         out.append(f"the progress reads {lines}, not {want}: each group "
                    f"counts its combatants' readings, Complete only when "
                    f"every one is in.")

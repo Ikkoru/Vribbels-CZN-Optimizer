@@ -2520,12 +2520,6 @@ CONFIG_ROW_ENTRIES = [
 # sits above its controls everywhere except HAL and the Gear Score
 # status line, which sit below theirs.
 EXPLANATION_ENTRIES = [
-    # The Substat Readjustment tab's progress, over the button that
-    # sets it going at full speed.
-    ("Substat Readjustment", "progress -> Full speed", 7, None,
-     "rule", _gap(lambda app: app.readjust_tab_instance.progress_label,
-                  lambda app: app.readjust_tab_instance.full_button,
-                  "v")),
     ("Optimizer", "HAL note -> the spinboxes above it", 7, None, "rule",
      _controls_over_label("Have at least this much of a stat",
                           "Input stats as you expect", *SPINBOX_CLASSES)),

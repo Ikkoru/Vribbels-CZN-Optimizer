@@ -117,8 +117,8 @@ HELD_COLOURS = ((0, "red"), (1, "orange"), (2, "yellow"))
 HELD_PLENTY = "green"
 
 # The progress under the counts (`progress_lines`).
-WORKING = {rj.BACKGROUND: "Loading... (background)",
-           rj.FULL: "Loading... (full speed)"}
+WORKING = "Loading..."
+SPEEDS = {rj.BACKGROUND: "(background)", rj.FULL: "(full speed)"}
 DONE = "Done"
 GROUPS = (("one", "For one:"), ("weighted", "For weighted:"),
           ("all", "For all:"))
@@ -194,8 +194,8 @@ def row_values(reading, measure):
 
 
 def progress_lines(groups, statuses, speed):
-    """The progress under the counts, a line each: Loading... with the
-    speed, or Done; then, for each group of combatants `groups` names
+    """The progress under the counts, a line each: Loading... and the
+    speed under it, or Done; then, for each group of combatants `groups` names
     (`ReadjustWork.groups`, "one" None with several weighted), its title
     and how many of its readings are in, counted over its combatants'
     `statuses` -- or Complete and how many."""
@@ -219,7 +219,7 @@ def progress_lines(groups, statuses, speed):
     every = groups.get("all") or []
     finished = every and all(n in statuses and statuses[n].complete
                              for n in every)
-    return [DONE if finished else WORKING[speed]] + lines
+    return ([DONE] if finished else [WORKING, SPEEDS[speed]]) + lines
 
 
 def best_readings(fragments, readings, weights):
@@ -316,20 +316,32 @@ class ReadjustTab(BaseTab):
         boxes.append(self._dropdown(controls, 3, "MFs:", self.owner_var,
                                     [w for w, _v in OWNERS]))
         self._size_dropdowns(controls, boxes)
-        # Whether the work runs from launch, for every combatant
-        # (`readjust_work`), or only while this tab shows.
-        self.background_var = tk.BooleanVar(value=self.work.background())
-        self.background_box = make_checkbox(
-            controls, self.colors, text="Work in the background",
-            variable=self.background_var, command=self._on_background)
-        # spacing: TBD -- the Substat Readjustment tab's stacked dropdowns
-        self.background_box.grid(row=4, column=0, columnspan=2,
-                                 sticky=tk.NW,
-                                 pady=px((DROPDOWN_ROW_GAP, 0)))
         controls.grid_rowconfigure(4, weight=1)
         self.weight_row = ttk.Frame(controls)
         self.weight_row.grid(row=5, column=0, columnspan=2, sticky=tk.SW)
         self._build_weight_spin(self.weight_row)
+        # At the column's foot, the buttons' bottom on the Sets panel's:
+        # whether the work runs from launch, for every combatant
+        # (`readjust_work`), or only while this tab shows, and how fast.
+        speed = ttk.Frame(controls)
+        # spacing: TBD -- the Substat Readjustment tab's stacked dropdowns
+        speed.grid(row=6, column=0, columnspan=2, sticky=tk.SW,
+                   pady=px((DROPDOWN_ROW_GAP, 0)))
+        self.background_var = tk.BooleanVar(value=self.work.background())
+        self.background_box = make_checkbox(
+            speed, self.colors, text="Work in the background",
+            variable=self.background_var, command=self._on_background)
+        self.background_box.pack(anchor=tk.W)
+        buttons = ttk.Frame(speed)
+        # spacing: checkbox block -> All/None row -- checkbox, button ↕
+        buttons.pack(anchor=tk.W, pady=(px(5), 0))
+        self.full_button = ttk.Button(buttons, text="Full speed",
+                                      command=self._full_speed)
+        self.full_button.pack(side=tk.LEFT)
+        self.slow_button = ttk.Button(buttons, text="Background",
+                                      command=self._background_speed)
+        # spacing: button -> button -- button, button ↔
+        self.slow_button.pack(side=tk.LEFT, padx=(px(4), 0))
 
         self._build_slots(top)
         self._build_sets(top)
@@ -356,13 +368,6 @@ class ReadjustTab(BaseTab):
                                         padding=px((-2, 0, -2, 0)))
         # spacing: label row -> label row -- label, label ↕
         self.progress_label.pack(anchor=tk.E, pady=(px(6), 0))
-        # Only the button here: the column is as tall as the Sets panel
-        # allows, and no wider than the progress, which the note's width
-        # and so its height ride on. The switch is under the dropdowns.
-        self.full_button = ttk.Button(status, text="Full speed",
-                                      command=self._full_speed)
-        # spacing: explanation text -> the controls it explains -- label, button ↕
-        self.full_button.pack(anchor=tk.E, pady=(px(2), 0))
 
         # No inset at the right, and wrapped at its box's edge
         # (`_rewrap`): its trailing pad is then the least distance from
@@ -677,6 +682,9 @@ class ReadjustTab(BaseTab):
     def _full_speed(self):
         self.work.full_speed()
 
+    def _background_speed(self):
+        self.work.background_speed()
+
     def _hidden(self):
         self.work.visible = False
 
@@ -802,6 +810,7 @@ class ReadjustTab(BaseTab):
             self._show_status(None)
             self.progress_label.configure(text=NO_PROGRESS)
             self.full_button.state(["disabled"])
+            self.slow_button.state(["disabled"])
             self._draw([], NO_DATA)
             return
         fragments = self._readjustable()
@@ -839,9 +848,13 @@ class ReadjustTab(BaseTab):
         work = self.work
         self.progress_label.configure(text="\n".join(progress_lines(
             work.groups(), work.statuses, work.speed)))
+        # Speed means nothing once all is in, or without the background.
         idle = all(s.complete for s in work.statuses.values()) \
-            or work.speed == rj.FULL
-        self.full_button.state(["disabled"] if idle else ["!disabled"])
+            or not work.background()
+        for button, speed in ((self.full_button, rj.FULL),
+                              (self.slow_button, rj.BACKGROUND)):
+            button.state(["disabled"] if idle or work.speed == speed
+                         else ["!disabled"])
 
 
     def _passing(self, fragments):

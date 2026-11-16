@@ -326,12 +326,21 @@ class ReadjustWork:
         self._notify()
 
     def full_speed(self):
-        """Every core but one until everything is worked out. Jobs not
-        started yet move to the full-speed workers."""
-        if self.speed == rj.FULL:
+        """Every core but one until everything is worked out, or until
+        `background_speed`."""
+        self._set_speed(rj.FULL)
+
+    def background_speed(self):
+        """Back to the one idle-priority worker."""
+        self._set_speed(rj.BACKGROUND)
+
+    def _set_speed(self, speed):
+        """Work at `speed`: the jobs not started yet move to its
+        workers; the ones running finish where they are."""
+        if self.speed == speed:
             return
-        self.speed = rj.FULL
-        self._cancel(lambda job, speed, name: speed != rj.FULL)
+        self.speed = speed
+        self._cancel(lambda job, at, name: at != speed)
         self.refresh()
 
     def _cancel(self, which):
