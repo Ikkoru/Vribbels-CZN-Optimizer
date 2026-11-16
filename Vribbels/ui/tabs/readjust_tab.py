@@ -38,7 +38,7 @@ from game_data.sets import set_name as set_name_of
 from ..base_tab import BaseTab
 from ..scaling import px, px_after
 from ..utils.all_none_row import make_all_none_row
-from ..utils.checkbox import make_checkbox
+from ..utils.checkbox import FOCUS_INSET, make_checkbox
 from ..utils.combobox_nav import bind_combobox_nav
 from ..utils.spinbox_clamp import clamp_on_commit, step_on_wheel
 
@@ -51,6 +51,8 @@ OWNERS = (("All", "all"), ("Worn by them", "theirs"),
 # The settings each control is kept under (`settings_manager.LAYOUT`);
 # the rest, which the work reads too, are `readjust_work`'s.
 OWNER_KEY = "readjust_owner"
+# The Weights list's sort: [column, descending].
+WEIGHTS_SORT_KEY = "readjust_weights_sort"
 
 # A combatant's weight runs 0 (left out) to this.
 WEIGHT_MAX = 10
@@ -320,18 +322,29 @@ class ReadjustTab(BaseTab):
         self.weight_row = ttk.Frame(controls)
         self.weight_row.grid(row=5, column=0, columnspan=2, sticky=tk.SW)
         self._build_weight_spin(self.weight_row)
-        # At the column's foot, the buttons' bottom on the Sets panel's:
-        # whether the work runs from launch, for every combatant
-        # (`readjust_work`), or only while this tab shows, and how fast.
-        speed = ttk.Frame(controls)
-        # spacing: TBD -- the Substat Readjustment tab's stacked dropdowns
-        speed.grid(row=6, column=0, columnspan=2, sticky=tk.SW,
-                   pady=px((DROPDOWN_ROW_GAP, 0)))
+
+        slots_column = self._build_slots(top)
+        # At the Slots column's foot, the buttons' bottom on the Sets
+        # panel's and their left on the Slots border's: whether the work
+        # runs from launch, for every combatant (`readjust_work`), or
+        # only while this tab shows, and how fast.
+        speed = ttk.Frame(slots_column)
+        speed.pack(side=tk.BOTTOM, anchor=tk.W)
         self.background_var = tk.BooleanVar(value=self.work.background())
+        # The box's ink on the Slots border's left: no padding, and the
+        # focus inset Tk keeps whatever the padding (`FOCUS_INSET`, a
+        # fixed pixel) taken back by placing the box that far left in a
+        # holder its own size less that pixel.
+        holder = ttk.Frame(speed)
+        holder.pack(anchor=tk.W)
         self.background_box = make_checkbox(
-            speed, self.colors, text="Work in the background",
-            variable=self.background_var, command=self._on_background)
-        self.background_box.pack(anchor=tk.W)
+            holder, self.colors, text="Work in the background",
+            variable=self.background_var, command=self._on_background,
+            padx=px(0))
+        holder.configure(
+            width=self.background_box.winfo_reqwidth() - FOCUS_INSET,
+            height=self.background_box.winfo_reqheight())
+        self.background_box.place(x=-FOCUS_INSET, y=0)
         buttons = ttk.Frame(speed)
         # spacing: checkbox block -> All/None row -- checkbox, button ↕
         buttons.pack(anchor=tk.W, pady=(px(5), 0))
@@ -343,7 +356,6 @@ class ReadjustTab(BaseTab):
         # spacing: button -> button -- button, button ↔
         self.slow_button.pack(side=tk.LEFT, padx=(px(4), 0))
 
-        self._build_slots(top)
         self._build_sets(top)
 
         # The counts, stacked at the row's right end.
@@ -457,13 +469,17 @@ class ReadjustTab(BaseTab):
         parent.grid_columnconfigure(1, minsize=widest + extra + px(2))
 
     def _build_slots(self, parent):
-        # spacing: border edge -> first non-button element -- panel, checkbox ↔↕
-        frame = ttk.LabelFrame(parent, text="Slots",
-                               padding=px((0, 2, 0, 3)))
+        """The Slots panel, atop a column as tall as the row: the
+        column, for what stands at its foot."""
+        column = ttk.Frame(parent)
         # spacing: content frame -> content frame -- dropdown, panel ↔
         # spacing: tab list -> first element -- tab, title ↕
-        frame.pack(side=tk.LEFT, anchor=tk.N, padx=px((4, 2)),
-                   pady=(px_after(1, 2), 0))
+        column.pack(side=tk.LEFT, fill=tk.Y, padx=px((4, 2)),
+                    pady=(px_after(1, 2), 0))
+        # spacing: border edge -> first non-button element -- panel, checkbox ↔↕
+        frame = ttk.LabelFrame(column, text="Slots",
+                               padding=px((0, 2, 0, 3)))
+        frame.pack(side=tk.TOP, anchor=tk.W)
         inner = ttk.Frame(frame)
         inner.pack()
         # Left column 3, 2, 1 top to bottom; right 4, 5, 6: the Memory
@@ -481,6 +497,7 @@ class ReadjustTab(BaseTab):
                     pady=px((0 if row == 0 else 3, 0)))
         make_all_none_row(frame, lambda: self._all(self.slot_vars, True),
                           lambda: self._all(self.slot_vars, False))
+        return column
 
     def _build_sets(self, parent):
         # spacing: border edge -> first non-button element -- panel, checkbox ↔↕
@@ -544,12 +561,14 @@ class ReadjustTab(BaseTab):
                          2 if col == SET_COLUMNS - 1 else 0)),
                 pady=px((top, 0)))
 
-    def _measured(self, tree, columns, sortable=True):
+    def _measured(self, tree, columns, sort=None):
         """Each column as wide as its heading or widest sample, in the
         list's own fonts -- measured, so the fonts carry the scale and
         only the inset takes `px`. None stretches: a stretched column
         keeps its width when the Weights list takes room beside it, and
-        pushes the columns after it out of view."""
+        pushes the columns after it out of view. A heading's click calls
+        `sort` with its column, `_sort_by` by default."""
+        sort = sort or self._sort_by
         from tkinter import font as tkfont
         cell = tkfont.nametofont("TkDefaultFont")
         head = tkfont.nametofont("TkHeadingFont")
@@ -558,8 +577,7 @@ class ReadjustTab(BaseTab):
                         + [cell.measure(s) for s in samples]) \
                 + px(2 * TEXT_INSET)
             tree.heading(col, text=title, anchor=anchor,
-                         command=(lambda c=col: self._sort_by(c))
-                         if sortable else "")
+                         command=lambda c=col: sort(c))
             tree.column(col, width=width, minwidth=width, anchor=anchor,
                         stretch=False)
 
@@ -584,7 +602,7 @@ class ReadjustTab(BaseTab):
         self.weight_tree = ttk.Treeview(
             holder, columns=[c[0] for c in columns], show="headings",
             height=WEIGHT_ROWS, selectmode="extended")
-        self._measured(self.weight_tree, columns, sortable=False)
+        self._measured(self.weight_tree, columns, sort=self._sort_weights)
         bar = ttk.Scrollbar(holder, orient=tk.VERTICAL,
                             command=self.weight_tree.yview)
         self.weight_tree.configure(yscrollcommand=bar.set)
@@ -754,12 +772,36 @@ class ReadjustTab(BaseTab):
         return sorted(set(optimizer.characters)
                       | set(optimizer.character_info))
 
+    def _weights_sort(self):
+        """(column, descending) the Weights list is sorted by, as kept."""
+        manager = getattr(self.context, "settings_manager", None)
+        kept = manager.get(WEIGHTS_SORT_KEY) if manager is not None else None
+        if isinstance(kept, list) and len(kept) == 2 \
+                and kept[0] in ("name", "weight"):
+            return kept[0], bool(kept[1])
+        return "name", False
+
+    def _sort_weights(self, column):
+        """A heading clicked: that column, the other way round where it
+        is the column already; a new one starts heaviest or A first."""
+        key, down = self._weights_sort()
+        down = not down if key == column else column == "weight"
+        self._save(WEIGHTS_SORT_KEY, [column, down])
+        self._fill_weights()
+
     def _fill_weights(self):
         weights = self._weights()
         tree = self.weight_tree
         picked, focus = tree.selection(), tree.focus()
         tree.delete(*tree.get_children())
-        for name in self._names():
+        key, down = self._weights_sort()
+        names = sorted(self._names(), key=str.lower)
+        if key == "weight":
+            # Ties by name, A first whichever way the weights run.
+            names.sort(key=lambda n: weights.get(n, 0), reverse=down)
+        elif down:
+            names.reverse()
+        for name in names:
             weight = weights.get(name, 0)
             tree.insert("", tk.END, iid=name, values=(name, weight),
                         tags=() if weight else ("off",))

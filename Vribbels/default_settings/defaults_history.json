@@ -5943,6 +5943,12 @@
   "readjust_weights": [
    {}
   ],
+  "readjust_weights_sort": [
+   [
+    "name",
+    false
+   ]
+  ],
   "selected_preset": [
    ""
   ],

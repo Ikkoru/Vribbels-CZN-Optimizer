@@ -45,13 +45,13 @@ The score is not linear: crit is capped and multiplies, and set changes move it.
 
 Per Quartz is greedy: it compares one Quartz's worth. An exclusion can beat two plain readjustments and still lose to one per Quartz, since a second plain readjustment adds less than the first.
 
-The **Slots**, **Sets** and **MFs** filters only narrow what is drawn, from answers already worked out. The Quartz count is red at 0, orange at 1, yellow at 2 and green above. With several combatants, **Set weight** over the Weights list sets the weight of every combatant picked in it (Shift and Ctrl pick several), and shows the one last clicked.
+The **Slots**, **Sets** and **MFs** filters only narrow what is drawn, from answers already worked out. The Quartz count is red at 0, orange at 1, yellow at 2 and green above. With several combatants, **Set weight** over the Weights list sets the weight of every combatant picked in it (Shift and Ctrl pick several), and shows the one last clicked. Its headings sort it, and the sort is kept (`readjust_weights_sort`: [column, descending]).
 
 ## Where the work runs
 
 **The work is the app's**, `readjust_work.ReadjustWork`, made at startup, so it can run before the tab is first opened; the tab draws what it has. It plans from the settings the tab's controls save (`readjust_measure`, `readjust_mode`, `readjust_combatant`, `readjust_weights`), and works out every combatant, in this order: with one combatant chosen, that one, then the weighted ones by weight, heaviest first, then everyone else; with several weighted, the weighted by weight, then everyone else. The list draws as soon as the combatants it shows are worked out, while the work goes on past them. Only `AHEAD` jobs per worker wait at a time, so a new choice is taken up within a job or two.
 
-**Two speeds.** With **Work in the background** on (`readjust_background`, the default), the work starts as soon as a capture loads, in one worker at Windows' idle priority, which only gets the time nothing else wants: the game and the window are not slowed. **Full speed** moves it to every core but one at normal priority until everything is worked out, or until **Background** moves it back. The switch and the two buttons sit at the foot of the dropdowns' column, the buttons' bottom on the Sets panel's. With the switch off, it runs only while the tab shows, only for the combatants it shows, at full speed. A spacing audit's run starts no worker.
+**Two speeds.** With **Work in the background** on (`readjust_background`, the default), the work starts as soon as a capture loads, in one worker at Windows' idle priority, which only gets the time nothing else wants: the game and the window are not slowed. **Full speed** moves it to every core but one at normal priority until everything is worked out, or until **Background** moves it back. The switch and the two buttons sit at the foot of the Slots column, their left on the Slots border's and the buttons' bottom on the Sets panel's. With the switch off, it runs only while the tab shows, only for the combatants it shows, at full speed. A spacing audit's run starts no worker.
 
 **The progress**, under the counts: Loading... and the speed on the line under it, or Done; then For one (with one combatant chosen), For weighted and For all, each as how many of its combatants' readings are in out of how many, or Complete. A reading counts once worked out or left unread (cut, or no build can wear it).
 
@@ -70,4 +70,4 @@ A deleted fragment's answers, and a readjusted one's old ones, are dropped when 
 
 ## Settings
 
-`readjust_measure`, `readjust_mode`, `readjust_combatant`, `readjust_weights` ({name: weight}), `readjust_owner` and `readjust_background` in `settings.json`, under the Substat Readjustment heading of `SettingsManager.LAYOUT`. The Slots and Sets ticks are not kept, as on the Memory Fragments tab.
+`readjust_measure`, `readjust_mode`, `readjust_combatant`, `readjust_weights` ({name: weight}), `readjust_owner`, `readjust_background` and `readjust_weights_sort` in `settings.json`, under the Substat Readjustment heading of `SettingsManager.LAYOUT`. The Slots and Sets ticks are not kept, as on the Memory Fragments tab.
