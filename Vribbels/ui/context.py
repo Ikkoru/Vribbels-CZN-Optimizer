@@ -111,3 +111,8 @@ class AppContext:
     # tab calls it after a checklist toggle. Optional -- callers must
     # check for None.
     recompute_upgrade_line_callback: Callable[[], None] | None = None
+    # The Substat Readjustment tab's work (`readjust_work.ReadjustWork`),
+    # the app's rather than the tab's so it can run before the tab is
+    # first opened. None in a check's build: the tab then keeps a work of
+    # its own that never starts a worker.
+    readjust_work: object | None = None

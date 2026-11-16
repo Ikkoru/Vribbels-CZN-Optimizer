@@ -35,6 +35,10 @@ Vribbels/client_archive/
 # their own presets, char assignments, optimizer config, etc.
 Vribbels/settings/
 
+# Worked-out answers the program can work out again
+# (`readjust_work.CACHE_NAME`), CACHEDIR.TAG'd.
+Vribbels/cache/
+
 # Working scratch, not documentation: notes for work in flight -- a plan
 # graduates into `past_plans/` when its work lands, and `paused_task.md`
 # is written to be deleted. `CLAUDE.md`, `tasks.md`, `docs/` and

@@ -33,14 +33,26 @@ nothing else, so a broken one reads as a plausible ranking:
     moved to another combatant, or the settings changed, is a new
     signature; the same capture loaded again is not.
 
-Rules 10 to 12 run on `_parity_fixture`'s synthetic inventory.
-8. **The tab keeps an answer by what it was worked out from**: a
+13. **The work takes the combatants in the tab's order**: the one
+    chosen, then the weighted, heaviest first, then everyone else.
+14. **The Gear Score cut leaves out only what cannot reach the top**:
+    never a fragment of the Top build, and always one whose every
+    substat the preset weighs at nothing.
+15. **Saved answers come back after a restart**, and only from the
+    same way of working out (`CACHE_VERSION`).
+16. **The progress counts each group's readings**, and says Complete
+    only when every one is in.
+
+Rules 10 to 12 and 14 run on `_parity_fixture`'s synthetic inventory.
+8. **The work keeps an answer by what it was worked out from**: a
    readjusted fragment is worked out again, an unchanged one is not,
    and a combatant's Top build outlasts a capture that changes none of
    what it is made of.
 """
 
 import random
+
+from pathlib import Path
 
 from ._harness import add_source_to_path
 
@@ -229,11 +241,78 @@ def run():
                        f"gain per Quartz.")
     out.extend(_answers_kept_by_content())
     out.extend(_build_score_reads_the_top_build())
+    out.extend(_the_work_order_cache_and_progress())
+    return out
+
+
+def _the_work_order_cache_and_progress():
+    """13, 15 and 16: what the user sees of the work besides its
+    answers -- which combatants come first, whether a restart keeps
+    what was worked out, and what the progress says."""
+    import tempfile
+
+    import readjust as rj
+    import readjust_work as rw
+    from ui.tabs.readjust_tab import COMPLETE, OUT_OF, progress_lines
+
+    out = []
+    names = ["Ann", "Bea", "Cyd", "Dee", "Eve"]
+    weights = {"Ann": 2, "Dee": 5, "Eve": 2}
+    for mode, chosen, want in (
+            ("one", "Cyd", ["Cyd", "Dee", "Ann", "Eve", "Bea"]),
+            ("one", "Dee", ["Dee", "Ann", "Eve", "Bea", "Cyd"]),
+            ("weighted", "Cyd", ["Dee", "Ann", "Eve", "Bea", "Cyd"])):
+        got = rw.ordered(names, mode, chosen, weights)
+        if got != want:
+            out.append(f"with {mode!r} and {chosen} chosen the work takes "
+                       f"{got}, not {want}: the chosen one first in one "
+                       f"mode, then the weighted, heaviest first, then the "
+                       f"rest.")
+
+    # 15
+    folder = Path(tempfile.mkdtemp(prefix="readjust_cache_"))
+    first = rw.ReadjustWork(None, lambda *_a: None, cache_dir=folder)
+    key = ("a signature", "read", ("content",))
+    first.answers[key] = ("now", "plain", "exclude")
+    first._dirty = True
+    first.save()
+    again = rw.ReadjustWork(None, lambda *_a: None, cache_dir=folder)
+    if again.answers.get(key) != ("now", "plain", "exclude"):
+        out.append("answers saved by one launch are not there in the "
+                   "next: a restart would work everything out again.")
+    if not (folder / "CACHEDIR.TAG").read_bytes().startswith(
+            b"Signature: 8a477f597d28d172789f06886806bc55"):
+        out.append("the cache folder carries no CACHEDIR.TAG: backups "
+                   "would copy answers the program can work out again.")
+    real = rw.CACHE_VERSION
+    rw.CACHE_VERSION = real + 1
+    try:
+        older = rw.ReadjustWork(None, lambda *_a: None, cache_dir=folder)
+    finally:
+        rw.CACHE_VERSION = real
+    if older.answers:
+        out.append("answers saved by another way of working out "
+                   "(CACHE_VERSION) are read back: a change to the model "
+                   "would show the old one's numbers.")
+
+    # 16
+    half, whole = rw.Status(10), rw.Status(10)
+    half.done, whole.done = 4, 10
+    groups = {"one": ["Ann"], "weighted": ["Ann", "Dee"],
+              "all": ["Ann", "Dee", "Eve"]}
+    statuses = {"Ann": whole, "Dee": half, "Eve": whole}
+    lines = progress_lines(groups, statuses, rj.BACKGROUND)
+    want = [lines[0], "For one:", COMPLETE % 10, "For weighted:",
+            OUT_OF % (14, 20), "For all:", OUT_OF % (24, 30)]
+    if lines != want or lines[0] == "Done":
+        out.append(f"the progress reads {lines}, not {want}: each group "
+                   f"counts its combatants' readings, Complete only when "
+                   f"every one is in.")
     return out
 
 
 def _answers_kept_by_content():
-    """8. **The tab keeps an answer by what it was worked out from.** A
+    """8. **The work keeps an answer by what it was worked out from.** A
     new capture holding the same fragments asks for nothing again; a
     readjusted fragment, same id and new rolls, is asked for again and
     its old answer dropped; a deleted one's answer is dropped. Kept by id
@@ -241,39 +320,43 @@ def _answers_kept_by_content():
     worth, and nothing would say so."""
     import copy
     import readjust as rj
-    from ui.tabs.readjust_tab import ReadjustTab
+    from readjust_work import ReadjustWork
 
     out = []
-    tab = ReadjustTab.__new__(ReadjustTab)
-    tab._answers, tab._inflight, tab._inputs, tab._token = {}, {}, {}, None
+    tab = ReadjustWork(None, lambda *_a: None)
     frags = []
     for n, ups in enumerate(([(0, 1.3)] * 4, [(1, 2.5)] * 4,
                              [(2, 5)] * 4)):
         f = _fragment(ups)
         f.id = 100 + n
         frags.append(f)
-    sig = ("gear", "weights")
-    signatures = {"X": (sig, {"measure": rj.GEAR})}
+    sig = "a gear signature"
+    template = {"measure": rj.GEAR}
+
+    def status(fragments):
+        wanted = []
+        keys = {f.id: rj.content(f) for f in fragments}
+        got = tab._status("X", sig, template, fragments, keys, wanted)
+        return got, sorted(f.id for *_rest, chunk in wanted for f in chunk)
 
     def asked(fragments):
-        _readings, wanted, *_rest = tab._needed(fragments, signatures)
-        return sorted(f.id for *_rest, chunk in wanted for f in chunk)
+        return status(fragments)[1]
 
     def answer(fragments):
         for f in fragments:
-            tab._answers[(sig, "read", rj.content(f))] = ("answer", f.id)
+            tab.answers[(sig, "read", rj.content(f))] = ("answer", f.id)
 
     tab._forget("capture 1", frags)
     answer(frags)
-    top_key = (("build", "a combatant's builds"), "top", None)
-    tab._answers[top_key] = [f.id for f in frags]
+    top_key = ("a build signature", "top", None)
+    tab.answers[top_key] = {"top": [f.id for f in frags], "cut": []}
     same = [copy.deepcopy(f) for f in frags]
     tab._forget("capture 2", same)
     if asked(same):
         out.append(f"a new capture of the same fragments asks for "
                    f"{asked(same)} again: an answer is kept by what it was "
                    f"worked out from, not by the capture.")
-    if top_key not in tab._answers:
+    if top_key not in tab.answers:
         out.append("a new capture of the same fragments drops a "
                    "combatant's Top build: it is kept by its signature, "
                    "which holds every fragment it could be made of.")
@@ -282,20 +365,20 @@ def _answers_kept_by_content():
     sub.upgrade_values = [2.0, 2.0, 2.0]
     sub.value = sub.base_value + sum(sub.upgrade_values)
     tab._forget("capture 3", rerolled)
-    readings, *_rest = tab._needed(rerolled, signatures)
-    if asked(rerolled) != [rerolled[1].id] or rerolled[1].id in readings["X"]:
+    readings = status(rerolled)[0].readings
+    if asked(rerolled) != [rerolled[1].id] or rerolled[1].id in readings:
         out.append(f"after a readjustment of fragment {rerolled[1].id} the "
-                   f"tab asks for {asked(rerolled)} and shows "
-                   f"{readings['X'].get(rerolled[1].id)} for it: the "
+                   f"work asks for {asked(rerolled)} and shows "
+                   f"{readings.get(rerolled[1].id)} for it: the "
                    f"readjusted fragment alone is worked out again, and its "
                    f"old answer is not shown.")
     answer(rerolled)
     left = rerolled[:2]
     tab._forget("capture 4", left)
-    gone = [k for k in tab._answers
+    gone = [k for k in tab.answers
             if k[2] is not None and k[2][0] == rerolled[2].id]
     if gone or asked(left):
-        out.append(f"after fragment {rerolled[2].id} is deleted the tab "
+        out.append(f"after fragment {rerolled[2].id} is deleted the work "
                    f"keeps {len(gone)} answer(s) of it and asks for "
                    f"{asked(left)}: a deleted fragment's answers are "
                    f"dropped, and nothing else is asked for.")
@@ -368,6 +451,26 @@ def _build_score_reads_the_top_build():
                    f"{reading and reading[0]}: the build score stands "
                    f"against the Top build, which reads 0.")
 
+    # 14: the cut keeps the Top build, and drops a fragment whose every
+    # substat the preset weighs at nothing.
+    if set(rj.gear_cut(o, name, settings)) & in_top:
+        out.append("the Gear Score cut leaves out a fragment of the Top "
+                   "build: it would never be read, though the best build "
+                   "already wears it.")
+    from game_data.constants import STATS
+    stray = next(f for f in o.fragments
+                 if rj.readjustable(f) and f.id not in in_top)
+    blind = {info[0]: 0.0 for info in STATS.values()}
+    blind.update({s.name: 0.0 for s in stray.substats})
+    keeps = {info[0]: 1.0 for info in STATS.values()
+             if info[0] not in {s.name for s in stray.substats}}
+    blind.update(keeps)
+    if stray.id not in rj.gear_cut(o, name,
+                                   dict(settings, slot_filter_weights=blind)):
+        out.append(f"fragment {stray.id}, whose every substat the preset "
+                   f"weighs at 0, is read: at its best it reaches no Gear "
+                   f"Score, so it cannot reach the top third of its slot.")
+
     # 12
     sig = rj.build_signature(o, name, settings)
     reloaded = GearOptimizer()
@@ -402,6 +505,24 @@ def _build_score_reads_the_top_build():
 
 
 FAULTS = [
+    ("the cut keeping only what cannot reach the top", "readjust:gear_cut",
+     "top_gs(f, valuer) < bar)", "top_gs(f, valuer) >= bar)",
+     "leaves out a fragment of the Top"),
+    ("the weighted taken lightest first", "readjust_work:ordered",
+     "key=lambda n: (-weights[n], n))", "key=lambda n: (weights[n], n))",
+     "heaviest first"),
+    ("answers never saved", "readjust_work:ReadjustWork.save",
+     "        os.replace(temp, path)\n", "        pass\n",
+     "not there in the"),
+    ("another version's answers read back", "readjust_work:ReadjustWork._load",
+     "saved.get(\"version\") == CACHE_VERSION",
+     "saved.get(\"version\") is not None",
+     "another way of working out"),
+    ("Complete before every reading is in",
+     "ui.tabs.readjust_tab:progress_lines",
+     "elif total is not None and done >= total:",
+     "elif total is not None and done > 0:",
+     "Complete only when"),
     ("the pin ignoring the run's filters",
      "optimizer.optimizer:GearOptimizer.optimize",
      "candidates = [pinned] if any(\n"
@@ -425,7 +546,7 @@ FAULTS = [
      "owners = sorted((f.id, \"\")",
      "moved to another combatant"),
     ("a Top build dropped with each capture",
-     "ui.tabs.readjust_tab:ReadjustTab._forget",
+     "readjust_work:ReadjustWork._forget",
      "if k[2] is not None and k[2] not in live]:",
      "if k[2] not in live]:",
      "drops a combatant's Top build"),
@@ -457,7 +578,7 @@ FAULTS = [
      "key=lambda o: (-o.cost, o.per_quartz))",
      "Use names the option"),
     ("every answer dropped with each capture",
-     "ui.tabs.readjust_tab:ReadjustTab._forget",
+     "readjust_work:ReadjustWork._forget",
      "if k[2] is not None and k[2] not in live]:",
      "if True]:",
      "not by the capture"),
@@ -467,8 +588,8 @@ FAULTS = [
      "len(fragment.substats))",
      "the readjusted fragment alone"),
     ("a deleted fragment's answers kept",
-     "ui.tabs.readjust_tab:ReadjustTab._forget",
+     "readjust_work:ReadjustWork._forget",
      "live = {rj.content(f) for f in fragments}",
-     "live = {k[2] for k in self._answers}",
+     "live = {k[2] for k in self.answers}",
      "a deleted fragment's answers are"),
 ]

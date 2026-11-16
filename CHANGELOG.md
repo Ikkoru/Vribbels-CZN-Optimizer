@@ -27,7 +27,10 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - For: one combatant, or several with a weight each, every fragment read for the one it does most for. Shift and Ctrl pick several in the Weights list, and Set weight gives the weight to all of them.
   - Slots and Sets checkboxes, and MFs (all, worn by them, unequipped), narrow the list.
   - Your Shuffling Quartz count: red at 0, orange at 1, yellow at 2, green above.
-  - Worked out in the background: the window stays free, the list counts the answers in meanwhile, and a score or combatant already worked out shows at once. A new capture works out again only what it changed: under Gear Score a readjusted fragment or one newly at its top level, under Build Score a combatant whose level or settings changed, or any of the MFs their builds are made from.
+  - Build Score reads only the MFs whose Gear Score at their very best could reach the top third of their slot, under the combatant's preset: one that can't is not worth a Quartz.
+  - Worked out for every combatant from the moment a capture loads, the one chosen first, then the weighted by weight, then everyone else, in one worker at the lowest priority so the game and the window aren't slowed. Full speed uses every core but one until it's all done. Work in the background turns it off, leaving the work to the tab while it shows.
+  - Under the counts: how far it has got for the combatant chosen, the weighted and everyone. The list shows as soon as its own combatants are done.
+  - Kept between launches. A new capture works out again only what it changed: under Gear Score a readjusted MF or one newly at its top level, under Build Score a combatant whose level or settings changed, or any of the MFs their builds are made from.
 - Memory Fragments tab: two rows under Main Stats. The first is the Units needed to level every fragment to 3 and use up your Core of Memory. The second is what you hold against that: spare in green, or short in red with the x6 runs of Growth - Unit - Difficulty 6 it comes to.
 - Checklist tab: hovering a Core in Expiring Items says what it does.
 - Checklist tab: Activity (Weeklies), the week's Activity points out of 1000, read like Activity (Dailies): green once the week's reward is claimed, blinking orange with 1000 reached and the reward still to claim.

@@ -123,6 +123,7 @@ class SettingsManager:
         ("readjust_combatant", ""),
         ("readjust_weights", {}),
         ("readjust_owner", "all"),
+        ("readjust_background", True),
         # Materials
         ("materials_include_generic_combatant", False),
         ("materials_include_generic_partner", False),

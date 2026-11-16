@@ -38,6 +38,7 @@ module's import path.
 import atexit
 import copy
 import json
+import math
 import os
 import random
 from dataclasses import dataclass
@@ -61,6 +62,10 @@ BUILD_SAMPLES = 1000
 # The outcome the second build around a fragment is found for: the one
 # a plain readjustment beats this share of the time (`read_build`).
 HIGH_SHARE = 0.10
+# The build score reads only the fragments whose Gear Score at their
+# best could reach this top share of their slot's candidates
+# (`gear_cut`): one that cannot is never part of a top build.
+CUT_SHARE = 1 / 3
 
 GEAR = "gear"
 BUILD = "build"
@@ -347,6 +352,42 @@ def build_signature(optimizer, name, settings):
                       sort_keys=True, default=repr)
 
 
+def top_gs(fragment, valuer):
+    """`fragment`'s Gear Score at its best readjustment, under the
+    GearValuer `valuer`: its starting values and every upgrade a top
+    roll on its best substat."""
+    scaled = valuer.bind(fragment)
+    _now, _ref, extra = scaled.reference(fragment)
+    start = extra + sum(scaled.points(s, s.base_value)
+                        for s in fragment.substats)
+    return start + UPGRADES * max(scaled.points(s, max_roll(s))
+                                  for s in fragment.substats)
+
+
+def gear_cut(optimizer, name, settings):
+    """The readjustable fragments the build score leaves unread, as ids:
+    those the run's filters refuse, which no build can wear, and those
+    whose Gear Score at their best (`top_gs`) falls short of the top
+    `CUT_SHARE` of their slot's candidates as they stand, under the
+    combatant's preset (`slot_filter_weights`; every weight 1 without
+    one). A fragment that cannot reach the top third even at its best is
+    not worth a rare Quartz, and its Optimizer runs are saved."""
+    valuer = GearValuer(settings.get("slot_filter_weights") or {})
+    cut = []
+    for slot, filters in optimizer.slot_filters(name, settings).items():
+        pool = optimizer.get_gear_by_slot(slot, top_percent=100, **filters)
+        allowed = {f.id for f in pool}
+        scores = sorted((valuer.bind(f).reference(f)[0] for f in pool),
+                        reverse=True)
+        bar = scores[max(1, math.ceil(len(scores) * CUT_SHARE)) - 1] \
+            if scores else 0.0
+        for f in optimizer.fragments:
+            if f.slot_num == slot and readjustable(f) \
+                    and (f.id not in allowed or top_gs(f, valuer) < bar):
+                cut.append(f.id)
+    return cut
+
+
 def top_build(optimizer, name, settings, pinned=None):
     """The Optimizer's best build for `name` under `settings`, wearing
     `pinned` where given: its fragments, or None where the run finds no
@@ -500,8 +541,9 @@ def work(job):
 
     - Gear Score: {fragment id: (now, plain, exclude)} for
       `job["fragments"]`, under `job["weights"]`.
-    - Build score, `job["kind"]` "top": {None: the Top build's fragment
-      ids, or None where the Optimizer finds no build}.
+    - Build score, `job["kind"]` "top": {None: {"top": the Top build's
+      fragment ids, "cut": `gear_cut`'s}, or None where the Optimizer
+      finds no build}.
     - Build score, "read": {fragment id: (now, plain, exclude), or None
       where no build can wear it}, against the Top build
       `job["top"]` (ids). `job["optimizer"]` is `lean_optimizer`'s,
@@ -519,7 +561,10 @@ def work(job):
     settings = job["settings"]
     if job["kind"] == "top":
         top = top_build(optimizer, name, settings)
-        return {None: [f.id for f in top] if top is not None else None}
+        if top is None:
+            return {None: None}
+        return {None: {"top": [f.id for f in top],
+                       "cut": gear_cut(optimizer, name, settings)}}
     by_id = {f.id: f for f in optimizer.fragments}
     top = [by_id[i] for i in job["top"]]
     valuer = BuildValuer(optimizer, name, settings, top)
@@ -528,24 +573,49 @@ def work(job):
             for f in job["fragments"]}
 
 
-_pool = None
+# The two speeds the work runs at, each a pool of its own.
+BACKGROUND = "background"
+FULL = "full"
+# Windows' priority class for the background worker: it is given only
+# the time nothing else wants, the game and the window included.
+IDLE_PRIORITY_CLASS = 0x40
+
+_pools = {}
 
 
-def submit(job):
-    """Run `work(job)` in a worker process: a Future. The workers are
-    started the first time and kept, since starting one costs about a
-    second; up to four, a core left for the window and the game."""
-    global _pool
-    if _pool is None:
+def _idle():
+    """A background worker's initializer: run at the lowest priority."""
+    try:
+        import ctypes
+        kernel = ctypes.windll.kernel32
+        kernel.SetPriorityClass(kernel.GetCurrentProcess(),
+                                IDLE_PRIORITY_CLASS)
+    except (AttributeError, OSError):
+        try:
+            os.nice(19)
+        except (AttributeError, OSError):
+            pass
+
+
+def workers(speed):
+    """How many processes `speed` runs: one in the background, every
+    core but one at full speed."""
+    return 1 if speed == BACKGROUND else max(1, (os.cpu_count() or 2) - 1)
+
+
+def submit(job, speed=FULL):
+    """Run `work(job)` in a worker process of `speed`'s pool: a Future.
+    The workers are started the first time and kept, since starting one
+    costs about a second."""
+    if speed not in _pools:
         from concurrent.futures import ProcessPoolExecutor
-        _pool = ProcessPoolExecutor(
-            max_workers=max(1, min(4, (os.cpu_count() or 2) - 1)))
-    return _pool.submit(work, job)
+        _pools[speed] = ProcessPoolExecutor(
+            max_workers=workers(speed),
+            initializer=_idle if speed == BACKGROUND else None)
+    return _pools[speed].submit(work, job)
 
 
 @atexit.register
 def _shutdown():
-    global _pool
-    if _pool is not None:
-        _pool.shutdown(wait=False, cancel_futures=True)
-        _pool = None
+    for speed in list(_pools):
+        _pools.pop(speed).shutdown(wait=False, cancel_futures=True)

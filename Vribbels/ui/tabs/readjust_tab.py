@@ -15,25 +15,22 @@ combatant, or several, each weighted, every fragment read for the one
 whose weighted gain is highest. **Slots**, **Sets** and **MFs**
 narrow the list without working anything out again.
 
-**The work runs in worker processes** (`readjust.submit`), a job a
-chunk of fragments for one combatant and measure, and every answer is
-kept by what it was worked out from -- the fragment's own rolls, and
-the preset's weights or everything the combatant's builds are made of
-(`readjust.build_signature`): a measure or a combatant gone back to
-draws at once, a new capture costs only what it changed, and anything
-still being worked out shows how far it has got meanwhile, the window
-free to use. A change of mind drops the jobs not started yet.
-`docs/readjust.md` has the model.
+**The work is the app's** (`readjust_work.ReadjustWork`): it works out
+every combatant's readings in worker processes, the ones this tab shows
+first, in the background from launch or at full speed, and keeps them
+between launches. The tab draws what it has: its list once the
+combatants it shows are worked out, and how far the rest have got under
+the counts. `docs/readjust.md` has the model.
 """
 
-import json
 import tkinter as tk
 from tkinter import ttk
 
 import item_amounts
 import readjust as rj
 from game_data import EQUIPMENT_SLOTS, SETS
-from optimizer.run_settings import saved_run_settings
+from readjust_work import (BACKGROUND_KEY, COMBATANT_KEY, MEASURE_KEY,
+                           MODE_KEY, WEIGHTS_KEY, ReadjustWork)
 from game_data.characters import ATTRIBUTE_COLORS
 from game_data.sets import named_sets, set_named, set_pieces
 from game_data.sets import set_name as set_name_of
@@ -51,11 +48,8 @@ MODES = (("One combatant", "one"), ("Several, weighted", "weighted"))
 OWNERS = (("All", "all"), ("Worn by them", "theirs"),
           ("Unequipped", "unequipped"))
 
-# The settings each control is kept under (`settings_manager.LAYOUT`).
-MEASURE_KEY = "readjust_measure"
-MODE_KEY = "readjust_mode"
-COMBATANT_KEY = "readjust_combatant"
-WEIGHTS_KEY = "readjust_weights"
+# The settings each control is kept under (`settings_manager.LAYOUT`);
+# the rest, which the work reads too, are `readjust_work`'s.
 OWNER_KEY = "readjust_owner"
 
 # A combatant's weight runs 0 (left out) to this.
@@ -106,11 +100,10 @@ NOTES = {
         "Gain: the average rise in Gear Score under the combatant's "
         "assigned preset.") + _COLUMNS,
     rj.BUILD: _KEEPS + (
-        "Gain: the average rise over the combatant's Top build (under "
-        "their Optimizer tab settings), the MF in the best build found "
-        "around it.") + _COLUMNS,
+        "Gain: the average rise over the combatant's Top build, the MF "
+        "in the best build around it.") + _COLUMNS,
 }
-LOADING = "Loading... %d of %d"
+LOADING = "Loading..."
 NO_BUILD = "The Optimizer finds no build for %s under their settings."
 NO_DATA = "No capture loaded: log in with the capture running."
 NOBODY = "Give a combatant a weight above 0."
@@ -123,16 +116,18 @@ COUNT = "%d MFs"
 HELD_COLOURS = ((0, "red"), (1, "orange"), (2, "yellow"))
 HELD_PLENTY = "green"
 
-# A job's fragments: small enough that a change of mind waits on
-# little. A build-score fragment is two Optimizer runs and its sampling.
-CHUNK = 40
-BUILD_CHUNK = 4
-POLL_MS = 50
+# The progress under the counts (`progress_lines`).
+WORKING = {rj.BACKGROUND: "Loading... (background)",
+           rj.FULL: "Loading... (full speed)"}
+DONE = "Done"
+GROUPS = (("one", "For one:"), ("weighted", "For weighted:"),
+          ("all", "For all:"))
+OUT_OF = "%d out of %d"
+COMPLETE = "Complete %d"
+NONE_WEIGHTED = "None weighted"
+NO_PROGRESS = "No data"
 # How long the weight spinbox has to hold still before a new reading.
 SETTLE_MS = 400
-# Answers kept past this many are dropped, all but those of the
-# signatures on show.
-KEEP_ANSWERS = 40000
 
 # Between the stacked dropdowns' rows.
 DROPDOWN_ROW_GAP = 4   # spacing: TBD -- the Substat Readjustment tab's stacked dropdowns
@@ -198,6 +193,35 @@ def row_values(reading, measure):
     )
 
 
+def progress_lines(groups, statuses, speed):
+    """The progress under the counts, a line each: Loading... with the
+    speed, or Done; then, for each group of combatants `groups` names
+    (`ReadjustWork.groups`, "one" None with several weighted), its title
+    and how many of its readings are in, counted over its combatants'
+    `statuses` -- or Complete and how many."""
+    lines = []
+    for key, title in GROUPS:
+        names = groups.get(key)
+        if names is None:
+            continue
+        got = [statuses[n] for n in names if n in statuses]
+        done = sum(s.done for s in got)
+        total = sum(s.total for s in got) if len(got) == len(names) \
+            else None
+        lines.append(title)
+        if not names and key == "weighted":
+            lines.append(NONE_WEIGHTED)
+        elif total is not None and done >= total:
+            lines.append(COMPLETE % total)
+        else:
+            lines.append(OUT_OF % (done, total if total is not None
+                                   else done))
+    every = groups.get("all") or []
+    finished = every and all(n in statuses and statuses[n].complete
+                             for n in every)
+    return [DONE if finished else WORKING[speed]] + lines
+
+
 def best_readings(fragments, readings, weights):
     """[Reading], best first: each fragment read for the combatant whose
     weighted gain per Quartz is highest. `readings` {combatant: {id:
@@ -226,26 +250,11 @@ class ReadjustTab(BaseTab):
 
     def __init__(self, parent, context):
         super().__init__(parent, context)
-        # {(signature, kind, content): answer}: every answer a worker
-        # has given, kept by what it was worked out from (`_signatures`,
-        # `rj.content`). Kind "read" is (now, plain, exclude), or None
-        # for a fragment no build can wear; kind "top", content None, a
-        # combatant's Top build, as fragment ids, or None for none.
-        self._answers = {}
-        # {job: Future} still being worked out, {job: ((id, content),
-        # ...)} what each was handed, and {answer key: job} for every
-        # answer one of them will give.
-        self._futures = {}
-        self._jobs = {}
-        self._inflight = {}
-        # {(capture token, combatant, run settings): build signature}:
-        # worked out once per capture loaded; and the Optimizer as a
-        # worker is handed it (`rj.lean_optimizer`), once per capture.
-        self._inputs = {}
-        self._lean = None
-        self._token = None
-        self._polling = False
-        self._error = None
+        # The app's work; a check's build has none, and keeps one of its
+        # own that never starts a worker (`ReadjustWork.enabled`).
+        self.work = getattr(context, "readjust_work", None) \
+            or ReadjustWork(context, self.frame.after)
+        self.work.listeners.append(self._show_work)
         self._shown = None
         self._words = None              # see `_draw`
         self._sort = ("weighted", True)
@@ -260,6 +269,7 @@ class ReadjustTab(BaseTab):
         # a load caught up on.
         self.frame.bind("<Map>", lambda _e: self.refresh_readjust(),
                         add="+")
+        self.frame.bind("<Unmap>", lambda _e: self._hidden(), add="+")
 
     # ------------------------------------------------------------ build
 
@@ -306,6 +316,16 @@ class ReadjustTab(BaseTab):
         boxes.append(self._dropdown(controls, 3, "MFs:", self.owner_var,
                                     [w for w, _v in OWNERS]))
         self._size_dropdowns(controls, boxes)
+        # Whether the work runs from launch, for every combatant
+        # (`readjust_work`), or only while this tab shows.
+        self.background_var = tk.BooleanVar(value=self.work.background())
+        self.background_box = make_checkbox(
+            controls, self.colors, text="Work in the background",
+            variable=self.background_var, command=self._on_background)
+        # spacing: TBD -- the Substat Readjustment tab's stacked dropdowns
+        self.background_box.grid(row=4, column=0, columnspan=2,
+                                 sticky=tk.NW,
+                                 pady=px((DROPDOWN_ROW_GAP, 0)))
         controls.grid_rowconfigure(4, weight=1)
         self.weight_row = ttk.Frame(controls)
         self.weight_row.grid(row=5, column=0, columnspan=2, sticky=tk.SW)
@@ -330,6 +350,19 @@ class ReadjustTab(BaseTab):
                                      foreground=self.colors["fg_dim"],
                                      padding=px((-2, 0, -2, 0)))
         self.count_label.pack(anchor=tk.E)
+        # How far the work has got, for the list and past it.
+        self.progress_label = ttk.Label(status, text="", justify=tk.LEFT,
+                                        foreground=self.colors["fg_dim"],
+                                        padding=px((-2, 0, -2, 0)))
+        # spacing: label row -> label row -- label, label ↕
+        self.progress_label.pack(anchor=tk.E, pady=(px(6), 0))
+        # Only the button here: the column is as tall as the Sets panel
+        # allows, and no wider than the progress, which the note's width
+        # and so its height ride on. The switch is under the dropdowns.
+        self.full_button = ttk.Button(status, text="Full speed",
+                                      command=self._full_speed)
+        # spacing: explanation text -> the controls it explains -- label, button ↕
+        self.full_button.pack(anchor=tk.E, pady=(px(2), 0))
 
         # No inset at the right, and wrapped at its box's edge
         # (`_rewrap`): its trailing pad is then the least distance from
@@ -635,7 +668,17 @@ class ReadjustTab(BaseTab):
 
     def _filtered(self):
         """A Slot or a Set ticked: the same answers, drawn again."""
-        self.refresh_readjust()
+        self._show_work()
+
+    def _on_background(self):
+        self._save(BACKGROUND_KEY, bool(self.background_var.get()))
+        self.work.refresh()
+
+    def _full_speed(self):
+        self.work.full_speed()
+
+    def _hidden(self):
+        self.work.visible = False
 
     def _all(self, variables, value):
         for var in variables.values():
@@ -721,187 +764,20 @@ class ReadjustTab(BaseTab):
             tree.focus(focus)
 
     def _combatants(self):
-        """{combatant: weight} the controls ask for."""
-        names = self._names()
+        """{combatant: weight} the list is read for."""
         if self.mode() == "weighted":
-            return {name: weight for name, weight in self._weights().items()
-                    if name in names and weight > 0}
-        name = self.combatant_var.get()
-        return {name: 1.0} if name in names else {}
+            return self.work.weights()
+        name = self.work.chosen()
+        return {name: 1.0} if name else {}
 
     def _readjustable(self):
         optimizer = self.optimizer
         return sorted((f for f in optimizer.fragments if rj.readjustable(f)),
                       key=lambda f: f.id)
 
-    def _signatures(self, combatants):
-        """{combatant: (signature, job template)}: what one combatant's
-        answers depend on beyond each fragment's own rolls -- the
-        measure, the game's roll grids, and the preset's weights or
-        everything the combatant's builds are made of
-        (`rj.build_signature`, under the settings the Optimizer tab would
-        run with). Equal inputs give an equal signature, whichever
-        capture they came from. Under the Gear Score a combatant with no
-        preset is left out, and named in the second value."""
-        measure = self.measure()
-        stats = rj.stats_snapshot()
-        rolls = tuple(sorted((k, tuple(v)) for k, v in stats.items()))
-        out, bare = {}, []
-        context = self.context
-        for name in combatants:
-            if measure == rj.GEAR:
-                assigned = context.character_preset_manager.get_preset_for(
-                    name) if context.character_preset_manager else None
-                weights = context.preset_manager.get_preset(assigned) \
-                    if assigned and context.preset_manager else None
-                if weights is None:
-                    bare.append(name)
-                    continue
-                key = (rj.GEAR, tuple(sorted(weights.items())), rolls)
-                out[name] = (key, {"measure": rj.GEAR, "weights": weights,
-                                   "stats": stats})
-            else:
-                run = saved_run_settings(self.optimizer, context, name)
-                held = (self._token, name,
-                        json.dumps(run, sort_keys=True, default=str))
-                if held not in self._inputs:
-                    self._inputs[held] = rj.build_signature(
-                        self.optimizer, name, run)
-                if self._lean is None:
-                    self._lean = rj.lean_optimizer(self.optimizer)
-                key = (rj.BUILD, self._inputs[held], rolls)
-                out[name] = (key, {"measure": rj.BUILD,
-                                   "optimizer": self._lean, "name": name,
-                                   "settings": run, "stats": stats})
-        return out, bare
-
-    def _needed(self, fragments, signatures):
-        """What the list has and lacks: ({combatant: {id: answer}},
-        [(signature, template, combatant, kind, chunk)] to hand the
-        workers, {answer key} the list still waits on, how many answers
-        that is in all, [combatant the Optimizer finds no build for]).
-
-        A combatant's fragments are read a chunk at a time. Under the
-        build score its Top build is found first (kind "top"), and its
-        fragments are asked for once that is known; a fragment no build
-        can wear is left out of its readings. Nothing kept or already
-        being worked out is asked for again."""
-        readings, wanted, waiting, nobuild = {}, [], set(), []
-        pending = 0
-        keys = {f.id: rj.content(f) for f in fragments}
-        for name, (sig, template) in signatures.items():
-            readings[name] = got = {}
-            size = CHUNK
-            if template["measure"] == rj.BUILD:
-                top_key = (sig, "top", None)
-                if top_key not in self._answers:
-                    waiting.add(top_key)
-                    pending += 1 + len(fragments)
-                    if top_key not in self._inflight:
-                        wanted.append((sig, template, name, "top", []))
-                    continue
-                top = self._answers[top_key]
-                if top is None:
-                    nobuild.append(name)
-                    continue
-                template = dict(template, top=top)
-                size = BUILD_CHUNK
-            todo = []
-            for f in fragments:
-                key = (sig, "read", keys[f.id])
-                if key in self._answers:
-                    if self._answers[key] is not None:
-                        got[f.id] = self._answers[key]
-                else:
-                    waiting.add(key)
-                    pending += 1
-                    if key not in self._inflight:
-                        todo.append(f)
-            wanted.extend((sig, template, name, "read", todo[i:i + size])
-                          for i in range(0, len(todo), size))
-        return readings, wanted, waiting, pending, nobuild
-
-    def _ask(self, wanted, waiting):
-        """Hand `wanted` to the workers, and drop the jobs not started
-        yet whose answers nothing on show waits on."""
-        for job, future in list(self._futures.items()):
-            sig, kind, pairs = job
-            if not any((sig, kind, c) in waiting for _fid, c in pairs) \
-                    and future.cancel():
-                self._drop(job)
-        for sig, template, _name, kind, chunk in wanted:
-            # A Top build answers for no fragment: its one key's
-            # content is None, as `_needed` waits on it.
-            pairs = ((None, None),) if kind == "top" else tuple(
-                (f.id, rj.content(f)) for f in chunk)
-            job = (sig, kind, pairs)
-            payload = dict(template, kind=kind, fragments=chunk)
-            self._futures[job] = rj.submit(payload)
-            self._jobs[job] = pairs
-            for _fid, c in pairs:
-                self._inflight[(sig, kind, c)] = job
-        if self._futures and not self._polling:
-            self._polling = True
-            self.frame.after(POLL_MS, self._poll)
-
-    def _drop(self, job):
-        """Forget a job: answered, failed or cancelled."""
-        sig, kind, pairs = job
-        self._futures.pop(job, None)
-        self._jobs.pop(job, None)
-        for _fid, c in pairs:
-            if self._inflight.get((sig, kind, c)) == job:
-                del self._inflight[(sig, kind, c)]
-
-    def _poll(self):
-        """Take in what the workers have answered, ask for what that
-        makes wanted, and draw once the list is whole."""
-        self._polling = False
-        for job, future in list(self._futures.items()):
-            if not future.done():
-                continue
-            self._drop(job)
-            if future.cancelled():
-                continue
-            try:
-                answers = future.result()
-            except Exception as e:                 # shown, not raised
-                self._error = e
-                continue
-            sig, kind, pairs = job
-            for fid, c in pairs:
-                if fid in answers:
-                    self._answers[(sig, kind, c)] = answers[fid]
-        self.refresh_readjust()
-
-    def _forget(self, token, fragments):
-        """A capture loaded: the build signatures are worked out again,
-        and the answers of fragments no longer held -- deleted, or
-        readjusted to new rolls -- are dropped. Every other answer
-        stays: one worked out from the same inputs is the same answer,
-        whichever capture holds them. A Top build is a combatant's, not
-        a fragment's, and its signature holds every fragment it could
-        be made of."""
-        if token == self._token:
-            return
-        self._token = token
-        self._inputs.clear()
-        self._lean = None
-        live = {rj.content(f) for f in fragments}
-        for key in [k for k in self._answers
-                    if k[2] is not None and k[2] not in live]:
-            del self._answers[key]
-
-    def _prune(self, signatures):
-        """Past `KEEP_ANSWERS`, keep only the answers of `signatures`."""
-        if len(self._answers) > KEEP_ANSWERS:
-            keep = {sig for sig, _template in signatures.values()}
-            for key in [k for k in self._answers if k[0] not in keep]:
-                del self._answers[key]
-
     def refresh_readjust(self):
-        """Read the controls and the loaded data again, ask the workers
-        for what is not worked out yet, and draw what is."""
+        """Read the controls and the loaded data again and have the work
+        plan with them; it tells `_show_work` what it has."""
         self._settle = None
         names = self._names()
         self.combatant_box.configure(values=names)
@@ -909,52 +785,64 @@ class ReadjustTab(BaseTab):
             self.combatant_var.set(names[0])
         self._fill_weights()
         self._show_mode()
+        self.work.visible = bool(self.frame.winfo_ismapped())
+        self.work.refresh()
+
+    def _show_work(self):
+        """Draw what the work has: the list once every combatant it is
+        read for is worked out, and the progress under the counts.
+        Drawn only while the tab shows; `<Map>` catches it up."""
+        if not self.frame.winfo_ismapped():
+            return
         optimizer = self.optimizer
         if optimizer is None or not optimizer.fragments:
             # Every set at 0: the panel keeps the height it has with
             # data, which the list's title is set under.
             self._fill_sets([])
             self._show_status(None)
+            self.progress_label.configure(text=NO_PROGRESS)
+            self.full_button.state(["disabled"])
             self._draw([], NO_DATA)
             return
         fragments = self._readjustable()
         self._fill_sets(fragments)
-        self._show_status(None)
-        # **Only while showing**: a hidden tab, the checks' own builds
-        # among them, starts no worker. `<Map>` catches it up.
-        if not self.frame.winfo_ismapped():
-            return
-        self._forget((id(optimizer.fragments), optimizer.capture_time,
-                      len(optimizer.fragments)), fragments)
-        combatants = self._combatants()
-        signatures, bare = self._signatures(combatants)
-        self._prune(signatures)
-        if not combatants:
-            self._draw([], NOBODY)
-            return
-        if not signatures:
-            self._draw([], NO_PRESET % ", ".join(sorted(bare)))
-            return
-        readings, wanted, waiting, pending, nobuild = self._needed(
-            fragments, signatures)
-        if self._error is not None:
-            error, self._error = self._error, None
+        self._show_progress()
+        work = self.work
+        if work.error is not None:
+            error, work.error = work.error, None
+            self._show_status(None)
             self._draw([], FAILED % error)
             return
-        self._ask(wanted, waiting)
-        if waiting:
-            total = sum(len(fragments) + (template["measure"] == rj.BUILD)
-                        for _sig, template in signatures.values())
-            self._draw(None, LOADING % (total - pending, total))
+        combatants = self._combatants()
+        if not combatants:
+            self._show_status(None)
+            self._draw([], NOBODY)
             return
-        if nobuild and len(nobuild) == len(signatures):
-            self._draw([], NO_BUILD % ", ".join(sorted(nobuild)))
+        statuses = {n: work.statuses.get(n) for n in combatants}
+        if any(s is None or not s.complete for s in statuses.values()):
+            self._show_status(None)
+            self._draw(None, LOADING)
             return
-        shown = best_readings(self._passing(fragments), readings,
-                              {name: combatants[name]
-                               for name in signatures})
+        readable = {n: s for n, s in statuses.items() if s.reason is None}
+        if not readable:
+            self._show_status(None)
+            words = NO_PRESET if self.measure() == rj.GEAR else NO_BUILD
+            self._draw([], words % ", ".join(sorted(statuses)))
+            return
+        shown = best_readings(self._passing(fragments),
+                              {n: s.readings for n, s in readable.items()},
+                              {n: combatants[n] for n in readable})
         self._draw(shown)
         self._show_status(len(shown))
+
+    def _show_progress(self):
+        work = self.work
+        self.progress_label.configure(text="\n".join(progress_lines(
+            work.groups(), work.statuses, work.speed)))
+        idle = all(s.complete for s in work.statuses.values()) \
+            or work.speed == rj.FULL
+        self.full_button.state(["disabled"] if idle else ["!disabled"])
+
 
     def _passing(self, fragments):
         """The fragments the Slots, Sets and MFs filters let

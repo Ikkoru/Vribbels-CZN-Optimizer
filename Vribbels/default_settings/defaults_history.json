@@ -5922,6 +5922,9 @@
   "optimizer_workers": [
    0
   ],
+  "readjust_background": [
+   true
+  ],
   "readjust_combatant": [
    ""
   ],

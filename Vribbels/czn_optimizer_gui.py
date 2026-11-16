@@ -394,6 +394,14 @@ class OptimizerGUI:
             load_data_callback=self.load_data,
             config=self.config
         )
+        from readjust_work import ReadjustWork
+        self.app_context.readjust_work = ReadjustWork(
+            self.app_context, self.root.after,
+            cache_dir=_user_data_dir() / "cache")
+        # A spacing audit renders a copy of the data and measures the
+        # window: it starts no worker.
+        self.app_context.readjust_work.enabled = \
+            not self._spacing_audit_wanted()
 
         import perf_log
         import time as _time
@@ -1704,6 +1712,12 @@ class OptimizerGUI:
                 self.capture_tab_instance.stop_capture()
             else:
                 return
+        work = getattr(self.app_context, "readjust_work", None)
+        if work is not None:
+            try:
+                work.save()
+            except OSError:
+                pass                # a cache: worked out again next time
         self.root.destroy()
 
     def _start_capture_archiver(self):
@@ -1841,6 +1855,10 @@ class OptimizerGUI:
             tab = self._lazy_tab(name)
             if tab is not None:
                 getattr(tab, method)()
+        # The readjust work runs with the tab unbuilt (`readjust_work`).
+        work = getattr(self.app_context, "readjust_work", None)
+        if work is not None:
+            work.refresh()
 
     def _on_gacha_written(self):
         """The capture wrote the Gacha History's file.
