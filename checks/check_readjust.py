@@ -29,8 +29,9 @@ nothing else, so a broken one reads as a plausible ranking:
 11. **The build score reads against the Top build**: a fragment of the
     Top build stands at 0 before a readjustment.
 12. **A build-score answer is kept by everything its builds are made
-    of**: a fragment the run could use rerolled, or the settings
-    changed, is a new signature; the same capture loaded again is not.
+    of**: a fragment the run searches rerolled, a readjustable one
+    moved to another combatant, or the settings changed, is a new
+    signature; the same capture loaded again is not.
 
 Rules 10 to 12 run on `_parity_fixture`'s synthetic inventory.
 8. **The tab keeps an answer by what it was worked out from**: a
@@ -384,6 +385,15 @@ def _build_score_reads_the_top_build():
                    "build signature as it was: the Top build and every "
                    "build around a fragment would be shown from the "
                    "inventory before it.")
+    moved = copy.copy(o)
+    moved.fragments = [copy.copy(f) for f in o.fragments]
+    target = next(f for f in moved.fragments if rj.readjustable(f))
+    target.equipped_to = "Someone Else"
+    if rj.build_signature(moved, name, settings) == sig:
+        out.append("a readjustable fragment moved to another combatant "
+                   "leaves the build signature as it was: whether Exclude "
+                   "Combatant's MFs lets it be pinned would be read off "
+                   "its old owner.")
     if rj.build_signature(o, name, dict(settings, extra_pct=0)) == sig:
         out.append("other run settings leave the build signature as it "
                    "was: the answers of the settings before would be "
@@ -407,9 +417,13 @@ FAULTS = [
      "out = (1 - self.h) * (d / self.d0) if self.d0 else 0.0",
      "of the Top build reads Now"),
     ("a build signature blind to rolls", "readjust:build_signature",
-     "pool.append((content(f), f.equipped_to or \"\",",
-     "pool.append((f.id, f.equipped_to or \"\",",
+     "            pool.append(content(f))\n",
+     "            pool.append(f.id)\n",
      "rerolled, leaves the"),
+    ("a build signature blind to owners", "readjust:build_signature",
+     "owners = sorted((f.id, f.equipped_to or \"\")",
+     "owners = sorted((f.id, \"\")",
+     "moved to another combatant"),
     ("a Top build dropped with each capture",
      "ui.tabs.readjust_tab:ReadjustTab._forget",
      "if k[2] is not None and k[2] not in live]:",

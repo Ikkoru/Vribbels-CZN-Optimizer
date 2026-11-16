@@ -321,22 +321,29 @@ def lean_optimizer(optimizer):
 def build_signature(optimizer, name, settings):
     """What `name`'s build-score answers depend on beyond a fragment's
     own rolls, as one string: the run settings, the combatant's stats
-    at the Optimizer's level, and every fragment a run could use
-    (`slot_filters`, before the Top % trim) with its rolls, its Gear
-    Score (the trim's order where no preset is given) and whose it is
-    (Exclude Combatant's MFs reads that). A capture that changes none of
-    these changes no answer, whichever capture it is."""
+    at the Optimizer's level, the fragments a run searches -- each
+    slot's candidates after the Top % trim, picked as `optimize` picks
+    them -- and whose each readjustable fragment is, which decides
+    whether the run's filters let it be pinned. A pinned fragment
+    stands in for its slot's candidates, so these are everything a
+    build around it is made of: a capture that changes none of them
+    changes no answer, whichever capture it is, and a new fragment the
+    trim leaves out changes nothing."""
     pool = []
     for slot, filters in optimizer.slot_filters(name, settings).items():
-        for f in optimizer.get_gear_by_slot(slot, top_percent=100,
-                                            **filters):
-            pool.append((content(f), f.equipped_to or "",
-                         round(f.gear_score, 6)))
+        for f in optimizer.get_gear_by_slot(
+                slot, top_percent=settings.get("top_percent", 100),
+                use_priority_score=False,
+                score_weights=settings.get("slot_filter_weights") or None,
+                **filters):
+            pool.append(content(f))
+    owners = sorted((f.id, f.equipped_to or "")
+                    for f in optimizer.fragments if readjustable(f))
     level = optimizer._resolve_effective_level(
         name, settings.get("optimize_for_level"))
     return json.dumps({"settings": settings,
                        "cs": optimizer._build_char_static(name, level),
-                       "pool": sorted(pool, key=repr)},
+                       "pool": sorted(pool, key=repr), "owners": owners},
                       sort_keys=True, default=repr)
 
 
