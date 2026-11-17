@@ -1058,7 +1058,7 @@ def _dropdown_over_panel(prefix, panel):
 # matches a title EXACTLY, so this has to follow the tab's
 # `OVERALL_TITLE`. `check_tabs_build` holds the two together.
 # The Substat Readjustment tab's note above its lists.
-READJUST_NOTE_PREFIX = "Readjustment keeps each substat"
+READJUST_NOTE_PREFIX = "1. Pick a Score"
 GACHA_OVERALL_TITLE = "Overall Gacha Stats"
 # The standings lists beside it, on the same terms. Their titles are
 # labelwidgets, which `find_labelframe` reads as well.

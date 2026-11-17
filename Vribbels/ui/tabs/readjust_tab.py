@@ -87,27 +87,24 @@ COLUMNS = (
 WEIGHTED_ONLY = ("for",)
 # A cell's text in from its edges, each side.
 TEXT_INSET = 4
-LIST_ROWS = 30
+# The lists' heights are set by `_split_rows`; this is only the least
+# each asks for, so neither pushes the window taller.
+LIST_ROWS = 1
 WEIGHT_ROWS = 30
+# The share of the lists' summed height the Memory Fragments list takes;
+# Details and Before / After under it share the rest.
+UPPER_SHARE = 3 / 5
 # The Sets panel's columns, as many as the Memory Fragments tab's.
 SET_COLUMNS = 5
 
-# The note beside the filters, by measure.
-_KEEPS = ("Readjustment keeps each substat type and starting value, "
-          "re-shuffles the 4 upgrades and rerolls their values; you "
-          "choose to keep Before or After.\n\n")
-_COLUMNS = ("\n\nAvg: Now's average after a Reroll, kept or not.\n"
-            "Chance: of a rise.\n"
-            "Best: the most it can rise.\n"
-            "Use, Per Quartz: the better option per Quartz.")
-NOTES = {
-    rj.GEAR: _KEEPS + (
-        "Gain: the average rise in Gear Score under the combatant's "
-        "assigned preset.") + _COLUMNS,
-    rj.BUILD: _KEEPS + (
-        "Gain: the average rise over the combatant's Top build, the MF "
-        "in the best build around it.") + _COLUMNS,
-}
+# The note beside the filters: how to use the tab.
+NOTE = ("1. Pick a Score and who it is For.\n"
+        "2. With several, give each a weight.\n"
+        "3. Narrow the list with Slots, Sets and MFs.\n"
+        "4. Readjust the top MF in game, as Use says.\n"
+        "5. Pick an MF to see who it helps or hurts, in Details.\n"
+        "6. With a capture running, Before / After says which to keep.\n"
+        "Hover a heading to see what its column means.")
 LOADING = "Loading..."
 NO_BUILD = "The Optimizer finds no build for %s under their settings."
 NO_DATA = "No capture loaded: log in with the capture running."
@@ -245,7 +242,8 @@ DEAL_COLUMNS = (
     ("gs_after", "GS After", ("100.0",), tk.E),
     ("in_top", "In Top", ("Before",), tk.W),
 )
-DEAL_ROWS = 5
+# The least it asks for: `_split_rows` sets its height.
+DEAL_ROWS = 1
 NO_DEAL = ("No readjustment waiting. With a capture running, one shows "
            "here as the game deals it, its Before and After read for "
            "every combatant.")
@@ -264,10 +262,9 @@ DETAIL_COLUMNS = (
     ("loss", "Loss", ("100%",), tk.E),
     ("weighted", "Weighted", ("-100.00%", "-1000.0"), tk.E),
 )
-DETAIL_ROWS = 5
+# The least it asks for: `_split_rows` sets its height.
+DETAIL_ROWS = 1
 NO_DETAIL = "Pick an MF in the list."
-# "IV Veiled Radiance, Exclude CDmg"
-DETAIL_LINE = "%s %s, %s"
 
 # What each heading means, on hover, by list.
 HEAD_TIPS = {
@@ -587,18 +584,20 @@ class ReadjustTab(BaseTab):
                                style="Borderless.TLabelframe")
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: panel ↕ unrelated label -- panel, title ↕
+        upper_pady = (px_after(2, 7), px(2))
         lists.grid(row=0, column=1, sticky="nsew",
-                   padx=(px_after(2, 2), px_after(2, 2)),
-                   pady=(px_after(2, 7), px(2)))
+                   padx=(px_after(2, 2), px_after(2, 2)), pady=upper_pady)
         self._build_list(lists)
 
         # Under the list: Details, then Before / After beside it.
         lower = ttk.Frame(body)
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: panel ↕ unrelated label -- panel, title ↕
+        lower_pady = (px_after(2, 5), px_after(2, 2))
         lower.grid(row=1, column=1, sticky="nsew",
-                   padx=(px_after(2, 2), px_after(2, 2)),
-                   pady=(px_after(2, 5), px_after(2, 2)))
+                   padx=(px_after(2, 2), px_after(2, 2)), pady=lower_pady)
+        self._rows = (body, lists, sum(upper_pady), lower, sum(lower_pady))
+        body.bind("<Configure>", lambda _e: self._split_rows(), add="+")
         details = ttk.LabelFrame(lower, text=DETAIL_TITLE, padding=px(0),
                                  style="Borderless.TLabelframe")
         # spacing: content frame -> content frame -- frame, frame ↔
@@ -846,15 +845,49 @@ class ReadjustTab(BaseTab):
         if text:
             self._tips.schedule(tree, text)
 
+    def _split_rows(self):
+        """The body's height shared out so the Memory Fragments list
+        takes `UPPER_SHARE` of the lists' summed height and the lists
+        under it the rest: each row is its panel's own height without
+        its list (titles, the line over the lower lists, the pads) plus
+        that share. Re-run whenever the body changes size."""
+        body, upper, upper_pad, lower, lower_pad = self._rows
+        height = body.winfo_height()
+        if height <= 1:
+            return
+        upper_over = upper.winfo_reqheight() - self.tree.winfo_reqheight() \
+            + upper_pad
+        lower_over = lower.winfo_reqheight() \
+            - self.detail_tree.winfo_reqheight() + lower_pad
+        lists = max(0, height - upper_over - lower_over)
+        top = round(lists * UPPER_SHARE)
+        sizes = (upper_over + top, height - upper_over - top)
+        if sizes != getattr(self, "_row_sizes", None):
+            self._row_sizes = sizes
+            for row, size in enumerate(sizes):
+                body.grid_rowconfigure(row, minsize=size, weight=0)
+
     def _build_details(self, parent):
-        """The picked MF and its option over a list of what its
-        readjustment does for every combatant worked out."""
-        # As the verdict beside it: the negative top padding takes back
-        # what the borderless panel leaves under its title.
+        """The picked MF over a list of what its readjustment does for
+        every combatant worked out. The line names its slot, set, For
+        and option, each in a column of its own as wide as the widest it
+        can hold, so each starts at the same place whatever the MF."""
+        line = ttk.Frame(parent)
         # spacing: title above, element below -- title, label ↕
-        self.detail_label = ttk.Label(parent, text=NO_DETAIL,
-                                      padding=px((-2, -5, -2, 0)))
-        self.detail_label.pack(anchor=tk.W, pady=(0, px(5)))
+        line.pack(anchor=tk.W, pady=(0, px(5)))
+        # As the verdict beside it: the negative top padding takes back
+        # what the borderless panel leaves under its title, the sides
+        # each label's border, so a column's width is its text's.
+        self.detail_parts = []
+        for col in range(4):
+            label = ttk.Label(line, padding=px((-2, -5, -2, 0)))
+            # spacing: control group ↔ control group -- label, label ↔
+            label.grid(row=0, column=col, sticky=tk.W,
+                       padx=(0, px(10) if col < 3 else 0))
+            self.detail_parts.append(label)
+        self._detail_line = line
+        self._detail_widths = None
+        self._show_detail_line((NO_DETAIL, "", "", ""))
         holder = ttk.Frame(parent)
         holder.pack(fill=tk.BOTH, expand=True)
         self.detail_tree = ttk.Treeview(
@@ -908,7 +941,7 @@ class ReadjustTab(BaseTab):
         reading = self._by_iid.get(picked[0]) if picked else None
         if reading is None:
             tree.delete(*tree.get_children())
-            self.detail_label.configure(text=NO_DETAIL)
+            self._show_detail_line((NO_DETAIL, "", "", ""))
             return
         fragment = reading.fragment
         use = reading.best
@@ -947,8 +980,36 @@ class ReadjustTab(BaseTab):
         slot = EQUIPMENT_SLOTS.get(fragment.slot_num,
                                    str(fragment.slot_num)).split()[0]
         option = "Exclude " + use.excluded if use.excluded else "Reroll"
-        self.detail_label.configure(text=DETAIL_LINE % (
-            slot, fragment.set_name, option))
+        self._show_detail_line((slot, fragment.set_name, reading.combatant,
+                                option))
+
+    def _show_detail_line(self, words):
+        """The Details line's four columns: each `words` in its own,
+        every column held to the widest it can hold -- every slot, every
+        set, every combatant, every option -- so a column starts at the
+        same place for any MF. Measured in the label's font, so it
+        carries the scale."""
+        from tkinter import font as tkfont
+        from game_data.constants import STATS
+        names = tuple(self.work.names())
+        if self._detail_widths is None or self._detail_widths[0] != names:
+            face = tkfont.nametofont("TkDefaultFont")
+            samples = (
+                [w.split()[0] for w in EQUIPMENT_SLOTS.values()],
+                [set_name_of(i) for i in named_sets()],
+                list(names),
+                ["Reroll"] + ["Exclude " + info[0] for info in STATS.values()])
+            widths = [max([face.measure(s) for s in group if s] or [0])
+                      for group in samples]
+            self._detail_widths = (names, widths)
+            # A column's minsize holds its pad as well as its text.
+            for col, width in enumerate(widths):
+                pad = self.detail_parts[col].grid_info()["padx"]
+                pad = sum(pad) if isinstance(pad, tuple) else int(pad)
+                self._detail_line.grid_columnconfigure(col,
+                                                       minsize=width + pad)
+        for label, text in zip(self.detail_parts, words, strict=True):
+            label.configure(text=text)
 
     def _gs_of(self, name, versions):
         """(Before's, After's) Gear Score under `name`'s preset, kept
@@ -1140,7 +1201,7 @@ class ReadjustTab(BaseTab):
         shown = [c[0] for c in COLUMNS
                  if weighted or c[0] not in WEIGHTED_ONLY]
         self.tree.configure(displaycolumns=shown)
-        self.note_label.configure(text=NOTES[self.measure()])
+        self.note_label.configure(text=NOTE)
 
     def _on_pick_weight(self, _event=None):
         """The spinbox shows the weight of the row last clicked, of
