@@ -45,6 +45,8 @@ From the repo root:
     python docs/preset_weights.py --write    # the derived weights into default_settings/presets.json
     python docs/preset_weights.py --new Blazebell [--like Mika]   # one new combatant's preset
 
+**`docs/preset_weights.tsv` mirrors the shipped presets**, one row per preset, every shipped one whether assigned or not, for the maintainer to read and sort. Rows and columns are found by their names, so either may be reordered, and a write keeps the order it finds: `--new` and `--write` update the rows of what they wrote, in place, and append a new one at the end. `zCreate exe.bat` opens by listing in orange every way the table and `default_settings/presets.json` disagree (`docs/preset_weights_table.py`): a weight, a missing or extra row, a duplicate, a missing or unknown column. `python docs/preset_weights_table.py --fill` makes the table follow the shipped presets; a row for a preset that no longer ships is left to delete by hand.
+
 The report prints each preset's current and derived weights with the reference build's crit and ATK/DEF, and writes the whole proposal to `_tmp/preset_weights_proposal.json`. **Review it before `--write`**, and read the notes: a synthetic set, a combatant with no build. `--write` touches the shipped defaults only, and records the max rolls it derived with; a player's preset they never edited takes the new weights at their next launch after the release (`settings_architecture.md`, *Three-stage sync*), and an edited one through Restore Defaults.
 
 **When:** on demand, and once per Galactic Disaster from its part 2. `checks/check_preset_weights.py` fails until `--check` has been run in the season's part 2 or later, because the archetypes follow the game: new sets, new main stats, a change to a roll range all move them. `--check` re-derives, compares, and prints every weight that would move by more than 10%. If any does, re-derive with `--derive` and review.
@@ -56,7 +58,7 @@ The report prints each preset's current and derived weights with the reference b
 - **The preset's name** is the one the maintainer's settings assign the combatant, or the combatant's own name where they assign none.
 - **Its tie-breakers** (Ego, HP, anything the score prices at nothing) are those of the first preset, by name, of a combatant in the same archetype; `--like <preset>` names another.
 - **Its sets** are the combatant's own best build's, which go into the archetypes file's `sets`. Their fragment stats join the averages only at the next `--derive`, so the archetype stays the one every other preset was derived from.
-- **Written on a yes**: the preset into `default_settings/presets.json`, and the combatant's assignment and Optimizer settings into `character_preset.json` and `optimizer_settings.json` where those lack them, then `defaults_history.json` is rebuilt. An existing preset is refused: `--write` re-derives it with the rest.
+- **Written on a yes**: the preset into `default_settings/presets.json` and a new last row of `preset_weights.tsv`, and the combatant's assignment and Optimizer settings into `character_preset.json` and `optimizer_settings.json` where those lack them, then `defaults_history.json` is rebuilt. An existing preset is refused: `--write` re-derives it with the rest.
 
 A combatant `archetype()` puts in a group with no members yet is refused too: run `--derive` first.
 

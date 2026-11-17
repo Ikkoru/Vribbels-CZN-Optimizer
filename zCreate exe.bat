@@ -8,6 +8,11 @@ set "OFF=%ESC%[0m"
 
 cd /d "%~dp0Vribbels" || (echo %RED%CANNOT FIND Vribbels NEXT TO THIS FILE%OFF% & pause & exit /b 1)
 
+REM Where docs\preset_weights.tsv and the shipped presets disagree, in
+REM orange, or a green line where they agree. A reminder: the build goes on.
+python "../docs/preset_weights_table.py"
+echo.
+
 REM Steps 1 and 2 come from comparing your settings\ with the shipped
 REM defaults: which files to delete, or nothing, in orange or green.
 echo Don't forget to:

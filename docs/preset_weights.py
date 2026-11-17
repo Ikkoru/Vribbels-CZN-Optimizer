@@ -25,7 +25,8 @@ from the stored archetypes, and leaves every other preset alone: see
 Read-only over Vribbels/settings/ and the snapshots; `--write` writes
 default_settings/presets.json and the archetypes file's `max_rolls`
 only, `--new` the one combatant's entries in default_settings/, and
-each prints what it changed.
+each prints what it changed. Both also write what they wrote into
+`docs/preset_weights.tsv` (`preset_weights_table`).
 """
 
 import glob
@@ -41,6 +42,8 @@ SOURCE = HERE.parent / "Vribbels"
 sys.path.insert(0, str(SOURCE))
 
 import preset_derivation as pd                                # noqa: E402
+sys.path.insert(0, str(HERE))
+import preset_weights_table                                   # noqa: E402
 from preset_derivation import (                               # noqa: E402
     LEVEL, STATS_SHOWN, VARIANTS, archetype, combatant_of,
     current_max_rolls, derive_preset)
@@ -313,6 +316,8 @@ def add_new(world, name, like=None, confirm=input):
     shipped["presets"][preset] = derived
     _write_json(target, shipped)
     print("Written: %r into %s" % (preset, target.name))
+    preset_weights_table.update({preset: derived})
+    print("Written: %r into %s" % (preset, preset_weights_table.TABLE.name))
     _write_archetypes(stored)
     print("Written: %s's set bonuses into %s" % (name, ARCHETYPES.name))
     rid = next((r for r, c in world.osm_by_rid.items()
@@ -410,8 +415,9 @@ def main(argv):
         target.write_text(json.dumps(shipped, indent=2), encoding="utf-8")
         stored["max_rolls"] = current_max_rolls()
         _write_archetypes(stored)
-        print("Written into %s, and the max rolls into %s" % (
-            target, ARCHETYPES))
+        preset_weights_table.update(proposal)
+        print("Written into %s and %s, and the max rolls into %s" % (
+            target, preset_weights_table.TABLE, ARCHETYPES))
 
 
 def report_drift(world, old, fresh):
