@@ -1097,8 +1097,8 @@ PANEL_OVER_TEXT_ENTRIES = [
      _button_over_panel("Check Status", "Setup Instructions")),
     ("Stats & Gacha History", "Import JSON -> Banners title", 10, None,
      _button_over_panel("Import JSON", "Banners")),
-    ("Substat Readjustment", "Sets -> Fragments title", 10, None,
-     _panel_gap("Sets", "Fragments", "v")),
+    ("Substat Readjustment", "Sets -> Memory Fragments title", 10, None,
+     _panel_gap("Sets", "Memory Fragments", "v")),
 
     # BOTH columns of the Capture tab's top grid, against the same
     # title below them. Requirements is the one the rule is read off:

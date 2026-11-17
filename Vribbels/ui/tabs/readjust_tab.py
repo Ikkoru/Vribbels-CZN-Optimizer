@@ -127,6 +127,8 @@ GROUPS = (("one", "For one:"), ("weighted", "For weighted:"),
 OUT_OF = "%d out of %d"
 COMPLETE = "Complete %d"
 NONE_WEIGHTED = "None weighted"
+# For one, with several weighted.
+NOT_ONE = "N/A"
 NO_PROGRESS = "No data"
 # How long the weight spinbox has to hold still before a new reading.
 SETTLE_MS = 400
@@ -200,11 +202,13 @@ def progress_lines(groups, statuses, speed):
     speed under it, or Done; then, for each group of combatants `groups` names
     (`ReadjustWork.groups`, "one" None with several weighted), its title
     and how many of its readings are in, counted over its combatants'
-    `statuses` -- or Complete and how many."""
+    `statuses` -- or Complete and how many; For one reads N/A with
+    several weighted."""
     lines = []
     for key, title in GROUPS:
         names = groups.get(key)
         if names is None:
+            lines += [title, NOT_ONE]
             continue
         got = [statuses[n] for n in names if n in statuses]
         done = sum(s.done for s in got)
