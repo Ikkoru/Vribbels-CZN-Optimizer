@@ -11,6 +11,7 @@ import re
 import ctypes
 import sys
 import os
+import json
 import time
 from pathlib import Path
 from collections.abc import Callable
@@ -67,6 +68,11 @@ EVENT_MARKER = "[SYNC] event"
 # The same for a login, which holds the app's reload until the login's
 # saves stop. Held equal to the addon's by the same check.
 LOGIN_MARKER = "[SYNC] login"
+
+# The same for a Substat Readjustment's deal, its Before and After as
+# JSON after the marker, or nothing once one is kept. Held equal to the
+# addon's by the same check.
+READJUST_MARKER = "[SYNC] readjust"
 
 # What opens the timing the addon puts after a line under Debug WS:
 # when the request went out, when its reply came in, when the line was
@@ -150,6 +156,13 @@ GACHA_MARKER = "[SYNC] gacha"
 # stands is no part of a snapshot: it is true only while it is said, and
 # an Event moves nothing a save would be made for.
 EVENT_MARKER = "[SYNC] event"
+
+# Printed when the game deals a Substat Readjustment: the deal as JSON
+# after it (`piece_readjust_info`: the fragment's id, the excluded
+# slots, its Before and After stat lists), and nothing after it once the
+# player keeps one. Consumed the same way. A deal is no part of a
+# snapshot: it stands only until the player chooses.
+READJUST_MARKER = "[SYNC] readjust"
 
 # Printed when the server says this account has logged in: the capture's
 # first login, and each relaunch after it, never a reconnect (see
@@ -569,7 +582,8 @@ class Addon:
             # would put it between two identical reports and stop
             # either from reading as a repeat.
             if (msg not in (SAVE_MARKER, LOGIN_MARKER)
-                    and not msg.startswith(EVENT_MARKER)):
+                    and not msg.startswith(EVENT_MARKER)
+                    and not msg.startswith(READJUST_MARKER)):
                 self._last_line = msg
             if self.debug_mode and self._reply_times is not None:
                 sent, got = self._reply_times
@@ -1270,6 +1284,7 @@ class Addon:
         # request we tracked earlier.
         qid = data.get("qid")
         self._note_event(self.qid_commands.get(qid), data)
+        self._note_readjust(self.qid_commands.get(qid), data)
         self._note_chaos(self.qid_commands.get(qid), data)
         self._note_savedata(data)
         self._note_base_stats(self.qid_commands.get(qid), data)
@@ -4416,6 +4431,12 @@ class Addon:
             # The main app strips this marker before display so the user
             # doesn\'t see it.
             self.log_callback(f"[LIVE] Upgraded {desc} [pid={new_piece.get('id', 0)}]")
+        elif old_piece and old_piece.get("char_res_id", 0) == char_id:
+            # Neither its owner nor its level moved: a Substat
+            # Readjustment kept, its new rolls in the stat list, or
+            # nothing to say.
+            if old_piece.get("stat_list") != new_piece.get("stat_list"):
+                self.log_callback(f"[LIVE] Readjusted {desc}: kept After")
         elif char_id != 0:
             self.log_callback(f"[LIVE] Equipped {desc} to {char_name}")
         else:
@@ -4615,6 +4636,20 @@ class Addon:
         if event != self.chaos_event:
             self.chaos_event = event
             self.log_callback("%s %s" % (EVENT_MARKER, event or ""))
+
+    def _note_readjust(self, asked, data):
+        """Hand the app a Substat Readjustment's deal as the game gives
+        it (`pick_piece_readjust`), and say when it is settled
+        (`apply_piece_readjust`): `READJUST_MARKER` with the deal as
+        JSON, or the marker alone. The fragment itself changes through
+        the apply's `piece`, as any other upgrade does."""
+        if asked == "item/pick_piece_readjust":
+            info = data.get("piece_readjust_info")
+            if isinstance(info, dict):
+                self.log_callback("%s %s" % (
+                    READJUST_MARKER, json.dumps(info, separators=(",", ":"))))
+        elif asked == "item/apply_piece_readjust":
+            self.log_callback(READJUST_MARKER)
 
     def _note_chaos(self, asked, data):
         """Follow the Chaos run in progress, and file it when it clears.
@@ -5501,6 +5536,10 @@ class CaptureManager:
         # what is called when that moves: likewise.
         self.chaos_event = None
         self.event_update_callback = None
+        # A Substat Readjustment's deal, as `_set_readjust` keeps it, and
+        # who hears of it.
+        self.readjust_deal = None
+        self.readjust_callback = None
         # Called when the addon says the game logged in: likewise.
         self.login_callback = None
 
@@ -6041,6 +6080,13 @@ addons =[Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode},
                         self.log_callback(f"[proxy] {line}", "error")
                     continue
 
+                # A readjustment's deal: ahead of the skip filter, which
+                # drops a line holding any of its words, and a deal's
+                # JSON is not ours to vouch for.
+                if line.startswith(READJUST_MARKER):
+                    self._set_readjust(line[len(READJUST_MARKER):].strip())
+                    continue
+
                 # Skip verbose mitmproxy messages
                 if any(pattern.lower() in line.lower() for pattern in skip_patterns):
                     continue
@@ -6105,6 +6151,19 @@ addons =[Addon(OUTPUT_DIR, dict_path=DICT_PATH, debug_mode={debug_mode},
                     self.log_callback(f"[proxy] Process exited with code {exit_code}", "error")
         except Exception as e:
             self.log_callback(f"[proxy] Output reader error: {e}", "error")
+
+    def _set_readjust(self, payload):
+        """Keep the readjustment deal the addon passed on (`payload`,
+        its JSON; empty once the player keeps one), and tell the main
+        window. `readjust_callback` runs on the caller's thread, the
+        proxy reader's among them."""
+        try:
+            deal = json.loads(payload) if payload else None
+        except ValueError:
+            deal = None
+        self.readjust_deal = deal if isinstance(deal, dict) else None
+        if self.readjust_callback:
+            self.readjust_callback()
 
     def _set_chaos_event(self, event):
         """Keep the Event the addon says the player stands on, and tell

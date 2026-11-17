@@ -58,6 +58,18 @@ def _event_marker_matches(failures):
             f"would light on its Event, and no error would say so.")
 
 
+def _readjust_marker_matches(failures):
+    """The reader's copy of the readjustment marker must equal the
+    addon's: drift is silent, and a deal would never reach the Substat
+    Readjustment tab's Before and After."""
+    from capture.manager import ADDON_TEMPLATE, READJUST_MARKER
+    if f'READJUST_MARKER = "{READJUST_MARKER}"' not in ADDON_TEMPLATE:
+        failures.append(
+            f"the reader watches for {READJUST_MARKER!r} and the addon "
+            f"template prints something else. No readjustment's Before "
+            f"and After would reach the tab, and no error would say so.")
+
+
 def run():
     failures = []
     add_source_to_path()
@@ -95,6 +107,7 @@ def run():
         )
     _save_marker_matches(failures)
     _event_marker_matches(failures)
+    _readjust_marker_matches(failures)
     return failures
 
 
@@ -103,6 +116,11 @@ FAULTS = [
      "capture.manager:ADDON_TEMPLATE",
      'EVENT_MARKER = "[SYNC] event"', 'EVENT_MARKER = "[SYNC] spot"',
      "the reader watches for"),
+    ("the addon's readjustment marker apart from the reader's",
+     "capture.manager:ADDON_TEMPLATE",
+     'READJUST_MARKER = "[SYNC] readjust"',
+     'READJUST_MARKER = "[SYNC] reroll"',
+     "No readjustment's Before"),
 ]
 
 
