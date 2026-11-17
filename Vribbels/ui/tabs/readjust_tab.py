@@ -268,27 +268,25 @@ NO_DETAIL = "Pick an MF in the list."
 
 # What each heading means, on hover, by list.
 HEAD_TIPS = {
-    "now": "The MF's score as it stands. Gear Score: its GS under the "
-           "combatant's preset. Build Score: the best build wearing it, "
-           "in per cent over the combatant's Top build. With several: "
-           "For's.",
-    "avg": "Now's average after a Reroll, the outcomes worse than Now "
-           "included, as if After were always kept. With several: For's.",
-    "gain": "A Reroll's average rise: After where it beats Now (or the "
-            "Top build), nothing where it does not, since you keep "
-            "Before then. With several: the weighted average of their "
-            "changes, After kept where that rises.",
-    "chance": "The chance a Reroll rises at all.",
-    "excl": "The substat whose exclusion gains most: it takes no upgrade "
-            "and goes back to its starting value.",
-    "xgain": "That exclusion's average rise, as Reroll's.",
-    "xchance": "The chance that exclusion rises at all.",
-    "best": "The most either can rise: every upgrade a top roll on one "
-            "substat.",
-    "use": "Which option does more per Quartz: Reroll costs 1, Exclude 2.",
-    "per": "That option's average rise per Quartz: what the list is "
-           "ranked by.",
-    "for": "The combatant whose weighted share of that rise is largest.",
+    "for": "The combatant with the best weighted score for an average reroll.",
+    "now": "The MF's current score.\n"
+           "Gear Score: its GS using the combatant's preset.\n"
+           "Build Score: the best build wearing it, in percent "
+           "over the combatant's current Top build.\n"
+           "With several: For's GS or BS.",
+    "avg": "Now's average GS/BS after a Reroll.\n"
+           "With several: For's average GS/BS.",
+    "gain": "A Reroll's average improvement compared to Now.\n"
+            "With several: the weighted average of their changes.",
+    "chance": "The chance a Reroll results in an improvement.",
+    "excl": "Excluding this substat results in the greatest expected"
+            "improvement to GS/BS.",
+    "xgain": "That Exclude's average improvement.",
+    "xchance": "The chance that Exclude results in an improvement.",
+    "best": "The most either can rise: every upgrade a top roll on the "
+            "best substat.",
+    "use": "Which option does more per Quartz.",
+    "per": "That option's average improvement per Quartz.",
 }
 DETAIL_TIPS = {
     "gain": "The MF's average change for the combatant if readjusted as "
