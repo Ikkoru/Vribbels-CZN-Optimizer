@@ -110,9 +110,9 @@ NOTE_FIRST = (("1. Pick a ", None), ("Score", "fg"),
               (" and who it is ", None), ("For", "fg"), (".", None))
 NOTE = ("2. With several, give each a weight.\n"
         "3. Narrow the list with Slots, Sets and MFs (optional).\n"
-        "4. Pick an MF to see who it helps or hurts, in Details.\n"
-        "5. With a capture running, readjust the MF in game, as Use says.\n"
-        "6. Before / After says which to keep.\n"
+        "4. Pick an MF to see who it helps or hurts (in Details).\n"
+        "5. With a capture running, readjust the MF in game (as Use says).\n"
+        "6. Before / After says which to keep.\n\n"
         "Hover a heading to see what its column means.")
 LOADING = "Loading..."
 NO_BUILD = "The Optimizer finds no build for %s under their settings."
@@ -291,24 +291,25 @@ def text_pad(gap):
 
 # What each heading means, on hover, by list.
 HEAD_TIPS = {
-    "for": "The combatant with the best weighted score for an average reroll.",
+    "for": "The combatant this MF's readjustment helps most (weighted).",
     "now": "The MF's current score.\n"
            "Gear Score: its GS using the combatant's preset.\n"
            "Build Score: the best build wearing it, in percent "
            "over the combatant's current Top build.\n"
-           "With several: For's GS or BS.",
+           "With several: For's GS or BS (Build Score).",
     "avg": "Now's average GS/BS after a Reroll.\n"
            "With several: For's average GS/BS.",
     "gain": "A Reroll's average improvement compared to Now.\n"
-            "With several: the weighted average of their changes.",
+            "With several: each result’s changes averaged by weight, "
+            "counted only when above 0.",
     "chance": "The chance a Reroll results in an improvement.",
-    "excl": "Excluding this substat results in the greatest expected"
+    "excl": "Excluding this substat results in the greatest expected "
             "improvement to GS/BS.",
     "xgain": "That Exclude's average improvement.",
     "xchance": "The chance that Exclude results in an improvement.",
-    "best": "The most either can rise: every upgrade a top roll on the "
-            "best substat.",
-    "use": "Which option does more per Quartz.",
+    "best": "The most either option can improve it: all 4 upgrades "
+            "max rolls on one substat.",
+    "use": "The option that improves it more per Quartz.",
     "per": "That option's average improvement per Quartz.",
 }
 DETAIL_TIPS = {
