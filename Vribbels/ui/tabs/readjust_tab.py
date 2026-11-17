@@ -329,6 +329,20 @@ def deal_verdict(rows, scope, total):
     return words
 
 
+# The colour of the version a verdict keeps.
+VERDICT_COLOURS = {"After": "green", "Before": "orange"}
+
+
+def verdict_parts(words):
+    """(lead, version, rest) of a verdict, `version` the one it keeps
+    and "" where it keeps neither."""
+    for version in VERDICT_COLOURS:
+        lead = "Keep " + version
+        if words.startswith(lead):
+            return "Keep ", version, words[len(lead):]
+    return words, "", ""
+
+
 def best_readings(fragments, readings, weights):
     """[Reading], best first: each fragment read for the combatant whose
     weighted gain per Quartz is highest. `readings` {combatant: {id:
@@ -715,14 +729,20 @@ class ReadjustTab(BaseTab):
         self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
     def _build_deal(self, parent):
-        """The verdict and the two versions' substats over a list of
-        every combatant's reading of the deal."""
-        # The negative top padding takes back what the borderless panel
-        # leaves under its title, which pack's pady cannot.
+        """The verdict over a list of every combatant's reading of the
+        deal. The verdict is three labels so that the version it keeps
+        can take a colour of its own."""
+        verdict = ttk.Frame(parent)
         # spacing: title above, element below -- title, label ↕
-        self.deal_label = ttk.Label(parent, text=NO_DEAL, justify=tk.LEFT,
-                                    padding=px((-2, -5, -2, 0)))
-        self.deal_label.pack(anchor=tk.W, pady=(0, px(5)))
+        verdict.pack(anchor=tk.W, pady=(0, px(5)))
+        # The negative top padding takes back what the borderless panel
+        # leaves under its title, which pack's pady cannot; the sides take
+        # back each label's border, so the three read as one line of text.
+        self.deal_parts = [ttk.Label(verdict, padding=px((-2, -5, -2, 0)))
+                           for _ in range(3)]
+        for label in self.deal_parts:
+            label.pack(side=tk.LEFT)
+        self._show_verdict(NO_DEAL)
         holder = ttk.Frame(parent)
         holder.pack(fill=tk.BOTH, expand=True)
         self.deal_tree = ttk.Treeview(
@@ -786,7 +806,7 @@ class ReadjustTab(BaseTab):
         tree.delete(*tree.get_children())
         deal = work.deal
         if deal is None:
-            self.deal_label.configure(text=NO_DEAL)
+            self._show_verdict(NO_DEAL)
             return
         weights = work.weights()
         versions = (deal["before"], deal["after"])
@@ -807,11 +827,19 @@ class ReadjustTab(BaseTab):
                 "" if r["before"] is None else "%+.2f%%" % r["before"],
                 "" if r["after"] is None else "%+.2f%%" % r["after"],
                 "%.1f" % gs[0], "%.1f" % gs[1], r["in_top"]))
-        self.deal_label.configure(text="\n".join((
-            deal_verdict(work.deal_rows, self._combatants(),
-                         len(work.names())),
-            "Before:  " + substat_words(deal["before"]),
-            "After:   " + substat_words(deal["after"]))))
+        self._show_verdict(deal_verdict(work.deal_rows, self._combatants(),
+                                        len(work.names())))
+
+    def _show_verdict(self, words):
+        """`words` across the verdict's labels, the version it keeps in
+        that version's colour."""
+        parts = verdict_parts(words)
+        for label, text, colour in zip(
+                self.deal_parts, parts, (None, VERDICT_COLOURS.get(parts[1]),
+                                         None), strict=True):
+            # "" leaves the label's style colour.
+            label.configure(text=text,
+                            foreground=self.colors[colour] if colour else "")
 
     def _build_weights(self, parent):
         holder = ttk.Frame(parent)

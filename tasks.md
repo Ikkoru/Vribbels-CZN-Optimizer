@@ -79,6 +79,7 @@ Potential issues, user reports and improvement ideas, triaged. Completed items a
 - **T28 — The UI moves from Tk to Qt (PySide6).** Decided by the maintainer on 2026-11-14: a full port beside the Tk UI, hardest tabs first, spacing by relationship levels, each tab open to redesign. 2.7.0 ships on Tk and Tk is then frozen to bug fixes and game-data updates; the Qt build is 3.0.0. The plan, its gates and what is still to ask are in `plan_qt_port.md`. Its phase 0, moving what each tab shows into a toolkit-free `Vribbels/views/`, can start now.
   - It settles T21 and T22 by construction, and supersedes T17 and the `ui_spacing.md` note under TBD; they are removed when the port ships.
   - T23's UI (its phase 4 on) is built in Qt, after the existing tabs.
+  - A list heading that has a tooltip is underlined, so a column with an explanation can be told from one without. Tk cannot: a Treeview's headings share one style and take no font of their own.
 
 - **T29 — The capture addon as a file of its own.** It is a 5,300-line string in `capture/manager.py` that no tool reads as Python. After 2.7.0: `plan_capture_addon.md`.
 

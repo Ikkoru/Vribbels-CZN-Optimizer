@@ -50,7 +50,8 @@ nothing else, so a broken one reads as a plausible ranking:
     no better than the fragment as it stands changes nothing; one far
     better enters the best build and raises it.
 19. **The verdict follows the weighted Top Δ of the combatants the list
-    is read for**, and names a change anywhere else after it.
+    is read for**, and names a change anywhere else after it. The
+    version it keeps is the word that takes that version's colour.
 20. **A deal runs at full speed while the tab shows, and the speed goes
     back once it is settled**; its answers outlast the capture its own
     reply saves.
@@ -308,7 +309,7 @@ def _the_work_order_cache_and_progress():
                    "would show the old one's numbers.")
 
     # 19
-    from ui.tabs.readjust_tab import deal_verdict
+    from ui.tabs.readjust_tab import deal_verdict, verdict_parts
     rows = {"Ann": {"change": 0.4, "before": -1.0, "after": 0.4},
             "Bea": {"change": -0.3, "before": 0.3, "after": -0.5},
             "Cyd": {"change": 0.0, "before": -3.0, "after": -1.0}}
@@ -322,6 +323,13 @@ def _the_work_order_cache_and_progress():
                        f"{want!r}...: the weighted Top \u0394 of the "
                        f"combatants read for decides, closeness where it is "
                        f"none, and a change elsewhere is named.")
+        kept = want.split(":")[0].split()[1]
+        if verdict_parts(words)[1] != kept:
+            out.append(f"the verdict {words!r} colours "
+                       f"{verdict_parts(words)[1]!r}, not {kept!r}: the "
+                       f"version it keeps loses its colour.")
+    if verdict_parts("Either: no Top build changes")[1]:
+        out.append("a verdict keeping neither version colours one.")
 
     # 20
     class _Fragment:
@@ -612,6 +620,10 @@ FAULTS = [
      'total_change = sum(w * r["change"] for w, r in mine.values())',
      'total_change = sum(r["change"] for w, r in mine.values())',
      "the weighted Top"),
+    ("the verdict's colour on no version", "ui.tabs.readjust_tab:verdict_parts",
+     '            return "Keep ", version, words[len(lead):]',
+     '            return words, "", ""',
+     "loses its colour"),
     ("a deal's speed never put back",
      "readjust_work:ReadjustWork.set_deal",
      "            self._put_speed_back()\n",
