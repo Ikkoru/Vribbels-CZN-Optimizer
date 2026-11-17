@@ -30,7 +30,10 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - Build Score reads only the MFs whose Gear Score at their very best could reach the top third of their slot, under the combatant's preset: one that can't is not worth a Quartz.
   - Worked out for every combatant from the moment a capture loads, the one chosen first, then the weighted by weight, then everyone else, in one worker at the lowest priority so the game and the window aren't slowed. Full speed uses every core but one until it's all done or Background takes it back. Work in the background turns it off, leaving the work to the tab while it shows.
   - Under the counts: how far it has got for the combatant chosen, the weighted and everyone. The list shows as soon as its own combatants are done.
+  - Before / After, under the list: as the game deals a readjustment, what keeping After does for every combatant's best build, how near each version is to being worth wearing, and each version's Gear Score, with a verdict for the combatant(s) chosen. With the tab open it works at full speed until done.
+  - Hovering a column heading says what the column is.
   - Kept between launches. A new capture works out again only what it changed: under Gear Score a readjusted MF or one newly at its top level, under Build Score a combatant whose level or settings changed, or any of the MFs their builds are made from.
+- Capture Log: a kept Substat Readjustment reads "Readjusted <MF>: kept After" rather than "Unequipped".
 - Memory Fragments tab: two rows under Main Stats. The first is the Units needed to level every fragment to 3 and use up your Core of Memory. The second is what you hold against that: spare in green, or short in red with the x6 runs of Growth - Unit - Difficulty 6 it comes to.
 - Checklist tab: hovering a Core in Expiring Items says what it does.
 - Checklist tab: Activity (Weeklies), the week's Activity points out of 1000, read like Activity (Dailies): green once the week's reward is claimed, blinking orange with 1000 reached and the reward still to claim.

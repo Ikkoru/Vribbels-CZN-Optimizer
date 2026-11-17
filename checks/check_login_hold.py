@@ -44,7 +44,7 @@ def _window(gui, clock):
     reloads = []
     win = SimpleNamespace(
         _live_update_wanted=False, _last_save_at=None, _login_began=None,
-        _gacha_written=False, _stats_written=False, _event_moved=False,
+        _gacha_written=False, _stats_written=False, _event_moved=False, _readjust_dealt=False,
         gacha_tab_instance=None, disaster_tab_instance=None,
         capture_tab_instance=SimpleNamespace(drain_inbox=lambda: None),
         root=SimpleNamespace(after=lambda *a: None),

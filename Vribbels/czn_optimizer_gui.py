@@ -379,6 +379,9 @@ class OptimizerGUI:
         self._login_began = None
         self._gacha_written = False
         self._event_moved = False
+        # A Substat Readjustment dealt or settled, for `_poll_capture` to
+        # hand the readjust work on this thread.
+        self._readjust_dealt = False
         # Set from the thread reading old captures for stats, acted on
         # by `_poll_capture` the same way.
         self._stats_written = False
@@ -1124,6 +1127,7 @@ class OptimizerGUI:
         # `_on_gacha_written`.
         self.capture_manager.gacha_update_callback = self._on_gacha_written
         self.capture_manager.event_update_callback = self._on_event_moved
+        self.capture_manager.readjust_callback = self._on_readjust_dealt
         self.capture_manager.login_callback = self._on_login
 
         def make(cls):
@@ -1876,6 +1880,15 @@ class OptimizerGUI:
         """
         self._event_moved = True
 
+    def _on_readjust_dealt(self):
+        """The game dealt a Substat Readjustment, or the player kept one.
+
+        Runs on the proxy-reader thread, so it only sets a flag for
+        `_poll_capture`, which hands `CaptureManager.readjust_deal` to
+        the readjust work.
+        """
+        self._readjust_dealt = True
+
     def _on_login(self):
         """The game logged in: hold reloads until its saves stop.
 
@@ -1924,6 +1937,14 @@ class OptimizerGUI:
             # Likewise a Galactic Disaster tab not built yet: it reads
             # the Event from the capture when it is. Before the reload,
             # which would hold the row back for as long as it takes.
+            # Ahead of the reload, which the deal's own Quartz save
+            # brings: its Before and After are what the player is
+            # deciding on now.
+            if self._readjust_dealt:
+                self._readjust_dealt = False
+                work = getattr(self.app_context, "readjust_work", None)
+                if work is not None:
+                    work.set_deal(self.capture_manager.readjust_deal)
             if self._event_moved:
                 self._event_moved = False
                 disaster = self.disaster_tab_instance

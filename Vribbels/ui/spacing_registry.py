@@ -1099,6 +1099,8 @@ PANEL_OVER_TEXT_ENTRIES = [
      _button_over_panel("Import JSON", "Banners")),
     ("Substat Readjustment", "Sets -> Memory Fragments title", 10, None,
      _panel_gap("Sets", "Memory Fragments", "v")),
+    ("Substat Readjustment", "Memory Fragments -> Before / After title",
+     10, None, _panel_gap("Memory Fragments", "Before / After", "v")),
 
     # BOTH columns of the Capture tab's top grid, against the same
     # title below them. Requirements is the one the rule is read off:
@@ -5562,6 +5564,13 @@ def _epione_pitch_tags(*names):
 # (tab, name, target, rule, resolver, axis), every one in the
 # `epione_offered` scenario. The scenarios and their cards are built by
 # one function each, so a gap read in the first is the same in the rest.
+# (tab, name, target, rule, resolver, axis) for the Substat Readjustment
+# tab beyond its panels.
+READJUST_ENTRIES = [
+    ("Substat Readjustment", "Before / After title -> verdict", 5,
+     RULE_TITLE_ELEMENT, _title_to_first_element("Before / After"), "v"),
+]
+
 EPIONE_ENTRIES = [
     ("Epione", "Epione: window edge -> list", 4, RULE_CONTENT_FRAME,
      _box_from_window_edge(_epione("_tree")), "h"),
@@ -6294,6 +6303,11 @@ def register_all():
             provisional=name in AWAITING_FIRST_READING,
             target_source=EXCEPTION_ENTRIES.get(name, "rule"),
         )
+
+    for tab, name, target, rule, resolve, axis in READJUST_ENTRIES:
+        sa.track(name=name, tab=tab, rule=rule, target=target,
+                 resolve=resolve, axis=axis,
+                 target_source=EXCEPTION_ENTRIES.get(name, "rule"))
 
     # The Epione tab, in the scenario that marks an offer.
     for tab, name, target, rule, resolve, axis in EPIONE_ENTRIES:

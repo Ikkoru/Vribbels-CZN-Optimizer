@@ -19,6 +19,11 @@ the default), from the moment a capture is loaded, for every combatant,
 whether or not the tab has been opened. Off, only while the tab shows,
 only for the combatants it shows, at full speed.
 
+**A readjustment's deal** (`set_deal`, from the capture): its Before
+and After are read for every combatant (`readjust.read_deal`) ahead of
+anything else, at full speed while the tab shows, and the speed goes
+back to what it was once they are in.
+
 **What is kept.** An answer is kept by what it was worked out from:
 the fragment's own rolls (`readjust.content`) and its combatant's
 signature -- the preset's weights for the Gear Score, everything the
@@ -128,6 +133,13 @@ class ReadjustWork:
         self._lean = None
         self._token = None
         self.speed = rj.BACKGROUND
+        # The readjustment dealt and not yet settled: {"info", "before",
+        # "after", "token"}, or None; {combatant: `read_deal`'s answer,
+        # None for no build} for it; and the speed to go back to once it
+        # is read, where the deal raised it.
+        self.deal = None
+        self.deal_rows = {}
+        self._deal_restore = None
         # Whether the tab shows, and whether anything may run at all: a
         # check's or an audit's build leaves it off.
         self.visible = False
@@ -234,7 +246,9 @@ class ReadjustWork:
         new rolls -- are dropped. Every other answer stays: one worked
         out from the same inputs is the same answer, whichever capture
         holds them. A Top build is a combatant's, not a fragment's, and
-        its signature holds every fragment it could be made of."""
+        its signature holds every fragment it could be made of; a deal's
+        answers are the deal's, kept until it is settled (`set_deal`) --
+        the capture its own reply saves must not drop them."""
         if token == self._token:
             return
         self._token = token
@@ -242,7 +256,7 @@ class ReadjustWork:
         self._lean = None
         live = {rj.content(f) for f in fragments}
         for key in [k for k in self.answers
-                    if k[2] is not None and k[2] not in live]:
+                    if k[1] == "read" and k[2] not in live]:
             del self.answers[key]
 
     # ---------------------------------------------------------- planning
@@ -299,6 +313,7 @@ class ReadjustWork:
         stats = rj.stats_snapshot()
         rolls = sorted((k, list(v)) for k, v in stats.items())
         statuses, wanted = {}, []
+        deal_wanted = self._deal_plan(rolls, stats)
         for name in self.order():
             sig, template = self._signature(measure, name, rolls, stats)
             if sig is None:
@@ -310,7 +325,69 @@ class ReadjustWork:
             statuses[name] = self._status(name, sig, template, fragments,
                                           keys, wanted)
         self.statuses = statuses
+        return deal_wanted + wanted
+
+    def _deal_plan(self, rolls, stats):
+        """The deal's jobs, one per combatant in work order, and
+        `deal_rows` from what is in."""
+        rows, wanted = {}, []
+        if self.deal is None:
+            self.deal_rows = rows
+            return wanted
+        for name in self.order():
+            sig, template = self._signature(rj.BUILD, name, rolls, stats)
+            key = (sig, "deal", self.deal["token"])
+            if key in self.answers:
+                rows[name] = self.answers[key]
+                continue
+            if key in self._inflight:
+                continue
+            top = self.answers.get((sig, "top", None))
+            wanted.append((sig, dict(template, before=self.deal["before"],
+                                     after=self.deal["after"],
+                                     top=top["top"] if top else None),
+                           name, "deal", []))
+        self.deal_rows = rows
         return wanted
+
+    def deal_done(self):
+        """Whether every combatant's reading of the deal is in."""
+        return self.deal is not None \
+            and len(self.deal_rows) == len(self.names())
+
+    def set_deal(self, info):
+        """A readjustment dealt (`info`, the game's `piece_readjust_info`)
+        or settled (None). A deal for a fragment not loaded is let go.
+        While the tab shows, a deal runs at full speed until it is read,
+        and the speed goes back to what it was."""
+        for key in [k for k in self.answers if k[1] == "deal"]:
+            del self.answers[key]
+        self.deal, self.deal_rows = None, {}
+        optimizer = getattr(self.context, "optimizer", None)
+        if info and optimizer is not None:
+            fragment = next((f for f in optimizer.fragments
+                             if f.id == info.get("item_db_id")), None)
+            try:
+                if fragment is not None:
+                    self.deal = {
+                        "info": info,
+                        "before": rj.dealt(fragment,
+                                           info["before_stat_list"]),
+                        "after": rj.dealt(fragment, info["after_stat_list"]),
+                        "token": _hash(json.dumps(info, sort_keys=True))}
+            except (KeyError, TypeError, ValueError):
+                self.deal = None
+        if self.deal is not None and self.visible \
+                and self._deal_restore is None:
+            self._deal_restore = self.speed
+            self._set_speed(rj.FULL)
+        elif self.deal is None and self._deal_restore is not None:
+            self._put_speed_back()
+        self.refresh()
+
+    def _put_speed_back(self):
+        restore, self._deal_restore = self._deal_restore, None
+        self._set_speed(restore)
 
     # ----------------------------------------------------------- running
 
@@ -354,8 +431,9 @@ class ReadjustWork:
         combatants', and nothing queued for anyone else."""
         if not self.background():
             shown = set(self.shown())
-            self._cancel(lambda job, speed, name: name not in shown)
-            wanted = [w for w in wanted if w[2] in shown]
+            self._cancel(lambda job, speed, name:
+                         name not in shown and job[1] != "deal")
+            wanted = [w for w in wanted if w[2] in shown or w[3] == "deal"]
             speed = rj.FULL
         else:
             speed = self.speed
@@ -364,8 +442,13 @@ class ReadjustWork:
         for sig, template, name, kind, chunk in wanted[:max(0, room)]:
             # A Top build answers for no fragment: its one key's
             # content is None, as `_status` waits on it.
-            pairs = ((None, None),) if kind == "top" else tuple(
-                (f.id, rj.content(f)) for f in chunk)
+            # A deal's, the deal's token.
+            if kind == "top":
+                pairs = ((None, None),)
+            elif kind == "deal":
+                pairs = ((None, self.deal["token"]),)
+            else:
+                pairs = tuple((f.id, rj.content(f)) for f in chunk)
             job = (sig, kind, pairs)
             if job in self._futures:
                 continue
@@ -411,7 +494,10 @@ class ReadjustWork:
                     came = self._dirty = True
         if came:
             self.refresh()
-            if self.speed == rj.FULL and not self._futures \
+            if self._deal_restore is not None and self.deal_done():
+                self._put_speed_back()
+            elif self._deal_restore is None and self.speed == rj.FULL \
+                    and not self._futures \
                     and all(s.complete for s in self.statuses.values()):
                 self.speed = rj.BACKGROUND
                 self._notify()

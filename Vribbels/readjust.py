@@ -519,6 +519,72 @@ def read_build(optimizer, name, settings, valuer, fragment,
     return now, plain, exclude
 
 
+# ------------------------------------------------------------ a deal
+
+
+def dealt(fragment, stat_list):
+    """`fragment` as a readjustment's Before or After: the stat list the
+    game deals (`piece_readjust_info`'s `before_stat_list` or
+    `after_stat_list`) on the fragment's own id, set, slot, level and
+    owner."""
+    from models.memory_fragment import MemoryFragment
+    res_id = int("11%d%d%03d" % (fragment.slot_num, fragment.rarity_num,
+                                 fragment.set_id))
+    return MemoryFragment.from_json({
+        "id": fragment.id, "res_id": res_id, "level": fragment.level,
+        "lock": fragment.locked,
+        "char_res_id": getattr(fragment, "equipped_char_id", 0) or 0,
+        "stat_list": stat_list})
+
+
+def read_deal(optimizer, name, settings, before, after, top=None):
+    """What keeping `after` rather than `before` does for `name`, in
+    per cent of their Top build, or None where no build can wear either:
+
+    - "change": their best build's score with After less with Before --
+      the best build with the fragment pinned, or the best without it,
+      whichever is higher; 0 where the fragment is in neither.
+    - "before", "after": the best build with that version pinned, over
+      the Top build -- how close the fragment is to being worth wearing.
+    - "in_top": which versions are in their best build ("Before",
+      "After", "Both" or "").
+
+    `top` is the Top build's fragment ids where already known."""
+    if top is None:
+        found = top_build(optimizer, name, settings)
+        if found is None:
+            return None
+    else:
+        by_id = {f.id: f for f in optimizer.fragments}
+        found = [by_id[i] for i in top if i in by_id]
+    valuer = BuildValuer(optimizer, name, settings, found)
+    if any(f.id == before.id for f in found):
+        others = copy.copy(optimizer)
+        others.fragments = [f for f in optimizer.fragments
+                            if f.id != before.id]
+        alone = top_build(others, name, settings)
+        without = valuer.rel(alone) * 100 if alone else None
+    else:
+        without = 0.0
+    pinned = {}
+    for key, version in (("before", before), ("after", after)):
+        build = top_build(optimizer, name, settings, pinned=version)
+        pinned[key] = valuer.rel(build) * 100 if build else None
+    if pinned["before"] is None and pinned["after"] is None:
+        return None
+    floor = without if without is not None else float("-inf")
+    best = {k: max(floor, v if v is not None else float("-inf"))
+            for k, v in pinned.items()}
+    wears = [k.capitalize() for k, v in pinned.items()
+             if v is not None and v >= floor - 1e-9]
+    change = best["after"] - best["before"] \
+        if best["after"] > float("-inf") and best["before"] > float("-inf") \
+        else 0.0
+    return {"change": change, "before": pinned["before"],
+            "after": pinned["after"],
+            "in_top": "Both" if len(wears) == 2 else "".join(wears)}
+
+
 # ------------------------------------------------------------- the jobs
 
 
@@ -544,6 +610,8 @@ def work(job):
     - Build score, `job["kind"]` "top": {None: {"top": the Top build's
       fragment ids, "cut": `gear_cut`'s}, or None where the Optimizer
       finds no build}.
+    - Build score, "deal": {None: `read_deal`'s} for `job["before"]`
+      and `job["after"]`, a readjustment's two versions.
     - Build score, "read": {fragment id: (now, plain, exclude), or None
       where no build can wear it}, against the Top build
       `job["top"]` (ids). `job["optimizer"]` is `lean_optimizer`'s,
@@ -559,6 +627,9 @@ def work(job):
         return out
     optimizer, name = job["optimizer"], job["name"]
     settings = job["settings"]
+    if job["kind"] == "deal":
+        return {None: read_deal(optimizer, name, settings, job["before"],
+                                job["after"], job.get("top"))}
     if job["kind"] == "top":
         top = top_build(optimizer, name, settings)
         if top is None:

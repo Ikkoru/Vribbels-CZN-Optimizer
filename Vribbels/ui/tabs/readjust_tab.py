@@ -41,6 +41,7 @@ from ..utils.all_none_row import make_all_none_row
 from ..utils.checkbox import FOCUS_INSET, make_checkbox
 from ..utils.combobox_nav import bind_combobox_nav
 from ..utils.spinbox_clamp import clamp_on_commit, step_on_wheel
+from ..utils.tooltip import Tooltip
 
 # The dropdowns' words, each beside what it stands for.
 MEASURES = (("Gear Score", rj.GEAR), ("Build Score", rj.BUILD))
@@ -228,6 +229,106 @@ def progress_lines(groups, statuses, speed):
     return ([DONE] if finished else [WORKING, SPEEDS[speed]]) + lines
 
 
+# The Before / After panel: a readjustment the game has dealt, read for
+# every combatant (`readjust_work.ReadjustWork.set_deal`). Each column's
+# figure is per cent of the combatant's Top build.
+DEAL_TITLE = "Before / After"
+DEAL_COLUMNS = (
+    ("name", "Combatant", ("Heidemarie",), tk.W),
+    ("weight", "Weight", ("10",), tk.E),
+    ("change", "Top Δ", ("+10.00%",), tk.E),
+    ("weighted", "Weighted", ("+100.00%",), tk.E),
+    ("gap_before", "Gap Before", ("-10.00%",), tk.E),
+    ("gap_after", "Gap After", ("-10.00%",), tk.E),
+    ("gs_before", "GS Before", ("100.0",), tk.E),
+    ("gs_after", "GS After", ("100.0",), tk.E),
+    ("in_top", "In Top", ("Before",), tk.W),
+)
+DEAL_ROWS = 6
+NO_DEAL = ("No readjustment waiting. With a capture running, one shows "
+           "here as the game deals it, its Before and After read for "
+           "every combatant.")
+DEAL_WORKING = "Working out Before and After: %d of %d combatants"
+# A change smaller than this, in per cent of a Top build, is none.
+DEAL_EPS = 0.005
+
+# What each heading means, on hover.
+HEAD_TIPS = {
+    "now": "The MF's score as it stands. Gear Score: its GS under the "
+           "combatant's preset. Build Score: the best build wearing it, "
+           "in per cent over the combatant's Top build.",
+    "avg": "Now's average after a Reroll, the outcomes worse than Now "
+           "included, as if After were always kept.",
+    "gain": "A Reroll's average rise: After where it beats Now (or the "
+            "Top build), nothing where it does not, since you keep "
+            "Before then.",
+    "chance": "The chance a Reroll rises at all.",
+    "excl": "The substat whose exclusion gains most: it takes no upgrade "
+            "and goes back to its starting value.",
+    "xgain": "That exclusion's average rise, as Reroll's.",
+    "xchance": "The chance that exclusion rises at all.",
+    "best": "The most either can rise: every upgrade a top roll on one "
+            "substat.",
+    "use": "Which option does more per Quartz: Reroll costs 1, Exclude 2.",
+    "per": "That option's average rise per Quartz.",
+    "for": "The combatant the MF does most for, by Weighted.",
+    "weighted": "Per Quartz times the combatant's weight: what the list "
+                "is ranked by with several combatants.",
+    "change": "How much the combatant's best build changes if you keep "
+              "After: 0 where the MF is in neither version of it.",
+    "gap_before": "The best build wearing Before, against the Top build: "
+                  "how near it is to being worth wearing.",
+    "gap_after": "The same for After.",
+    "gs_before": "Before's Gear Score under the combatant's preset.",
+    "gs_after": "After's Gear Score under the combatant's preset.",
+    "in_top": "Which versions the combatant's best build wears.",
+}
+
+
+def deal_verdict(rows, scope, total):
+    """The Before / After panel's verdict. `rows` {combatant:
+    `read_deal`'s answer} in so far, `scope` {combatant: weight} the
+    list is read for, `total` how many combatants there are.
+
+    Keep After where the weighted Top Δ of `scope` comes to more than
+    0, Before where to less; where it comes to none, whichever version
+    stands closer to their Top builds. A Top Δ outside `scope` is named
+    after it."""
+    if len(rows) < total:
+        return DEAL_WORKING % (len(rows), total)
+    read = {n: r for n, r in rows.items() if r is not None}
+    mine = {n: (w, read[n]) for n, w in scope.items() if n in read}
+    total_change = sum(w * r["change"] for w, r in mine.values())
+    if total_change > DEAL_EPS:
+        words = "Keep After: " + ", ".join(
+            "%+.2f%% for %s" % (r["change"], n)
+            for n, (_w, r) in sorted(mine.items(),
+                                     key=lambda i: -i[1][1]["change"])
+            if r["change"] > DEAL_EPS)
+    elif total_change < -DEAL_EPS:
+        words = "Keep Before: After costs " + ", ".join(
+            "%+.2f%% for %s" % (r["change"], n)
+            for n, (_w, r) in sorted(mine.items(),
+                                     key=lambda i: i[1][1]["change"])
+            if r["change"] < -DEAL_EPS)
+    else:
+        closer = sum(w * (r["after"] - r["before"]) for w, r in mine.values()
+                     if r["after"] is not None and r["before"] is not None)
+        if closer > DEAL_EPS:
+            words = "Keep After: no Top build changes, and After stands closer to it"
+        elif closer < -DEAL_EPS:
+            words = "Keep Before: no Top build changes, and After stands further from it"
+        else:
+            words = "Either: no Top build changes, and neither stands closer"
+    elsewhere = sorted(((n, r["change"]) for n, r in read.items()
+                        if n not in scope and abs(r["change"]) > DEAL_EPS),
+                       key=lambda i: -abs(i[1]))
+    if elsewhere:
+        words += ". Elsewhere: " + ", ".join(
+            "%s %+.2f%%" % (n, c) for n, c in elsewhere[:3])
+    return words
+
+
 def best_readings(fragments, readings, weights):
     """[Reading], best first: each fragment read for the combatant whose
     weighted gain per Quartz is highest. `readings` {combatant: {id:
@@ -413,7 +514,7 @@ class ReadjustTab(BaseTab):
             style="Borderless.TLabelframe")
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: panel ↕ unrelated label -- panel, title ↕
-        self.weights_frame.grid(row=0, column=0, sticky="ns",
+        self.weights_frame.grid(row=0, column=0, rowspan=2, sticky="ns",
                                 padx=(px_after(2, 2), px(2)),
                                 pady=(px_after(2, 7), px(2)))
         self._build_weights(self.weights_frame)
@@ -424,8 +525,23 @@ class ReadjustTab(BaseTab):
         # spacing: panel ↕ unrelated label -- panel, title ↕
         lists.grid(row=0, column=1, sticky="nsew",
                    padx=(px_after(2, 2), px_after(2, 2)),
-                   pady=(px_after(2, 7), px_after(2, 2)))
+                   pady=(px_after(2, 7), px(2)))
         self._build_list(lists)
+
+        deal = ttk.LabelFrame(body, text=DEAL_TITLE, padding=px(0),
+                              style="Borderless.TLabelframe")
+        # spacing: content frame -> content frame -- frame, frame ↔↕
+        # spacing: panel ↕ unrelated label -- panel, title ↕
+        deal.grid(row=1, column=1, sticky="nsew",
+                  padx=(px_after(2, 2), px_after(2, 2)),
+                  pady=(px_after(2, 5), px_after(2, 2)))
+        self._build_deal(deal)
+        self._tips = Tooltip(self.colors)
+        for tree in (self.tree, self.deal_tree):
+            tree.bind("<Motion>", lambda e, t=tree: self._head_tip(t, e),
+                      add="+")
+            tree.bind("<Leave>", lambda _e: self._tips.hide(), add="+")
+        self._tip_at = None
 
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: tab list -> first element -- tab, frame ↕
@@ -597,6 +713,105 @@ class ReadjustTab(BaseTab):
         # before it takes its room wherever it is too wide.
         bar.pack(side=tk.RIGHT, fill=tk.Y)
         self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+    def _build_deal(self, parent):
+        """The verdict and the two versions' substats over a list of
+        every combatant's reading of the deal."""
+        # The negative top padding takes back what the borderless panel
+        # leaves under its title, which pack's pady cannot.
+        # spacing: title above, element below -- title, label ↕
+        self.deal_label = ttk.Label(parent, text=NO_DEAL, justify=tk.LEFT,
+                                    padding=px((-2, -5, -2, 0)))
+        self.deal_label.pack(anchor=tk.W, pady=(0, px(5)))
+        holder = ttk.Frame(parent)
+        holder.pack(fill=tk.BOTH, expand=True)
+        self.deal_tree = ttk.Treeview(
+            holder, columns=[c[0] for c in DEAL_COLUMNS], show="headings",
+            height=DEAL_ROWS, selectmode="none")
+        self._measured(self.deal_tree, DEAL_COLUMNS, sort=lambda _c: None)
+        bar = ttk.Scrollbar(holder, orient=tk.VERTICAL,
+                            command=self.deal_tree.yview)
+        self.deal_tree.configure(yscrollcommand=bar.set)
+        bar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.deal_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self._deal_gs = (None, {})
+
+    def _head_tip(self, tree, event):
+        """The meaning of the heading under the pointer, after the
+        tooltip's delay. A heading is not a widget, so the column under
+        the pointer drives the tip (as on the Memory Fragments tab)."""
+        if tree.identify_region(event.x, event.y) != "heading":
+            if self._tip_at is not None:
+                self._tips.hide()
+                self._tip_at = None
+            return
+        column = tree.identify_column(event.x)
+        if (tree, column) == self._tip_at:
+            return
+        self._tip_at = (tree, column)
+        self._tips.hide()
+        try:
+            shown = list(tree["displaycolumns"])
+            if shown in (["#all"], ("#all",)):
+                shown = list(tree["columns"])
+            col = shown[int(column[1:]) - 1]
+        except (ValueError, IndexError):
+            return
+        text = HEAD_TIPS.get(col)
+        if text:
+            self._tips.schedule(tree, text)
+
+    def _gs_of(self, name, versions):
+        """(Before's, After's) Gear Score under `name`'s preset, kept
+        for the deal in hand."""
+        from optimizer.run_settings import weights_for
+        token = self.work.deal["token"]
+        held_token, held = self._deal_gs
+        if held_token != token:
+            held = {}
+            self._deal_gs = (token, held)
+        if name not in held:
+            valuer = rj.GearValuer(weights_for(
+                getattr(self.context, "character_preset_manager", None),
+                getattr(self.context, "preset_manager", None), name) or {})
+            held[name] = tuple(valuer.bind(v).reference(v)[0]
+                               for v in versions)
+        return held[name]
+
+    def _show_deal(self):
+        """The Before / After panel from the work's reading of the deal
+        in hand, its rows by how much they change, the largest first."""
+        work = self.work
+        tree = self.deal_tree
+        tree.delete(*tree.get_children())
+        deal = work.deal
+        if deal is None:
+            self.deal_label.configure(text=NO_DEAL)
+            return
+        weights = work.weights()
+        versions = (deal["before"], deal["after"])
+        rows = [(n, r) for n, r in work.deal_rows.items() if r is not None]
+
+        def gap(r):
+            if r["before"] is None or r["after"] is None:
+                return 0.0
+            return r["after"] - r["before"]
+
+        rows.sort(key=lambda i: (-abs(i[1]["change"]), -gap(i[1]), i[0]))
+        for name, r in rows:
+            weight = weights.get(name, 0)
+            gs = self._gs_of(name, versions)
+            tree.insert("", tk.END, values=(
+                name, weight, "%+.2f%%" % r["change"],
+                "%+.2f%%" % (r["change"] * weight),
+                "" if r["before"] is None else "%+.2f%%" % r["before"],
+                "" if r["after"] is None else "%+.2f%%" % r["after"],
+                "%.1f" % gs[0], "%.1f" % gs[1], r["in_top"]))
+        self.deal_label.configure(text="\n".join((
+            deal_verdict(work.deal_rows, self._combatants(),
+                         len(work.names())),
+            "Before:  " + substat_words(deal["before"]),
+            "After:   " + substat_words(deal["after"]))))
 
     def _build_weights(self, parent):
         holder = ttk.Frame(parent)
@@ -848,6 +1063,7 @@ class ReadjustTab(BaseTab):
         Drawn only while the tab shows; `<Map>` catches it up."""
         if not self.frame.winfo_ismapped():
             return
+        self._show_deal()
         optimizer = self.optimizer
         if optimizer is None or not optimizer.fragments:
             # Every set at 0: the panel keeps the height it has with

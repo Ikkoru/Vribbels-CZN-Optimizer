@@ -15,7 +15,19 @@ So **a readjustment never loses anything**: its worth is the expected `max(0, af
 
 A fragment's `stat_list` keeps each substat's starting value (type 1, or type 2 for the substat added at level 1) apart from its upgrades (type 3); `MemoryFragment.from_json` reads the first into `base_value`.
 
-The readjustment command's reply has not been captured yet, so the tab cannot yet show a readjustment's After beside its Before.
+**On the wire.** `item/pick_piece_readjust` (`item_db_id`) spends the Quartz and answers with `piece_readjust_info`: `item_db_id`, `ban_slots` (the excluded substat's slot, empty for none), `before_stat_list` and `after_stat_list`, each the fragment's stat list as `MemoryFragment.from_json` reads one. The After keeps every substat's starting value (types 1 and 2) and carries four new type-3 upgrades. `item/apply_piece_readjust` (`item_db_id`, `apply_picked`: true keeps After) answers with the fragment as kept, under `piece`, which updates the inventory as any upgrade does. The capture passes the deal to the app with `READJUST_MARKER` (`capture/manager.py`), and the marker alone once it is settled.
+
+## Before / After
+
+While a deal stands, the panel under the Memory Fragments list reads it for every combatant (`readjust.read_deal`, the work's `set_deal`), in per cent of each one's Top build:
+
+- **Top Δ**: their best build's change if After is kept: the best build with that version pinned, or the best without the fragment, whichever is higher. 0 where the fragment is in neither.
+- **Gap Before**, **Gap After**: the best build wearing that version against the Top build, how near it is to being worth wearing.
+- **GS Before**, **GS After**: each version's Gear Score under their preset.
+- **In Top**: which versions their best build wears.
+- **Weight** is the Weights list's; **Weighted** is Top Δ times it. The other columns are never weighted.
+
+The verdict above it (`deal_verdict`): keep After where the weighted Top Δ of the combatants the list is read for (the one chosen, or the weighted) comes to more than 0, Before where to less; where it comes to none, whichever version stands closer to their Top builds. A Top Δ anyone else has is named after it. With the tab showing, a deal runs at full speed ahead of all else, and the speed goes back once every combatant is read.
 
 ## The two measures
 

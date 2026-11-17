@@ -43,7 +43,19 @@ nothing else, so a broken one reads as a plausible ranking:
 16. **The progress counts each group's readings**, and says Complete
     only when every one is in.
 
-Rules 10 to 12 and 14 run on `_parity_fixture`'s synthetic inventory.
+17. **A deal's Before and After are the fragment the game deals**:
+    `dealt` reads the stat list onto the fragment's own id, set and
+    owner, each substat at the value the list adds up to.
+18. **A deal is read against the combatant's best build**: a version
+    no better than the fragment as it stands changes nothing; one far
+    better enters the best build and raises it.
+19. **The verdict follows the weighted Top Δ of the combatants the list
+    is read for**, and names a change anywhere else after it.
+20. **A deal runs at full speed while the tab shows, and the speed goes
+    back once it is settled**; its answers outlast the capture its own
+    reply saves.
+
+Rules 10 to 12, 14 and 18 run on `_parity_fixture`'s synthetic inventory.
 8. **The work keeps an answer by what it was worked out from**: a
    readjusted fragment is worked out again, an unchanged one is not,
    and a combatant's Top build outlasts a capture that changes none of
@@ -295,6 +307,46 @@ def _the_work_order_cache_and_progress():
                    "(CACHE_VERSION) are read back: a change to the model "
                    "would show the old one's numbers.")
 
+    # 19
+    from ui.tabs.readjust_tab import deal_verdict
+    rows = {"Ann": {"change": 0.4, "before": -1.0, "after": 0.4},
+            "Bea": {"change": -0.3, "before": 0.3, "after": -0.5},
+            "Cyd": {"change": 0.0, "before": -3.0, "after": -1.0}}
+    for scope, want in (({"Ann": 1}, "Keep After"),
+                        ({"Ann": 1, "Bea": 2}, "Keep Before"),
+                        ({"Cyd": 1}, "Keep After: no Top build changes")):
+        words = deal_verdict(rows, scope, 3)
+        if not words.startswith(want) or ("Elsewhere" in words) != (
+                any(n not in scope and rows[n]["change"] for n in rows)):
+            out.append(f"with {scope} the verdict reads {words!r}, not "
+                       f"{want!r}...: the weighted Top \u0394 of the "
+                       f"combatants read for decides, closeness where it is "
+                       f"none, and a change elsewhere is named.")
+
+    # 20
+    class _Fragment:
+        id, slot_num, rarity_num, set_id, level, locked = 5, 1, 4, 18, 5, 0
+        equipped_char_id, substats = 0, []
+
+    class _Optimizer:
+        fragments, characters, character_info = [_Fragment()], {}, {}
+        capture_time = ""
+
+    class _Context:
+        optimizer, settings_manager = _Optimizer(), None
+
+    work = rw.ReadjustWork(_Context(), lambda *_a: None)
+    work.visible, work.speed = True, rj.BACKGROUND
+    stat = {"slot": 0, "type": 0, "stat": "S_ATK_INC_ADD_OUT", "value": 22}
+    work.set_deal({"item_db_id": 5, "before_stat_list": [stat],
+                   "after_stat_list": [stat]})
+    raised = work.speed
+    work.set_deal(None)
+    if raised != rj.FULL or work.speed != rj.BACKGROUND:
+        out.append(f"a deal with the tab showing runs at {raised}, and "
+                   f"settled leaves the work at {work.speed}: full speed "
+                   f"until it is read, then the speed it had.")
+
     # 16
     half, whole = rw.Status(10), rw.Status(10)
     half.done, whole.done = 4, 10
@@ -353,6 +405,8 @@ def _answers_kept_by_content():
     answer(frags)
     top_key = ("a build signature", "top", None)
     tab.answers[top_key] = {"top": [f.id for f in frags], "cut": []}
+    deal_key = ("a build signature", "deal", "a deal's token")
+    tab.answers[deal_key] = {"change": 0.0}
     same = [copy.deepcopy(f) for f in frags]
     tab._forget("capture 2", same)
     if asked(same):
@@ -363,6 +417,10 @@ def _answers_kept_by_content():
         out.append("a new capture of the same fragments drops a "
                    "combatant's Top build: it is kept by its signature, "
                    "which holds every fragment it could be made of.")
+    if deal_key not in tab.answers:
+        out.append("a new capture drops a readjustment deal's answers: the "
+                   "deal's own reply saves one, and the Before / After "
+                   "panel would start over the moment it was dealt.")
     rerolled = [copy.deepcopy(f) for f in frags]
     sub = rerolled[1].substats[1]
     sub.upgrade_values = [2.0, 2.0, 2.0]
@@ -474,6 +532,44 @@ def _build_score_reads_the_top_build():
                    f"weighs at 0, is read: at its best it reaches no Gear "
                    f"Score, so it cannot reach the top third of its slot.")
 
+    # 17
+    member = next(f for f in top if rj.readjustable(f)) \
+        if any(rj.readjustable(f) for f in top) else top[0]
+    rows = [{"slot": 0, "type": 0, "stat": member.main_stat.raw_name,
+             "value": member.main_stat.value}]
+    for slot, sub in enumerate(member.substats, start=1):
+        rows.append({"slot": slot, "type": 1, "stat": sub.raw_name,
+                     "value": sub.base_value})
+        for value in sub.upgrade_values:
+            rows.append({"slot": slot, "type": 3, "stat": sub.raw_name,
+                         "value": value})
+    same = rj.dealt(member, rows)
+    if (same.id, same.set_id, same.slot_num) != \
+            (member.id, member.set_id, member.slot_num) \
+            or [round(s.value, 6) for s in same.substats] \
+            != [round(s.value, 6) for s in member.substats]:
+        out.append(f"fragment {member.id} dealt from its own stat list "
+                   f"reads {[s.value for s in same.substats]}, not "
+                   f"{[s.value for s in member.substats]}: `dealt` puts the "
+                   f"game's stat list on the fragment as it stands.")
+
+    # 18
+    unchanged = rj.read_deal(o, name, settings, same, same, [f.id for f in top])
+    raised_rows = [dict(r, value=r["value"] + 20) if r["type"] == 3
+                   or (r["type"] == 1 and r["slot"]) else r for r in rows]
+    better = rj.dealt(member, raised_rows)
+    lifted = rj.read_deal(o, name, settings, same, better,
+                          [f.id for f in top])
+    if unchanged is None or abs(unchanged["change"]) > 1e-6:
+        out.append(f"a deal whose After is its Before reads a Top \u0394 of "
+                   f"{unchanged and unchanged['change']}: nothing changed, "
+                   f"so its best build did not either.")
+    if lifted is None or lifted["change"] <= 0 \
+            or lifted["in_top"] not in ("After", "Both"):
+        out.append(f"a deal whose After rolls 20 higher on every substat "
+                   f"reads {lifted}: it enters the best build and raises "
+                   f"it, Top \u0394 above 0 and After in it.")
+
     # 12
     sig = rj.build_signature(o, name, settings)
     reloaded = GearOptimizer()
@@ -508,6 +604,23 @@ def _build_score_reads_the_top_build():
 
 
 FAULTS = [
+    ("a deal read the wrong way round", "readjust:read_deal",
+     'change = best["after"] - best["before"]',
+     'change = best["before"] - best["after"]',
+     "enters the best build"),
+    ("the verdict blind to the weights", "ui.tabs.readjust_tab:deal_verdict",
+     'total_change = sum(w * r["change"] for w, r in mine.values())',
+     'total_change = sum(r["change"] for w, r in mine.values())',
+     "the weighted Top"),
+    ("a deal's speed never put back",
+     "readjust_work:ReadjustWork.set_deal",
+     "            self._put_speed_back()\n",
+     "            pass\n",
+     "then the speed it had"),
+    ("a deal dealt onto the wrong fragment", "readjust:dealt",
+     '"id": fragment.id, "res_id": res_id,',
+     '"id": 0, "res_id": res_id,',
+     "puts the game's stat list"),
     ("the cut keeping only what cannot reach the top", "readjust:gear_cut",
      "top_gs(f, valuer) < bar)", "top_gs(f, valuer) >= bar)",
      "leaves out a fragment of the Top"),
@@ -550,7 +663,7 @@ FAULTS = [
      "moved to another combatant"),
     ("a Top build dropped with each capture",
      "readjust_work:ReadjustWork._forget",
-     "if k[2] is not None and k[2] not in live]:",
+     'if k[1] == "read" and k[2] not in live]:',
      "if k[2] not in live]:",
      "drops a combatant's Top build"),
     ("Avg counting only the outcomes kept", "readjust:_option",
@@ -582,7 +695,7 @@ FAULTS = [
      "Use names the option"),
     ("every answer dropped with each capture",
      "readjust_work:ReadjustWork._forget",
-     "if k[2] is not None and k[2] not in live]:",
+     'if k[1] == "read" and k[2] not in live]:',
      "if True]:",
      "not by the capture"),
     ("an answer kept by the fragment's id alone", "readjust:content",
