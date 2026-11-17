@@ -904,6 +904,9 @@ CONTENT_FRAME_ENTRIES = [
     ("Substat Readjustment", "Sets -> note", 4, "h",
      lambda cap, app: _gap(_panel_at("Sets"),
                            _by_text(READJUST_NOTE_PREFIX), "h")(cap, app)),
+    # Details and Before / After, side by side under the list.
+    ("Substat Readjustment", "Details -> Before / After", 4, "h",
+     _panel_gap("Details", "Before / After", "h")),
     # Four more pairs of panels sitting side by side. The rule's other
     # thirty-odd marker sites are pads on borderless containers with
     # nothing painted at either end; these draw an edge each.
@@ -1101,6 +1104,8 @@ PANEL_OVER_TEXT_ENTRIES = [
      _panel_gap("Sets", "Memory Fragments", "v")),
     ("Substat Readjustment", "Memory Fragments -> Before / After title",
      10, None, _panel_gap("Memory Fragments", "Before / After", "v")),
+    ("Substat Readjustment", "Memory Fragments -> Details title",
+     10, None, _panel_gap("Memory Fragments", "Details", "v")),
 
     # BOTH columns of the Capture tab's top grid, against the same
     # title below them. Requirements is the one the rule is read off:
@@ -5569,6 +5574,8 @@ def _epione_pitch_tags(*names):
 READJUST_ENTRIES = [
     ("Substat Readjustment", "Before / After title -> verdict", 5,
      RULE_TITLE_ELEMENT, _title_to_first_element("Before / After"), "v"),
+    ("Substat Readjustment", "Details title -> picked MF", 5,
+     RULE_TITLE_ELEMENT, _title_to_first_element("Details"), "v"),
 ]
 
 EPIONE_ENTRIES = [

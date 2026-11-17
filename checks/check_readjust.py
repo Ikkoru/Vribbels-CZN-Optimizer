@@ -56,6 +56,20 @@ nothing else, so a broken one reads as a plausible ranking:
     back once it is settled**; its answers outlast the capture its own
     reply saves.
 
+21. **Several combatants make one choice**: After is kept wherever
+    their weighted change rises, the list's gain is that change's
+    average with the weights taken over their sum, and For is the
+    combatant with the largest weighted share of it.
+22. **Details' Gain is signed**: a combatant After is kept for others
+    against reads the loss.
+23. **Every combatant reads the same readjustments** (`deals`, seeded
+    by the fragment), and the Gear Score sampled for Details lands on
+    the exact reading.
+24. **A Top build's fragment can cost its combatant**: keeping a worse
+    After falls back to the best build without it; a fragment outside
+    the Top build costs nothing.
+25. **The shared choice waits for every weighted combatant**.
+
 Rules 10 to 12, 14 and 18 run on `_parity_fixture`'s synthetic inventory.
 8. **The work keeps an answer by what it was worked out from**: a
    readjusted fragment is worked out again, an unchanged one is not,
@@ -63,7 +77,6 @@ Rules 10 to 12, 14 and 18 run on `_parity_fixture`'s synthetic inventory.
    what it is made of.
 """
 
-import random
 
 from pathlib import Path
 
@@ -229,11 +242,13 @@ def run():
     four = _fragment([(0, 1.3), (1, 2.5), (2, 5), (3, 3)])
     linear = _Linear(four)
     exact = rj.read(four, linear)
-    plain, exclude = rj.options(linear.score, four, exact.now, 6000,
-                                random.Random(four.id))
+    plain, exclude = rj.options(linear.score, four, exact.now,
+                                rj.deals(four, 6000))
     if abs(plain.mean - exact.plain.mean) \
             > 0.06 * max(exact.plain.mean, 0.01) \
-            or exclude.excluded != exact.exclude.excluded:
+            or exclude.excluded != exact.exclude.excluded \
+            or abs(exclude.mean - exact.exclude.mean) \
+            > 0.06 * max(exact.exclude.mean, 0.01):
         out.append(f"sampling a linear score reads {plain.mean:.4f} "
                    f"(excluding {exclude.excluded}) where the "
                    f"exact reading is {exact.plain.mean:.4f} (excluding "
@@ -255,6 +270,83 @@ def run():
     out.extend(_answers_kept_by_content())
     out.extend(_build_score_reads_the_top_build())
     out.extend(_the_work_order_cache_and_progress())
+    out.extend(_the_shared_choice(fragment, valuer, reading))
+    return out
+
+
+def _the_shared_choice(fragment, valuer, reading):
+    """21 to 23 and 25: several combatants' one choice, and Details."""
+    import readjust as rj
+    import readjust_work as rw
+
+    out = []
+    four = _fragment([(0, 1.3), (1, 2.5), (2, 5), (3, 3)])
+
+    def spread(changes):
+        return rj.Spread(0.0, dict.fromkeys([None, 0, 1, 2, 3], 0.0),
+                         dict.fromkeys([None, 0, 1, 2, 3], changes),
+                         [0.0] * 4, len(changes))
+
+    # 21 and 22: Ann gains where Bea loses.
+    ann, bea = spread([3.0, 2.0, -1.0, 0.0]), spread([-2.0, 0.0, 0.0, 1.0])
+    for weights, mean, chance, lead, ann_gain, bea_gain, bea_loss in (
+            ({"Ann": 1, "Bea": 1}, 0.5, 0.75, "Ann", 1.25, -0.25, 0.25),
+            ({"Ann": 1, "Bea": 3}, 0.3125, 0.5, "Bea", 0.5, 0.25, 0.0)):
+        got = rj.mixed(four, [(n, w, {"Ann": ann, "Bea": bea}[n])
+                              for n, w in weights.items()])
+        keep = rj.kept([(weights["Ann"], ann), (weights["Bea"], bea)], None)
+        shown = rj.details({"Ann": ann, "Bea": bea}, None, keep)
+        if abs(got[0].mean - mean) > 1e-9 or abs(got[0].chance - chance) \
+                > 1e-9 or got[2] != lead:
+            out.append(f"weighted {weights}, the shared Reroll reads "
+                       f"{got[0].mean} at {got[0].chance} for {got[2]!r}, not "
+                       f"{mean} at {chance} for {lead!r}: After is kept "
+                       f"wherever the weighted change rises, the weights "
+                       f"taken over their sum, and For is the largest "
+                       f"weighted share.")
+        if abs(shown["Ann"][0] - ann_gain) > 1e-9 \
+                or abs(shown["Bea"][0] - bea_gain) > 1e-9 \
+                or abs(shown["Bea"][1] - bea_loss) > 1e-9:
+            out.append(f"weighted {weights}, Details reads Ann "
+                       f"{shown['Ann']} and Bea {shown['Bea']}, not "
+                       f"{ann_gain} and ({bea_gain}, {bea_loss}): each "
+                       f"combatant's change where After is kept, below 0 "
+                       f"where that costs them.")
+
+    # 23: the Gear Score sampled lands on the exact reading, and every
+    # combatant reads the same readjustments.
+    dealt = rj.deals(fragment)
+    if dealt != rj.deals(fragment):
+        out.append("two readings of one fragment deal different "
+                   "readjustments: combatants' changes could not be added "
+                   "up one readjustment at a time.")
+    sampled = rj.gear_spread(fragment, valuer, dealt)
+    own = rj.details({"X": sampled}, None, rj.kept([(1, sampled)], None))
+    if abs(own["X"][0] - reading.plain.mean) \
+            > 0.06 * max(reading.plain.mean, 0.01) \
+            or abs(sampled.now - reading.now) > 1e-6:
+        out.append(f"the Gear Score sampled for Details reads a Reroll of "
+                   f"{own['X'][0]:.3f} from {sampled.now:.3f}, where the "
+                   f"exact reading is {reading.plain.mean:.3f} from "
+                   f"{reading.now:.3f}.")
+
+    # 25: the shared choice waits for every weighted combatant.
+    work = rw.ReadjustWork(None, lambda *_a: None)
+    work.weights = lambda: {"Ann": 1, "Bea": 2}
+    done, half = rw.Status(1), rw.Status(1)
+    done.done = 1
+    keys = {four.id: rj.content(four)}
+    read_by = {n: ("sig " + n, {"weights": {}}) for n in ("Ann", "Bea")}
+    for statuses, want in (({"Ann": done, "Bea": half}, 0),
+                           ({"Ann": done, "Bea": done}, 1)):
+        wanted = []
+        work._mix_status(rj.GEAR, statuses, read_by, [four], keys, None,
+                         wanted)
+        if len(wanted) != want or any(w[2] != rw.MIX for w in wanted):
+            out.append(f"with {sum(s.complete for s in statuses.values())} "
+                       f"of 2 weighted worked out the shared choice asks for "
+                       f"{len(wanted)} job(s), not {want}: it reads every "
+                       f"weighted combatant's changes, so it waits for all.")
     return out
 
 
@@ -520,6 +612,26 @@ def _build_score_reads_the_top_build():
                    f"{reading and reading[0]}: the build score stands "
                    f"against the Top build, which reads 0.")
 
+    # 24: a Top build's fragment, read as the work reads it, can cost
+    # its combatant; one outside the Top build cannot.
+    outside = next(f for f in o.fragments
+                   if rj.readjustable(f) and f.id not in in_top
+                   and f.slot_num != member.slot_num)
+    got = rj.work({"measure": rj.BUILD, "kind": "read", "optimizer": o,
+                   "name": name, "settings": settings,
+                   "top": [f.id for f in top], "fragments": [member, outside],
+                   "stats": None})
+    if got.get(member.id) is not None:
+        changes = got[member.id][3].dense(None)
+        if min(changes) >= -1e-9:
+            out.append(f"fragment {member.id} of the Top build never reads "
+                       f"a loss: keeping a worse After falls back to the "
+                       f"best build without it, which Details must show.")
+    if got.get(outside.id) is not None \
+            and min(got[outside.id][3].dense(None)) < -1e-9:
+        out.append(f"fragment {outside.id}, outside the Top build, reads a "
+                   f"loss: the Top build stands whatever After it gets.")
+
     # 14: the cut keeps the Top build, and drops a fragment whose every
     # substat the preset weighs at nothing.
     if set(rj.gear_cut(o, name, settings)) & in_top:
@@ -612,6 +724,28 @@ def _build_score_reads_the_top_build():
 
 
 FAULTS = [
+    ("the shared choice blind to the weights", "readjust:mixed",
+     "                    total[i] += w * c",
+     "                    total[i] += c",
+     "the weights taken over their sum"),
+    ("Details' Gain never below 0", "readjust:details",
+     "        took = [c for c, k in zip(changes, keep, strict=True) if k]",
+     "        took = [max(0.0, c) for c, k in zip(changes, keep, strict=True)"
+     " if k]",
+     "below 0 where that costs them"),
+    ("each reading dealing readjustments of its own", "readjust:deals",
+     "    rng = random.Random(fragment.id)",
+     "    rng = random.Random()",
+     "deal different readjustments"),
+    ("a Top build's fragment read against the Top build", "readjust:work",
+     '            floor = valuer.rel(alone) * 100 if alone else float("-inf")',
+     "            floor = 0.0",
+     "never reads a loss"),
+    ("the shared choice not waiting", "readjust_work:ReadjustWork._mix_status",
+     "        if any(not statuses[n].complete for n in weights\n"
+     "               if n in statuses):\n            return status\n",
+     "",
+     "it waits for all"),
     ("a deal read the wrong way round", "readjust:read_deal",
      'change = best["after"] - best["before"]',
      'change = best["before"] - best["after"]',
@@ -675,7 +809,7 @@ FAULTS = [
      "moved to another combatant"),
     ("a Top build dropped with each capture",
      "readjust_work:ReadjustWork._forget",
-     'if k[1] == "read" and k[2] not in live]:',
+     'if k[1] in ("read", "mix") and k[2] not in live]:',
      "if k[2] not in live]:",
      "drops a combatant's Top build"),
     ("Avg counting only the outcomes kept", "readjust:_option",
@@ -698,7 +832,7 @@ FAULTS = [
     ("an Epic readjusted", "readjust:readjustable",
      "fragment.rarity_num == LEGENDARY and", "fragment.rarity_num >= 3 and",
      "an Epic is listed"),
-    ("sampling deals over all four when excluding", "readjust:options",
+    ("sampling deals over all four when excluding", "readjust:deals",
      "every[:i] + every[i + 1:]", "every", "sampling a linear score"),
     ("Use naming the cheaper option always",
      "readjust:Reading.best",
@@ -707,7 +841,7 @@ FAULTS = [
      "Use names the option"),
     ("every answer dropped with each capture",
      "readjust_work:ReadjustWork._forget",
-     'if k[1] == "read" and k[2] not in live]:',
+     'if k[1] in ("read", "mix") and k[2] not in live]:',
      "if True]:",
      "not by the capture"),
     ("an answer kept by the fragment's id alone", "readjust:content",

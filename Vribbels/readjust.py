@@ -41,6 +41,7 @@ import json
 import math
 import os
 import random
+from array import array
 from dataclasses import dataclass
 
 from game_data.constants import MAX_LEVEL, MAX_LEVEL_PER_RARITY, STATS
@@ -447,46 +448,85 @@ def _deal(fragment, eligible, rng):
     return values
 
 
-def sampled(score, fragment, eligible, ref, excluded, cost, samples, rng):
+def deals(fragment, samples=BUILD_SAMPLES):
+    """The readjustments sampling reads `fragment` by: {option: [the
+    substats' values, a list per readjustment]}, `samples` each. The
+    options are None, plain, and each substat's index, that substat
+    excluded; "anchor" holds the plain ones `read_build` finds its
+    second build by. Drawn from a generator seeded by the fragment's
+    id, so every combatant reads the same readjustments, and the
+    shared choice (`mixed`, `details`) can add their changes up one
+    readjustment at a time."""
+    rng = random.Random(fragment.id)
+    every = list(range(len(fragment.substats)))
+    out = {"anchor": [_deal(fragment, every, rng) for _ in range(samples)]}
+    out[None] = [_deal(fragment, every, rng) for _ in range(samples)]
+    for i in every:
+        rest = every[:i] + every[i + 1:]
+        out[i] = [_deal(fragment, rest, rng) for _ in range(samples)]
+    return out
+
+
+def eligible(fragment, option):
+    """The substats' indices `option` deals upgrades over."""
+    return [i for i in range(len(fragment.substats)) if i != option]
+
+
+def top_values(fragment, i):
+    """The substats' values with every upgrade a top roll on substat
+    `i`: the most a readjustment over it can make."""
+    values = [sub.base_value for sub in fragment.substats]
+    values[i] += UPGRADES * max(roll_values(fragment.substats[i]))
+    return values
+
+
+def sampled(score, fragment, option, ref, cost, dealt, record=None):
     """An Option by sampling: `score(values)` what after is worth with
-    the substats at `values`, `samples` readjustments dealt over the
-    substats at `eligible`, against `ref`."""
+    the substats at `values`, over the readjustments `dealt` (lists of
+    values), against `ref`. `record`, a list, gets every after."""
     mean = chance = avg = 0.0
-    for _ in range(samples):
-        after = score(_deal(fragment, eligible, rng))
+    for values in dealt:
+        after = score(values)
+        if record is not None:
+            record.append(after)
         avg += after
         if after > ref + 1e-9:
             mean += after - ref
             chance += 1
-    # The most it can: every upgrade a top roll on one substat.
-    best = 0.0
-    for i in eligible:
-        values = [sub.base_value for sub in fragment.substats]
-        values[i] += UPGRADES * max(roll_values(fragment.substats[i]))
-        best = max(best, score(values) - ref)
+    best = max([0.0] + [score(top_values(fragment, i)) - ref
+                        for i in eligible(fragment, option)])
+    excluded = None if option is None else fragment.substats[option].name
+    samples = len(dealt)
     return Option(excluded, cost, mean / samples, chance / samples, best,
                   avg / samples)
 
 
-def options(score, fragment, ref, samples, rng):
-    """(plain, the best exclusion) by `sampled`, every exclusion tried."""
-    every = list(range(len(fragment.substats)))
-    plain = sampled(score, fragment, every, ref, None, PLAIN_COST,
-                    samples, rng)
+def options(score, fragment, ref, dealt, record=None):
+    """(plain, the best exclusion) by `sampled` over `deals`' `dealt`,
+    every exclusion tried. `record`, a dict, gets each option's afters
+    under its key."""
+    def run(option, cost):
+        afters = [] if record is not None else None
+        out = sampled(score, fragment, option, ref, cost, dealt[option],
+                      afters)
+        if record is not None:
+            record[option] = afters
+        return out
+
+    plain = run(None, PLAIN_COST)
     exclude = None
-    for i, sub in enumerate(fragment.substats):
-        option = sampled(score, fragment, every[:i] + every[i + 1:], ref,
-                         sub.name, EXCLUDE_COST, samples, rng)
+    for i in range(len(fragment.substats)):
+        option = run(i, EXCLUDE_COST)
         if exclude is None or option.mean > exclude.mean:
             exclude = option
     return plain, exclude
 
 
 def read_build(optimizer, name, settings, valuer, fragment,
-               samples=BUILD_SAMPLES):
-    """(now, plain, exclude) for `fragment` under the build score, in
-    per cent of the Top build `valuer` reads against; None where no
-    build can wear it.
+               samples=BUILD_SAMPLES, floor=0.0):
+    """(now, plain, exclude, Spread) for `fragment` under the build
+    score, in per cent of the Top build `valuer` reads against; None
+    where no build can wear it.
 
     The build around it is the Optimizer's best with it pinned
     (`top_build`), and again with it pinned at the outcome a plain
@@ -494,16 +534,20 @@ def read_build(optimizer, name, settings, valuer, fragment,
     can make other fragments the better company, and an outcome is
     scored in whichever of the two builds does more with it. Before is
     the fragment as it stands in its own build, and what after has to
-    beat is that or the Top build, whichever is higher."""
+    beat is that or the Top build, whichever is higher.
+
+    The Spread is each readjustment's change to the combatant's best
+    build if After is kept, against `floor`: the best build without the
+    fragment, over the Top build -- 0 for a fragment outside it, below
+    0 for one of it, which After can then cost."""
     base = top_build(optimizer, name, settings, pinned=fragment)
     if base is None:
         return None
     builds = [base]
-    rng = random.Random(fragment.id)
-    every = list(range(len(fragment.substats)))
-    deals = sorted((_deal(fragment, every, rng) for _ in range(samples)),
-                   key=lambda v: valuer.rel(valuer.around(base, fragment, v)))
-    high = deals[min(len(deals) - 1, int(len(deals) * (1 - HIGH_SHARE)))]
+    dealt = deals(fragment, samples)
+    ranked = sorted(dealt["anchor"], key=lambda v: valuer.rel(
+        valuer.around(base, fragment, v)))
+    high = ranked[min(len(ranked) - 1, int(len(ranked) * (1 - HIGH_SHARE)))]
     anchored = top_build(optimizer, name, settings,
                          pinned=at_values(fragment, high))
     if anchored is not None and sorted(f.id for f in anchored) \
@@ -515,8 +559,158 @@ def read_build(optimizer, name, settings, valuer, fragment,
                    for b in builds) * 100
 
     now = score(None)
-    plain, exclude = options(score, fragment, max(0.0, now), samples, rng)
-    return now, plain, exclude
+    afters = {}
+    plain, exclude = options(score, fragment, max(0.0, now), dealt, afters)
+    held = max(floor, now)
+    spread = Spread(
+        now, {k: sum(v) / len(v) for k, v in afters.items()},
+        {k: _sparse([max(floor, a) - held for a in v])
+         for k, v in afters.items()},
+        [max(floor, score(top_values(fragment, i))) - held
+         for i in range(len(fragment.substats))], samples)
+    return now, plain, exclude, spread
+
+
+# ------------------------------------------------------ the shared choice
+
+
+def _sparse(changes):
+    """`changes` as (indices, values) of the ones that are not 0: a
+    build-score fragment changes most combatants' best build on few
+    readjustments, or none."""
+    kind = "H" if len(changes) <= 0xFFFF else "I"
+    at = [i for i, c in enumerate(changes) if c]
+    return array(kind, at), array("f", [changes[i] for i in at])
+
+
+@dataclass
+class Spread:
+    """One combatant's readjustments of one fragment, one at a time
+    (`deals`): for each option, what keeping After changes, in the
+    measure's units (`changes`, {option: a list, or `_sparse`'s}); that
+    change at each substat's `top_values` (`tops`); `now`, and `avg`
+    {option: the average after}."""
+    now: float
+    avg: dict
+    changes: dict
+    tops: list
+    samples: int
+
+    def dense(self, option):
+        """`option`'s change on every readjustment, as a list."""
+        got = self.changes[option]
+        if isinstance(got, list):
+            return got
+        out = [0.0] * self.samples
+        for i, change in zip(*got, strict=True):
+            out[i] = change
+        return out
+
+
+def gear_spread(fragment, valuer, dealt, wanted=None):
+    """The Spread of `fragment` under the GearValuer `valuer` over the
+    readjustments `dealt` (`deals`'), for the options `wanted` (all by
+    default). The Gear Score is linear in the substats, a coefficient
+    each."""
+    scaled = valuer.bind(fragment)
+    _now, _ref, extra = scaled.reference(fragment)
+    coefficients = [scaled.points(sub, 1.0) for sub in fragment.substats]
+
+    def gs(values):
+        return extra + sum(c * v for c, v in zip(coefficients, values,
+                                                 strict=True))
+
+    now = gs([sub.value for sub in fragment.substats])
+    keys = [k for k in dealt if k != "anchor"] if wanted is None else wanted
+    changes = {k: [gs(v) - now for v in dealt[k]] for k in keys}
+    return Spread(now, {k: now + sum(c) / len(c) for k, c in changes.items()},
+                  changes,
+                  [gs(top_values(fragment, i)) - now
+                   for i in range(len(fragment.substats))],
+                  len(dealt[keys[0]]))
+
+
+def option_key(fragment, option):
+    """The `deals` key of an Option: None plain, the excluded substat's
+    index."""
+    if option.excluded is None:
+        return None
+    return next(i for i, sub in enumerate(fragment.substats)
+                if sub.name == option.excluded)
+
+
+def kept(parts, option):
+    """Whether After is kept on each readjustment of `option` under the
+    shared choice: where the weighted change of `parts` [(weight,
+    Spread)] comes to more than 0."""
+    total = None
+    for weight, spread in parts:
+        changes = spread.dense(option)
+        if total is None:
+            total = [weight * c for c in changes]
+        else:
+            for i, c in enumerate(changes):
+                if c:
+                    total[i] += weight * c
+    return [t > 1e-9 for t in total or []]
+
+
+def mixed(fragment, parts):
+    """(plain, the best exclusion, For) of `fragment` under the shared
+    choice, or None where nobody in `parts` reads it: every Option's
+    gain the weighted change of `parts` [(combatant, weight, Spread or
+    None)], After kept wherever that is above 0, the weights taken over
+    their sum. For names the combatant whose weighted share of the
+    better option's gain is highest ("" where nobody gains). A
+    combatant without a Spread (cut, or no build wears it) changes
+    nothing."""
+    whole = sum(w for _n, w, _s in parts) or 1.0
+    live = [(n, w / whole, s) for n, w, s in parts if s is not None]
+    if not live:
+        return None
+    samples = live[0][2].samples
+    found = {}
+    for key in [None] + list(range(len(fragment.substats))):
+        total = [0.0] * samples
+        for _n, w, s in live:
+            for i, c in enumerate(s.dense(key)):
+                if c:
+                    total[i] += w * c
+        gains = [t for t in total if t > 1e-9]
+        best = max([0.0] + [sum(w * s.tops[i] for _n, w, s in live)
+                            for i in eligible(fragment, key)])
+        found[key] = Option(
+            None if key is None else fragment.substats[key].name,
+            PLAIN_COST if key is None else EXCLUDE_COST,
+            sum(gains) / samples, len(gains) / samples, best,
+            sum(w * s.avg[key] for _n, w, s in live))
+    plain = found[None]
+    exclude = max((found[i] for i in range(len(fragment.substats))),
+                  key=lambda o: o.mean)
+    use = max((plain, exclude), key=lambda o: (o.per_quartz, -o.cost))
+    key = option_key(fragment, use)
+    keep = kept([(w, s) for _n, w, s in live], key)
+    shares = {n: w * sum(c for c, k in zip(s.dense(key), keep, strict=True)
+                         if k)
+              for n, w, s in live}
+    lead = max(shares, key=lambda n: (shares[n], n)) if shares else ""
+    return plain, exclude, lead if shares.get(lead, 0) > 1e-9 else ""
+
+
+def details(spreads, option, keep):
+    """{combatant: (gain, loss)} for one option of one fragment under
+    the shared choice `keep` (`kept`'s): `gain` the average change to
+    each combatant of `spreads` {combatant: Spread} -- below 0 where
+    After is kept for others and costs them --, `loss` the share of
+    readjustments where it is kept and costs them."""
+    out = {}
+    for name, spread in spreads.items():
+        changes = spread.dense(option)
+        took = [c for c, k in zip(changes, keep, strict=True) if k]
+        out[name] = (sum(took) / len(keep) if keep else 0.0,
+                     sum(1 for c in took if c < -1e-9) / len(keep)
+                     if keep else 0.0)
+    return out
 
 
 # ------------------------------------------------------------ a deal
@@ -612,12 +806,27 @@ def work(job):
       finds no build}.
     - Build score, "deal": {None: `read_deal`'s} for `job["before"]`
       and `job["after"]`, a readjustment's two versions.
-    - Build score, "read": {fragment id: (now, plain, exclude), or None
-      where no build can wear it}, against the Top build
+    - Build score, "read": {fragment id: (now, plain, exclude, Spread),
+      or None where no build can wear it}, against the Top build
       `job["top"]` (ids). `job["optimizer"]` is `lean_optimizer`'s,
       `job["settings"]` the combatant's run settings.
+    - Either measure, "mix": {fragment id: `mixed`'s} under the shared
+      choice of `job["mix"]` [(combatant, weight, what they read by)]:
+      a preset's weights under the Gear Score, {fragment id: Spread}
+      under the build score.
     """
     _use_stats(job.get("stats"))
+    if job.get("kind") == "mix":
+        out = {}
+        for fragment in job["fragments"]:
+            if job["measure"] == GEAR:
+                dealt = deals(fragment)
+                parts = [(n, w, gear_spread(fragment, GearValuer(by), dealt))
+                         for n, w, by in job["mix"]]
+            else:
+                parts = [(n, w, by.get(fragment.id)) for n, w, by in job["mix"]]
+            out[fragment.id] = mixed(fragment, parts)
+        return out
     if job["measure"] == GEAR:
         valuer = GearValuer(job["weights"])
         out = {}
@@ -639,9 +848,21 @@ def work(job):
     by_id = {f.id: f for f in optimizer.fragments}
     top = [by_id[i] for i in job["top"]]
     valuer = BuildValuer(optimizer, name, settings, top)
-    return {f.id: read_build(optimizer, name, settings, valuer,
-                             by_id.get(f.id, f))
-            for f in job["fragments"]}
+    out = {}
+    for f in job["fragments"]:
+        fragment = by_id.get(f.id, f)
+        floor = 0.0
+        if f.id in job["top"]:
+            # A fragment of the Top build: the best build without it is
+            # what keeping a worse After falls back to.
+            others = copy.copy(optimizer)
+            others.fragments = [g for g in optimizer.fragments
+                                if g.id != f.id]
+            alone = top_build(others, name, settings)
+            floor = valuer.rel(alone) * 100 if alone else float("-inf")
+        out[f.id] = read_build(optimizer, name, settings, valuer, fragment,
+                               floor=floor)
+    return out
 
 
 # The two speeds the work runs at, each a pool of its own.

@@ -24,6 +24,12 @@ and After are read for every combatant (`readjust.read_deal`) ahead of
 anything else, at full speed while the tab shows, and the speed goes
 back to what it was once they are in.
 
+**The shared choice.** With several weighted, the list ranks by what a
+readjustment does for all of them at once, After kept wherever their
+weighted change comes to more than 0 (`readjust.mixed`): once every
+weighted combatant is worked out, jobs of kind "mix" read each
+fragment that way, under `statuses[MIX]`.
+
 **What is kept.** An answer is kept by what it was worked out from:
 the fragment's own rolls (`readjust.content`) and its combatant's
 signature -- the preset's weights for the Gear Score, everything the
@@ -68,7 +74,12 @@ KEEP_ANSWERS = 100000
 # How long answers wait before they are saved, at most.
 SAVE_EVERY = 30.0
 CACHE_NAME = "readjust_answers.pickle"
-CACHE_VERSION = 1
+CACHE_VERSION = 2
+# The shared choice's Status, beside the combatants' in `statuses`.
+MIX = "(shared)"
+# A shared-choice job's fragments: under the Gear Score each is sampled
+# for every weighted combatant.
+MIX_CHUNK = 20
 CACHEDIR_TAG = (b"Signature: 8a477f597d28d172789f06886806bc55\n"
                 b"# Vribbels CZN Optimizer: worked-out answers it can "
                 b"work out again.\n")
@@ -96,7 +107,9 @@ def ordered(names, mode, chosen, weights):
 
 class Status:
     """One combatant's readings under the measure in hand: `readings`
-    {id: (now, plain, exclude)}, how many of the `total` fragments are
+    {id: (now, plain, exclude)}, the build score's with its Spread
+    after them -- or the shared choice's, {id: `readjust.mixed`'s} --,
+    how many of the `total` fragments are
     `done` (read, or left unread: cut, or no build can wear them), and
     `reason` where none can be read at all."""
 
@@ -203,9 +216,11 @@ class ReadjustWork:
         """{group: [combatant]} the progress counts: "one" (None with
         several weighted), "weighted", "all"."""
         weights = self.weights()
+        weighted = ordered(list(weights), "weighted", "", weights)
+        if weighted and self.mode() == "weighted":
+            weighted.append(MIX)
         return {"one": [self.chosen()] if self.mode() == "one" else None,
-                "weighted": ordered(list(weights), "weighted", "", weights),
-                "all": self.names()}
+                "weighted": weighted, "all": self.names()}
 
     # ---------------------------------------------------- the signatures
 
@@ -256,7 +271,7 @@ class ReadjustWork:
         self._lean = None
         live = {rj.content(f) for f in fragments}
         for key in [k for k in self.answers
-                    if k[1] == "read" and k[2] not in live]:
+                    if k[1] in ("read", "mix") and k[2] not in live]:
             del self.answers[key]
 
     # ---------------------------------------------------------- planning
@@ -312,7 +327,7 @@ class ReadjustWork:
         measure = self.measure()
         stats = rj.stats_snapshot()
         rolls = sorted((k, list(v)) for k, v in stats.items())
-        statuses, wanted = {}, []
+        statuses, wanted, read_by = {}, [], {}
         deal_wanted = self._deal_plan(rolls, stats)
         for name in self.order():
             sig, template = self._signature(measure, name, rolls, stats)
@@ -322,10 +337,57 @@ class ReadjustWork:
                 status.reason = template
                 statuses[name] = status
                 continue
+            read_by[name] = (sig, template)
             statuses[name] = self._status(name, sig, template, fragments,
                                           keys, wanted)
+        mix_wanted = []
+        if self.mode() == "weighted":
+            statuses[MIX] = self._mix_status(measure, statuses, read_by,
+                                             fragments, keys, stats,
+                                             mix_wanted)
         self.statuses = statuses
-        return deal_wanted + wanted
+        return deal_wanted + mix_wanted + wanted
+
+    def _mix_status(self, measure, statuses, read_by, fragments, keys,
+                    stats, wanted):
+        """The shared choice's Status, once every weighted combatant is
+        worked out, and its jobs added to `wanted`: each fragment read
+        for the weighted that can read any (`readjust.mixed`), by their
+        presets' weights under the Gear Score, by their Spreads under
+        the build score."""
+        status = Status(len(fragments))
+        weights = self.weights()
+        if any(not statuses[n].complete for n in weights
+               if n in statuses):
+            return status
+        readable = sorted(n for n in weights if n in read_by
+                          and statuses[n].reason is None)
+        if not readable:
+            status.done = status.total
+            status.reason = "nobody"
+            return status
+        sig = _hash(json.dumps([measure, [(n, weights[n], read_by[n][0])
+                                          for n in readable]]))
+        if measure == rj.GEAR:
+            mix = [(n, weights[n], read_by[n][1]["weights"])
+                   for n in readable]
+        else:
+            mix = [(n, weights[n], {fid: got[3] for fid, got
+                                    in statuses[n].readings.items()})
+                   for n in readable]
+        todo = []
+        for f in fragments:
+            key = (sig, "mix", keys[f.id])
+            if key in self.answers:
+                status.done += 1
+                if self.answers[key] is not None:
+                    status.readings[f.id] = self.answers[key]
+            elif key not in self._inflight:
+                todo.append(f)
+        template = {"measure": measure, "mix": mix, "stats": stats}
+        wanted.extend((sig, template, MIX, "mix", todo[i:i + MIX_CHUNK])
+                      for i in range(0, len(todo), MIX_CHUNK))
+        return status
 
     def _deal_plan(self, rolls, stats):
         """The deal's jobs, one per combatant in work order, and
@@ -430,7 +492,7 @@ class ReadjustWork:
         `AHEAD` deep; without the background, only the shown
         combatants', and nothing queued for anyone else."""
         if not self.background():
-            shown = set(self.shown())
+            shown = set(self.shown()) | {MIX}
             self._cancel(lambda job, speed, name:
                          name not in shown and job[1] != "deal")
             wanted = [w for w in wanted if w[2] in shown or w[3] == "deal"]

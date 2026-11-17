@@ -19,7 +19,7 @@ A fragment's `stat_list` keeps each substat's starting value (type 1, or type 2 
 
 ## Before / After
 
-While a deal stands, the panel under the Memory Fragments list reads it for every combatant (`readjust.read_deal`, the work's `set_deal`), in per cent of each one's Top build:
+While a deal stands, the panel under the Memory Fragments list, beside Details, reads it for every combatant (`readjust.read_deal`, the work's `set_deal`), in per cent of each one's Top build:
 
 - **Top Δ**: their best build's change if After is kept: the best build with that version pinned, or the best without the fragment, whichever is higher. 0 where the fragment is in neither.
 - **Gap Before**, **Gap After**: the best build wearing that version against the Top build, how near it is to being worth wearing.
@@ -53,11 +53,19 @@ The score is not linear: crit is capped and multiplies, and set changes move it.
 - **Exclude**: the substat whose exclusion gains most, and that gain and chance.
 - **Best**: the most either can gain, every upgrade a top roll on one substat.
 - **Use**: the option with the higher gain per Quartz, and **Per Quartz** that gain.
-- With several combatants, **For** names the one the fragment does most for (gain per Quartz times weight), and **Weighted** is that product, which the list is ranked by.
+- With several combatants, every gain column is the shared choice's (below), and **For** names the combatant with the largest weighted share of the Use option's gain; Now and Avg are For's, blank where nobody gains.
 
 Per Quartz is greedy: it compares one Quartz's worth. An exclusion can beat two plain readjustments and still lose to one per Quartz, since a second plain readjustment adds less than the first.
 
 The **Slots**, **Sets** and **MFs** filters only narrow what is drawn, from answers already worked out. The Quartz count is red at 0, orange at 1, yellow at 2 and green above. With several combatants, **Set weight** over the Weights list sets the weight of every combatant picked in it (Shift and Ctrl pick several), and shows the one last clicked. Its headings sort it, and the sort is kept (`readjust_weights_sort`: [column, descending]).
+
+## The shared choice and Details
+
+A readjustment is kept or not once, for everyone: After kept because it is good for one combatant is After for every other, whether or not it is good for them. So with several weighted, the list reads each fragment for all of them at once (`readjust.mixed`): on each readjustment, After is kept where their changes, each times its weight, add up to more than 0, and a gain column is the average of that sum with the weights taken over their total, so it reads in the measure's own units. A fragment that does much for one and costs another as much ranks low. A weighted combatant that cannot read the fragment (cut, or no build can wear it) changes nothing on it.
+
+The changes are added up readjustment by readjustment, so every combatant reads the same ones: `readjust.deals` draws them from a generator seeded by the fragment's id. A combatant's change (`Spread`) is, under the Gear Score, After's GS less Now's; under the build score, their best build with After kept less their best build now, where the best build is the one wearing the fragment or the best without it (`floor`, below 0 only for a fragment of the Top build), whichever is higher. A fragment of the Top build can then cost its combatant, which a single combatant's reading never shows, since they would keep Before. The build score keeps each combatant's changes with its answers, the ones that are not 0 only (most are 0: a fragment outside the Top build changes it only on a readjustment that lifts it past). The Gear Score samples them where they are wanted, `BUILD_SAMPLES` per option, which is why its shared numbers, unlike its own, are sampled.
+
+**Details**, under the list beside Before / After, reads the MF picked in the list, readjusted by the option the list says to use, for every combatant worked out (under the Gear Score, every one with a preset), After kept as the list's combatant(s) would keep it: the chosen one's own rise in one mode, the shared choice with several. **Gain** is the average change for that combatant, below 0 where After is kept for others and costs them; **Loss** the chance of that; **Weighted** Gain times their weight. The worst Weighted comes first, so a combatant the readjustment costs most heads the list.
 
 ## Where the work runs
 
@@ -69,7 +77,7 @@ The **Slots**, **Sets** and **MFs** filters only narrow what is drawn, from answ
 
 **Saved between launches**: the answers go to `cache/readjust_answers.pickle` in the data folder (`CACHE_NAME`, a folder with a `CACHEDIR.TAG`, kept out of git), at most `SAVE_EVERY` seconds after they come in and when the window closes, and are read back at startup when `CACHE_VERSION` matches. Change it whenever an answer would be worked out differently.
 
-The jobs run in worker processes (`readjust.submit`), never on a thread: Python arithmetic on a thread takes the interpreter lock in turns with Tk's event loop, and the window answers only between turns. A job is one combatant, one measure and a chunk of fragments, and carries what a fresh process lacks: `STATS` with the game client's rolls laid over it, and for the build score the Optimizer itself (`lean_optimizer`: without the capture's raw data, enumerating in the worker's own process) and the combatant's run settings. The build score asks for each combatant's Top build first (a job of kind `top`), then its fragments `BUILD_CHUNK` at a time; each is two Optimizer runs, each about a tenth of a full run since one slot holds one fragment, and its sampling.
+The jobs run in worker processes (`readjust.submit`), never on a thread: Python arithmetic on a thread takes the interpreter lock in turns with Tk's event loop, and the window answers only between turns. With several weighted, once every weighted combatant is worked out, jobs of kind `mix` read the shared choice, `MIX_CHUNK` fragments at a time, under a Status of their own (`readjust_work.MIX`) that For weighted counts in. A job is otherwise one combatant, one measure and a chunk of fragments, and carries what a fresh process lacks: `STATS` with the game client's rolls laid over it, and for the build score the Optimizer itself (`lean_optimizer`: without the capture's raw data, enumerating in the worker's own process) and the combatant's run settings. The build score asks for each combatant's Top build first (a job of kind `top`), then its fragments `BUILD_CHUNK` at a time; each is two Optimizer runs, each about a tenth of a full run since one slot holds one fragment, and its sampling.
 
 The work keeps every answer by what it was worked out from: the fragment's own rolls (`readjust.content`: its id, slot, set, level, main stat, and each substat's starting value and upgrades), and the signature of what it is read against: the roll grids, and the preset's weights or, for the build score, everything the combatant's builds are made of (`build_signature`: the run settings, the combatant's stats at the Optimizer's level, the fragments a run searches, each slot's after the Top % cut, and whose each readjustable fragment is, which decides whether it may be pinned). Equal inputs give an equal answer whichever capture they came from, so a new capture works out again only what it changed:
 

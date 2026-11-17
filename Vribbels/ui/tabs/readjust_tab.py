@@ -11,9 +11,12 @@ of the two per Quartz.
 preset, or Build Score, the Optimizer's score against the combatant's
 Top build, each fragment in the best build the Optimizer finds around
 it, under the combatant's Optimizer tab settings. **For** picks whose: one
-combatant, or several, each weighted, every fragment read for the one
-whose weighted gain is highest. **Slots**, **Sets** and **MFs**
-narrow the list without working anything out again.
+combatant, or several, each weighted, every fragment read for all of
+them at once: After kept wherever their weighted change rises
+(`readjust.mixed`). **Details**, beside Before / After, says what the
+picked MF's readjustment does for every combatant under that choice.
+**Slots**, **Sets** and **MFs** narrow the list without working
+anything out again.
 
 **The work is the app's** (`readjust_work.ReadjustWork`): it works out
 every combatant's readings in worker processes, the ones this tab shows
@@ -30,7 +33,7 @@ import item_amounts
 import readjust as rj
 from game_data import EQUIPMENT_SLOTS, SETS
 from readjust_work import (BACKGROUND_KEY, COMBATANT_KEY, MEASURE_KEY,
-                           MODE_KEY, WEIGHTS_KEY, ReadjustWork)
+                           MIX, MODE_KEY, WEIGHTS_KEY, ReadjustWork)
 from game_data.characters import ATTRIBUTE_COLORS
 from game_data.sets import named_sets, set_named, set_pieces
 from game_data.sets import set_name as set_name_of
@@ -79,10 +82,9 @@ COLUMNS = (
     ("best", "Best", ("+10.00%", "+100.0"), tk.E),
     ("use", "Use", ("Exclude",), tk.W),
     ("per", "Per Quartz", ("10.00%",), tk.E),
-    ("weighted", "Weighted", ("100.00",), tk.E),
 )
 # Shown with several combatants only.
-WEIGHTED_ONLY = ("for", "weighted")
+WEIGHTED_ONLY = ("for",)
 # A cell's text in from its edges, each side.
 TEXT_INSET = 4
 LIST_ROWS = 30
@@ -184,8 +186,8 @@ def row_values(reading, measure):
         f.equipped_to or "",
         substat_words(f),
         reading.combatant,
-        now % reading.now,
-        now % plain.avg,
+        "" if reading.now is None else now % reading.now,
+        "" if plain.avg is None else now % plain.avg,
         gain % plain.mean,
         "%d%%" % round(plain.chance * 100),
         exclude.excluded or "",
@@ -194,7 +196,6 @@ def row_values(reading, measure):
         gain % max(plain.best, exclude.best),
         "Exclude" if best is exclude else "Reroll",
         (gain % per)[1:],
-        "%.2f" % reading.value,
     )
 
 
@@ -244,7 +245,7 @@ DEAL_COLUMNS = (
     ("gs_after", "GS After", ("100.0",), tk.E),
     ("in_top", "In Top", ("Before",), tk.W),
 )
-DEAL_ROWS = 6
+DEAL_ROWS = 5
 NO_DEAL = ("No readjustment waiting. With a capture running, one shows "
            "here as the game deals it, its Before and After read for "
            "every combatant.")
@@ -252,16 +253,34 @@ DEAL_WORKING = "Working out Before and After: %d of %d combatants"
 # A change smaller than this, in per cent of a Top build, is none.
 DEAL_EPS = 0.005
 
-# What each heading means, on hover.
+# The Details panel: the picked MF's readjustment, by the option the
+# list says to use, read for every combatant worked out under the
+# shared choice (`readjust.details`).
+DETAIL_TITLE = "Details"
+DETAIL_COLUMNS = (
+    ("name", "Combatant", ("Heidemarie",), tk.W),
+    ("weight", "Weight", ("10",), tk.E),
+    ("gain", "Gain", ("-10.00%", "-100.0"), tk.E),
+    ("loss", "Loss", ("100%",), tk.E),
+    ("weighted", "Weighted", ("-100.00%", "-1000.0"), tk.E),
+)
+DETAIL_ROWS = 5
+NO_DETAIL = "Pick an MF in the list."
+# "IV Veiled Radiance, Exclude CDmg"
+DETAIL_LINE = "%s %s, %s"
+
+# What each heading means, on hover, by list.
 HEAD_TIPS = {
     "now": "The MF's score as it stands. Gear Score: its GS under the "
            "combatant's preset. Build Score: the best build wearing it, "
-           "in per cent over the combatant's Top build.",
+           "in per cent over the combatant's Top build. With several: "
+           "For's.",
     "avg": "Now's average after a Reroll, the outcomes worse than Now "
-           "included, as if After were always kept.",
+           "included, as if After were always kept. With several: For's.",
     "gain": "A Reroll's average rise: After where it beats Now (or the "
             "Top build), nothing where it does not, since you keep "
-            "Before then.",
+            "Before then. With several: the weighted average of their "
+            "changes, After kept where that rises.",
     "chance": "The chance a Reroll rises at all.",
     "excl": "The substat whose exclusion gains most: it takes no upgrade "
             "and goes back to its starting value.",
@@ -270,10 +289,19 @@ HEAD_TIPS = {
     "best": "The most either can rise: every upgrade a top roll on one "
             "substat.",
     "use": "Which option does more per Quartz: Reroll costs 1, Exclude 2.",
-    "per": "That option's average rise per Quartz.",
-    "for": "The combatant the MF does most for, by Weighted.",
-    "weighted": "Per Quartz times the combatant's weight: what the list "
-                "is ranked by with several combatants.",
+    "per": "That option's average rise per Quartz: what the list is "
+           "ranked by.",
+    "for": "The combatant whose weighted share of that rise is largest.",
+}
+DETAIL_TIPS = {
+    "gain": "The MF's average change for the combatant if readjusted as "
+            "Use says, After kept wherever it rises for the combatant(s) "
+            "the list is read for: below 0 where that costs them.",
+    "loss": "The chance After is kept and costs them.",
+    "weighted": "Gain times their weight.",
+}
+DEAL_TIPS = {
+    "weighted": "Top Δ times their weight.",
     "change": "How much the combatant's best build changes if you keep "
               "After: 0 where the MF is in neither version of it.",
     "gap_before": "The best build wearing Before, against the Top build: "
@@ -343,6 +371,26 @@ def verdict_parts(words):
     return words, "", ""
 
 
+def shared_readings(fragments, mixes, readings):
+    """[Reading], best first: each fragment under the shared choice of
+    several weighted, `mixes` {id: `readjust.mixed`'s}, with its For's
+    own Now and Avg from `readings` {combatant: {id: (now, plain,
+    exclude, ...)}}, and none where nobody gains."""
+    from dataclasses import replace
+    out = []
+    for fragment in fragments:
+        got = mixes.get(fragment.id)
+        if got is None:
+            continue
+        plain, exclude, lead = got
+        own = readings.get(lead, {}).get(fragment.id) if lead else None
+        plain = replace(plain, avg=own[1].avg if own else None)
+        out.append(rj.Reading(fragment, lead, own[0] if own else None,
+                              plain, exclude))
+    out.sort(key=lambda r: (-r.value, r.fragment.id))
+    return out
+
+
 def best_readings(fragments, readings, weights):
     """[Reading], best first: each fragment read for the combatant whose
     weighted gain per Quartz is highest. `readings` {combatant: {id:
@@ -354,7 +402,7 @@ def best_readings(fragments, readings, weights):
             got = readings.get(name, {}).get(fragment.id)
             if got is None:
                 continue
-            now, plain, exclude = got
+            now, plain, exclude = got[:3]
             reading = rj.Reading(fragment, name, now, plain, exclude,
                                  weight=weight)
             if best is None or reading.value > best.value:
@@ -378,7 +426,9 @@ class ReadjustTab(BaseTab):
         self.work.listeners.append(self._show_work)
         self._shown = None
         self._words = None              # see `_draw`
-        self._sort = ("weighted", True)
+        self._sort = ("per", True)
+        self._by_iid = {}
+        self._detail_memo = {}
         self._settle = None
         self.slot_vars = {}
         self.set_vars = {}
@@ -542,16 +592,31 @@ class ReadjustTab(BaseTab):
                    pady=(px_after(2, 7), px(2)))
         self._build_list(lists)
 
-        deal = ttk.LabelFrame(body, text=DEAL_TITLE, padding=px(0),
-                              style="Borderless.TLabelframe")
+        # Under the list: Details, then Before / After beside it.
+        lower = ttk.Frame(body)
         # spacing: content frame -> content frame -- frame, frame ↔↕
         # spacing: panel ↕ unrelated label -- panel, title ↕
-        deal.grid(row=1, column=1, sticky="nsew",
-                  padx=(px_after(2, 2), px_after(2, 2)),
-                  pady=(px_after(2, 5), px_after(2, 2)))
+        lower.grid(row=1, column=1, sticky="nsew",
+                   padx=(px_after(2, 2), px_after(2, 2)),
+                   pady=(px_after(2, 5), px_after(2, 2)))
+        details = ttk.LabelFrame(lower, text=DETAIL_TITLE, padding=px(0),
+                                 style="Borderless.TLabelframe")
+        # spacing: content frame -> content frame -- frame, frame ↔
+        details.pack(side=tk.LEFT, fill=tk.Y, padx=(0, px(2)))
+        self._build_details(details)
+        deal = ttk.LabelFrame(lower, text=DEAL_TITLE, padding=px(0),
+                              style="Borderless.TLabelframe")
+        # spacing: content frame -> content frame -- frame, frame ↔
+        deal.pack(side=tk.LEFT, fill=tk.BOTH, expand=True,
+                  padx=(px_after(2, 2), 0))
         self._build_deal(deal)
+        self.tree.bind("<<TreeviewSelect>>",
+                       lambda _e: self._show_details(), add="+")
         self._tips = Tooltip(self.colors)
-        for tree in (self.tree, self.deal_tree):
+        self._tip_texts = {str(self.tree): HEAD_TIPS,
+                           str(self.detail_tree): DETAIL_TIPS,
+                           str(self.deal_tree): DEAL_TIPS}
+        for tree in (self.tree, self.detail_tree, self.deal_tree):
             tree.bind("<Motion>", lambda e, t=tree: self._head_tip(t, e),
                       add="+")
             tree.bind("<Leave>", lambda _e: self._tips.hide(), add="+")
@@ -777,9 +842,113 @@ class ReadjustTab(BaseTab):
             col = shown[int(column[1:]) - 1]
         except (ValueError, IndexError):
             return
-        text = HEAD_TIPS.get(col)
+        text = self._tip_texts.get(str(tree), {}).get(col)
         if text:
             self._tips.schedule(tree, text)
+
+    def _build_details(self, parent):
+        """The picked MF and its option over a list of what its
+        readjustment does for every combatant worked out."""
+        # As the verdict beside it: the negative top padding takes back
+        # what the borderless panel leaves under its title.
+        # spacing: title above, element below -- title, label ↕
+        self.detail_label = ttk.Label(parent, text=NO_DETAIL,
+                                      padding=px((-2, -5, -2, 0)))
+        self.detail_label.pack(anchor=tk.W, pady=(0, px(5)))
+        holder = ttk.Frame(parent)
+        holder.pack(fill=tk.BOTH, expand=True)
+        self.detail_tree = ttk.Treeview(
+            holder, columns=[c[0] for c in DETAIL_COLUMNS],
+            show="headings", height=DETAIL_ROWS, selectmode="none")
+        self._measured(self.detail_tree, DETAIL_COLUMNS,
+                       sort=lambda _c: None)
+        bar = ttk.Scrollbar(holder, orient=tk.VERTICAL,
+                            command=self.detail_tree.yview)
+        self.detail_tree.configure(yscrollcommand=bar.set)
+        bar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.detail_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+    def _spreads(self, fragment, key):
+        """{combatant: Spread} of `fragment`'s option `key` for every
+        combatant worked out, and [combatant] it changes nothing for
+        (cut, under the build score). Under the Gear Score each is
+        sampled here, every combatant with a preset; under the build
+        score they are the work's."""
+        work = self.work
+        if self.measure() == rj.GEAR:
+            from optimizer.run_settings import weights_for
+            dealt = rj.deals(fragment)
+            spreads = {}
+            for name in work.names():
+                weights = weights_for(
+                    getattr(self.context, "character_preset_manager", None),
+                    getattr(self.context, "preset_manager", None), name)
+                if weights:
+                    spreads[name] = rj.gear_spread(
+                        fragment, rj.GearValuer(weights), dealt, [key])
+            return spreads, []
+        spreads, still = {}, []
+        for name, status in work.statuses.items():
+            if name == MIX or status.reason is not None:
+                continue
+            got = status.readings.get(fragment.id)
+            if got is not None:
+                spreads[name] = got[3]
+            elif status.complete:
+                still.append(name)
+        return spreads, still
+
+    def _show_details(self):
+        """The Details panel for the MF picked in the list: its
+        readjustment by the option the list says to use, After kept as
+        the list's combatant(s) would keep it, for every combatant
+        worked out; the worst Weighted first."""
+        tree = self.detail_tree
+        picked = self.tree.selection()
+        reading = self._by_iid.get(picked[0]) if picked else None
+        if reading is None:
+            tree.delete(*tree.get_children())
+            self.detail_label.configure(text=NO_DETAIL)
+            return
+        fragment = reading.fragment
+        use = reading.best
+        key = rj.option_key(fragment, use)
+        scope = self._combatants()
+        work = self.work
+        weights = work.weights()
+        # The build score's spreads come in as the work goes on; the
+        # Gear Score's are sampled here whatever it has done.
+        held = (rj.content(fragment), self.measure(), key,
+                tuple(sorted(scope.items())), tuple(sorted(weights.items())),
+                tuple((n, s.done) for n, s in sorted(work.statuses.items()))
+                if self.measure() == rj.BUILD else None)
+        rows = self._detail_memo.get(held)
+        if rows is None:
+            spreads, still = self._spreads(fragment, key)
+            keep = rj.kept([(w, spreads[n]) for n, w in scope.items()
+                            if n in spreads], key) \
+                if any(n in spreads for n in scope) else []
+            found = rj.details(spreads, key, keep) if keep \
+                else dict.fromkeys(spreads, (0.0, 0.0))
+            found.update(dict.fromkeys(still, (0.0, 0.0)))
+            rows = sorted(((n, weights.get(n, 0), gain, loss)
+                           for n, (gain, loss) in found.items()),
+                          key=lambda r: (r[2] * r[1], r[2], r[0]))
+            if len(self._detail_memo) > 50:
+                self._detail_memo.clear()
+            self._detail_memo[held] = rows
+        gain_words = figures(self.measure())[1]
+        tree.delete(*tree.get_children())
+        for name, weight, gain, loss in rows:
+            tree.insert("", tk.END, values=(
+                name, weight, gain_words % gain,
+                # + 0.0: a weight of 0 times a loss is -0.0, shown as such.
+                "%d%%" % round(loss * 100), gain_words % (gain * weight + 0.0)))
+        slot = EQUIPMENT_SLOTS.get(fragment.slot_num,
+                                   str(fragment.slot_num)).split()[0]
+        option = "Exclude " + use.excluded if use.excluded else "Reroll"
+        self.detail_label.configure(text=DETAIL_LINE % (
+            slot, fragment.set_name, option))
 
     def _gs_of(self, name, versions):
         """(Before's, After's) Gear Score under `name`'s preset, kept
@@ -1128,9 +1297,18 @@ class ReadjustTab(BaseTab):
             words = NO_PRESET if self.measure() == rj.GEAR else NO_BUILD
             self._draw([], words % ", ".join(sorted(statuses)))
             return
-        shown = best_readings(self._passing(fragments),
-                              {n: s.readings for n, s in readable.items()},
-                              {n: combatants[n] for n in readable})
+        readings = {n: s.readings for n, s in readable.items()}
+        if self.mode() == "weighted":
+            mix = work.statuses.get(MIX)
+            if mix is None or not mix.complete:
+                self._show_status(None)
+                self._draw(None, LOADING)
+                return
+            shown = shared_readings(self._passing(fragments), mix.readings,
+                                    readings)
+        else:
+            shown = best_readings(self._passing(fragments), readings,
+                                  {n: combatants[n] for n in readable})
         self._draw(shown)
         self._show_status(len(shown))
 
@@ -1191,12 +1369,15 @@ class ReadjustTab(BaseTab):
                 return
             self._words = words
             tree.delete(*tree.get_children())
+            self._by_iid = {}
+            self._show_details()
             cells = [""] * len(COLUMNS)
             # In the widest column, which shows the words whole.
             cells[[c[0] for c in COLUMNS].index("subs")] = words
             tree.insert("", tk.END, values=cells)
             return
         self._words = None
+        picked = tree.selection()
         tree.delete(*tree.get_children())
         self._shown = readings
         measure = self.measure()
@@ -1204,10 +1385,11 @@ class ReadjustTab(BaseTab):
         ids = [c[0] for c in COLUMNS]
         rows = [(reading, row_values(reading, measure))
                 for reading in readings or []]
+        low = float("-inf")
         numbers = {
-            "weighted": lambda r: r.value,
             "per": lambda r: r.best.per_quartz,
-            "now": lambda r: r.now, "avg": lambda r: r.plain.avg,
+            "now": lambda r: low if r.now is None else r.now,
+            "avg": lambda r: low if r.plain.avg is None else r.plain.avg,
             "gain": lambda r: r.plain.mean,
             "chance": lambda r: r.plain.chance,
             "xgain": lambda r: r.exclude.mean,
@@ -1218,5 +1400,13 @@ class ReadjustTab(BaseTab):
         else:
             at = ids.index(key)
             rows.sort(key=lambda r: str(r[1][at]), reverse=not down)
-        for _reading, values in rows:
-            tree.insert("", tk.END, values=values)
+        # Each row by its fragment's id, so the pick outlives a redraw
+        # and Details follows it.
+        self._by_iid = {}
+        for reading, values in rows:
+            iid = str(reading.fragment.id)
+            self._by_iid[iid] = reading
+            tree.insert("", tk.END, iid=iid, values=values)
+        if picked and picked[0] in self._by_iid:
+            tree.selection_set(picked[0])
+        self._show_details()
