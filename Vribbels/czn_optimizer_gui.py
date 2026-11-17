@@ -931,10 +931,11 @@ class OptimizerGUI:
         # otherwise change a style under every tab already laid out,
         # and all of them re-measure. See `ui/utils/style_once.py`.
         from ui.utils.panel_title import panel_title_style
-        from ui.tabs import gacha_history_tab, optimizer_tab
+        from ui.tabs import gacha_history_tab, optimizer_tab, readjust_tab
         panel_title_style()
         gacha_history_tab.register_styles()
         optimizer_tab.register_styles()
+        readjust_tab.register_styles(self.colors)
         # Last, so it sees what the app set: the theme's own pixel
         # metrics, scaled where nothing above already scaled them.
         scaling.scale_theme(self.style)

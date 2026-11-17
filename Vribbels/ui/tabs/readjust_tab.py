@@ -43,6 +43,8 @@ from ..scaling import px, px_after
 from ..utils.all_none_row import make_all_none_row
 from ..utils.checkbox import FOCUS_INSET, make_checkbox
 from ..utils.combobox_nav import bind_combobox_nav
+from ..utils.panel_title import panel_title_style
+from ..utils.style_once import first_time
 from ..utils.spinbox_clamp import clamp_on_commit, step_on_wheel
 from ..utils.tooltip import Tooltip
 
@@ -57,6 +59,10 @@ OWNERS = (("All", "all"), ("Worn by them", "theirs"),
 OWNER_KEY = "readjust_owner"
 # The Weights list's sort: [column, descending].
 WEIGHTS_SORT_KEY = "readjust_weights_sort"
+
+# The Weights panel's style with one combatant chosen: its title
+# greyed (`_show_mode`).
+DIM_PANEL_STYLE = "Dim.Borderless.TLabelframe"
 
 # A combatant's weight runs 0 (left out) to this.
 WEIGHT_MAX = 10
@@ -97,13 +103,16 @@ UPPER_SHARE = 3 / 5
 # The Sets panel's columns, as many as the Memory Fragments tab's.
 SET_COLUMNS = 5
 
-# The note beside the filters: how to use the tab.
-NOTE = ("1. Pick a Score and who it is For.\n"
-        "2. With several, give each a weight.\n"
-        "3. Narrow the list with Slots, Sets and MFs.\n"
-        "4. Readjust the top MF in game, as Use says.\n"
-        "5. Pick an MF to see who it helps or hurts, in Details.\n"
-        "6. With a capture running, Before / After says which to keep.\n"
+# The note beside the filters: how to use the tab. Its first line is
+# words and the colour each takes (None the note's own), naming the two
+# dropdowns in the regular text colour.
+NOTE_FIRST = (("1. Pick a ", None), ("Score", "fg"),
+              (" and who it is ", None), ("For", "fg"), (".", None))
+NOTE = ("2. With several, give each a weight.\n"
+        "3. Narrow the list with Slots, Sets and MFs (optional).\n"
+        "4. Pick an MF to see who it helps or hurts, in Details.\n"
+        "5. With a capture running, readjust the MF in game, as Use says.\n"
+        "6. Before / After says which to keep.\n"
         "Hover a heading to see what its column means.")
 LOADING = "Loading..."
 NO_BUILD = "The Optimizer finds no build for %s under their settings."
@@ -265,6 +274,20 @@ DETAIL_COLUMNS = (
 # The least it asks for: `_split_rows` sets its height.
 DETAIL_ROWS = 1
 NO_DETAIL = "Pick an MF in the list."
+# The Details line's gaps, in order: title -> slot, slot -> set,
+# set -> For, For -> option.
+DETAIL_GAPS = (8, 4, 8, 8)
+# The verdict's gap from its panel's title.
+VERDICT_GAP = 8
+# What the glyphs' own side bearings put between two words' ink on top
+# of the pad, at 100%: a gap's pad is its distance less this, so the
+# ink stands the distance apart (`text_pad`).
+BEARINGS = 1
+
+
+def text_pad(gap):
+    """The pad that puts two labels' ink `gap` apart."""
+    return px(gap - BEARINGS)
 
 # What each heading means, on hover, by list.
 HEAD_TIPS = {
@@ -289,21 +312,24 @@ HEAD_TIPS = {
     "per": "That option's average improvement per Quartz.",
 }
 DETAIL_TIPS = {
-    "gain": "The MF's average change for the combatant if readjusted as "
-            "Use says, After kept wherever it rises for the combatant(s) "
-            "the list is read for: below 0 where that costs them.",
-    "loss": "The chance After is kept and costs them.",
-    "weighted": "Gain times their weight.",
+    "gain": "The combatant's average change from readjusting this MF "
+            "as Use says.\n"
+            "Below 0 when After is kept for others and hurts them.",
+    "loss": "The chance After is kept and hurts them.",
+    "weighted": "Gain times the combatant's weight.",
 }
 DEAL_TIPS = {
-    "weighted": "Top Δ times their weight.",
     "change": "How much the combatant's best build changes if you keep "
-              "After: 0 where the MF is in neither version of it.",
-    "gap_before": "The best build wearing Before, against the Top build: "
-                  "how near it is to being worth wearing.",
-    "gap_after": "The same for After.",
-    "gs_before": "Before's Gear Score under the combatant's preset.",
-    "gs_after": "After's Gear Score under the combatant's preset.",
+              "After.\n"
+              "0 when neither version is in it.",
+    "weighted": "Top Δ times the combatant's weight.",
+    "gap_before": "The best build wearing Before, in percent over the "
+                  "Top build.\n"
+                  "The closer to 0, the closer it is to being worn.",
+    "gap_after": "The best build wearing After, in percent over the "
+                 "Top build.",
+    "gs_before": "Before's GS using the combatant's preset.",
+    "gs_after": "After's GS using the combatant's preset.",
     "in_top": "Which versions the combatant's best build wears.",
 }
 
@@ -408,6 +434,15 @@ def best_readings(fragments, readings, weights):
     return out
 
 
+def register_styles(colors):
+    """Every style this tab defines, for the app to define at startup,
+    before anything is laid out. See `ui/utils/style_once.py`."""
+    style = ttk.Style()
+    if first_time(style, DIM_PANEL_STYLE):
+        style.configure(DIM_PANEL_STYLE + ".Label",
+                        foreground=colors["fg_dim"])
+
+
 class ReadjustTab(BaseTab):
     """Fully upgraded Legendaries, ranked by what a readjustment of each
     is expected to gain per Shuffling Quartz."""
@@ -440,6 +475,7 @@ class ReadjustTab(BaseTab):
     # ------------------------------------------------------------ build
 
     def setup_ui(self):
+        register_styles(self.colors)
         content = ttk.Frame(self.frame)
         top = ttk.Frame(content)
         # spacing: content frame -> content frame -- frame, frame ↔↕
@@ -549,18 +585,36 @@ class ReadjustTab(BaseTab):
         # (`_rewrap`): its trailing pad is then the least distance from
         # its text to the counts', reached by a line that fills the
         # wrap. A line broken short of that stands further off.
-        self.note_label = ttk.Label(top, text="", justify=tk.LEFT,
+        note = ttk.Frame(top)
+        # The first line in parts, each its own colour; the labels'
+        # borders taken back at the sides where they meet and at the
+        # bottom, and the rest's at its top, so the two read as one
+        # block of lines at the font's own pitch. The leading "1" has a
+        # pixel of side bearing the rule's ink measure counts, so the
+        # first label starts a pixel further left than the rest's text.
+        first = ttk.Frame(note)
+        first.pack(anchor=tk.W)
+        self.note_first = []
+        for i, (words, colour) in enumerate(NOTE_FIRST):
+            label = ttk.Label(first, text=words, foreground=self.colors[
+                colour or "fg_dim"], padding=px((
+                    -1 if i == 0 else -2, 0,
+                    -2, -2)))
+            label.pack(side=tk.LEFT)
+            self.note_first.append(label)
+        self.note_label = ttk.Label(note, text="", justify=tk.LEFT,
                                     foreground=self.colors["fg_dim"],
-                                    padding=px((0, 0, -2, 0)))
+                                    padding=px((0, -2, -2, 0)))
+        self.note_label.pack(fill=tk.X)
         # The note reads as one more panel beside Sets, at the rule's
         # 4 less the label's own 2px inset; the counts are a group of
         # their own past it.
         # spacing: content frame -> content frame -- panel, label ↔
         # spacing: control group ↔ control group -- label, label ↔
         # spacing: tab list -> first element -- tab, label ↕
-        self.note_label.pack(side=tk.LEFT, anchor=tk.N, fill=tk.X,
-                             expand=True, padx=px((2, 10)),
-                             pady=(px_after(1, 0), 0))
+        note.pack(side=tk.LEFT, anchor=tk.N, fill=tk.X,
+                  expand=True, padx=px((2, 10)),
+                  pady=(px_after(1, 0), 0))
         self.note_label.bind("<Configure>", self._rewrap)
 
         body = ttk.Frame(content)
@@ -596,12 +650,12 @@ class ReadjustTab(BaseTab):
                    padx=(px_after(2, 2), px_after(2, 2)), pady=lower_pady)
         self._rows = (body, lists, sum(upper_pady), lower, sum(lower_pady))
         body.bind("<Configure>", lambda _e: self._split_rows(), add="+")
-        details = ttk.LabelFrame(lower, text=DETAIL_TITLE, padding=px(0),
+        details = ttk.LabelFrame(lower, padding=px(0),
                                  style="Borderless.TLabelframe")
         # spacing: content frame -> content frame -- frame, frame ↔
         details.pack(side=tk.LEFT, fill=tk.Y, padx=(0, px(2)))
         self._build_details(details)
-        deal = ttk.LabelFrame(lower, text=DEAL_TITLE, padding=px(0),
+        deal = ttk.LabelFrame(lower, padding=px(0),
                               style="Borderless.TLabelframe")
         # spacing: content frame -> content frame -- frame, frame ↔
         deal.pack(side=tk.LEFT, fill=tk.BOTH, expand=True,
@@ -790,23 +844,33 @@ class ReadjustTab(BaseTab):
         bar.pack(side=tk.RIGHT, fill=tk.Y)
         self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
+    def _title_line(self, panel, title):
+        """`panel`'s title as a labelwidget, a frame the caller adds
+        to on the title's line (as the Stats lists' notes are): the
+        panel title style seats it where a `text=` title sits and
+        insets no label's text, so a gap is its pad alone."""
+        header = ttk.Frame(panel)
+        ttk.Label(header, text=title, style=panel_title_style(),
+                  foreground=self.colors["accent"]).grid(row=0, column=0)
+        panel.configure(labelwidget=header)
+        return header
+
     def _build_deal(self, parent):
-        """The verdict over a list of every combatant's reading of the
-        deal. The verdict is three labels so that the version it keeps
-        can take a colour of its own."""
-        verdict = ttk.Frame(parent)
-        # spacing: title above, element below -- title, label ↕
-        verdict.pack(anchor=tk.W, pady=(0, px(5)))
-        # The negative top padding takes back what the borderless panel
-        # leaves under its title, which pack's pady cannot; the sides take
-        # back each label's border, so the three read as one line of text.
-        self.deal_parts = [ttk.Label(verdict, padding=px((-2, -5, -2, 0)))
-                           for _ in range(3)]
-        for label in self.deal_parts:
-            label.pack(side=tk.LEFT)
+        """The verdict on the title's line, over a list of every
+        combatant's reading of the deal. The verdict is three labels so
+        that the version it keeps can take a colour of its own."""
+        header = self._title_line(parent, DEAL_TITLE)
+        self.deal_parts = []
+        for i in range(3):
+            label = ttk.Label(header, style=panel_title_style())
+            # spacing: header subtext -- label, label ↔
+            label.grid(row=0, column=i + 1,
+                       padx=(text_pad(VERDICT_GAP) if i == 0 else 0, 0))
+            self.deal_parts.append(label)
         self._show_verdict(NO_DEAL)
         holder = ttk.Frame(parent)
-        holder.pack(fill=tk.BOTH, expand=True)
+        # spacing: title above, element below -- title, tree ↕
+        holder.pack(fill=tk.BOTH, expand=True, pady=px((0, 0)))
         self.deal_tree = ttk.Treeview(
             holder, columns=[c[0] for c in DEAL_COLUMNS], show="headings",
             height=DEAL_ROWS, selectmode="none")
@@ -870,24 +934,20 @@ class ReadjustTab(BaseTab):
         every combatant worked out. The line names its slot, set, For
         and option, each in a column of its own as wide as the widest it
         can hold, so each starts at the same place whatever the MF."""
-        line = ttk.Frame(parent)
-        # spacing: title above, element below -- title, label ↕
-        line.pack(anchor=tk.W, pady=(0, px(5)))
-        # As the verdict beside it: the negative top padding takes back
-        # what the borderless panel leaves under its title, the sides
-        # each label's border, so a column's width is its text's.
+        line = self._title_line(parent, DETAIL_TITLE)
         self.detail_parts = []
-        for col in range(4):
-            label = ttk.Label(line, padding=px((-2, -5, -2, 0)))
-            # spacing: control group ↔ control group -- label, label ↔
+        for col, gap in enumerate(DETAIL_GAPS, start=1):
+            label = ttk.Label(line, style=panel_title_style())
+            # spacing: header subtext -- label, label ↔
             label.grid(row=0, column=col, sticky=tk.W,
-                       padx=(0, px(10) if col < 3 else 0))
+                       padx=(text_pad(gap), 0))
             self.detail_parts.append(label)
         self._detail_line = line
         self._detail_widths = None
         self._show_detail_line((NO_DETAIL, "", "", ""))
         holder = ttk.Frame(parent)
-        holder.pack(fill=tk.BOTH, expand=True)
+        # spacing: title above, element below -- title, tree ↕
+        holder.pack(fill=tk.BOTH, expand=True, pady=px((0, 0)))
         self.detail_tree = ttk.Treeview(
             holder, columns=[c[0] for c in DETAIL_COLUMNS],
             show="headings", height=DETAIL_ROWS, selectmode="none")
@@ -1000,12 +1060,12 @@ class ReadjustTab(BaseTab):
             widths = [max([face.measure(s) for s in group if s] or [0])
                       for group in samples]
             self._detail_widths = (names, widths)
-            # A column's minsize holds its pad as well as its text.
-            for col, width in enumerate(widths):
-                pad = self.detail_parts[col].grid_info()["padx"]
-                pad = sum(pad) if isinstance(pad, tuple) else int(pad)
-                self._detail_line.grid_columnconfigure(col,
-                                                       minsize=width + pad)
+            # A column's minsize holds its pad as well as its text; the
+            # title is column 0.
+            for col, (width, gap) in enumerate(zip(widths, DETAIL_GAPS,
+                                                   strict=True), start=1):
+                self._detail_line.grid_columnconfigure(
+                    col, minsize=width + text_pad(gap))
         for label, text in zip(self.detail_parts, words, strict=True):
             label.configure(text=text)
 
@@ -1090,7 +1150,8 @@ class ReadjustTab(BaseTab):
     def _build_weight_spin(self, row):
         """`Set weight:` and its spinbox, for the combatant picked in the
         Weights list. Shown with that list only (`_show_mode`)."""
-        ttk.Label(row, text="Set weight:").pack(side=tk.LEFT)
+        self.weight_label = ttk.Label(row, text="Set weight:")
+        self.weight_label.pack(side=tk.LEFT)
         self.weight_var = tk.IntVar(value=0)
         self.weight_spin = tk.Spinbox(
             row, from_=0, to=WEIGHT_MAX, increment=1, width=4,
@@ -1100,6 +1161,8 @@ class ReadjustTab(BaseTab):
             insertbackground=self.colors["fg"],
             selectbackground=self.colors["select"],
             selectforeground=self.colors["fg"],
+            disabledbackground=self.colors["bg"],
+            disabledforeground=self.colors["fg_dim"],
             relief=tk.FLAT, bd=px(1),
             command=self._on_weight)
         # spacing: label ↔ its element -- label, spinbox ↔
@@ -1187,15 +1250,26 @@ class ReadjustTab(BaseTab):
         self._filtered()
 
     def _show_mode(self):
+        # One combatant greys the weights out rather than hiding them,
+        # so the tab keeps its layout and shows what Several would use.
         weighted = self.mode() == "weighted"
         if weighted:
-            self.weights_frame.grid()
-            self.weight_row.grid()
             self.combatant_box.grid_remove()
         else:
-            self.weights_frame.grid_remove()
-            self.weight_row.grid_remove()
             self.combatant_box.grid()
+        dim = None if weighted else self.colors["fg_dim"]
+        self.weights_frame.configure(
+            style="Borderless.TLabelframe" if weighted
+            else DIM_PANEL_STYLE)
+        self.weight_label.configure(foreground=dim or "")
+        self.weight_spin.configure(
+            state=tk.NORMAL if weighted else tk.DISABLED)
+        tree = self.weight_tree
+        tree.configure(selectmode="extended" if weighted else "none")
+        if not weighted:
+            tree.selection_set(())
+        self._weights_dim = not weighted
+        self._fill_weights()
         shown = [c[0] for c in COLUMNS
                  if weighted or c[0] not in WEIGHTED_ONLY]
         self.tree.configure(displaycolumns=shown)
@@ -1276,10 +1350,11 @@ class ReadjustTab(BaseTab):
             names.sort(key=lambda n: weights.get(n, 0), reverse=down)
         elif down:
             names.reverse()
+        dim = getattr(self, "_weights_dim", False)
         for name in names:
             weight = weights.get(name, 0)
             tree.insert("", tk.END, iid=name, values=(name, weight),
-                        tags=() if weight else ("off",))
+                        tags=() if weight and not dim else ("off",))
         kept = [name for name in picked if tree.exists(name)]
         if kept:
             tree.selection_set(kept)

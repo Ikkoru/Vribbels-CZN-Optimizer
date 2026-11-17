@@ -1058,7 +1058,7 @@ def _dropdown_over_panel(prefix, panel):
 # matches a title EXACTLY, so this has to follow the tab's
 # `OVERALL_TITLE`. `check_tabs_build` holds the two together.
 # The Substat Readjustment tab's note above its lists.
-READJUST_NOTE_PREFIX = "1. Pick a Score"
+READJUST_NOTE_PREFIX = "1. Pick a"
 GACHA_OVERALL_TITLE = "Overall Gacha Stats"
 # The standings lists beside it, on the same terms. Their titles are
 # labelwidgets, which `find_labelframe` reads as well.
@@ -5571,11 +5571,21 @@ def _epione_pitch_tags(*names):
 # one function each, so a gap read in the first is the same in the rest.
 # (tab, name, target, rule, resolver, axis) for the Substat Readjustment
 # tab beyond its panels.
+# Their titles are labelwidgets carrying a line beside them; resolved
+# when they run, since the labelwidget resolver is defined further down.
 READJUST_ENTRIES = [
-    ("Substat Readjustment", "Before / After title -> verdict", 5,
-     RULE_TITLE_ELEMENT, _title_to_first_element("Before / After"), "v"),
-    ("Substat Readjustment", "Details title -> picked MF", 5,
-     RULE_TITLE_ELEMENT, _title_to_first_element("Details"), "v"),
+    ("Substat Readjustment", "Before / After title -> its list", 5,
+     RULE_TITLE_ELEMENT, lambda cap, app: _labelwidget_title_to_tree(
+         "Before / After")(cap, app), "v"),
+    ("Substat Readjustment", "Details title -> its list", 5,
+     RULE_TITLE_ELEMENT, lambda cap, app: _labelwidget_title_to_tree(
+         "Details")(cap, app), "v"),
+    ("Substat Readjustment", "Before / After title -> verdict", 8,
+     RULE_HEADER_SUBTEXT, _gap(_by_text("Before / After"),
+                               _by_text("No readjustment"), "h"), "h"),
+    ("Substat Readjustment", "Details title -> picked MF", 8,
+     RULE_HEADER_SUBTEXT, _gap(_by_text("Details"),
+                               _by_text("Pick an MF"), "h"), "h"),
 ]
 
 EPIONE_ENTRIES = [
