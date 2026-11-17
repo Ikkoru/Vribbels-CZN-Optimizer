@@ -7,6 +7,8 @@ score. The method, its assumptions and how to redo it:
     python docs/preset_weights.py --derive   # re-derive the archetypes
     python docs/preset_weights.py --check    # have the weights drifted?
     python docs/preset_weights.py --write    # into default_settings/
+    python docs/preset_weights.py --new Blazebell [--like Mika]
+                                             # a new combatant's preset
 
 The archetype averages are derived from the maintainer's inventory and
 kept in `Vribbels/default_settings/preset_archetypes.json`, so the
@@ -16,9 +18,14 @@ in, which `checks/check_preset_weights.py` reads). `--write` records
 beside them the max rolls the weights were derived with, which is what
 tells the program to re-work its presets when the game client's differ.
 
+`--new` derives the preset of one combatant the shipped presets lack,
+from the stored archetypes, and leaves every other preset alone: see
+`add_new`.
+
 Read-only over Vribbels/settings/ and the snapshots; `--write` writes
 default_settings/presets.json and the archetypes file's `max_rolls`
-only, and prints what it changed.
+only, `--new` the one combatant's entries in default_settings/, and
+each prints what it changed.
 """
 
 import glob
@@ -59,6 +66,7 @@ class World(pd.Reference):
             with open(p, encoding="utf-8") as fh:
                 return json.load(fh)
         osm = read("settings/optimizer_settings.json")["characters"]
+        self.osm_by_rid = osm
         super().__init__({s["name_hint"]: s for s in osm.values()},
                          read("settings/presets.json")["presets"], opt)
         self.glob_settings = read("settings/settings.json")
@@ -212,8 +220,135 @@ def _write_archetypes(data):
                           encoding="utf-8")
 
 
+def _option(argv, flag):
+    """The value after `flag` in `argv`, or None."""
+    if flag in argv and argv.index(flag) + 1 < len(argv):
+        return argv[argv.index(flag) + 1]
+    return None
+
+
+def _read_json(path):
+    return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+def _write_json(path, data):
+    """The managers' own layout and the file's own line endings, so an
+    untouched entry stays byte for byte."""
+    path = Path(path)
+    ending = "\r\n" if b"\r\n" in path.read_bytes() else "\n"
+    path.write_bytes(json.dumps(data, indent=2).replace("\n", ending)
+                     .encode("utf-8"))
+
+
+def add_new(world, name, like=None, confirm=input):
+    """Derive the preset of `name`, a combatant the shipped presets lack,
+    and write it with what ships beside it.
+
+    The preset is named as the maintainer's settings assign it (the
+    combatant's own name where they assign none). Its weights come from
+    the STORED archetypes, so no other preset moves; the tie-breakers
+    the score cannot price are those of `like`, by default the first
+    preset, by name, of a combatant in the same archetype. Her best
+    build's set bonuses join the archetypes file's `sets`, the averages
+    untouched until the next `--derive`. Written, after `confirm` says
+    yes: the preset into default_settings/presets.json, and her
+    assignment and Optimizer settings into their files where they lack
+    them."""
+    from optimizer import core
+    if name not in world.settings:
+        print("%s has no Optimizer settings: set them in the Optimizer "
+              "tab and save, then run this again." % name)
+        return False
+    preset = world.assigned_preset(name)
+    if not preset or preset == "Default Preset":
+        preset = name
+    target = SOURCE / "default_settings" / "presets.json"
+    shipped = _read_json(target)
+    if preset in shipped["presets"] or preset in world.presets:
+        print("%r is already a preset: `--write` re-derives it with the "
+              "others." % preset)
+        return False
+    s = world.settings[name]
+    group = archetype(s)
+    if like is None:
+        like = next((p for p in sorted(world.presets)
+                     if combatant_of(p) in world.settings
+                     and p not in VARIANTS
+                     and archetype(world.settings[combatant_of(p)])
+                     == group), None)
+    if like not in world.presets:
+        print("No preset to take the tie-breakers from (%r): name one "
+              "with --like." % like)
+        return False
+    stored = _read_json(ARCHETYPES)
+    if group not in stored["averages"]:
+        print("No %r archetype in the stored averages: run --derive "
+              "first." % group)
+        return False
+    print("%s: preset %r, archetype %r, tie-breakers from %r" % (
+        name, preset, group, like))
+    # The candidate cut takes the preset's weights; the tie-breaker
+    # preset stands in for the one being made.
+    world.presets[preset] = dict(world.presets[like])
+    results = world.opt.optimize(name, world.run_settings(name, s))
+    if results:
+        shares = core.build_score_precompute(s)["set_effect_shares"]
+        stored["sets"][name] = set_vector(results[0][0], shares)
+        print("   best build's set bonuses: %s" % (
+            stored["sets"][name] or "none"))
+    else:
+        print("   note: no build in the inventory, so no set bonuses")
+    derived, stats, notes = derive_preset(world, stored, preset)
+    print("   reference CR %.1f CD %.1f ATK %.0f DEF %.0f" % (
+        stats["CRate"], stats["CDmg"], stats["ATK"], stats["DEF"]))
+    for note_ in notes:
+        print("   note: " + note_)
+    print("   %-8s" % "" + "".join("%9s" % k[:8] for k in STATS_SHOWN))
+    print("   %-8s" % "derived" + "".join(
+        "%9s" % ("%.3g" % derived[k]) for k in STATS_SHOWN))
+    if confirm("Write it into default_settings/? [y/N] ").strip().lower() \
+            not in ("y", "yes"):
+        print("Nothing written.")
+        return False
+    shipped["presets"][preset] = derived
+    _write_json(target, shipped)
+    print("Written: %r into %s" % (preset, target.name))
+    _write_archetypes(stored)
+    print("Written: %s's set bonuses into %s" % (name, ARCHETYPES.name))
+    rid = next((r for r, c in world.osm_by_rid.items()
+                if c.get("name_hint") == name), None)
+    path = SOURCE / "default_settings" / "character_preset.json"
+    assign = _read_json(path)
+    if rid and not assign["assignments"].get(rid):
+        assign["assignments"][rid] = preset
+        _write_json(path, assign)
+        print("Written: %s assigned %r in %s" % (name, preset, path.name))
+    path = SOURCE / "default_settings" / "optimizer_settings.json"
+    osm = _read_json(path)
+    if rid and rid not in osm["characters"]:
+        osm["characters"][rid] = world.osm_by_rid[rid]
+        _write_json(path, osm)
+        print("Written: %s's Optimizer settings into %s" % (name,
+                                                            path.name))
+    # Without the shipped values in the history, a player's untouched
+    # copies read as their own edits and stop following the defaults.
+    import subprocess
+    sys.stdout.flush()
+    subprocess.run([sys.executable, str(SOURCE / "default_settings"
+                                        / "normalize" / "defaults_history.py")],
+                   cwd=SOURCE, check=False)
+    return True
+
+
 def main(argv):
     world = World()
+    new = _option(argv, "--new")
+    if "--new" in argv:
+        if not new:
+            print("--new needs a combatant's name: --new Blazebell")
+            return
+        add_new(world, new, _option(argv, "--like"))
+        return
     stored = None
     if ARCHETYPES.exists() and "--derive" not in argv \
             and "--check" not in argv:

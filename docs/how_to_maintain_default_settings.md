@@ -5,7 +5,7 @@ Maintainer workflow: what ships, what to hand-edit before a release, and how to 
 ## Before a release
 
 1. If a character was released, or existing defaults need changing, edit the Optimizer settings for every character that needs them. A combatant whose Potential 7 the score prices in full ships no Have-at-least minimum: the score already pays for meeting it. `checks/check_shipped_defaults.py` fails on one.
-2. Check every character has a preset assigned.
+2. Check every character has a preset assigned. A new combatant's preset is derived, not set by eye: *The default Gear Score presets*, below.
 3. Check `zCreate exe.bat` reports a successful `optimizer_settings.json` cleanup.
 4. Run the release build in `dist\`.
 5. Review `shared_facts.json`'s diff: the build folded your own captures' game facts into it.
@@ -35,6 +35,26 @@ Deleting the three from `default_settings/` and running the program copies your 
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
 | `defaults_history.json`  | Every value each default has shipped with, from git: the three files' entries, `DEFAULT_CHARACTER_SETTINGS` and `SettingsManager.LAYOUT`. `zCreate exe.bat` rewrites it (`default_settings/normalize/defaults_history.py`) |
 | `preset_archetypes.json` | The derivation's archetype averages and the max rolls the presets were derived with (`docs/preset_weights.md`)                |
+
+## The default Gear Score presets
+
+The shipped presets' weights are worked out from the Optimizer's own score, so a weight means the same for every combatant. What a weight is, the reference build it is priced at, and the archetypes behind it: `preset_weights.md`. The tool is `docs/preset_weights.py`, run from the repo root; it reads your settings and newest snapshot and writes only `default_settings/`.
+
+**A new combatant:**
+
+1. Set their Optimizer settings in the Optimizer tab and save. These are what the derivation reads: the shield/heal weight, the ATK/DEF split and the Extra/DoT shares decide which archetype they are priced in, and the selected sets which build their own sets come from. Assign them a preset only if you want it named other than after them.
+2. Double-click `docs/preset_weights_new.cmd` and type their name as the Optimizer tab shows it. Press Enter at the second question to take the Ego and HP tie-breakers from the first preset of their archetype, or name a preset to take them from. Same as `python docs/preset_weights.py --new <name> [--like <preset>]`.
+3. Read what it prints: the preset's name, the archetype, whose tie-breakers, the build's set bonuses, and the derived weights. The scaling stat reads 1 (DEF% for a healer or DEF scaler, else ATK%); a stat it reads near 0 is one that does nothing for this combatant's score. Answer `y` to write, anything else to write nothing.
+4. It writes the preset, the assignment and the Optimizer settings into `default_settings/`, and rebuilds `defaults_history.json` so that players' untouched copies keep following the defaults. Launch the program once afterwards: the startup sync gives your own `settings/` the new preset. Do that before deleting the three files for a release (*The shipped files*, below), or the copy from `settings/` would leave the preset out.
+5. Run `python checks/run_all.py check_preset_weights check_shipped_defaults` and commit.
+
+**All presets, once a Galactic Disaster season from its part 2** (`checks/check_preset_weights.py` fails until it is done):
+
+1. `python docs/preset_weights.py --check`. It re-derives the archetypes from every combatant's best build, without saving them, and lists each weight that would move by more than 10%. No list: done, the check is recorded.
+2. With a list: `python docs/preset_weights.py --derive` saves today's archetypes and prints every preset's current and derived weights; the whole proposal is in `_tmp/preset_weights_proposal.json`. Review it, notes included.
+3. `python docs/preset_weights.py --write` writes them into `default_settings/presets.json`. A hand-set tie-breaker (Ego, HP) keeps its value.
+
+Presets that are not a combatant's plain settings (a named 4-piece set, an Upgrade deck, a skew) are entries in `VARIANTS` in `Vribbels/preset_derivation.py`: `preset_weights.md`, *Presets that are not the combatant's own settings*.
 
 ## Shared game facts
 

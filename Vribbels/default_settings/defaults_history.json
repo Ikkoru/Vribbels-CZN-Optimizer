@@ -123,6 +123,9 @@
   ],
   "30134": [
    "Rossweisse"
+  ],
+  "30136": [
+   "Blazebell"
   ]
  },
  "optimizer_generic": [
@@ -3780,6 +3783,74 @@
    "shielding_healing_weight": [
     0
    ]
+  },
+  "30136": {
+   "atk_def_split": [
+    100
+   ],
+   "avg_add_buff_pct": [
+    20
+   ],
+   "avg_card_dmg_pct": [
+    200
+   ],
+   "avg_mult_buff_pct": [
+    40
+   ],
+   "dot_pct": [
+    0
+   ],
+   "element_override": [
+    null
+   ],
+   "extra_pct": [
+    0
+   ],
+   "force_main": [
+    {
+     "slot4_hp": false,
+     "slot5_hp": false,
+     "slot6_ego": false,
+     "slot6_hp": false
+    }
+   ],
+   "fracture_pct": [
+    0
+   ],
+   "have_at_least": [
+    {
+     "ATK": 0,
+     "CDmg": 0,
+     "CRate": 0,
+     "DEF": 0,
+     "DoT%": 0,
+     "Ego": 0,
+     "Extra DMG%": 0,
+     "HP": 0
+    }
+   ],
+   "max_flex_slots": [
+    4
+   ],
+   "optimize_for_level": [
+    null
+   ],
+   "set_effect_pcts": [
+    {
+     "25": 100,
+     "31": 100
+    }
+   ],
+   "sets_selected": [
+    [
+     7,
+     25,
+     31
+    ]
+   ],
+   "shielding_healing_weight": [
+    80
+   ]
   }
  },
  "presets": {
@@ -4067,6 +4138,21 @@
     "Flat ATK": 0.97,
     "Flat DEF": 0.138,
     "Flat HP": 0.024,
+    "HP%": 0.01
+   }
+  ],
+  "Blazebell": [
+   {
+    "ATK%": 0.054,
+    "CDmg": 0.474,
+    "CRate": 0.617,
+    "DEF%": 1.0,
+    "DoT%": 0.01,
+    "Ego": 0.3,
+    "Extra DMG%": 0.0,
+    "Flat ATK": 0.077,
+    "Flat DEF": 1.79,
+    "Flat HP": 0.023,
     "HP%": 0.01
    }
   ],

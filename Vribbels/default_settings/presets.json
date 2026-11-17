@@ -571,6 +571,19 @@
       "Ego": 0.05,
       "Extra DMG%": 0.0,
       "DoT%": 0.05
+    },
+    "Blazebell": {
+      "Flat ATK": 0.077,
+      "ATK%": 0.054,
+      "Flat DEF": 1.79,
+      "DEF%": 1.0,
+      "Flat HP": 0.023,
+      "HP%": 0.01,
+      "CRate": 0.617,
+      "CDmg": 0.474,
+      "Ego": 0.3,
+      "Extra DMG%": 0.0,
+      "DoT%": 0.01
     }
   }
 }

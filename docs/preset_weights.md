@@ -43,10 +43,22 @@ From the repo root:
     python docs/preset_weights.py --derive   # re-derive the archetypes (a few minutes), then the above
     python docs/preset_weights.py --check    # would today's archetypes move the weights? records the check
     python docs/preset_weights.py --write    # the derived weights into default_settings/presets.json
+    python docs/preset_weights.py --new Blazebell [--like Mika]   # one new combatant's preset
 
 The report prints each preset's current and derived weights with the reference build's crit and ATK/DEF, and writes the whole proposal to `_tmp/preset_weights_proposal.json`. **Review it before `--write`**, and read the notes: a synthetic set, a combatant with no build. `--write` touches the shipped defaults only, and records the max rolls it derived with; a player's preset they never edited takes the new weights at their next launch after the release (`settings_architecture.md`, *Three-stage sync*), and an edited one through Restore Defaults.
 
 **When:** on demand, and once per Galactic Disaster from its part 2. `checks/check_preset_weights.py` fails until `--check` has been run in the season's part 2 or later, because the archetypes follow the game: new sets, new main stats, a change to a roll range all move them. `--check` re-derives, compares, and prints every weight that would move by more than 10%. If any does, re-derive with `--derive` and review.
+
+## A new combatant's preset
+
+`--new <combatant>`, or `docs/preset_weights_new.cmd`, which asks for the name. It derives the one preset from the STORED archetypes, so no other preset moves, and shows it before writing anything:
+
+- **The preset's name** is the one the maintainer's settings assign the combatant, or the combatant's own name where they assign none.
+- **Its tie-breakers** (Ego, HP, anything the score prices at nothing) are those of the first preset, by name, of a combatant in the same archetype; `--like <preset>` names another.
+- **Its sets** are the combatant's own best build's, which go into the archetypes file's `sets`. Their fragment stats join the averages only at the next `--derive`, so the archetype stays the one every other preset was derived from.
+- **Written on a yes**: the preset into `default_settings/presets.json`, and the combatant's assignment and Optimizer settings into `character_preset.json` and `optimizer_settings.json` where those lack them, then `defaults_history.json` is rebuilt. An existing preset is refused: `--write` re-derives it with the rest.
+
+A combatant `archetype()` puts in a group with no members yet is refused too: run `--derive` first.
 
 ## When the game's rolls move
 
@@ -58,7 +70,7 @@ A weight is priced in max rolls, and the program takes the substats' rolls from 
 ## Keeping it in step
 
 - **It runs on the program's own code**: `compute_build_stats`, `compute_score_components`, `optimize`, the partner, potential and level helpers. A change to the formulas, a new stat in `STATS`, new set values reach the weights with nothing to update here. `checks/check_preset_weights.py` derives every preset from the stored archetypes on each run, so a refactor that breaks the tool fails there.
-- **A new combatant** needs Optimizer settings and an assigned preset. A 5★ combatant's release partner goes in `SIGNATURE_PARTNERS` (`game_data/partners.py`); a combatant without one, or whose pairing is overridden, goes in `PARTNER_EXCEPTIONS`. The Optimizer assumes the same one for a combatant a player lacks or has no partner on. A preset with its own assumption goes in `VARIANTS`.
+- **A new combatant** needs Optimizer settings, then `--new` (above). A 5★ combatant's release partner goes in `SIGNATURE_PARTNERS` (`game_data/partners.py`); a combatant without one, or whose pairing is overridden, goes in `PARTNER_EXCEPTIONS`. The Optimizer assumes the same one for a combatant a player lacks or has no partner on. A preset with its own assumption goes in `VARIANTS`.
 - **A new kind of combatant** — one `archetype()` does not describe — gets its own group, or borrows a neighbour's averages until it has members.
 
 ## Outside the model

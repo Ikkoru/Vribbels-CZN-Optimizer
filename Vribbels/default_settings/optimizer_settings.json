@@ -1604,6 +1604,45 @@
       "avg_mult_buff_pct": 24,
       "avg_add_buff_pct": 100,
       "element_override": null
+    },
+    "30136": {
+      "name_hint": "Blazebell",
+      "optimize_for_level": null,
+      "extra_pct": 0,
+      "dot_pct": 0,
+      "fracture_pct": 0,
+      "atk_def_split": 100,
+      "shielding_healing_weight": 80,
+      "force_main": {
+        "slot4_hp": false,
+        "slot5_hp": false,
+        "slot6_hp": false,
+        "slot6_ego": false
+      },
+      "have_at_least": {
+        "ATK": 0,
+        "DEF": 0,
+        "HP": 0,
+        "Ego": 0,
+        "CRate": 0,
+        "CDmg": 0,
+        "Extra DMG%": 0,
+        "DoT%": 0
+      },
+      "sets_selected": [
+        7,
+        25,
+        31
+      ],
+      "max_flex_slots": 4,
+      "set_effect_pcts": {
+        "25": 100,
+        "31": 100
+      },
+      "avg_card_dmg_pct": 200,
+      "avg_mult_buff_pct": 40,
+      "avg_add_buff_pct": 20,
+      "element_override": null
     }
   }
 }
