@@ -5424,19 +5424,23 @@ def _band_scene():
 
 
 def _scene_expected(scene, likely):
-    """{id: (Potential, Highest Potential)} as the tab should show them
-    for `scene`, every band worked out plainly."""
+    """{id: (Potential, Highest Potential, Highest GS preset)} as the tab
+    should show them for `scene`, every band worked out plainly."""
     from models.memory_fragment import (
-        compute_fragment_potential, compute_fragment_potential_band,
-        compute_gs_bounds)
+        compute_fragment_gs, compute_fragment_potential,
+        compute_fragment_potential_band, compute_gs_bounds)
     out = {}
     for f in scene.frags:
         shown = (compute_fragment_potential_band(f, scene.applied,
                                                  scene.applied_bounds)
                  if likely else (f.potential_low, f.potential_high))
         best = None
+        best_gs = None
         for index, (name, weights) in enumerate(scene.presets):
             bounds = compute_gs_bounds(weights, exclude_stat=scene.main)
+            gs = compute_fragment_gs(f, weights, bounds)
+            if best_gs is None or gs > best_gs[0]:
+                best_gs = (gs, name)
             low, high = compute_fragment_potential(f, weights, bounds)
             if likely:
                 band = compute_fragment_potential_band(f, weights, bounds)
@@ -5445,16 +5449,21 @@ def _scene_expected(scene, likely):
                 rank, pair = (high, -index), (low, high)
             if best is None or rank > best[0]:
                 best = (rank, (pair[0], pair[1], name))
-        out[f.id] = (shown, best[1])
+        out[f.id] = (shown, best[1], best_gs[1])
     return out
 
 
-def _scene_cells(potential, highest):
+def _scene_cells(potential, highest, gs_name):
     """The Potential and Highest Potential cells for worked-out values."""
     low, high = potential
     pot = f"{low:.0f}-{high:.0f}" if low != high else "-"
     low, high, name = highest
-    hpot = f"{low:.0f}-{high:.0f} [{name}]" if low != high else "-"
+    if low == high:
+        hpot = f"[{gs_name}]"
+    else:
+        hpot = f"{low:.0f}-{high:.0f} [{name}]"
+        if gs_name != name:
+            hpot += f", GS [{gs_name}]"
     return pot, hpot
 
 
@@ -5462,7 +5471,8 @@ def _scored(f):
     """What `_score_rows` left on a fragment for its Potential columns."""
     return (getattr(f, "band_pending", False), f.shown_potential,
             (f.highest_preset_potential_low, f.highest_preset_potential_high,
-             f.highest_preset_potential_name))
+             f.highest_preset_potential_name),
+            f.highest_preset_gs_name)
 
 
 @contextlib.contextmanager
@@ -7537,4 +7547,16 @@ FAULTS = [
      "advised = offered and advice.opener == number",
      "advised = offered and advice.opener != number",
      "opener 3 keeps both sides"),
+    ("the Highest GS preset never recorded",
+     "ui.tabs.inventory_tab:InventoryTab._score_rows",
+     "                    best_gs_name = pname\n", "",
+     "a fragment's Potential and Highest"),
+    ("the Highest GS preset left out where it differs",
+     "ui.tabs.inventory_tab:highest_potential_cell",
+     'cell += f", GS [{gs_name}]"', "pass",
+     "a fragment's row shows"),
+    ("a maxed fragment's Highest GS preset left out",
+     "ui.tabs.inventory_tab:highest_potential_cell",
+     'return f"[{gs_name}]" if gs_name else "-"', 'return "-"',
+     "a fragment's row shows"),
 ]

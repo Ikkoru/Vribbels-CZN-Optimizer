@@ -227,5 +227,5 @@ Tk cannot draw the caption; `ui/title_bar.py` sets it as window attributes, the 
 
 ## Display rules that look like bugs
 
-- **Memory Fragments, Highest Potential column:** for fully-levelled MFs (low == high under every preset) the display is `-`, not `low-high`. The Highest GS column already shows the value.
+- **Memory Fragments, Highest Potential column:** for fully-levelled MFs (low == high under every preset) the display is `[preset]` alone, naming the preset behind the Highest GS value, not `low-high`. The Highest GS column already shows the value. An unlevelled MF reads `low-high [preset]`, followed by `, GS [preset]` where the Highest GS preset is a different one: the preset with the highest ceiling need not be the one scoring highest now. `highest_potential_cell` builds the cell.
 - **`refresh_inventory` must NOT clear the tree.** `_display_inventory_sorted` clears it immediately after reading the current selection, which is what restores the highlight onto the same fragments across a live update. Clearing earlier drops the selection before it can be read.

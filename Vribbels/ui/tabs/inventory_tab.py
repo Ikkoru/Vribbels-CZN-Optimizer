@@ -169,6 +169,24 @@ def best_potential(fragment, ranked, likely,
     return best
 
 
+def highest_potential_cell(low, high, potential_name, gs_name):
+    """The Highest Potential cell: the range and the preset it came from,
+    then the preset behind the Highest GS column's value where that is a
+    different one.
+
+    A fully leveled fragment has no range, so the cell names only the
+    Highest GS preset: the Highest GS column already shows the value.
+    """
+    if low == high:
+        return f"[{gs_name}]" if gs_name else "-"
+    cell = f"{low:.0f}-{high:.0f}"
+    if potential_name:
+        cell += f" [{potential_name}]"
+    if gs_name and gs_name != potential_name:
+        cell += f", GS [{gs_name}]"
+    return cell
+
+
 def _stat_order(stat):
     """A stat cell's sort key: grouped by the stat's name as the cell
     shows it, the highest value first within one, and no stat last."""
@@ -1360,6 +1378,7 @@ class InventoryTab(BaseTab):
                         applied, exclude_stat=main_name)
                 shown = band(f, applied, applied_bounds[main_name])
             best_gs = float("-inf")
+            best_gs_name = None
             ranked = []
             for pi, (pname, weights) in enumerate(preset_data):
                 if allowed is not None and pname not in allowed(f):
@@ -1373,6 +1392,7 @@ class InventoryTab(BaseTab):
                 gs = compute_fragment_gs(f, weights, bounds)
                 if gs > best_gs:
                     best_gs = gs
+                    best_gs_name = pname
                 low, high = compute_fragment_potential(f, weights, bounds)
                 ranked.append((high, low, pi, pname, weights, bounds))
             # Highest Potential GS: the preset giving the highest ceiling
@@ -1393,6 +1413,7 @@ class InventoryTab(BaseTab):
             # assigned wants, which is a 0 rather than the -inf the
             # comparisons started at.
             f.highest_preset_gs = best_gs if best_gs > float("-inf") else 0.0
+            f.highest_preset_gs_name = best_gs_name
             f.highest_preset_potential_low = best[0] if best else 0.0
             f.highest_preset_potential_high = best[1] if best else 0.0
             f.highest_preset_potential_name = best[2] if best else None
@@ -1476,27 +1497,16 @@ class InventoryTab(BaseTab):
             # eligible (no custom presets at all, or none assigned with the
             # checkbox on). Both columns share the same eligibility.
             hgs_str = "—" if no_presets else f"{f.highest_preset_gs:.0f}"
-            # Highest Potential display rules:
-            #   no presets eligible       -> "—"
-            #   range (unleveled)         -> "60-100 [preset]"
-            #   single (fully leveled)    -> "-"  (NO preset name -- the
-            #                                     Highest GS column already
-            #                                     shows the value for max-
-            #                                     level MFs, so repeating
-            #                                     value+preset here would be
-            #                                     redundant.)
             if no_presets:
                 hpot_str = "—"
             elif pending:
                 hpot_str = PENDING_CELL
-            elif f.highest_preset_potential_low != f.highest_preset_potential_high:
-                pname = getattr(f, "highest_preset_potential_name", None)
-                preset_suffix = f" [{pname}]" if pname else ""
-                hpot_str = (f"{f.highest_preset_potential_low:.0f}-"
-                            f"{f.highest_preset_potential_high:.0f}"
-                            f"{preset_suffix}")
             else:
-                hpot_str = "-"
+                hpot_str = highest_potential_cell(
+                    f.highest_preset_potential_low,
+                    f.highest_preset_potential_high,
+                    getattr(f, "highest_preset_potential_name", None),
+                    getattr(f, "highest_preset_gs_name", None))
 
             # iid = the fragment's id, so a refresh can restore the selection
             # by identity. Fragments with no id fall back to Tk's generated
@@ -1670,7 +1680,11 @@ class InventoryTab(BaseTab):
                     "Useful for finding bad MFs.")
         if col_name == "highest_potential":
             return (f"Shows the highest Potential Gear Score out of "
-                    f"{self._highest_scope()}.\n"
+                    f"{self._highest_scope()}, and the preset it "
+                    "comes from.\n"
+                    "\"GS [preset]\" names the preset behind Highest GS "
+                    "where that is a different one; a maxed MF shows "
+                    "only that preset.\n"
                     "Useful for finding bad MFs.")
         return None
 

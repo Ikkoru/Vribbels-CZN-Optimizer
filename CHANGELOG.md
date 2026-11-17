@@ -45,6 +45,7 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
 ### Changed
 
 - Optimizer: runs about 1.7× faster.
+- Memory Fragments tab: Highest Potential names the preset behind Highest GS too. A maxed MF shows that preset in place of `-`, and an unmaxed one adds `, GS [preset]` where it differs from the Highest Potential preset.
 - The download is about 17 MB smaller.
 - A darker highlight for selected rows and text, offered Epione cards, and hovered headings and scrollbars.
 - Capture: a failure while you are on another tab blinks the Capture tab's bar red, in place of a red dot beside its name.
