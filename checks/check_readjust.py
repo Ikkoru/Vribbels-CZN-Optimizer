@@ -69,6 +69,9 @@ nothing else, so a broken one reads as a plausible ranking:
     After falls back to the best build without it; a fragment outside
     the Top build costs nothing.
 25. **The shared choice waits for every weighted combatant**.
+26. **The other measure is worked out once the one in hand is
+    complete, and only in the background's worker**, whatever the
+    speed.
 
 Rules 10 to 12, 14 and 18 run on `_parity_fixture`'s synthetic inventory.
 8. **The work keeps an answer by what it was worked out from**: a
@@ -447,6 +450,35 @@ def _the_work_order_cache_and_progress():
                    f"settled leaves the work at {work.speed}: full speed "
                    f"until it is read, then the speed it had.")
 
+    # 26
+    later = rw.ReadjustWork(_Context(), lambda *_a: None)
+    later.enabled, later.speed = True, rj.FULL
+    complete = [0]
+
+    def measured(measure, *_rest):
+        status = rw.Status(1)
+        status.done = complete[0]
+        return {"Ann": status}, [("sig " + measure, {"measure": measure},
+                                  "Ann", "read", [])]
+
+    later._plan_measure = measured
+    later.plan()
+    early = list(later.later)
+    complete[0] = 1
+    sent = []
+    real_submit = rj.submit
+    rj.submit = lambda job, speed=rj.FULL: sent.append(
+        (job["measure"], speed)) or object()
+    try:
+        later.refresh()
+    finally:
+        rj.submit = real_submit
+    if early or (rj.BUILD, rj.BACKGROUND) not in sent             or (rj.BUILD, rj.FULL) in sent:
+        out.append(f"the other measure is asked for {len(early)} job(s) "
+                   f"before the one in hand is complete, and handed out "
+                   f"as {sent}: it waits, and runs in the background's "
+                   f"worker whatever the speed.")
+
     # 16
     half, whole = rw.Status(10), rw.Status(10)
     half.done, whole.done = 4, 10
@@ -724,6 +756,15 @@ def _build_score_reads_the_top_build():
 
 
 FAULTS = [
+    ("the other measure not waiting", "readjust_work:ReadjustWork.plan",
+     "        if self.background() and all(s.complete\n"
+     "                                     for s in statuses.values()):\n",
+     "        if self.background():\n",
+     "it waits, and runs"),
+    ("the other measure at full speed", "readjust_work:ReadjustWork.refresh",
+     "                self._ask(self.later, rj.BACKGROUND)",
+     "                self._ask(self.later)",
+     "it waits, and runs"),
     ("the shared choice blind to the weights", "readjust:mixed",
      "                    total[i] += w * c",
      "                    total[i] += c",

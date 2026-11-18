@@ -1067,6 +1067,18 @@ class ReadjustTab(BaseTab):
                                                    strict=True), start=1):
                 self._detail_line.grid_columnconfigure(
                     col, minsize=width + text_pad(gap))
+        # Words alone (no MF picked) span the four columns, so they widen
+        # none of them: the line is as wide either way. The other labels
+        # come off the grid meanwhile, as their fill would paint over
+        # the words.
+        alone = not any(words[1:])
+        first, rest = self.detail_parts[0], self.detail_parts[1:]
+        first.grid_configure(columnspan=4 if alone else 1)
+        for label in rest:
+            if alone:
+                label.grid_remove()
+            else:
+                label.grid()
         for label, text in zip(self.detail_parts, words, strict=True):
             label.configure(text=text)
 

@@ -158,6 +158,9 @@ class ReadjustWork:
         self.visible = False
         self.enabled = False
         self.statuses = {}
+        # The other measure's jobs, for the background once the one in
+        # hand is complete (`plan`).
+        self.later = []
         self.listeners = []
         self.error = None
         self._scheduled = False
@@ -317,7 +320,7 @@ class ReadjustWork:
         order, and the jobs to hand the workers, most wanted first."""
         optimizer = getattr(self.context, "optimizer", None)
         if optimizer is None or not optimizer.fragments:
-            self.statuses = {}
+            self.statuses, self.later = {}, []
             return []
         fragments = sorted((f for f in optimizer.fragments
                             if rj.readjustable(f)), key=lambda f: f.id)
@@ -327,8 +330,26 @@ class ReadjustWork:
         measure = self.measure()
         stats = rj.stats_snapshot()
         rolls = sorted((k, list(v)) for k, v in stats.items())
-        statuses, wanted, read_by = {}, [], {}
         deal_wanted = self._deal_plan(rolls, stats)
+        statuses, wanted = self._plan_measure(measure, fragments, keys,
+                                              rolls, stats)
+        self.statuses = statuses
+        # The other measure once this one is complete, so switching to
+        # it finds it worked out: in the background only, and never
+        # without it (`_ask`).
+        self.later = []
+        if self.background() and all(s.complete
+                                     for s in statuses.values()):
+            other = rj.BUILD if measure == rj.GEAR else rj.GEAR
+            _done, self.later = self._plan_measure(other, fragments, keys,
+                                                   rolls, stats)
+        return deal_wanted + wanted
+
+    def _plan_measure(self, measure, fragments, keys, rolls, stats):
+        """({combatant: Status}, the shared choice's under MIX with
+        several weighted, and the jobs `measure` still needs, the shared
+        choice's first)."""
+        statuses, wanted, read_by = {}, [], {}
         for name in self.order():
             sig, template = self._signature(measure, name, rolls, stats)
             if sig is None:
@@ -345,8 +366,7 @@ class ReadjustWork:
             statuses[MIX] = self._mix_status(measure, statuses, read_by,
                                              fragments, keys, stats,
                                              mix_wanted)
-        self.statuses = statuses
-        return deal_wanted + mix_wanted + wanted
+        return statuses, mix_wanted + wanted
 
     def _mix_status(self, measure, statuses, read_by, fragments, keys,
                     stats, wanted):
@@ -462,6 +482,8 @@ class ReadjustWork:
         wanted = self.plan()
         if self._may_run():
             self._ask(wanted)
+            if self.later:
+                self._ask(self.later, rj.BACKGROUND)
         self._notify()
 
     def full_speed(self):
@@ -487,11 +509,15 @@ class ReadjustWork:
             if which(job, speed, name) and future.cancel():
                 self._drop(job)
 
-    def _ask(self, wanted):
+    def _ask(self, wanted, at=None):
         """Hand the workers the head of `wanted`, as many as keep each
         `AHEAD` deep; without the background, only the shown
-        combatants', and nothing queued for anyone else."""
-        if not self.background():
+        combatants', and nothing queued for anyone else. `at` holds
+        them to one speed's workers: the other measure's, the
+        background's whatever the speed."""
+        if at is not None:
+            speed = at
+        elif not self.background():
             shown = set(self.shown()) | {MIX}
             self._cancel(lambda job, speed, name:
                          name not in shown and job[1] != "deal")
@@ -558,8 +584,11 @@ class ReadjustWork:
             self.refresh()
             if self._deal_restore is not None and self.deal_done():
                 self._put_speed_back()
+            # The other measure's jobs run in the background whatever
+            # the speed, so they do not hold it at full.
             elif self._deal_restore is None and self.speed == rj.FULL \
-                    and not self._futures \
+                    and not any(s == rj.FULL
+                                for _f, s, _n in self._futures.values()) \
                     and all(s.complete for s in self.statuses.values()):
                 self.speed = rj.BACKGROUND
                 self._notify()
