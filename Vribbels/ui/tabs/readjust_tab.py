@@ -299,13 +299,13 @@ HEAD_TIPS = {
            "With several: For's GS or BS (Build Score).",
     "avg": "Now's average GS/BS after a Reroll.\n"
            "With several: For's average GS/BS.",
-    "gain": "A Reroll's average improvement compared to Now.\n"
+    "gain": "A Reroll's average improvement past the Top build.\n"
             "With several: each result’s changes averaged by weight, "
             "counted only when above 0.",
     "chance": "The chance a Reroll results in an improvement.",
     "excl": "Excluding this substat results in the greatest expected "
             "improvement to GS/BS.",
-    "xgain": "That Exclude's average improvement.",
+    "xgain": "An Exclude's average improvement.",
     "xchance": "The chance that Exclude results in an improvement.",
     "best": "The most either option can improve it: all 4 upgrades "
             "max rolls on one substat.",
