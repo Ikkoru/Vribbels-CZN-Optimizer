@@ -9,6 +9,19 @@
       "HP%": 0.01,
       "CRate": 1.85,
       "CDmg": 1.44,
+      "Ego": 0.1,
+      "Extra DMG%": 0.0,
+      "DoT%": 0.01
+    },
+    "Amir": {
+      "Flat ATK": 0.333,
+      "ATK%": 0.212,
+      "Flat DEF": 1.63,
+      "DEF%": 1.0,
+      "Flat HP": 0.02,
+      "HP%": 0.01,
+      "CRate": 2.26,
+      "CDmg": 2.21,
       "Ego": 0.05,
       "Extra DMG%": 0.0,
       "DoT%": 0.01
@@ -26,6 +39,19 @@
       "Extra DMG%": 0.0,
       "DoT%": 0.05
     },
+    "Arabella (high DoT)": {
+      "Flat ATK": 0.934,
+      "ATK%": 1.0,
+      "Flat DEF": 0.12,
+      "DEF%": 0.05,
+      "Flat HP": 0.02,
+      "HP%": 0.01,
+      "CRate": 1.44,
+      "CDmg": 1.97,
+      "Ego": 0.05,
+      "Extra DMG%": 0.0,
+      "DoT%": 2.11
+    },
     "Beryl (hedge)": {
       "Flat ATK": 0.954,
       "ATK%": 1.0,
@@ -37,6 +63,19 @@
       "CDmg": 2.04,
       "Ego": 0.05,
       "Extra DMG%": 1.88,
+      "DoT%": 0.05
+    },
+    "Beryl (no Extra DMG)": {
+      "Flat ATK": 0.954,
+      "ATK%": 1.0,
+      "Flat DEF": 0.138,
+      "DEF%": 0.05,
+      "Flat HP": 0.024,
+      "HP%": 0.01,
+      "CRate": 1.73,
+      "CDmg": 1.94,
+      "Ego": 0.05,
+      "Extra DMG%": 0.0,
       "DoT%": 0.05
     },
     "Beryl (Upgrade Deck)": {
@@ -52,6 +91,19 @@
       "Extra DMG%": 3.14,
       "DoT%": 0.05
     },
+    "Blazebell": {
+      "Flat ATK": 0.077,
+      "ATK%": 0.054,
+      "Flat DEF": 1.79,
+      "DEF%": 1.0,
+      "Flat HP": 0.023,
+      "HP%": 0.01,
+      "CRate": 0.617,
+      "CDmg": 0.474,
+      "Ego": 0.3,
+      "Extra DMG%": 0.0,
+      "DoT%": 0.01
+    },
     "Cassius (DPS skew)": {
       "Flat ATK": 1.53,
       "ATK%": 1.0,
@@ -61,7 +113,7 @@
       "HP%": 0.01,
       "CRate": 1.95,
       "CDmg": 1.74,
-      "Ego": 0.05,
+      "Ego": 0.1,
       "Extra DMG%": 0.0,
       "DoT%": 0.05
     },
@@ -295,7 +347,7 @@
       "HP%": 0.01,
       "CRate": 1.69,
       "CDmg": 1.66,
-      "Ego": 0.05,
+      "Ego": 0.1,
       "Extra DMG%": 0.0,
       "DoT%": 0.01
     },
@@ -325,6 +377,32 @@
       "Extra DMG%": 0.0,
       "DoT%": 0.01
     },
+    "Olga (high DoT)": {
+      "Flat ATK": 1.02,
+      "ATK%": 1.0,
+      "Flat DEF": 0.11,
+      "DEF%": 0.05,
+      "Flat HP": 0.02,
+      "HP%": 0.01,
+      "CRate": 1.46,
+      "CDmg": 2.0,
+      "Ego": 0.05,
+      "Extra DMG%": 0.0,
+      "DoT%": 2.34
+    },
+    "Orlea (healing skew)": {
+      "Flat ATK": 0.306,
+      "ATK%": 0.214,
+      "Flat DEF": 1.83,
+      "DEF%": 1.0,
+      "Flat HP": 0.022,
+      "HP%": 0.01,
+      "CRate": 0.615,
+      "CDmg": 0.533,
+      "Ego": 0.2,
+      "Extra DMG%": 0.0,
+      "DoT%": 0.01
+    },
     "Orlea (slight DMG skew)": {
       "Flat ATK": 1.07,
       "ATK%": 0.746,
@@ -334,9 +412,9 @@
       "HP%": 0.01,
       "CRate": 2.29,
       "CDmg": 2.32,
-      "Ego": 0.1,
+      "Ego": 0.2,
       "Extra DMG%": 0.0,
-      "DoT%": 0.03
+      "DoT%": 0.02
     },
     "Owen": {
       "Flat ATK": 1.03,
@@ -347,7 +425,7 @@
       "HP%": 0.01,
       "CRate": 1.79,
       "CDmg": 2.01,
-      "Ego": 0.05,
+      "Ego": 0.1,
       "Extra DMG%": 0.0,
       "DoT%": 0.05
     },
@@ -360,9 +438,9 @@
       "HP%": 0.01,
       "CRate": 0.798,
       "CDmg": 0.569,
-      "Ego": 0.1,
+      "Ego": 0.2,
       "Extra DMG%": 0.0,
-      "DoT%": 0.03
+      "DoT%": 0.02
     },
     "Renoa (Conqueror's Aspect)": {
       "Flat ATK": 0.941,
@@ -399,6 +477,19 @@
       "HP%": 0.01,
       "CRate": 1.53,
       "CDmg": 2.28,
+      "Ego": 0.05,
+      "Extra DMG%": 0.0,
+      "DoT%": 0.05
+    },
+    "Rossweisse": {
+      "Flat ATK": 0.977,
+      "ATK%": 1.0,
+      "Flat DEF": 0.119,
+      "DEF%": 0.05,
+      "Flat HP": 0.022,
+      "HP%": 0.01,
+      "CRate": 1.75,
+      "CDmg": 2.01,
       "Ego": 0.05,
       "Extra DMG%": 0.0,
       "DoT%": 0.05
@@ -451,7 +542,7 @@
       "HP%": 0.01,
       "CRate": 1.73,
       "CDmg": 1.72,
-      "Ego": 0.05,
+      "Ego": 0.1,
       "Extra DMG%": 0.0,
       "DoT%": 0.01
     },
@@ -477,7 +568,7 @@
       "HP%": 0.01,
       "CRate": 1.72,
       "CDmg": 2.02,
-      "Ego": 0.05,
+      "Ego": 0.1,
       "Extra DMG%": 3.11,
       "DoT%": 0.05
     },
@@ -493,97 +584,6 @@
       "Ego": 0.05,
       "Extra DMG%": 0.0,
       "DoT%": 0.05
-    },
-    "Amir": {
-      "Flat ATK": 0.333,
-      "ATK%": 0.212,
-      "Flat DEF": 1.63,
-      "DEF%": 1.0,
-      "Flat HP": 0.02,
-      "HP%": 0.01,
-      "CRate": 2.26,
-      "CDmg": 2.21,
-      "Ego": 0.05,
-      "Extra DMG%": 0.0,
-      "DoT%": 0.01
-    },
-    "Arabella (high DoT)": {
-      "Flat ATK": 0.934,
-      "ATK%": 1.0,
-      "Flat DEF": 0.12,
-      "DEF%": 0.05,
-      "Flat HP": 0.02,
-      "HP%": 0.01,
-      "CRate": 1.44,
-      "CDmg": 1.97,
-      "Ego": 0.05,
-      "Extra DMG%": 0.0,
-      "DoT%": 2.11
-    },
-    "Beryl (no Extra DMG)": {
-      "Flat ATK": 0.954,
-      "ATK%": 1.0,
-      "Flat DEF": 0.138,
-      "DEF%": 0.05,
-      "Flat HP": 0.024,
-      "HP%": 0.01,
-      "CRate": 1.73,
-      "CDmg": 1.94,
-      "Ego": 0.05,
-      "Extra DMG%": 0.0,
-      "DoT%": 0.05
-    },
-    "Olga (high DoT)": {
-      "Flat ATK": 1.02,
-      "ATK%": 1.0,
-      "Flat DEF": 0.11,
-      "DEF%": 0.05,
-      "Flat HP": 0.02,
-      "HP%": 0.01,
-      "CRate": 1.46,
-      "CDmg": 2.0,
-      "Ego": 0.05,
-      "Extra DMG%": 0.0,
-      "DoT%": 2.34
-    },
-    "Orlea (healing skew)": {
-      "Flat ATK": 0.306,
-      "ATK%": 0.214,
-      "Flat DEF": 1.83,
-      "DEF%": 1.0,
-      "Flat HP": 0.022,
-      "HP%": 0.01,
-      "CRate": 0.615,
-      "CDmg": 0.533,
-      "Ego": 0.1,
-      "Extra DMG%": 0.0,
-      "DoT%": 0.03
-    },
-    "Rossweisse": {
-      "Flat ATK": 0.977,
-      "ATK%": 1.0,
-      "Flat DEF": 0.119,
-      "DEF%": 0.05,
-      "Flat HP": 0.022,
-      "HP%": 0.01,
-      "CRate": 1.75,
-      "CDmg": 2.01,
-      "Ego": 0.05,
-      "Extra DMG%": 0.0,
-      "DoT%": 0.05
-    },
-    "Blazebell": {
-      "Flat ATK": 0.077,
-      "ATK%": 0.054,
-      "Flat DEF": 1.79,
-      "DEF%": 1.0,
-      "Flat HP": 0.023,
-      "HP%": 0.01,
-      "CRate": 0.617,
-      "CDmg": 0.474,
-      "Ego": 0.3,
-      "Extra DMG%": 0.0,
-      "DoT%": 0.01
     }
   }
 }

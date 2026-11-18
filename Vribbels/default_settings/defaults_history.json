@@ -3861,6 +3861,19 @@
     "CRate": 1.85,
     "DEF%": 1.0,
     "DoT%": 0.01,
+    "Ego": 0.1,
+    "Extra DMG%": 0.0,
+    "Flat ATK": 0.229,
+    "Flat DEF": 1.68,
+    "Flat HP": 0.018,
+    "HP%": 0.01
+   },
+   {
+    "ATK%": 0.155,
+    "CDmg": 1.44,
+    "CRate": 1.85,
+    "DEF%": 1.0,
+    "DoT%": 0.01,
     "Ego": 0.05,
     "Extra DMG%": 0.0,
     "Flat ATK": 0.229,
@@ -4157,6 +4170,19 @@
    }
   ],
   "Cassius (DPS skew)": [
+   {
+    "ATK%": 1.0,
+    "CDmg": 1.74,
+    "CRate": 1.95,
+    "DEF%": 0.318,
+    "DoT%": 0.05,
+    "Ego": 0.1,
+    "Extra DMG%": 0.0,
+    "Flat ATK": 1.53,
+    "Flat DEF": 0.647,
+    "Flat HP": 0.023,
+    "HP%": 0.01
+   },
    {
     "ATK%": 1.0,
     "CDmg": 1.74,
@@ -5024,6 +5050,19 @@
     "CRate": 1.69,
     "DEF%": 1.0,
     "DoT%": 0.01,
+    "Ego": 0.1,
+    "Extra DMG%": 0.0,
+    "Flat ATK": 0.216,
+    "Flat DEF": 1.58,
+    "Flat HP": 0.022,
+    "HP%": 0.01
+   },
+   {
+    "ATK%": 0.151,
+    "CDmg": 1.66,
+    "CRate": 1.69,
+    "DEF%": 1.0,
+    "DoT%": 0.01,
     "Ego": 0.05,
     "Extra DMG%": 0.0,
     "Flat ATK": 0.216,
@@ -5200,6 +5239,19 @@
     "CDmg": 0.533,
     "CRate": 0.615,
     "DEF%": 1.0,
+    "DoT%": 0.01,
+    "Ego": 0.2,
+    "Extra DMG%": 0.0,
+    "Flat ATK": 0.306,
+    "Flat DEF": 1.83,
+    "Flat HP": 0.022,
+    "HP%": 0.01
+   },
+   {
+    "ATK%": 0.214,
+    "CDmg": 0.533,
+    "CRate": 0.615,
+    "DEF%": 1.0,
     "DoT%": 0.03,
     "Ego": 0.1,
     "Extra DMG%": 0.0,
@@ -5236,6 +5288,19 @@
    }
   ],
   "Orlea (slight DMG skew)": [
+   {
+    "ATK%": 0.746,
+    "CDmg": 2.32,
+    "CRate": 2.29,
+    "DEF%": 1.0,
+    "DoT%": 0.02,
+    "Ego": 0.2,
+    "Extra DMG%": 0.0,
+    "Flat ATK": 1.07,
+    "Flat DEF": 1.64,
+    "Flat HP": 0.022,
+    "HP%": 0.01
+   },
    {
     "ATK%": 0.746,
     "CDmg": 2.32,
@@ -5309,6 +5374,19 @@
     "CRate": 1.79,
     "DEF%": 0.05,
     "DoT%": 0.05,
+    "Ego": 0.1,
+    "Extra DMG%": 0.0,
+    "Flat ATK": 1.03,
+    "Flat DEF": 0.126,
+    "Flat HP": 0.021,
+    "HP%": 0.01
+   },
+   {
+    "ATK%": 1.0,
+    "CDmg": 2.01,
+    "CRate": 1.79,
+    "DEF%": 0.05,
+    "DoT%": 0.05,
     "Ego": 0.05,
     "Extra DMG%": 0.0,
     "Flat ATK": 1.03,
@@ -5357,6 +5435,19 @@
    }
   ],
   "Rei": [
+   {
+    "ATK%": 0.489,
+    "CDmg": 0.569,
+    "CRate": 0.798,
+    "DEF%": 1.0,
+    "DoT%": 0.02,
+    "Ego": 0.2,
+    "Extra DMG%": 0.0,
+    "Flat ATK": 0.746,
+    "Flat DEF": 2.04,
+    "Flat HP": 0.023,
+    "HP%": 0.01
+   },
    {
     "ATK%": 0.489,
     "CDmg": 0.569,
@@ -5719,6 +5810,19 @@
     "CRate": 1.73,
     "DEF%": 1.0,
     "DoT%": 0.01,
+    "Ego": 0.1,
+    "Extra DMG%": 0.0,
+    "Flat ATK": 0.216,
+    "Flat DEF": 1.58,
+    "Flat HP": 0.022,
+    "HP%": 0.01
+   },
+   {
+    "ATK%": 0.151,
+    "CDmg": 1.72,
+    "CRate": 1.73,
+    "DEF%": 1.0,
+    "DoT%": 0.01,
     "Ego": 0.05,
     "Extra DMG%": 0.0,
     "Flat ATK": 0.216,
@@ -5834,6 +5938,19 @@
    }
   ],
   "Veronica": [
+   {
+    "ATK%": 1.0,
+    "CDmg": 2.02,
+    "CRate": 1.72,
+    "DEF%": 0.05,
+    "DoT%": 0.05,
+    "Ego": 0.1,
+    "Extra DMG%": 3.11,
+    "Flat ATK": 0.906,
+    "Flat DEF": 0.13,
+    "Flat HP": 0.022,
+    "HP%": 0.01
+   },
    {
     "ATK%": 1.0,
     "CDmg": 2.02,
