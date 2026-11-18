@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.com/Vorbroker/Vribbels-CZN-Optimizer) at v1.7.0 (2026-02-07) and restarts versioning from v1.0.0. For the pre-fork history, see the upstream repository's CHANGELOG.
 
-## [2.7.0] - unreleased
+## [2.7.0] - Galactic Disaster, Two Beta Tabs
 
 ### Added
 
@@ -17,62 +17,62 @@ This fork was branched from [Vorbroker/Vribbels-CZN-Optimizer](https://github.co
   - Equipment names are red, Combatant names purple, and the game's own option text for an achievement follows it in green.
   - While capturing, achievements you can do on the Event you are standing on turn orange.
   - A page with a reward waiting has its count in orange. A page with nothing left moves to a column at the right, green, its count blinking orange while a reward waits.
-- **Epione tab**, after Stats & Gacha History: each combatant's Therapy Counseling at the Epione Centre.
+- **Substat Readjustment tab (beta)**, after Memory Fragments: which fully upgraded Legendary Memory Fragments a Shuffling Quartz does most for.
+  - Each MF's expected gain, chance of a gain and best case, for a Reroll (1 Quartz) and for excluding its best substat (2 Quartz). Use names the option that does more per Quartz, and the list is sorted by it. Avg is the average score after a Reroll.
+  - Score: Gear Score under the combatant's assigned preset, or Build Score: the rise past the combatant's Top build, the Optimizer's best under their Optimizer tab settings. Build Score leaves out an MF no build can wear, and one whose Gear Score at its very best can't reach the top third of its slot.
+  - For: one combatant, or several with a weight each. With several, an MF ranks by what it does for all of them at once, so one that helps one combatant and hurts another as much ranks low. Set weight gives a weight to every combatant picked in the Weights list (Shift and Ctrl pick several).
+  - Slots, Sets and MFs (all, worn by them, unequipped) narrow the list.
+  - The Shuffling Quartz count: red at 0, orange at 1, yellow at 2, green above.
+  - Details, under the list: what the picked MF's readjustment does for every combatant, the most hurt first.
+  - Before / After, beside Details: while capturing, a readjustment the game deals is read for every combatant's best build, with a verdict on which to keep.
+  - Worked out in the background from the moment a capture loads, at the lowest priority so the game isn't slowed, and kept between launches. Full speed uses every core but one until it's done. How far it has got shows under the counts.
+  - Hovering a column heading says what the column is.
+- **Epione tab (beta)**, after Stats & Gacha History: each combatant's Therapy Counseling at the Epione Centre.
   - Every combatant you hold, named in its Element's colour, with the dialogue options picked against all 36. The count is red while broken down and awaiting counseling (selected for you when a capture sees it happen), orange with Crystals waiting in the Counseling Records, green at 36/36.
   - The selected combatant's three scenarios, each opener with its two follow-ups and the cure % each pair gives, coloured by the Affinity it pays: green 90%+, yellow 80s, red 70s, grey below. Picked options are dimmed.
   - Click the two openers the game offers, one each side: each says how many counselings offering nothing new are still to come if picked, and the fewer is green, with the follow-up to take.
-- **Substat Readjustment tab**, after Memory Fragments: which fully upgraded Legendary Memory Fragments a Shuffling Quartz does most for. A readjustment performs a fragment's 4 upgrades again, and the game lets you keep Before or After, so it can only gain.
-  - Each fragment's expected gain, its chance of any gain and the most it can gain, for a plain readjustment (1 Quartz) and with the best substat excluded (2 Quartz). Use says which does more per Quartz, and the list is ranked by that. Avg beside Now is the average a readjustment lands on, kept or not: Now under Avg is a fragment that rolled below its own average.
-  - Score: Gear Score, under the combatant's assigned preset, or Build Score: how far a readjustment lifts the combatant past their Top build, the Optimizer's best under their Optimizer tab settings. Each MF is read in the best build the Optimizer finds around it, and again around a much better roll, so an MF that can never make a better build than the best there is gains nothing, and one no build can wear is left out.
-  - For: one combatant, or several with a weight each. With several, every fragment is read for all of them at once: After is kept where it does more for them, by weight, than it costs, so an MF that does much for one and as much harm to another ranks low. Shift and Ctrl pick several in the Weights list, and Set weight gives the weight to all of them. Its headings sort it, and the sort is kept.
-  - Slots and Sets checkboxes, and MFs (all, worn by them, unequipped), narrow the list.
-  - Your Shuffling Quartz count: red at 0, orange at 1, yellow at 2, green above.
-  - Build Score reads only the MFs whose Gear Score at their very best could reach the top third of their slot, under the combatant's preset: one that can't is not worth a Quartz.
-  - Worked out for every combatant from the moment a capture loads, the one chosen first, then the weighted by weight, then everyone else, in one worker at the lowest priority so the game and the window aren't slowed. Full speed uses every core but one until it's all done or Background takes it back. Work in the background turns it off, leaving the work to the tab while it shows.
-  - Under the counts: how far it has got for the combatant chosen, the weighted and everyone. The list shows as soon as its own combatants are done.
-  - Details, under the list, the picked MF named on its title line: what the picked MF's readjustment does for every combatant, After kept as the list's combatant(s) would keep it, its cost to anyone it hurts included, the worst first.
-  - Before / After, beside Details: as the game deals a readjustment, what keeping After does for every combatant's best build, how near each version is to being worth wearing, and each version's Gear Score, with a verdict for the combatant(s) chosen, the version it keeps in green (After) or orange (Before). With the tab open it works at full speed until done.
-  - Hovering a column heading says what the column is.
-  - Kept between launches. A new capture works out again only what it changed: under Gear Score a readjusted MF or one newly at its top level, under Build Score a combatant whose level or settings changed, or any of the MFs their builds are made from.
-- Capture Log: a kept Substat Readjustment reads "Readjusted <MF>: kept After" rather than "Unequipped".
+- **Tab colours**: a bar across the top of each tab in its group's colour. Blue for Optimizer, Memory Fragments, Substat Readjustment, Gear Score and Combatants; green for Materials, Checklist and Galactic Disaster; purple for Capture and Setup & Settings; yellow for Stats & Gacha History and Epione.
+- **Checklist tab:**
+  - Each Galactic Disaster story chapter's stars are an Event, from the day the chapter opens to the season's end: the stars earned out of 30, red until every star reward is claimed. A Node List event's story chapters with star rewards get the same row, until the event ends.
+  - Activity (Weeklies), the week's Activity points out of 1000: green once the week's reward is claimed, blinking orange with 1000 reached and the reward unclaimed.
+  - The Integrated Supply Exchange's Mission Records shop under Monthly, with its two monthly Cores.
+  - Hovering a Core in Expiring Items says what it does.
 - Memory Fragments tab: two rows under Main Stats. The first is the Units needed to level every fragment to 3 and use up your Core of Memory. The second is what you hold against that: spare in green, or short in red with the x6 runs of Growth - Unit - Difficulty 6 it comes to.
-- Checklist tab: hovering a Core in Expiring Items says what it does.
-- Checklist tab: Activity (Weeklies), the week's Activity points out of 1000, read like Activity (Dailies): green once the week's reward is claimed, blinking orange with 1000 reached and the reward still to claim.
-- Checklist tab: the Integrated Supply Exchange's Mission Records shop under Monthly, its two monthly Cores.
 - Stats & Gacha History tab: the Full-Scale Offensive list's Top% official, the share your ranking tier reaches down to, as the Great Rift's. From Offensive 7 on.
-- Checklist tab: each Galactic Disaster story chapter's stars are an Event, from the day the chapter opens to the season's end: the stars earned out of 30, red until every star reward is claimed. The star battles leave with the season, rewards unclaimed with them.
-  - A Node List event's story chapters with star rewards get the same row, until the event ends. These are apart from the event's own mission rewards.
 - `zRUN Chaos Runs Spreadsheet.cmd` makes your Chaos runs table and spreadsheet with a double-click: it checks for Python and openpyxl, says how to get either, and asks for your program's folder. See [Tracking Chaos runs](README.md#tracking-chaos-runs).
 - Errors are kept in settings/error_log.txt, for attaching to a bug report.
-- **Tab colours**: a bar across the top of each tab in its group's colour, to find a tab at a glance. Blue for Optimizer, Memory Fragments, Gear Score and Combatants; green for Materials, Checklist and Galactic Disaster; purple for Capture and Setup & Settings; yellow for Stats & Gacha History and Epione.
 
 ### Changed
 
 - Optimizer: runs about 1.7× faster.
 - Memory Fragments tab: Highest Potential names the preset behind Highest GS too. A maxed MF shows that preset in place of `-`, and an unmaxed one adds `, GS [preset]` where it differs from the Highest Potential preset.
-- The download is about 17 MB smaller.
-- A darker highlight for selected rows and text, offered Epione cards, and hovered headings and scrollbars.
-- Capture: a failure while you are on another tab blinks the Capture tab's bar red, in place of a red dot beside its name.
-- About: Support Development is now two links: a Support me on Ko-fi badge, and Donate through GitHub, to GitHub Sponsors.
-- Stats & Gacha History tab: the Prism Module's and the Card Skin Packs' records are a second column beside the Combatant & Partner banners', the Prism Module's from the top line and the Card Skin Packs' ending on the last, which leaves the standings more room. Every record has room for three ties, each with one of the longest Combatant names; ties past those the first column has no room for are left off, and the second column's run on under the Pulls list.
-- Stats & Gacha History tab: the Pulls list's columns sit closer, and the Banners list, the gacha figures and the standings take the width saved. The Overall Gacha Stats title, and the Great Rift Stats title under it, stand 4px further from what is above them.
-- Lists: the header row reaches the list's sides, with no strip of the rows' colour beside it, and the columns start 3px nearer its left edge.
+- **Stats & Gacha History tab:**
+  - The Prism Module's and the Card Skin Packs' records are a second column beside the Combatant & Partner banners', leaving the standings more room. A record in the first column shows up to three ties.
+  - The Pulls list's columns sit closer, and the other lists take the width saved.
+  - The Full-Scale Offensive and Sortie lists sit at the window's foot and show as many seasons as each other. Past the Banners list's width they stretch across the window.
 - Setup & Settings: Share Game Data no longer collects banner rates or Combatant Trial slots. The program reads both from the game.
-- Stats & Gacha History tab: the Full-Scale Offensive and Sortie lists sit at the window's foot and show as many seasons as each other. Once they need more room than the Banners list's width, they stretch across the window and the Pulls list ends above them.
+- Capture: a failure while you are on another tab blinks the Capture tab's bar red, in place of a red dot beside its name.
+- About: Support Development is two links: a Support me on Ko-fi badge, and Donate through GitHub, to GitHub Sponsors.
+- Lists: the header row reaches the list's sides.
+- A darker highlight for selected rows and text, offered Epione cards, and hovered headings and scrollbars.
+- The download is about 17 MB smaller.
 
 ### Fixed
 
-- Checklist: a Trauma Code's Synchronization and its sticker count when claimed while capturing, not at the next login.
-- Checklist: Seasonal Accumulated Score counts up to 600000, reads season 5's score, and is orange at 600000 until the week's rewards are claimed.
+- **Checklist tab:**
+  - A Trauma Code's Synchronization and its sticker count when claimed while capturing, not at the next login.
+  - Seasonal Accumulated Score counts up to 600000, reads season 5's score, and is orange at 600000 until the week's rewards are claimed.
+  - The Zeronium Shop and Blackhorn Trade read their stock again, under their new Integrated Supply Exchange menu.
+  - An Event inside another Event's screen has its own name and rewards: Rules of Good Order reads its 17, and Nightmare Dream Park no longer counts them among its own.
+  - No more redrawing in stages while the game logs in.
+- **Capture:**
+  - The proxy stops when the program is closed abruptly.
+  - Signing out or shutting down Windows during a capture leaves the game able to connect.
+  - The hosts file's redirect is removed even where its marker lines were edited by hand, and is never reported removed while any of it is left.
+  - The hosts file is changed by adding and removing the capture's own lines only, never rewritten where that can be avoided. If a rewrite is ever interrupted, the next launch says so and offers to put back the copy taken just before.
+- Capture Log: a kept Substat Readjustment reads "Readjusted <MF>: kept After", not "Unequipped".
 - Combatants tab and Optimizer: a partner's stats are exact at every level, not only at 60.
-- Checklist: the Zeronium Shop and Blackhorn Trade read their stock again, under their new Integrated Supply Exchange menu.
-- Checklist: an Event inside another Event's screen has its own name and rewards: Rules of Good Order reads its 17, and Nightmare Dream Park no longer counts them among its own.
-- Checklist: no longer redraws in stages while the game logs in.
 - Optimizer: with a Shielding/Healing weight between 1 and 99, the results are the true best 100.
-- Capture: the proxy no longer keeps running if the program is closed abruptly.
-- Capture: signing out or shutting down Windows during a capture no longer leaves the game unable to connect.
-- Capture: the hosts file's redirect is removed even where its marker lines were edited by hand, and is never reported removed while any of it is left.
-- Capture: the hosts file is changed by adding and removing the capture's own lines only, never rewritten where that can be avoided. If a rewrite is ever interrupted, the next launch says so and offers to put back the copy taken just before.
 - The Chaos estimate counts season 5's Environment Variables by part again: 13 in part 1, 19 in part 2.
 
 ## [2.6.3] - Senectus Tracking, Distortion Adaptation
